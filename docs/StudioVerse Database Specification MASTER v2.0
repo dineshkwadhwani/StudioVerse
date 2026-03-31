@@ -1,0 +1,849 @@
+# StudioVerse — Database Specification
+**Version 2.0 | March 2026 | Classification: Confidential — Engineering Use**
+
+---
+
+## Preamble
+
+This document supersedes all previous versions of the CoachingStudio Database Specification. It reflects the complete data model for the StudioVerse platform — a single-codebase, multi-tenant SaaS engine powering Coaching Studio, Training Studio, and Recruitment Studio from one unified Firestore database.
+
+All collection names, field names, data types, relationships, indexes, and access rules defined here are canonical. Developers must not deviate from this specification without a formal document update.
+
+---
+
+## Section 1 — Design Principles
+
+### 1.1 Core Principles
+
+1. Firestore-first, NoSQL, denormalized for reads — Data is structured for fast reads, not relational purity. Denormalization is intentional and deliberate.
+2. Studio-type tenancy — Every document that belongs to a Studio tenant carries a studioType field. Queries are always scoped to a studioType.
+3. Separation of identity, organization, relationships, grouping, and execution — Users are separate from Companies, which are separate from Professional relationships, which are separate from cohort groupings, which are separate from assignments.
+4. Assignment-driven architecture — Every resource (Program, Tool, Event) delivered to an Individual is mediated through an Assignment document.
+5. userContext for RBAC — no runtime joins. Access control is precomputed into a single userContexts document per user.
+6. Supports multi-tenant, multi-Studio, multi-Company, multi-Professional — The data model scales across all StudioVerse verticals without schema changes.
+7. Audit trail on all critical actions — All sensitive mutations are recorded in the auditLogs collection.
+
+### 1.2 Terminology Map (Data Layer)
+
+| Data Entity       | Coaching Studio   | Training Studio     | Recruitment Studio     |
+|-------------------|-------------------|---------------------|------------------------|
+| studioType        | coaching          | training            | recruitment            |
+| Role: professional| Coach             | Trainer             | Recruiter              |
+| Role: individual  | Coachee           | Learner             | Candidate              |
+| Role: company     | Coaching Firm     | Training Company    | Recruitment Agency     |
+| programs          | Coaching Program  | Training Course     | Assessment Track       |
+| tools             | Assessment        | Skills Evaluation   | Candidate Assessment   |
+| cohorts           | Coaching Cohort   | Training Batch      | Candidate Pool         |
+| assignments       | Coaching Task     | Learning Task       | Assessment Task        |
+| reports           | Growth Report     | Completion Report   | Evaluation Report      |
+| events            | Workshop          | Training Session    | Recruitment Drive      |
+
+---
+
+## Section 2 — Complete Collection Inventory
+
+| #  | Collection            | Purpose                                                        |
+|----|-----------------------|----------------------------------------------------------------|
+| 1  | users                 | All platform users across all roles and Studios               |
+| 2  | userContexts          | Precomputed RBAC document per user                            |
+| 3  | companies             | Organizations managing multiple Professionals                 |
+| 4  | companyMembers        | Maps Professionals to Companies                               |
+| 5  | professionalProfiles  | Extended profile for Professional-role users                  |
+| 6  | professionalRelations | Professional to Individual relationship graph                 |
+| 7  | cohorts               | Named groups of Individuals under a Professional              |
+| 8  | cohortMembers         | Maps Individuals to Cohorts                                   |
+| 9  | programs              | Learning programs / training courses / assessment tracks      |
+| 10 | programModules        | Individual content units within a Program                     |
+| 11 | programProgress       | Tracks Individual progress per Program module                 |
+| 12 | tools                 | Assessment tools / skills evaluations / candidate assessments |
+| 13 | toolQuestions         | Questions within a Tool                                       |
+| 14 | toolSubmissions       | Individual's submitted answers for a Tool                     |
+| 15 | toolResults           | Scored and processed results from a Tool submission           |
+| 16 | assignments           | Core execution entity linking Individuals to Programs/Tools   |
+| 17 | events                | Platform events, webinars, workshops, sessions                |
+| 18 | eventRegistrations    | Individual registrations for Events                           |
+| 19 | reports               | AI-generated branded PDF reports per Individual per Tool      |
+| 20 | notifications         | In-app notification records per user                          |
+| 21 | widgetSessions        | External widget usage sessions (anonymous + converted)        |
+| 22 | auditLogs             | Immutable audit trail for all critical platform actions       |
+| 23 | studioConfig          | Per-Studio runtime configuration overrides                    |
+| 24 | marketplace           | Paid program and event listings for public discovery          |
+| 25 | payments              | Payment transaction records (Stripe-linked)                   |
+
+---
+
+## Section 3 — Detailed Schema Definitions
+
+---
+
+### 3.1 users
+Purpose: Master identity record for every platform user.
+
+| Field       | Type      | Required | Description                                                  |
+|-------------|-----------|----------|--------------------------------------------------------------|
+| id          | string    | YES      | Firebase Auth UID — document ID                              |
+| studioType  | enum      | YES      | coaching / training / recruitment                            |
+| name        | string    | YES      | Full display name                                            |
+| email       | string    | YES      | Primary email address (unique per Studio)                    |
+| roles       | string[]  | YES      | superadmin, company, professional, individual                |
+| status      | enum      | YES      | pending / active / suspended / archived                      |
+| avatarUrl   | string    | NO       | Profile image URL (Firebase Storage)                         |
+| phone       | string    | NO       | Contact phone number                                         |
+| timezone    | string    | NO       | IANA timezone string (e.g. Asia/Kolkata)                     |
+| locale      | string    | NO       | Locale code (e.g. en-IN)                                     |
+| isIndependent| boolean  | NO       | true if Professional with no Company affiliation             |
+| approvedAt  | Timestamp | NO       | When SuperAdmin approved this user                           |
+| approvedBy  | string    | NO       | SuperAdmin userId who approved                               |
+| createdAt   | Timestamp | YES      | Account creation timestamp                                   |
+| updatedAt   | Timestamp | YES      | Last profile update timestamp                                |
+
+Notes:
+- id = Firebase Auth UID. Never generate a separate ID for users.
+- A user may have roles: [professional, individual] — e.g. a coach who is also a coachee.
+- studioType scopes this user to exactly one Studio. Cross-Studio users require separate accounts.
+
+---
+
+### 3.2 userContexts
+Purpose: Precomputed RBAC oracle document per user. Written exclusively by buildUserContext Firebase Function. Never written by the UI.
+
+| Field                  | Type      | Required | Description                                              |
+|------------------------|-----------|----------|----------------------------------------------------------|
+| userId                 | string    | YES      | Firebase Auth UID — document ID                          |
+| studioType             | enum      | YES      | Studio this context belongs to                           |
+| roles                  | string[]  | YES      | superadmin, company, professional, individual            |
+| companyIds             | string[]  | YES      | Companies this user belongs to                           |
+| managedProfessionalIds | string[]  | YES      | Professional userIds this Company user manages           |
+| myProfessionalId       | string    | NO       | This user's own professionalProfile ID                   |
+| individualIds          | string[]  | YES      | Individual userIds this Professional manages             |
+| cohortIds              | string[]  | YES      | Cohort IDs this user owns or belongs to                  |
+| isIndependent          | boolean   | YES      | True if Professional with no companyId                   |
+| isSuperAdmin           | boolean   | YES      | Convenience flag for SuperAdmin role check               |
+| updatedAt              | Timestamp | YES      | Last rebuild timestamp                                   |
+
+Rebuild Triggers:
+- User created or role changed
+- Professional added to / removed from Company
+- Individual added to / removed from Professional's roster
+- Cohort membership change
+- Approval or deactivation by SuperAdmin or Company
+
+---
+
+### 3.3 companies
+Purpose: Organizations managing multiple Professionals within a Studio tenant.
+
+| Field              | Type      | Required | Description                                          |
+|--------------------|-----------|----------|------------------------------------------------------|
+| id                 | string    | YES      | Auto-generated document ID                           |
+| studioType         | enum      | YES      | Studio this company belongs to                       |
+| name               | string    | YES      | Company display name                                 |
+| ownerId            | string    | YES      | userId of the primary Company admin                  |
+| logoUrl            | string    | NO       | Company logo (Firebase Storage)                      |
+| brandColor         | string    | NO       | Primary hex color for white-label theming            |
+| website            | string    | NO       | Company website URL                                  |
+| subscriptionTier   | enum      | YES      | enterprise / pro                                     |
+| subscriptionStatus | enum      | YES      | active / trialing / past_due / cancelled             |
+| stripeCustomerId   | string    | NO       | Stripe customer ID for billing                       |
+| status             | enum      | YES      | active / suspended / archived                        |
+| maxProfessionals   | number    | NO       | Seat limit (null = unlimited)                        |
+| createdAt          | Timestamp | YES      | Company creation timestamp                           |
+| updatedAt          | Timestamp | YES      | Last update timestamp                                |
+
+---
+
+### 3.4 companyMembers
+Purpose: Maps Professional users to their Company.
+
+| Field     | Type      | Required | Description                                              |
+|-----------|-----------|----------|----------------------------------------------------------|
+| id        | string    | YES      | Auto-generated document ID                               |
+| studioType| enum      | YES      | Studio context                                           |
+| companyId | string    | YES      | Reference to companies.id                               |
+| userId    | string    | YES      | Reference to users.id (the Professional)                |
+| role      | enum      | YES      | admin (company manager) / member (regular Professional)  |
+| status    | enum      | YES      | active / suspended / removed                             |
+| invitedBy | string    | YES      | userId who invited this member                           |
+| joinedAt  | Timestamp | YES      | When this member was added                               |
+| updatedAt | Timestamp | YES      | Last status change timestamp                             |
+
+Indexes:
+- (companyId, status) — list all active members of a company
+- (userId, studioType) — find which company a Professional belongs to
+
+---
+
+### 3.5 professionalProfiles
+Purpose: Extended profile data for users with the professional role.
+
+| Field            | Type      | Required | Description                                            |
+|------------------|-----------|----------|--------------------------------------------------------|
+| id               | string    | YES      | Same as users.id for this Professional                 |
+| studioType       | enum      | YES      | Studio context                                         |
+| companyId        | string    | NO       | Company affiliation (null if independent)              |
+| isIndependent    | boolean   | YES      | True if no company affiliation                         |
+| bio              | string    | NO       | Professional bio / description                         |
+| specializations  | string[]  | NO       | Areas of expertise                                     |
+| logoUrl          | string    | NO       | Personal logo for branded reports                      |
+| brandColor       | string    | NO       | Personal brand hex color                               |
+| websiteUrl       | string    | NO       | Personal or company website                            |
+| linkedinUrl      | string    | NO       | LinkedIn profile URL                                   |
+| widgetBaseUrl    | string    | NO       | Base URL for widget embedding                          |
+| subscriptionTier | enum      | NO       | free / pro (if independent)                            |
+| subscriptionStatus| enum     | NO       | active / trialing / past_due / cancelled               |
+| stripeCustomerId | string    | NO       | Stripe customer ID (if independent billing)            |
+| totalIndividuals | number    | YES      | Denormalized count of active Individuals               |
+| totalCohorts     | number    | YES      | Denormalized count of active cohorts                   |
+| createdAt        | Timestamp | YES      | Profile creation timestamp                             |
+| updatedAt        | Timestamp | YES      | Last update timestamp                                  |
+
+---
+
+### 3.6 professionalRelations
+Purpose: The relationship graph between Professionals and their Individuals.
+
+| Field          | Type      | Required | Description                                              |
+|----------------|-----------|----------|----------------------------------------------------------|
+| id             | string    | YES      | Auto-generated document ID                               |
+| studioType     | enum      | YES      | Studio context                                           |
+| professionalId | string    | YES      | userId of the Professional                               |
+| individualId   | string    | YES      | userId of the Individual                                 |
+| companyId      | string    | NO       | Company context (if Professional is company-affiliated)  |
+| source         | enum      | YES      | invited / csv_import / widget / marketplace / self_registered |
+| status         | enum      | YES      | active / paused / archived                               |
+| startedAt      | Timestamp | YES      | When the relationship became active                      |
+| archivedAt     | Timestamp | NO       | When archived                                            |
+| createdAt      | Timestamp | YES      | Record creation timestamp                                |
+
+Indexes:
+- (professionalId, status) — list all active Individuals for a Professional
+- (individualId, studioType) — find which Professional an Individual belongs to
+- (companyId, status) — aggregate all company relationships
+
+---
+
+### 3.7 cohorts
+Purpose: Named groups of Individuals managed by a Professional.
+
+| Field          | Type      | Required | Description                                              |
+|----------------|-----------|----------|----------------------------------------------------------|
+| id             | string    | YES      | Auto-generated document ID                               |
+| studioType     | enum      | YES      | Studio context                                           |
+| name           | string    | YES      | Cohort display name                                      |
+| professionalId | string    | YES      | Owning Professional's userId                             |
+| companyId      | string    | NO       | Company context                                          |
+| description    | string    | NO       | Optional cohort description                              |
+| status         | enum      | YES      | active / archived                                        |
+| memberCount    | number    | YES      | Denormalized count of active members                     |
+| startDate      | Timestamp | NO       | Cohort programme start date                              |
+| endDate        | Timestamp | NO       | Cohort programme end date                                |
+| createdAt      | Timestamp | YES      | Creation timestamp                                       |
+| updatedAt      | Timestamp | YES      | Last update timestamp                                    |
+
+---
+
+### 3.8 cohortMembers
+Purpose: Maps Individual users to Cohorts.
+
+| Field          | Type      | Required | Description                                        |
+|----------------|-----------|----------|----------------------------------------------------|
+| id             | string    | YES      | Auto-generated document ID                         |
+| studioType     | enum      | YES      | Studio context                                     |
+| cohortId       | string    | YES      | Reference to cohorts.id                           |
+| individualId   | string    | YES      | Reference to users.id (the Individual)            |
+| professionalId | string    | YES      | Owning Professional's userId                       |
+| status         | enum      | YES      | active / removed                                   |
+| joinedAt       | Timestamp | YES      | When Individual was added to cohort                |
+| removedAt      | Timestamp | NO       | When Individual was removed                        |
+
+Indexes:
+- (cohortId, status) — expand cohort to member list
+- (individualId, studioType) — find all cohorts an Individual belongs to
+
+---
+
+### 3.9 programs
+Purpose: Learning programs, training courses, or assessment tracks.
+
+| Field             | Type      | Required | Description                                          |
+|-------------------|-----------|----------|------------------------------------------------------|
+| id                | string    | YES      | Auto-generated document ID                           |
+| studioType        | enum      | YES      | Studio this program belongs to                       |
+| title             | string    | YES      | Program display title                                |
+| description       | string    | YES      | Full program description                             |
+| coverImageUrl     | string    | NO       | Program cover image (Firebase Storage)               |
+| tags              | string[]  | NO       | Searchable tags                                      |
+| category          | string    | NO       | Program category / domain                            |
+| createdBy         | string    | YES      | userId of creator                                    |
+| ownerType         | enum      | YES      | platform / professional / company                    |
+| visibility        | enum      | YES      | public / private / marketplace                       |
+| isFree            | boolean   | YES      | Free access or paid                                  |
+| price             | number    | NO       | Price in USD (if paid)                               |
+| currency          | string    | NO       | ISO currency code                                    |
+| moduleCount       | number    | YES      | Denormalized count of modules                        |
+| estimatedDuration | number    | NO       | Estimated completion time in minutes                 |
+| status            | enum      | YES      | draft / published / archived                         |
+| createdAt         | Timestamp | YES      | Creation timestamp                                   |
+| updatedAt         | Timestamp | YES      | Last update timestamp                                |
+
+Indexes:
+- (studioType, status, isFree) — catalog browsing
+- (studioType, status, ownerType) — filter platform vs professional programs
+- (createdBy, studioType) — Professional's own programs
+
+---
+
+### 3.10 programModules
+Purpose: Individual content units within a Program.
+
+| Field           | Type      | Required | Description                                            |
+|-----------------|-----------|----------|--------------------------------------------------------|
+| id              | string    | YES      | Auto-generated document ID                             |
+| studioType      | enum      | YES      | Studio context                                         |
+| programId       | string    | YES      | Reference to programs.id                              |
+| title           | string    | YES      | Module display title                                   |
+| description     | string    | NO       | Short module description                               |
+| type            | enum      | YES      | video / audio / pdf / article / slides                 |
+| mediaUrl        | string    | YES      | URL to content (YouTube/Vimeo embed or Storage URL)    |
+| thumbnailUrl    | string    | NO       | Module thumbnail image                                 |
+| order           | number    | YES      | Display order within the program (1-indexed)           |
+| releaseAfterDays| number    | NO       | Days after assignment before module unlocks (0=immediate)|
+| durationMinutes | number    | NO       | Estimated time to complete                             |
+| isRequired      | boolean   | YES      | Must be completed to count program as complete         |
+| createdAt       | Timestamp | YES      | Creation timestamp                                     |
+| updatedAt       | Timestamp | YES      | Last update timestamp                                  |
+
+Indexes:
+- (programId, order) — ordered module list within a program
+
+---
+
+### 3.11 programProgress
+Purpose: Tracks an Individual's completion status for each module within an assigned Program.
+
+| Field              | Type      | Required | Description                                        |
+|--------------------|-----------|----------|----------------------------------------------------|
+| id                 | string    | YES      | Auto-generated document ID                         |
+| studioType         | enum      | YES      | Studio context                                     |
+| userId             | string    | YES      | Individual's userId                                |
+| programId          | string    | YES      | Reference to programs.id                          |
+| moduleId           | string    | YES      | Reference to programModules.id                    |
+| assignmentId       | string    | YES      | Reference to assignments.id                       |
+| status             | enum      | YES      | locked / available / in_progress / completed       |
+| progressPercentage | number    | YES      | 0-100, recalculated on each module completion      |
+| startedAt          | Timestamp | NO       | When Individual first opened this module           |
+| completedAt        | Timestamp | NO       | When Individual marked this module complete        |
+
+Indexes:
+- (userId, programId) — all module progress for a user within a program
+- (assignmentId) — progress linked to specific assignment
+
+---
+
+### 3.12 tools
+Purpose: Assessment tools, skills evaluations, or candidate assessments.
+
+| Field           | Type      | Required | Description                                            |
+|-----------------|-----------|----------|--------------------------------------------------------|
+| id              | string    | YES      | Auto-generated document ID                             |
+| studioType      | enum      | YES      | Studio this tool belongs to                            |
+| name            | string    | YES      | Tool display name                                      |
+| description     | string    | YES      | What this tool measures and why it matters             |
+| category        | string    | NO       | Tool category (e.g. Clarity, Personality, Skills)      |
+| createdBy       | string    | YES      | userId of creator                                      |
+| ownerType       | enum      | YES      | platform / professional / company                      |
+| scoringType     | enum      | YES      | weighted / scale / categorical / composite             |
+| dimensions      | string[]  | YES      | Named scoring dimensions                               |
+| retryAllowed    | boolean   | YES      | Whether Individual can retake this tool                |
+| maxAttempts     | number    | NO       | Maximum allowed attempts                               |
+| estimatedMinutes| number    | NO       | Estimated time to complete                             |
+| isEmbeddable    | boolean   | YES      | Whether this tool can be embedded as a widget          |
+| widgetUrl       | string    | NO       | Generated embeddable URL for this tool                 |
+| status          | enum      | YES      | draft / published / archived                           |
+| questionCount   | number    | YES      | Denormalized count of questions                        |
+| createdAt       | Timestamp | YES      | Creation timestamp                                     |
+| updatedAt       | Timestamp | YES      | Last update timestamp                                  |
+
+---
+
+### 3.13 toolQuestions
+Purpose: Individual questions within a Tool.
+
+| Field        | Type      | Required | Description                                              |
+|--------------|-----------|----------|----------------------------------------------------------|
+| id           | string    | YES      | Auto-generated document ID                               |
+| studioType   | enum      | YES      | Studio context                                           |
+| toolId       | string    | YES      | Reference to tools.id                                   |
+| questionText | string    | YES      | The question displayed to the Individual                 |
+| type         | enum      | YES      | single_choice / multi_choice / scale / text / ranking    |
+| options      | object[]  | NO       | Array of { value, label, score } for choice questions    |
+| dimension    | string    | NO       | Which scoring dimension this question contributes to     |
+| weight       | number    | NO       | Scoring weight (default 1)                               |
+| isRequired   | boolean   | YES      | Must be answered to submit                               |
+| order        | number    | YES      | Display order within the tool                            |
+| helpText     | string    | NO       | Optional explanatory text shown below the question       |
+
+Indexes:
+- (toolId, order) — ordered question list within a tool
+
+---
+
+### 3.14 toolSubmissions
+Purpose: Records an Individual's raw answers for a Tool attempt.
+
+| Field         | Type      | Required | Description                                            |
+|---------------|-----------|----------|--------------------------------------------------------|
+| id            | string    | YES      | Auto-generated document ID                             |
+| studioType    | enum      | YES      | Studio context                                         |
+| toolId        | string    | YES      | Reference to tools.id                                 |
+| userId        | string    | YES      | Individual's userId                                    |
+| assignmentId  | string    | NO       | Reference to assignments.id (null if self-initiated)  |
+| professionalId| string    | NO       | Individual's Professional (denormalized)               |
+| attemptNumber | number    | YES      | 1 for first attempt, increments on retry               |
+| answers       | map       | YES      | Map of { questionId: answer } — raw submitted answers  |
+| status        | enum      | YES      | in_progress / submitted / processed                    |
+| startedAt     | Timestamp | YES      | When Individual opened the tool                        |
+| submittedAt   | Timestamp | NO       | When Individual submitted answers                      |
+| processedAt   | Timestamp | NO       | When scoring was completed                             |
+
+Indexes:
+- (userId, toolId) — all submission attempts for a user on a tool
+- (assignmentId) — submission linked to a specific assignment
+
+---
+
+### 3.15 toolResults
+Purpose: Scored and processed results from a Tool submission. Supports longitudinal tracking.
+
+| Field           | Type      | Required | Description                                          |
+|-----------------|-----------|----------|------------------------------------------------------|
+| id              | string    | YES      | Auto-generated document ID                           |
+| studioType      | enum      | YES      | Studio context                                       |
+| toolId          | string    | YES      | Reference to tools.id                               |
+| userId          | string    | YES      | Individual's userId                                  |
+| submissionId    | string    | YES      | Reference to toolSubmissions.id                     |
+| professionalId  | string    | NO       | Denormalized Professional reference                  |
+| overallScore    | number    | YES      | Composite score (0-100 or tool-defined scale)        |
+| dimensionScores | map       | YES      | Map of { dimensionName: score }                      |
+| interpretation  | string    | NO       | Score label (e.g. High Clarity, Developing)          |
+| reportId        | string    | NO       | Reference to reports.id (after report generation)   |
+| createdAt       | Timestamp | YES      | When result was computed                             |
+
+Indexes:
+- (userId, toolId, createdAt) — longitudinal result history
+- (userId, studioType) — all results for an Individual
+
+---
+
+### 3.16 assignments
+Purpose: The core execution entity of StudioVerse. Every Program or Tool delivered to an Individual is an Assignment.
+
+| Field           | Type      | Required | Description                                              |
+|-----------------|-----------|----------|----------------------------------------------------------|
+| id              | string    | YES      | Auto-generated document ID                               |
+| studioType      | enum      | YES      | Studio context                                           |
+| assignedBy      | string    | YES      | userId of the Professional or SuperAdmin                 |
+| professionalId  | string    | YES      | Denormalized — same as assignedBy                        |
+| companyId       | string    | NO       | Denormalized company context                             |
+| userId          | string    | YES      | Individual's userId — one assignment per Individual      |
+| cohortId        | string    | NO       | Source cohort (if created via cohort expansion)          |
+| resourceType    | enum      | YES      | program / tool                                           |
+| resourceId      | string    | YES      | Reference to programs.id or tools.id                    |
+| resourceTitle   | string    | YES      | Denormalized title for display                           |
+| status          | enum      | YES      | assigned / in_progress / completed / overdue / cancelled |
+| deadline        | Timestamp | NO       | Optional completion deadline                             |
+| assignedAt      | Timestamp | YES      | When assignment was created                              |
+| startedAt       | Timestamp | NO       | When Individual first opened the resource                |
+| completedAt     | Timestamp | NO       | When assignment reached completed status                 |
+| overdueAt       | Timestamp | NO       | When assignment was marked overdue                       |
+| notificationSentAt | Timestamp | NO    | When assignment notification was delivered               |
+
+Indexes:
+- (userId, status) — Individual's assignment list
+- (userId, studioType) — all assignments for an Individual
+- (assignedBy, status) — Professional's assignment dashboard
+- (cohortId, resourceId) — duplicate assignment check
+- (studioType, status, deadline) — overdue detection
+
+---
+
+### 3.17 events
+Purpose: Platform events, webinars, workshops, training sessions, recruitment drives.
+
+| Field             | Type      | Required | Description                                          |
+|-------------------|-----------|----------|------------------------------------------------------|
+| id                | string    | YES      | Auto-generated document ID                           |
+| studioType        | enum      | YES      | Studio context                                       |
+| title             | string    | YES      | Event title                                          |
+| description       | string    | YES      | Full event description                               |
+| coverImageUrl     | string    | NO       | Event cover image                                    |
+| createdBy         | string    | YES      | userId of creator                                    |
+| ownerType         | enum      | YES      | platform / professional                              |
+| companyId         | string    | NO       | Company context if company-affiliated Professional   |
+| visibility        | enum      | YES      | global / private                                     |
+| format            | enum      | YES      | webinar / workshop / group_session / masterclass / info_session |
+| platform          | string    | NO       | Delivery platform (e.g. Zoom, Google Meet)           |
+| meetingUrl        | string    | NO       | Join URL (shown only to registered attendees)        |
+| startDate         | Timestamp | YES      | Event start date and time                            |
+| endDate           | Timestamp | YES      | Event end date and time                              |
+| timezone          | string    | YES      | IANA timezone of the event                           |
+| capacity          | number    | NO       | Maximum attendees (null = unlimited)                 |
+| registrationCount | number    | YES      | Denormalized registration count                      |
+| isPaid            | boolean   | YES      | Free or paid event                                   |
+| price             | number    | NO       | Ticket price (if paid)                               |
+| currency          | string    | NO       | ISO currency code                                    |
+| status            | enum      | YES      | draft / published / cancelled / completed            |
+| recordingUrl      | string    | NO       | Post-event recording URL                             |
+| createdAt         | Timestamp | YES      | Creation timestamp                                   |
+| updatedAt         | Timestamp | YES      | Last update timestamp                                |
+
+Indexes:
+- (studioType, visibility, status, startDate) — global event discovery
+- (createdBy, status) — Professional's own events
+- (studioType, status, startDate) — upcoming events list
+
+---
+
+### 3.18 eventRegistrations
+Purpose: Individual registration records for Events.
+
+| Field       | Type      | Required | Description                                              |
+|-------------|-----------|----------|----------------------------------------------------------|
+| id          | string    | YES      | Auto-generated document ID                               |
+| studioType  | enum      | YES      | Studio context                                           |
+| eventId     | string    | YES      | Reference to events.id                                  |
+| userId      | string    | YES      | Individual's userId                                      |
+| registeredAt| Timestamp | YES      | Registration timestamp                                   |
+| paymentId   | string    | NO       | Reference to payments.id (if paid event)                |
+| status      | enum      | YES      | registered / attended / cancelled / no_show              |
+| referredBy  | string    | NO       | userId who referred this registration                    |
+
+Indexes:
+- (eventId, status) — all registrations for an event
+- (userId, studioType) — all events a user is registered for
+
+---
+
+### 3.19 reports
+Purpose: AI-generated branded PDF report records per Individual per Tool result.
+
+| Field                  | Type      | Required | Description                                        |
+|------------------------|-----------|----------|----------------------------------------------------|
+| id                     | string    | YES      | Auto-generated document ID                         |
+| studioType             | enum      | YES      | Studio context                                     |
+| userId                 | string    | YES      | Individual's userId                                |
+| toolId                 | string    | YES      | Reference to tools.id                             |
+| resultId               | string    | YES      | Reference to toolResults.id                       |
+| submissionId           | string    | YES      | Reference to toolSubmissions.id                   |
+| professionalId         | string    | NO       | Professional who owns this Individual              |
+| pdfUrl                 | string    | YES      | Firebase Storage URL of the generated PDF          |
+| brandedFor             | string    | NO       | userId of the Professional whose branding applied  |
+| groqPromptVersion      | string    | YES      | Version of Groq prompt used                        |
+| deliveredToIndividual  | boolean   | YES      | Whether email was sent to Individual               |
+| deliveredToProfessional| boolean   | YES      | Whether email was sent to Professional             |
+| generatedAt            | Timestamp | YES      | When report was generated                          |
+
+Indexes:
+- (userId, toolId, generatedAt) — Individual's report history for a tool
+- (userId, studioType, generatedAt) — all reports for an Individual
+- (professionalId, generatedAt) — Professional's report delivery history
+
+---
+
+### 3.20 notifications
+Purpose: In-app notification records for every platform user.
+
+| Field             | Type      | Required | Description                                          |
+|-------------------|-----------|----------|------------------------------------------------------|
+| id                | string    | YES      | Auto-generated document ID                           |
+| studioType        | enum      | YES      | Studio context                                       |
+| userId            | string    | YES      | Recipient's userId                                   |
+| type              | enum      | YES      | assignment_created / assignment_completed / assignment_overdue / report_ready / event_reminder / event_registration / program_unlocked / platform_announcement |
+| title             | string    | YES      | Short notification title                             |
+| message           | string    | YES      | Full notification message body                       |
+| actionUrl         | string    | NO       | Deep link URL within the app                         |
+| relatedEntityType | string    | NO       | assignment / report / event / program / tool         |
+| relatedEntityId   | string    | NO       | ID of the related entity                             |
+| isRead            | boolean   | YES      | Whether user has read this notification              |
+| readAt            | Timestamp | NO       | When user read this notification                     |
+| createdAt         | Timestamp | YES      | When notification was created                        |
+
+Indexes:
+- (userId, isRead, createdAt) — unread notifications for a user
+- (userId, studioType, createdAt) — full notification history
+
+---
+
+### 3.21 widgetSessions
+Purpose: Tracks external website assessment completions — anonymous and converted users.
+
+| Field           | Type      | Required | Description                                            |
+|-----------------|-----------|----------|--------------------------------------------------------|
+| id              | string    | YES      | Auto-generated document ID                             |
+| studioType      | enum      | YES      | Studio context                                         |
+| toolId          | string    | YES      | Reference to tools.id being taken                     |
+| professionalId  | string    | YES      | Professional whose widget was embedded                 |
+| anonymousId     | string    | YES      | Browser-generated anonymous session ID                 |
+| emailCaptured   | string    | NO       | Email entered after tool completion                    |
+| status          | enum      | YES      | started / completed / email_captured / converted       |
+| convertedUserId | string    | NO       | userId if anonymous user registered                    |
+| submissionId    | string    | NO       | Reference to toolSubmissions.id                       |
+| sourceUrl       | string    | NO       | External URL where the widget was embedded             |
+| startedAt       | Timestamp | YES      | Session start timestamp                                |
+| completedAt     | Timestamp | NO       | Completion timestamp                                   |
+| convertedAt     | Timestamp | NO       | When anonymous user registered                         |
+
+Indexes:
+- (professionalId, status) — Professional's widget lead funnel
+- (studioType, status) — platform-wide widget conversion analytics
+
+---
+
+### 3.22 auditLogs
+Purpose: Immutable audit trail. Written exclusively by Firebase Functions. Never updated or deleted.
+
+| Field         | Type      | Required | Description                                              |
+|---------------|-----------|----------|----------------------------------------------------------|
+| id            | string    | YES      | Auto-generated document ID                               |
+| studioType    | enum      | YES      | Studio context                                           |
+| actorId       | string    | YES      | userId of the person who performed the action            |
+| actorRole     | string    | YES      | Role at time of action                                   |
+| action        | string    | YES      | Action identifier (e.g. user.role_changed, assignment.created) |
+| entityType    | string    | YES      | Type of entity affected (user, assignment, report)       |
+| entityId      | string    | YES      | ID of the entity affected                                |
+| previousState | map       | NO       | Snapshot of entity state before change                   |
+| newState      | map       | NO       | Snapshot of entity state after change                    |
+| metadata      | map       | NO       | Additional context (IP address, device type)             |
+| createdAt     | Timestamp | YES      | Immutable action timestamp                               |
+
+Indexes:
+- (studioType, action, createdAt) — audit log filtering
+- (actorId, createdAt) — all actions by a specific user
+- (entityType, entityId) — audit history for a specific entity
+
+---
+
+### 3.23 marketplace
+Purpose: Public-facing listings of paid Programs and Events for self-directed purchase.
+
+| Field         | Type      | Required | Description                                        |
+|---------------|-----------|----------|----------------------------------------------------|
+| id            | string    | YES      | Same as programs.id or events.id                  |
+| studioType    | enum      | YES      | Studio context                                     |
+| entityType    | enum      | YES      | program / event                                    |
+| entityId      | string    | YES      | Reference to programs.id or events.id             |
+| title         | string    | YES      | Denormalized title                                 |
+| description   | string    | YES      | Denormalized short description                     |
+| coverImageUrl | string    | NO       | Denormalized cover image                           |
+| price         | number    | YES      | Listing price                                      |
+| currency      | string    | YES      | ISO currency code                                  |
+| createdBy     | string    | YES      | userId of creator (for revenue attribution)        |
+| totalSales    | number    | YES      | Denormalized sales count                           |
+| rating        | number    | NO       | Average rating (future)                            |
+| status        | enum      | YES      | active / paused / removed                          |
+| listedAt      | Timestamp | YES      | When listed in marketplace                         |
+| updatedAt     | Timestamp | YES      | Last update                                        |
+
+---
+
+### 3.24 payments
+Purpose: Stripe-linked payment transaction records.
+
+| Field                | Type      | Required | Description                                        |
+|----------------------|-----------|----------|----------------------------------------------------|
+| id                   | string    | YES      | Stripe Payment Intent ID or auto-generated         |
+| studioType           | enum      | YES      | Studio context                                     |
+| userId               | string    | YES      | Buyer's userId                                     |
+| entityType           | enum      | YES      | program / event / subscription                     |
+| entityId             | string    | YES      | Reference to purchased entity                      |
+| amount               | number    | YES      | Amount charged (in smallest currency unit)         |
+| currency             | string    | YES      | ISO currency code                                  |
+| status               | enum      | YES      | pending / succeeded / failed / refunded            |
+| stripePaymentIntentId| string    | YES      | Stripe Payment Intent ID                           |
+| stripeCustomerId     | string    | NO       | Stripe Customer ID of the buyer                    |
+| platformFee          | number    | NO       | StudioVerse commission amount                      |
+| sellerUserId         | string    | NO       | Professional userId receiving payout               |
+| createdAt            | Timestamp | YES      | Payment creation timestamp                         |
+| updatedAt            | Timestamp | YES      | Last status update                                 |
+
+---
+
+## Section 4 — Entity Relationship Model
+
+StudioVerse (studioType = tenant boundary)
+│
+├── SuperAdmin
+│   ├── manages → users (all roles)
+│   ├── creates → programs (platform-owned)
+│   ├── creates → tools (platform-owned)
+│   ├── creates → events (global)
+│   └── reads → auditLogs, analytics
+│
+├── Company
+│   ├── has many → companyMembers (Professionals)
+│   ├── has many → cohorts (company-level)
+│   └── sees aggregate → assignments, reports (own Professionals only)
+│
+├── Professional (independent or company-affiliated)
+│   ├── has many → professionalRelations (Individuals)
+│   ├── has many → cohorts
+│   │   └── has many → cohortMembers (Individuals)
+│   ├── creates → assignments (Programs + Tools to Individuals/Cohorts)
+│   ├── creates → events (private)
+│   ├── creates → programs (own library)
+│   ├── deploys → tools (via widget or assignment)
+│   └── receives → reports (own Individuals only)
+│
+├── Individual
+│   ├── has many → assignments
+│   │   ├── linked to → programs → programModules → programProgress
+│   │   └── linked to → tools → toolSubmissions → toolResults → reports
+│   ├── has many → eventRegistrations → events
+│   └── owns → notifications
+│
+├── Tool
+│   ├── has many → toolQuestions
+│   ├── has many → toolSubmissions (per user per attempt)
+│   │   └── has one → toolResult → report
+│   └── may be deployed via → widgetSessions (external)
+│
+└── Assignment (core execution entity)
+    ├── links → Professional to Individual
+    ├── links → resource (program or tool)
+    ├── tracks → status lifecycle
+    └── triggers → notifications
+
+---
+
+## Section 5 — Query Patterns
+
+| Use Case                        | Collection          | Query                                                      |
+|---------------------------------|---------------------|------------------------------------------------------------|
+| Individual's pending assignments | assignments        | where userId == X, where status == assigned                |
+| Professional's cohort progress  | assignments         | where assignedBy == X, where cohortId == Y                 |
+| Expand cohort to members        | cohortMembers       | where cohortId == X, where status == active                |
+| Individual's program progress   | programProgress     | where userId == X, where programId == Y                    |
+| Individual's tool result history| toolResults         | where userId == X, where toolId == Y, orderBy createdAt    |
+| All reports for an Individual   | reports             | where userId == X, orderBy generatedAt                     |
+| Global event discovery          | events              | where studioType == X, where visibility == global, where status == published, orderBy startDate |
+| Unread notifications            | notifications       | where userId == X, where isRead == false, orderBy createdAt|
+| Widget conversion funnel        | widgetSessions      | where professionalId == X, where status == converted       |
+| Marketplace catalog             | marketplace         | where studioType == X, where status == active, orderBy listedAt |
+| Audit trail for entity          | auditLogs           | where entityType == X, where entityId == Y, orderBy createdAt |
+
+---
+
+## Section 6 — Index Strategy
+
+| Collection           | Index Fields                              | Purpose                          |
+|----------------------|-------------------------------------------|----------------------------------|
+| users                | (studioType, status)                      | Filter active users per Studio   |
+| companyMembers       | (companyId, status)                       | List active company members      |
+| companyMembers       | (userId, studioType)                      | Find Professional's company      |
+| professionalRelations| (professionalId, status)                  | Professional's active Individuals|
+| professionalRelations| (individualId, studioType)                | Find Individual's Professional   |
+| cohortMembers        | (cohortId, status)                        | Expand cohort to members         |
+| cohortMembers        | (individualId, studioType)                | Individual's cohort memberships  |
+| programs             | (studioType, status, isFree)              | Catalog browsing                 |
+| programs             | (createdBy, studioType)                   | Professional's own programs      |
+| programModules       | (programId, order)                        | Ordered module list              |
+| programProgress      | (userId, programId)                       | User progress within program     |
+| tools                | (studioType, status, ownerType)           | Tool catalog filtering           |
+| toolSubmissions      | (userId, toolId)                          | User submission history          |
+| toolResults          | (userId, toolId, createdAt)               | Longitudinal result history      |
+| toolResults          | (userId, studioType)                      | All results for an Individual    |
+| assignments          | (userId, status)                          | Individual's assignment list     |
+| assignments          | (assignedBy, status)                      | Professional's assignment view   |
+| assignments          | (cohortId, resourceId)                    | Duplicate assignment check       |
+| assignments          | (studioType, status, deadline)            | Overdue detection                |
+| events               | (studioType, visibility, status, startDate)| Global event discovery          |
+| events               | (createdBy, status)                       | Professional's events            |
+| eventRegistrations   | (eventId, status)                         | Event attendee list              |
+| eventRegistrations   | (userId, studioType)                      | Individual's registrations       |
+| reports              | (userId, toolId, generatedAt)             | Tool report history              |
+| reports              | (professionalId, generatedAt)             | Professional's report log        |
+| notifications        | (userId, isRead, createdAt)               | Unread notification badge        |
+| widgetSessions       | (professionalId, status)                  | Widget funnel analytics          |
+| auditLogs            | (studioType, action, createdAt)           | Audit filtering                  |
+| auditLogs            | (entityType, entityId)                    | Entity audit history             |
+| marketplace          | (studioType, status, listedAt)            | Marketplace catalog              |
+
+---
+
+## Section 7 — Multi-Tenancy Data Rules
+
+The studioType field is set at document creation time by Firebase Functions. It is immutable after creation. All queries include studioType as the first filter.
+
+Isolation Rules:
+- SuperAdmin: full read across Studios with explicit studioType filter; no cross-tenant write
+- Company: sees all Professionals and Individuals in their companyId scope only
+- Professional: sees own Individuals, cohorts, assignments, reports only — not other Professionals' data
+- Individual: sees own profile, assignments, programs, tools, reports only
+
+Independent Professional Rule:
+- companyId is null on all their documents
+- isIndependent = true in userContexts
+- Data isolated by professionalId alone
+
+userContext Integrity:
+- Must be rebuilt within 30 seconds of any relationship change
+- UI must not cache userContext beyond current session
+- If userContexts/{userId} does not exist → treat as unauthenticated → redirect to login
+- SuperAdmin may trigger manual buildUserContext for any user
+
+---
+
+## Section 8 — Data Lifecycle and Retention
+
+| Collection       | Retention Rule                                                          |
+|------------------|-------------------------------------------------------------------------|
+| users            | Retained indefinitely; archived status used instead of deletion         |
+| assignments      | Retained indefinitely — immutable execution record                      |
+| toolSubmissions  | Retained indefinitely — answers part of longitudinal profile            |
+| toolResults      | Retained indefinitely — core data asset                                 |
+| reports          | PDF archived after 2 years; document retained indefinitely              |
+| auditLogs        | Retained indefinitely — never deleted                                   |
+| notifications    | Soft-deleted after 90 days (isRead + age > 90 days)                    |
+| widgetSessions   | Retained 12 months; anonymized after conversion or expiry              |
+| payments         | Retained 7 years (financial compliance)                                 |
+| programProgress  | Retained indefinitely — part of Individual's growth record              |
+
+---
+
+## Section 9 — Security Rules Summary
+
+| Collection           | Read                                          | Write         |
+|----------------------|-----------------------------------------------|---------------|
+| users                | Own document only                             | Functions only|
+| userContexts         | Own document only                             | Functions only|
+| companies            | Company members only                          | Functions only|
+| companyMembers       | Company admin + own record                    | Functions only|
+| professionalProfiles | Own + their Individuals (limited)             | Functions only|
+| professionalRelations| Professional (own) + Individual (own)         | Functions only|
+| cohorts              | Owning Professional + company admin           | Functions only|
+| cohortMembers        | Owning Professional + Individual (own)        | Functions only|
+| programs             | Any authenticated user                        | Functions only|
+| programModules       | Any authenticated user                        | Functions only|
+| programProgress      | Own userId only                               | Functions only|
+| tools                | Any authenticated user                        | Functions only|
+| toolQuestions        | Any authenticated user                        | Functions only|
+| toolSubmissions      | Own userId + assigned Professional            | Functions only|
+| toolResults          | Own userId + assigned Professional            | Functions only|
+| assignments          | Own userId + assignedBy Professional          | Functions only|
+| events               | Authenticated users (global) / own (private)  | Functions only|
+| eventRegistrations   | Own userId + event creator                    | Functions only|
+| reports              | Own userId + assigned Professional            | Functions only|
+| notifications        | Own userId only                               | Functions only|
+| widgetSessions       | Owning Professional only                      | Functions only|
+| auditLogs            | SuperAdmin only                               | Functions only|
+| marketplace          | Any authenticated user                        | Functions only|
+| payments             | Own userId + SuperAdmin                       | Functions only|
+
+---
+
+END OF DOCUMENT
+
+StudioVerse Database Specification v2.0
+25 collections. One schema. Three Studios. Built for scale.
+Repository: github.com/[org]/studioverse
+Confidential — Engineering Use Only

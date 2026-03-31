@@ -1,0 +1,1 @@
+export { useTenant } from "@/lib/tenant/context";

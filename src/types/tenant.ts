@@ -23,6 +23,16 @@ export type TenantConfig = {
     logo: string;
   };
   landingContent?: {
+    sections?: {
+      programs: boolean;
+      tools: boolean;
+      events: boolean;
+    };
+    heroImages?: {
+      programs: string;
+      tools: string;
+      events: string;
+    };
     programs: LandingContentItem[];
     tools: LandingContentItem[];
     events: LandingContentItem[];

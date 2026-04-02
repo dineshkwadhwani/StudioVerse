@@ -22,4 +22,16 @@ export type TenantConfig = {
     primaryColor: string;
     logo: string;
   };
+  landingContent?: {
+    programs: LandingContentItem[];
+    tools: LandingContentItem[];
+    events: LandingContentItem[];
+  };
+};
+
+export type LandingContentItem = {
+  name: string;
+  image: string;
+  title: string;
+  description: string;
 };

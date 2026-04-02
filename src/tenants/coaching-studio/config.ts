@@ -28,7 +28,7 @@ export const config: TenantConfig = {
     sections: {
       programs: true,
       tools: true,
-      events: true,
+      events: false,
     },
     heroImages: {
       programs: "/tenants/coaching-studio/hero1.png",

@@ -62,6 +62,39 @@
   gap: 18px;
 }
 
+.userToggle {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleBtn {
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink-strong);
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleBtn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.toggleActive {
+  background: linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%);
+  border-color: var(--brand-primary);
+  color: white;
+}
+
+.toggleSmall {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+}
+
 .navLink {
   color: var(--ink-strong);
   text-decoration: none;
@@ -101,8 +134,8 @@
 }
 
 .heroLeft h1 {
-  font-size: clamp(2rem, 4vw, 3.2rem);
-  line-height: 1.1;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  line-height: 1.15;
   margin: 12px 0;
 }
 
@@ -324,6 +357,119 @@
   text-align: center;
 }
 
+.altTimeline {
+  padding: 48px 28px;
+  background: rgba(43, 182, 209, 0.06);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.altTimelineTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+  text-align: center;
+  margin: 0 0 36px 0;
+}
+
+.timelineContainer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.timelineStep {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 320px;
+  max-width: 360px;
+}
+
+.timelineNumber {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1f5c9c 0%, #2bb6d1 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.5rem;
+  margin: 0 auto;
+}
+
+.timelineContent {
+  text-align: center;
+  width: 100%;
+}
+
+.timelineContent h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.35rem;
+  color: var(--ink-strong);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.timelineContent p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  font-size: 1rem;
+  font-weight: 600;
+  max-width: 100%;
+}
+
+.timelineArrow {
+  position: relative;
+  width: 64px;
+  height: 56px;
+  display: none;
+  flex: 0 0 64px;
+  margin-top: 0;
+}
+
+.timelineArrow::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  right: 16px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(43, 182, 209, 0.35), rgba(43, 182, 209, 0.95));
+  transform: translateY(-50%);
+}
+
+.timelineArrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  border-top: 3px solid var(--brand-accent);
+  border-right: 3px solid var(--brand-accent);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+@media (min-width: 1024px) {
+  .timelineContainer {
+    flex-wrap: nowrap;
+  }
+
+  .timelineArrow {
+    display: block;
+  }
+}
+
 .footerLine {
   display: flex;
   justify-content: center;
@@ -369,13 +515,22 @@
 
 .modalClose {
   border: 0;
-  background: #eef7ff;
+  background: #dbeeff;
   width: 36px;
   height: 36px;
   border-radius: 999px;
   cursor: pointer;
-  color: #215f8f;
+  color: #1f5c9c;
   font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modalClose:hover {
+  background: #c0d9f5;
 }
 
 .modal p {
@@ -403,6 +558,10 @@
     display: none;
   }
 
+  .userToggle {
+    display: none;
+  }
+
   .mobileMenuBtn {
     display: block;
   }
@@ -415,8 +574,20 @@
     border-bottom: 1px solid var(--line);
   }
 
+  .mobileUserToggle {
+    display: flex;
+    gap: 6px;
+    padding: 6px 0;
+  }
+
+  .mobileUserToggle .toggleBtn {
+    flex: 1;
+    font-size: 0.75rem;
+    padding: 6px 8px;
+  }
+
   .mobileMenu a,
-  .mobileMenu button {
+  .mobileMenu button:not(.toggleBtn) {
     text-align: left;
     border: 1px solid var(--line);
     background: #fff;
@@ -446,5 +617,28 @@
   .heroCardThree {
     width: 62%;
     left: 16%;
+  }
+
+  .timelineContainer {
+    gap: 12px;
+  }
+
+  .timelineStep {
+    flex: 1 1 240px;
+  }
+
+  .timelineNumber {
+    width: 48px;
+    height: 48px;
+    font-size: 1.25rem;
+  }
+
+  .timelineContent h3 {
+    font-size: 1.1rem;
+  }
+
+  .timelineContent p {
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 }

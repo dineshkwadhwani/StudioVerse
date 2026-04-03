@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { TenantConfig } from "@/types/tenant";
 import styles from "./CoachingLandingPage.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
@@ -11,19 +11,20 @@ type Props = {
   config: TenantConfig;
 };
 
-type SectionKey = "programs" | "tools" | "events";
+type SectionKey = "tools" | "programs" | "events";
+type UserType = "coach" | "learner";
 
 const sectionMeta: Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean }> = {
+  tools: {
+    title: "Diagnostic tools built to assess coachees, surface gaps, and accelerate growth.",
+    intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+    viewAllPath: "/coaching-studio/tools",
+    darkTile: true,
+  },
   programs: {
     title: "Signature programmes designed for leadership growth and transformation.",
     intro: "Each programme pairs a clear commercial use case with a polished learner experience.",
     viewAllPath: "/coaching-studio/programs",
-  },
-  tools: {
-    title: "Assessment and delivery tools built for measurable coaching outcomes.",
-    intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
-    viewAllPath: "/coaching-studio/tools",
-    darkTile: true,
   },
   events: {
     title: "Curated events that connect leaders, coaches, and growth-focused teams.",
@@ -98,15 +99,103 @@ function CarouselSection({
   );
 }
 
+function AssessLearnTransformTimeline({ userType }: { userType: UserType }) {
+  const isCoach = userType === "coach";
+
+  return (
+    <section className={styles.altTimeline}>
+      <h2 className={styles.altTimelineTitle}>
+        {isCoach ? "Empower Through Coaching" : "Grow Through Learning"}
+      </h2>
+      <div className={styles.timelineContainer}>
+        <div className={styles.timelineStep}>
+          <div className={styles.timelineNumber}>1</div>
+          <div className={styles.timelineContent}>
+            <h3>Assess</h3>
+            <p>
+              {isCoach
+                ? "Diagnose coaching needs and identify growth opportunities for your coachees with precision diagnostics."
+                : "Assess your current capabilities and identify skill gaps compared to industry benchmarks."}
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.timelineArrow} aria-hidden="true" />
+
+        <div className={styles.timelineStep}>
+          <div className={styles.timelineNumber}>2</div>
+          <div className={styles.timelineContent}>
+            <h3>Learn</h3>
+            <p>
+              {isCoach
+                ? "Leverage best-in-class programmes and deliver your own curated content — using diagnostic tools to deepen coaching impact and drive measurable outcomes."
+                : "Access tailored programmes and tools matched to your development priorities."}
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.timelineArrow} aria-hidden="true" />
+
+        <div className={styles.timelineStep}>
+          <div className={styles.timelineNumber}>3</div>
+          <div className={styles.timelineContent}>
+            <h3>Transform</h3>
+            <p>
+              {isCoach
+                ? "Create structured transformation plans for each coachee, track their progress milestone by milestone, and scale your coaching impact with confidence."
+                : "Demonstrate growth, achieve goals, and unlock your leadership potential."}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function CoachingLandingPage({ config }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [userType, setUserType] = useState<UserType>("coach");
   const perView = useItemsPerView();
+
+  // Load userType from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("coachingStudioUserType") as UserType | null;
+      if (stored && (stored === "coach" || stored === "learner")) {
+        setUserType(stored);
+      }
+    }
+  }, []);
+
+  // Save userType to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("coachingStudioUserType", userType);
+    }
+  }, [userType]);
 
   const landing = config.landingContent;
   const programs = landing?.programs ?? [];
   const tools = landing?.tools ?? [];
   const events = landing?.events ?? [];
+
+  const isCoach = userType === "coach";
+
+  const heroMessages = {
+    coach: {
+      label: "Coach Platform",
+      title: "Your Playground for Coaching Excellence",
+        copy: "Coaching Studio is your playground for delivering premium coaching journeys. Leverage best-in-class programmes or deliver your own, use powerful diagnostic tools to assess your coachees, and host curated events — all in one place to scale your coaching impact.",
+    },
+    learner: {
+      label: "Learning Platform",
+      title: "Unlock Your Leadership Potential",
+      copy: "Coaching Studio connects you with expert-designed programmes, proven assessment tools, and industry leaders. Assess your capabilities, close gaps, and transform into the leader you aspire to be.",
+    },
+  };
+
+  const currentHero = heroMessages[userType];
 
   const heroCards = useMemo(
     () => [
@@ -133,19 +222,36 @@ export default function CoachingLandingPage({ config }: Props) {
     <main className={styles.page}>
       <header className={styles.nav}>
         <div className={styles.brand}>
-          <Image src={config.theme.logo} width={76} height={40} alt="Coach Studio logo" className={styles.logo} />
+          <Image src={config.theme.logo} width={76} height={40} alt="Coaching Studio logo" className={styles.logo} />
           <div className={styles.brandText}>
-            <span className={styles.brandTitle}>Coach Studio</span>
+            <span className={styles.brandTitle}>Coaching Studio</span>
             <span className={styles.brandSubtitle}>Coaching | Growth | Potential</span>
           </div>
         </div>
 
+        <div className={styles.userToggle}>
+          <button
+            type="button"
+            className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
+            onClick={() => setUserType("coach")}
+          >
+            I am a Coach
+          </button>
+          <button
+            type="button"
+            className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
+            onClick={() => setUserType("learner")}
+          >
+            I am a Learner
+          </button>
+        </div>
+
         <nav className={styles.desktopNav}>
-          <a href="#programs" className={styles.navLink}>
-            Programs
-          </a>
           <a href="#tools" className={styles.navLink}>
             Tools
+          </a>
+          <a href="#programs" className={styles.navLink}>
+            Programs
           </a>
           <a href="#events" className={styles.navLink}>
             Events
@@ -167,11 +273,33 @@ export default function CoachingLandingPage({ config }: Props) {
 
       {isMobileMenuOpen && (
         <div className={styles.mobileMenu}>
-          <a href="#programs" onClick={() => setIsMobileMenuOpen(false)}>
-            Programs
-          </a>
+          <div className={styles.mobileUserToggle}>
+            <button
+              type="button"
+              className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "coach" ? styles.toggleActive : ""}`}
+              onClick={() => {
+                setUserType("coach");
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              I am a Coach
+            </button>
+            <button
+              type="button"
+              className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "learner" ? styles.toggleActive : ""}`}
+              onClick={() => {
+                setUserType("learner");
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              I am a Learner
+            </button>
+          </div>
           <a href="#tools" onClick={() => setIsMobileMenuOpen(false)}>
             Tools
+          </a>
+          <a href="#programs" onClick={() => setIsMobileMenuOpen(false)}>
+            Programs
           </a>
           <a href="#events" onClick={() => setIsMobileMenuOpen(false)}>
             Events
@@ -184,12 +312,9 @@ export default function CoachingLandingPage({ config }: Props) {
 
       <section className={styles.hero}>
         <div className={styles.heroLeft}>
-          <span className={styles.heroLabel}>Enterprise Coaching Platform</span>
-          <h1>Deliver premium coaching journeys with clarity, scale, and business impact.</h1>
-          <p className={styles.heroCopy}>
-            Coaching Studio combines leadership programmes, measurable tools, and curated events into a
-            single experience for coaching firms, enterprise teams, and growth-focused professionals.
-          </p>
+          <span className={styles.heroLabel}>{currentHero.label}</span>
+          <h1>{currentHero.title}</h1>
+          <p className={styles.heroCopy}>{currentHero.copy}</p>
         </div>
 
         <div className={styles.heroVisual}>
@@ -202,17 +327,7 @@ export default function CoachingLandingPage({ config }: Props) {
         </div>
       </section>
 
-      {landing?.sections?.programs !== false && programs.length > 0 && (
-        <CarouselSection
-          id="programs"
-          items={programs}
-          title={sectionMeta.programs.title}
-          intro={sectionMeta.programs.intro}
-          viewAllPath={sectionMeta.programs.viewAllPath}
-          perView={perView}
-          onTryNow={() => setIsAuthOpen(true)}
-        />
-      )}
+      <AssessLearnTransformTimeline userType={userType} />
 
       {landing?.sections?.tools !== false && tools.length > 0 && (
         <CarouselSection
@@ -223,6 +338,18 @@ export default function CoachingLandingPage({ config }: Props) {
           viewAllPath={sectionMeta.tools.viewAllPath}
           perView={perView}
           darkTile={sectionMeta.tools.darkTile}
+          onTryNow={() => setIsAuthOpen(true)}
+        />
+      )}
+
+      {landing?.sections?.programs !== false && programs.length > 0 && (
+        <CarouselSection
+          id="programs"
+          items={programs}
+          title={sectionMeta.programs.title}
+          intro={sectionMeta.programs.intro}
+          viewAllPath={sectionMeta.programs.viewAllPath}
+          perView={perView}
           onTryNow={() => setIsAuthOpen(true)}
         />
       )}
@@ -249,12 +376,18 @@ export default function CoachingLandingPage({ config }: Props) {
       </footer>
 
       {isAuthOpen && (
-        <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-label="Login or Register">
-          <div className={styles.modal}>
+        <div
+          className={styles.modalBackdrop}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Login or Register"
+          onClick={() => setIsAuthOpen(false)}
+        >
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h2>Login or Register</h2>
               <button type="button" className={styles.modalClose} onClick={() => setIsAuthOpen(false)}>
-                &times;
+                &#10005;
               </button>
             </div>
             <p>This is a placeholder. Authentication screens will be added in the next iteration.</p>

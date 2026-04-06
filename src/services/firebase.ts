@@ -2,6 +2,8 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage"; // <--- Added Storage Import
+import { getFunctions } from "firebase/functions";
+
 
 // Your keys are pulled securely from .env.local
 const firebaseConfig = {
@@ -20,5 +22,6 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app); // <--- Added Storage Export
+export const functions = getFunctions(app, "asia-south1");
 
 export default app;

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "coaching-studio-f5410"
-  }
+    "default": "studioverse-18552"
+  },
+  "targets": {},
+  "etags": {}
 }

@@ -28,6 +28,11 @@ export type TenantConfig = {
       tools: boolean;
       events: boolean;
     };
+    displayLabels?: {
+      programs?: string;
+      tools?: string;
+      events?: string;
+    };
     heroImages?: {
       programs: string;
       tools: string;

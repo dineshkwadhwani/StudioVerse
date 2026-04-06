@@ -14,24 +14,29 @@ type Props = {
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
 
-const sectionMeta: Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean }> = {
-  tools: {
-    title: "Diagnostic tools built to assess coachees, surface gaps, and accelerate growth.",
-    intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
-    viewAllPath: "/coaching-studio/tools",
-    darkTile: true,
-  },
-  programs: {
-    title: "Signature programmes designed for leadership growth and transformation.",
-    intro: "Each programme pairs a clear commercial use case with a polished learner experience.",
-    viewAllPath: "/coaching-studio/programs",
-  },
-  events: {
-    title: "Curated events that connect leaders, coaches, and growth-focused teams.",
-    intro: "From roundtables to showcases, each event is designed for practical outcomes.",
-    viewAllPath: "/coaching-studio/events",
-  },
-};
+function getSectionMeta(toolsLabel: string): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
+  return {
+    tools: {
+      title: `${toolsLabel} built to assess coachees, surface gaps, and accelerate growth.`,
+      intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+      viewAllPath: "/coaching-studio/tools",
+      darkTile: true,
+      navLabel: toolsLabel,
+    },
+    programs: {
+      title: "Signature programmes designed for leadership growth and transformation.",
+      intro: "Each programme pairs a clear commercial use case with a polished learner experience.",
+      viewAllPath: "/coaching-studio/programs",
+      navLabel: "Programs",
+    },
+    events: {
+      title: "Curated events that connect leaders, coaches, and growth-focused teams.",
+      intro: "From roundtables to showcases, each event is designed for practical outcomes.",
+      viewAllPath: "/coaching-studio/events",
+      navLabel: "Events",
+    },
+  };
+}
 
 function CarouselSection({
   id,
@@ -179,6 +184,8 @@ export default function CoachingLandingPage({ config }: Props) {
   const programs = landing?.programs ?? [];
   const tools = landing?.tools ?? [];
   const events = landing?.events ?? [];
+  const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
+  const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);
 
   const isCoach = userType === "coach";
 
@@ -248,7 +255,7 @@ export default function CoachingLandingPage({ config }: Props) {
 
         <nav className={styles.desktopNav}>
           <a href="#tools" className={styles.navLink}>
-            Tools
+            {sectionMeta.tools.navLabel}
           </a>
           <a href="#programs" className={styles.navLink}>
             Programs
@@ -296,7 +303,7 @@ export default function CoachingLandingPage({ config }: Props) {
             </button>
           </div>
           <a href="#tools" onClick={() => setIsMobileMenuOpen(false)}>
-            Tools
+            {sectionMeta.tools.navLabel}
           </a>
           <a href="#programs" onClick={() => setIsMobileMenuOpen(false)}>
             Programs

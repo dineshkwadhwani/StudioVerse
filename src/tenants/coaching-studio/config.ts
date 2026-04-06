@@ -30,6 +30,9 @@ export const config: TenantConfig = {
       tools: true,
       events: true,
     },
+    displayLabels: {
+      tools: "Assessment Centre",
+    },
     heroImages: {
       programs: "/tenants/coaching-studio/hero1.png",
       tools: "/tenants/coaching-studio/hero2.png",

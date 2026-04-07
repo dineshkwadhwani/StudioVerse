@@ -1,0 +1,164 @@
+.page {
+  --primary: #01696f;
+  --accent: #03a9b0;
+  --ink: #133a56;
+  --ink-soft: #4d6e86;
+  --surface: #eaf6ff;
+  --surface-card: #f8fcff;
+  --line: #c6dcea;
+
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
+  color: var(--ink);
+}
+
+/* Fixed header */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1180px, 100vw);
+  z-index: 30;
+  background: #e9f5ff;
+  border: 1px solid var(--line);
+  border-radius: 0 0 16px 16px;
+  padding: 10px 16px;
+}
+
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandLogo {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.profileArea {
+  position: relative;
+  margin-left: auto;
+}
+
+.profileButton {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+/* Dropdown menu */
+.menuPanel {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: min(300px, 88vw);
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(19, 58, 86, 0.14);
+  padding: 12px;
+  z-index: 40;
+}
+
+.menuUser {
+  padding: 6px 10px 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+
+.menuName {
+  margin: 0;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.menuRole {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.menuTitle {
+  margin: 10px 8px 6px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.menuItem {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: block;
+}
+
+.menuItem:hover,
+.menuItemActive {
+  background: #e9f6ff;
+}
+
+.menuDivider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+}
+
+/* Content area */
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 104px 28px 28px;
+}
+
+.contentCard {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-card);
+  box-shadow: 0 12px 24px rgba(19, 58, 86, 0.1);
+  padding: 24px;
+}
+
+.sectionTitle {
+  margin: 0 0 8px;
+  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+}
+
+.sectionHint {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* Mobile */
+@media (max-width: 820px) {
+  .toolbar {
+    top: 0;
+    width: 100vw;
+    padding: 10px 12px;
+  }
+
+  .shell {
+    padding: 92px 16px 20px;
+  }
+}

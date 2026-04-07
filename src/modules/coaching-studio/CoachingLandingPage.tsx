@@ -6,6 +6,7 @@ import { useMemo, useState, useEffect } from "react";
 import type { TenantConfig } from "@/types/tenant";
 import styles from "./CoachingLandingPage.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
+import LoginRegisterModal from "./auth/LoginRegisterModal";
 
 type Props = {
   config: TenantConfig;
@@ -159,7 +160,7 @@ function AssessLearnTransformTimeline({ userType }: { userType: UserType }) {
 
 export default function CoachingLandingPage({ config }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [userType, setUserType] = useState<UserType>("coach");
   const perView = useItemsPerView();
 
@@ -263,7 +264,7 @@ export default function CoachingLandingPage({ config }: Props) {
           <a href="#events" className={styles.navLink}>
             Events
           </a>
-          <button type="button" className={styles.authBtn} onClick={() => setIsAuthOpen(true)}>
+          <button type="button" className={styles.authBtn} onClick={() => setIsAuthModalOpen(true)}>
             Sign In / Register
           </button>
         </nav>
@@ -311,7 +312,10 @@ export default function CoachingLandingPage({ config }: Props) {
           <a href="#events" onClick={() => setIsMobileMenuOpen(false)}>
             Events
           </a>
-          <button type="button" onClick={() => setIsAuthOpen(true)}>
+          <button type="button" onClick={() => {
+            setIsAuthModalOpen(true);
+            setIsMobileMenuOpen(false);
+          }}>
             Sign In / Register
           </button>
         </div>
@@ -345,7 +349,7 @@ export default function CoachingLandingPage({ config }: Props) {
           viewAllPath={sectionMeta.tools.viewAllPath}
           perView={perView}
           darkTile={sectionMeta.tools.darkTile}
-          onTryNow={() => setIsAuthOpen(true)}
+          onTryNow={() => setIsAuthModalOpen(true)}
         />
       )}
 
@@ -357,7 +361,7 @@ export default function CoachingLandingPage({ config }: Props) {
           intro={sectionMeta.programs.intro}
           viewAllPath={sectionMeta.programs.viewAllPath}
           perView={perView}
-          onTryNow={() => setIsAuthOpen(true)}
+          onTryNow={() => setIsAuthModalOpen(true)}
         />
       )}
 
@@ -369,7 +373,7 @@ export default function CoachingLandingPage({ config }: Props) {
           intro={sectionMeta.events.intro}
           viewAllPath={sectionMeta.events.viewAllPath}
           perView={perView}
-          onTryNow={() => setIsAuthOpen(true)}
+          onTryNow={() => setIsAuthModalOpen(true)}
         />
       )}
 
@@ -382,33 +386,7 @@ export default function CoachingLandingPage({ config }: Props) {
         </p>
       </footer>
 
-      {isAuthOpen && (
-        <div
-          className={styles.modalBackdrop}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Login or Register"
-          onClick={() => setIsAuthOpen(false)}
-        >
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Login or Register</h2>
-              <button type="button" className={styles.modalClose} onClick={() => setIsAuthOpen(false)}>
-                &#10005;
-              </button>
-            </div>
-            <p>This is a placeholder. Authentication screens will be added in the next iteration.</p>
-            <div className={styles.modalActions}>
-              <Link href="/coaching-studio/auth" className={styles.primaryCta}>
-                Open Placeholder Page
-              </Link>
-              <button type="button" className={styles.secondaryCta} onClick={() => setIsAuthOpen(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </main>
   );
 }

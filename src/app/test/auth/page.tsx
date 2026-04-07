@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { auth } from '@/services/firebase';
+import { auth, appCheck, getToken } from '@/services/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
@@ -45,10 +45,21 @@ export default function AuthDiagnostic() {
     addLog(`projectId: ${cfg.projectId ?? 'MISSING'}`, cfg.projectId ? 'ok' : 'err');
     addLog(`appId: ${cfg.appId ? cfg.appId.slice(0, 20) + '...' : 'MISSING'}`, cfg.appId ? 'ok' : 'err');
 
-    const appCheckKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY;
-    const appCheckEnabled = process.env.NEXT_PUBLIC_ENABLE_APP_CHECK;
-    addLog(`RECAPTCHA_ENTERPRISE_KEY: ${appCheckKey ? appCheckKey.slice(0, 12) + '...' : 'not set'}`, appCheckKey ? 'ok' : 'warn');
-    addLog(`ENABLE_APP_CHECK: ${appCheckEnabled ?? 'not set'}`, appCheckEnabled === 'true' ? 'ok' : 'warn');
+    const enterpriseKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY;
+    addLog(`RECAPTCHA_ENTERPRISE_KEY: ${enterpriseKey ? enterpriseKey.slice(0, 12) + '...' : 'not set — App Check will NOT work'}`, enterpriseKey ? 'ok' : 'err');
+
+    // Test App Check token fetch
+    addLog('Testing App Check token fetch...', 'info');
+    if (!appCheck) {
+      addLog('App Check not initialized — NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY likely missing', 'err');
+    } else {
+      getToken(appCheck, false)
+        .then(tokenResult => addLog(`App Check token OK (${tokenResult.token.slice(0, 20)}...)`, 'ok'))
+        .catch((acErr: any) => {
+          addLog(`App Check token FAILED: ${acErr?.message ?? acErr}`, 'err');
+          addLog('Domain may not be registered on Enterprise key, or key is wrong.', 'warn');
+        });
+    }
 
     addLog(`Firebase auth currentUser: ${auth.currentUser?.uid ?? 'none'}`, 'info');
     addLog('=== Environment check complete ===');
@@ -75,17 +86,17 @@ export default function AuthDiagnostic() {
     addLog(`Phone: ${phone}`, 'ok');
 
     // reCAPTCHA setup
-    addLog('Setting up RecaptchaVerifier (invisible)...', 'info');
+    addLog('Setting up RecaptchaVerifier (v2 normal — visible checkbox)...', 'info');
     resetVerifier();
 
     try {
       const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
+        size: 'normal',
         callback: (token: string) => {
-          addLog(`reCAPTCHA callback fired — token received (${token.slice(0, 20)}...)`, 'ok');
+          addLog(`reCAPTCHA solved — token received (${token.slice(0, 20)}...)`, 'ok');
         },
         'expired-callback': () => {
-          addLog('reCAPTCHA token expired — will need to retry', 'warn');
+          addLog('reCAPTCHA token expired — please solve the checkbox again', 'warn');
           resetVerifier();
         },
         'error-callback': (err: any) => {
@@ -96,9 +107,9 @@ export default function AuthDiagnostic() {
       verifierRef.current = verifier;
       addLog('RecaptchaVerifier created', 'ok');
 
-      addLog('Calling verifier.render()...', 'info');
+      addLog('Rendering reCAPTCHA checkbox — solve it before OTP sends...', 'info');
       const widgetId = await verifier.render();
-      addLog(`reCAPTCHA rendered, widgetId: ${widgetId}`, 'ok');
+      addLog(`reCAPTCHA rendered (widgetId: ${widgetId}) — waiting for user to solve`, 'ok');
 
       addLog(`Calling signInWithPhoneNumber(${phone})...`, 'info');
       const result = await signInWithPhoneNumber(auth, phone, verifier);

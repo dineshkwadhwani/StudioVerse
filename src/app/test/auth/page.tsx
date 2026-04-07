@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { auth, appCheck, getToken } from '@/services/firebase';
+import { auth } from '@/services/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
@@ -44,22 +44,7 @@ export default function AuthDiagnostic() {
     addLog(`authDomain: ${cfg.authDomain ?? 'MISSING'}`, cfg.authDomain ? 'ok' : 'err');
     addLog(`projectId: ${cfg.projectId ?? 'MISSING'}`, cfg.projectId ? 'ok' : 'err');
     addLog(`appId: ${cfg.appId ? cfg.appId.slice(0, 20) + '...' : 'MISSING'}`, cfg.appId ? 'ok' : 'err');
-
-    const enterpriseKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY;
-    addLog(`RECAPTCHA_ENTERPRISE_KEY: ${enterpriseKey ? enterpriseKey.slice(0, 12) + '...' : 'not set — App Check will NOT work'}`, enterpriseKey ? 'ok' : 'err');
-
-    // Test App Check token fetch
-    addLog('Testing App Check token fetch...', 'info');
-    if (!appCheck) {
-      addLog('App Check not initialized — NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY likely missing', 'err');
-    } else {
-      getToken(appCheck, false)
-        .then(tokenResult => addLog(`App Check token OK (${tokenResult.token.slice(0, 20)}...)`, 'ok'))
-        .catch((acErr: any) => {
-          addLog(`App Check token FAILED: ${acErr?.message ?? acErr}`, 'err');
-          addLog('Domain may not be registered on Enterprise key, or key is wrong.', 'warn');
-        });
-    }
+    addLog('Using standard Firebase Phone Auth reCAPTCHA verifier.', 'info');
 
     addLog(`Firebase auth currentUser: ${auth.currentUser?.uid ?? 'none'}`, 'info');
     addLog('=== Environment check complete ===');
@@ -129,10 +114,9 @@ export default function AuthDiagnostic() {
       // Specific guidance per error code
       if (err.code === 'auth/invalid-app-credential') {
         addLog('DIAGNOSIS: Firebase rejected the reCAPTCHA token.', 'warn');
-        addLog('Check 1: Is reCAPTCHA Enterprise enabled in Firebase Auth settings?', 'warn');
-        addLog('Check 2: Does your App Check key match what Firebase Auth reCAPTCHA settings shows?', 'warn');
-        addLog('Check 3: Is ENABLE_APP_CHECK=true in .env.local?', 'warn');
-        addLog('Check 4: Did you restart npm run dev after changing .env.local?', 'warn');
+        addLog('Check 1: Is your current hostname in Firebase Auth Authorized domains?', 'warn');
+        addLog('Check 2: Hard refresh and retry to regenerate token.', 'warn');
+        addLog('Check 3: Ensure you are on HTTPS for real-number testing.', 'warn');
       }
       if (err.code === 'auth/too-many-requests') {
         addLog('DIAGNOSIS: This number/IP is rate limited. Wait 30+ min or use a different number.', 'warn');

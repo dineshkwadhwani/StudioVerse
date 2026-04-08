@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import {
   PROGRAM_DELIVERY_TYPES,
@@ -47,6 +48,39 @@ export default function ProgramForm({
   onSave,
 }: ProgramFormProps) {
   const activeTenants = tenants.filter((tenant) => tenant.status === "active");
+  const fieldRefs = useRef<
+    Partial<Record<keyof ProgramFormValues, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>
+  >({});
+
+  useEffect(() => {
+    const focusOrder: Array<keyof ProgramFormValues> = [
+      "tenantId",
+      "name",
+      "shortDescription",
+      "longDescription",
+      "durationValue",
+      "details",
+      "videoUrl",
+      "creditsRequired",
+      "availableFrom",
+      "expiresAt",
+      "facilitatorName",
+      "thumbnailUrl",
+      "promoted",
+      "published",
+    ];
+
+    const firstFieldWithError = focusOrder.find((field) => Boolean(errors[field]));
+    if (!firstFieldWithError) {
+      return;
+    }
+
+    const element = fieldRefs.current[firstFieldWithError];
+    if (element) {
+      element.focus({ preventScroll: true });
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [errors]);
 
   return (
     <div className={styles.modalOverlay}>
@@ -70,6 +104,9 @@ export default function ProgramForm({
         </label>
         <select
           id="program-tenant"
+          ref={(element) => {
+            fieldRefs.current.tenantId = element;
+          }}
           className={`${styles.select} ${errors.tenantId ? styles.inputError : ""}`}
           value={value.tenantId}
           onChange={(event) => onChange("tenantId", event.target.value)}
@@ -89,6 +126,9 @@ export default function ProgramForm({
         </label>
         <input
           id="program-name"
+          ref={(element) => {
+            fieldRefs.current.name = element;
+          }}
           className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
           value={value.name}
           onChange={(event) => onChange("name", event.target.value)}
@@ -101,6 +141,9 @@ export default function ProgramForm({
         </label>
         <textarea
           id="program-short-description"
+          ref={(element) => {
+            fieldRefs.current.shortDescription = element;
+          }}
           className={`${styles.input} ${errors.shortDescription ? styles.inputError : ""}`}
           value={value.shortDescription}
           onChange={(event) => onChange("shortDescription", event.target.value)}
@@ -114,6 +157,9 @@ export default function ProgramForm({
         </label>
         <textarea
           id="program-long-description"
+          ref={(element) => {
+            fieldRefs.current.longDescription = element;
+          }}
           className={`${styles.input} ${errors.longDescription ? styles.inputError : ""}`}
           value={value.longDescription}
           onChange={(event) => onChange("longDescription", event.target.value)}
@@ -146,6 +192,9 @@ export default function ProgramForm({
             </label>
             <input
               id="program-duration-value"
+              ref={(element) => {
+                fieldRefs.current.durationValue = element;
+              }}
               className={styles.input}
               value={value.durationValue}
               onChange={(event) => onChange("durationValue", event.target.value)}
@@ -180,6 +229,9 @@ export default function ProgramForm({
         </label>
         <textarea
           id="program-details"
+          ref={(element) => {
+            fieldRefs.current.details = element;
+          }}
           className={`${styles.input} ${errors.details ? styles.inputError : ""}`}
           value={value.details}
           onChange={(event) => onChange("details", event.target.value)}
@@ -195,6 +247,9 @@ export default function ProgramForm({
             </label>
             <input
               id="program-video-url"
+              ref={(element) => {
+                fieldRefs.current.videoUrl = element;
+              }}
               className={styles.input}
               value={value.videoUrl}
               onChange={(event) => onChange("videoUrl", event.target.value)}
@@ -209,6 +264,9 @@ export default function ProgramForm({
             </label>
             <input
               id="program-credits-required"
+              ref={(element) => {
+                fieldRefs.current.creditsRequired = element;
+              }}
               className={`${styles.input} ${errors.creditsRequired ? styles.inputError : ""}`}
               value={value.creditsRequired}
               onChange={(event) => onChange("creditsRequired", event.target.value)}
@@ -226,6 +284,9 @@ export default function ProgramForm({
             </label>
             <input
               id="program-available-from"
+              ref={(element) => {
+                fieldRefs.current.availableFrom = element;
+              }}
               className={`${styles.input} ${errors.availableFrom ? styles.inputError : ""}`}
               type="date"
               value={value.availableFrom}
@@ -241,6 +302,9 @@ export default function ProgramForm({
             </label>
             <input
               id="program-expires-at"
+              ref={(element) => {
+                fieldRefs.current.expiresAt = element;
+              }}
               className={`${styles.input} ${errors.expiresAt ? styles.inputError : ""}`}
               type="date"
               value={value.expiresAt}
@@ -256,6 +320,9 @@ export default function ProgramForm({
         </label>
         <input
           id="program-facilitator-name"
+          ref={(element) => {
+            fieldRefs.current.facilitatorName = element;
+          }}
           className={styles.input}
           value={value.facilitatorName}
           onChange={(event) => onChange("facilitatorName", event.target.value)}
@@ -267,6 +334,9 @@ export default function ProgramForm({
         </label>
         <input
           id="program-thumbnail"
+          ref={(element) => {
+            fieldRefs.current.thumbnailUrl = element;
+          }}
           className={`${styles.input} ${errors.thumbnailUrl ? styles.inputError : ""}`}
           type="file"
           accept="image/png,image/jpeg,image/webp"
@@ -286,6 +356,9 @@ export default function ProgramForm({
           <label className={styles.radioPill}>
             <input
               type="checkbox"
+              ref={(element) => {
+                fieldRefs.current.promoted = element;
+              }}
               checked={value.promoted}
               onChange={(event) => onChange("promoted", event.target.checked)}
               disabled={busy}
@@ -295,6 +368,9 @@ export default function ProgramForm({
           <label className={styles.radioPill}>
             <input
               type="checkbox"
+              ref={(element) => {
+                fieldRefs.current.published = element;
+              }}
               checked={value.published}
               onChange={(event) => onChange("published", event.target.checked)}
               disabled={busy}

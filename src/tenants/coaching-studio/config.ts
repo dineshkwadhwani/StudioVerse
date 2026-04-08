@@ -30,6 +30,11 @@ export const config: TenantConfig = {
       tools: true,
       events: true,
     },
+    carouselItemLimits: {
+      programs: 8,
+      tools: 8,
+      events: 8,
+    },
     displayLabels: {
       tools: "Assessment Centre",
     },

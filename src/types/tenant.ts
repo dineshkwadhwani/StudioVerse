@@ -28,6 +28,11 @@ export type TenantConfig = {
       tools: boolean;
       events: boolean;
     };
+    carouselItemLimits?: {
+      programs?: number;
+      tools?: number;
+      events?: number;
+    };
     displayLabels?: {
       programs?: string;
       tools?: string;

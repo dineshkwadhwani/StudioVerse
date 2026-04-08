@@ -182,9 +182,25 @@ export default function CoachingLandingPage({ config }: Props) {
   }, [userType]);
 
   const landing = config.landingContent;
-  const programs = landing?.programs ?? [];
-  const tools = landing?.tools ?? [];
-  const events = landing?.events ?? [];
+  const programsLimit = landing?.carouselItemLimits?.programs;
+  const toolsLimit = landing?.carouselItemLimits?.tools;
+  const eventsLimit = landing?.carouselItemLimits?.events;
+
+  const programs = useMemo(() => {
+    const all = landing?.programs ?? [];
+    return typeof programsLimit === "number" && programsLimit > 0 ? all.slice(0, programsLimit) : all;
+  }, [landing?.programs, programsLimit]);
+
+  const tools = useMemo(() => {
+    const all = landing?.tools ?? [];
+    return typeof toolsLimit === "number" && toolsLimit > 0 ? all.slice(0, toolsLimit) : all;
+  }, [landing?.tools, toolsLimit]);
+
+  const events = useMemo(() => {
+    const all = landing?.events ?? [];
+    return typeof eventsLimit === "number" && eventsLimit > 0 ? all.slice(0, eventsLimit) : all;
+  }, [landing?.events, eventsLimit]);
+
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);
 

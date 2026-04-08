@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import type { TenantConfig } from "@/types/tenant";
+import { listPrograms } from "@/services/programs.service";
 import styles from "./CoachingLandingPage.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
@@ -14,6 +15,26 @@ type Props = {
 
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
+type CarouselItem = { name: string; image: string; title: string; description: string };
+
+function repeatToCount(items: CarouselItem[], limit?: number): CarouselItem[] {
+  if (typeof limit !== "number" || limit <= 0) {
+    return items;
+  }
+  if (items.length === 0) {
+    return [];
+  }
+  const target = Math.floor(limit);
+  const result: CarouselItem[] = [];
+  for (let i = 0; i < target; i += 1) {
+    result.push(items[i % items.length]);
+  }
+  return result;
+}
+
+function normalizeTenantToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 function getSectionMeta(toolsLabel: string): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
   return {
@@ -50,7 +71,7 @@ function CarouselSection({
   darkTile,
 }: {
   id: string;
-  items: { name: string; image: string; title: string; description: string }[];
+  items: CarouselItem[];
   title: string;
   intro: string;
   viewAllPath: string;
@@ -81,8 +102,8 @@ function CarouselSection({
         </button>
         <div className={styles.trackViewport}>
           <div className={styles.track} style={{ transform: `translateX(-${index * slideWidth}%)` }}>
-            {items.map((item) => (
-              <article key={item.name} className={styles.slide} style={{ flex: `0 0 ${slideWidth}%` }}>
+            {items.map((item, itemIndex) => (
+              <article key={`${item.name}-${itemIndex}`} className={styles.slide} style={{ flex: `0 0 ${slideWidth}%` }}>
                 <div className={`${styles.tile} ${darkTile ? styles.tileDark : ""}`}>
                   <img src={item.image} alt={item.title} className={styles.tileImage} />
                   <div className={styles.tileBody}>
@@ -162,6 +183,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [userType, setUserType] = useState<UserType>("coach");
+  const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);
   const perView = useItemsPerView();
 
   // Load userType from localStorage on mount
@@ -181,24 +203,69 @@ export default function CoachingLandingPage({ config }: Props) {
     }
   }, [userType]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProgramsForLanding(): Promise<void> {
+      try {
+        const allPrograms = await listPrograms();
+        const targetTenant = normalizeTenantToken(config.id);
+
+        const tenantPrograms = allPrograms.filter((program) => {
+          const currentTenant = normalizeTenantToken(program.tenantId);
+          return currentTenant === targetTenant;
+        });
+
+        // If at least one promoted program exists, show promoted only; otherwise
+        // show tenant programs so the section is never blank while data is being curated.
+        const promotedPrograms = tenantPrograms.filter((program) => program.promoted);
+        const sourcePrograms = promotedPrograms.length > 0 ? promotedPrograms : tenantPrograms;
+
+        const mappedPrograms: CarouselItem[] = sourcePrograms.map((program) => ({
+          name: program.id,
+          image: program.thumbnailUrl || config.landingContent?.heroImages?.programs || "",
+          title: program.name,
+          description: program.shortDescription || program.longDescription || "",
+        }));
+
+        if (!cancelled) {
+          setProgramItemsFromDb(mappedPrograms);
+        }
+      } catch (error) {
+        console.error("Failed to load programs for landing page:", error);
+        if (!cancelled) {
+          setProgramItemsFromDb([]);
+        }
+      }
+    }
+
+    void loadProgramsForLanding();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    config.id,
+    config.landingContent?.heroImages?.programs,
+  ]);
+
   const landing = config.landingContent;
   const programsLimit = landing?.carouselItemLimits?.programs;
   const toolsLimit = landing?.carouselItemLimits?.tools;
   const eventsLimit = landing?.carouselItemLimits?.events;
 
   const programs = useMemo(() => {
-    const all = landing?.programs ?? [];
-    return typeof programsLimit === "number" && programsLimit > 0 ? all.slice(0, programsLimit) : all;
-  }, [landing?.programs, programsLimit]);
+    return repeatToCount(programItemsFromDb, programsLimit);
+  }, [programItemsFromDb, programsLimit]);
 
   const tools = useMemo(() => {
     const all = landing?.tools ?? [];
-    return typeof toolsLimit === "number" && toolsLimit > 0 ? all.slice(0, toolsLimit) : all;
+    return repeatToCount(all, toolsLimit);
   }, [landing?.tools, toolsLimit]);
 
   const events = useMemo(() => {
     const all = landing?.events ?? [];
-    return typeof eventsLimit === "number" && eventsLimit > 0 ? all.slice(0, eventsLimit) : all;
+    return repeatToCount(all, eventsLimit);
   }, [landing?.events, eventsLimit]);
 
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";

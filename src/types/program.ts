@@ -85,6 +85,7 @@ export type ProgramFormValues = {
   status: ProgramStatus;
   facilitatorName: string;
   promoted: boolean;
+  published: boolean;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string;
   catalogVisibility: ProgramCatalogVisibility;
@@ -111,6 +112,7 @@ export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   status: "draft",
   facilitatorName: "",
   promoted: false,
+  published: false,
   ownershipScope: "platform",
   ownerEntityId: "",
   catalogVisibility: "tenant_wide",

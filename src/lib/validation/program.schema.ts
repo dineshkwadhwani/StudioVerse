@@ -37,6 +37,7 @@ export const programFormSchema = z.object({
   status: z.enum(PROGRAM_STATUSES),
   facilitatorName: optionalTrimmedString,
   promoted: z.boolean(),
+  published: z.boolean(),
   ownershipScope: z.enum(PROGRAM_OWNERSHIP_SCOPES),
   ownerEntityId: z.string().trim(),
   catalogVisibility: z.enum(PROGRAM_CATALOG_VISIBILITY),
@@ -61,6 +62,10 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   const durationValue = parsed.durationValue ? Number(parsed.durationValue) : 0;
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
 
+  // Determine publication state based on the published checkbox
+  const publicationState = parsed.published ? "published" : "draft";
+  const status = parsed.published ? "published" : "draft";
+
   return {
     id: parsed.id,
     tenantId: parsed.tenantId,
@@ -77,13 +82,13 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     creditsRequired,
     availableFrom: toProgramBoundaryIso(parsed.availableFrom, "start"),
     expiresAt: toProgramBoundaryIso(parsed.expiresAt, "end"),
-    status: mode === "publish" ? "published" : parsed.status,
+    status,
     facilitatorName: parsed.facilitatorName || null,
     promoted: parsed.promoted,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
     catalogVisibility: parsed.catalogVisibility,
-    publicationState: mode === "publish" ? "published" : parsed.publicationState,
+    publicationState,
   };
 }
 
@@ -106,7 +111,8 @@ export function validateProgramForm(
     errors.tenantId = "Select a tenant.";
   }
 
-  if (mode === "publish") {
+  // Require certain fields when publishing
+  if (values.published) {
     if (!name) {
       errors.name = "Program name is required.";
     }

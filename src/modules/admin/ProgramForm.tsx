@@ -30,8 +30,7 @@ type ProgramFormProps = {
   onChange: <K extends keyof ProgramFormValues>(field: K, nextValue: ProgramFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onCancel: () => void;
-  onSaveDraft: () => void;
-  onPublish: () => void;
+  onSave: () => void;
 };
 
 export default function ProgramForm({
@@ -45,8 +44,7 @@ export default function ProgramForm({
   onChange,
   onThumbnailSelect,
   onCancel,
-  onSaveDraft,
-  onPublish,
+  onSave,
 }: ProgramFormProps) {
   const activeTenants = tenants.filter((tenant) => tenant.status === "active");
 
@@ -294,6 +292,15 @@ export default function ProgramForm({
             />
             Promoted metadata flag
           </label>
+          <label className={styles.radioPill}>
+            <input
+              type="checkbox"
+              checked={value.published}
+              onChange={(event) => onChange("published", event.target.checked)}
+              disabled={busy}
+            />
+            Publish
+          </label>
           <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[value.status]}</span>
         </div>
 
@@ -310,11 +317,8 @@ export default function ProgramForm({
           <button type="button" className={styles.ghostButton} onClick={onCancel} disabled={busy || uploadBusy}>
             Cancel
           </button>
-          <button type="button" className={styles.badgeButton} onClick={onSaveDraft} disabled={busy || uploadBusy}>
+          <button type="button" className={styles.button} onClick={onSave} disabled={busy || uploadBusy}>
             {busy || uploadBusy ? "Working..." : editing ? "Update" : "Create"}
-          </button>
-          <button type="button" className={styles.button} onClick={onPublish} disabled={busy || uploadBusy}>
-            {busy || uploadBusy ? "Working..." : editing ? "Update and Publish" : "Create and Publish"}
           </button>
         </div>
       </section>

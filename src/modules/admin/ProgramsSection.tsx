@@ -55,6 +55,7 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
     status: program.status,
     facilitatorName: program.facilitatorName ?? "",
     promoted: program.promoted,
+    published: program.publicationState === "published",
     ownershipScope: program.ownershipScope,
     ownerEntityId: program.ownerEntityId ?? "",
     catalogVisibility: program.catalogVisibility,
@@ -163,12 +164,15 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
     setSelectedThumbnail(file);
   }
 
-  async function submit(mode: ProgramSaveMode): Promise<void> {
+  async function submit(): Promise<void> {
     setBusy(true);
     setError("");
     setMessage("");
 
     try {
+      // Determine mode based on the published checkbox
+      const mode: ProgramSaveMode = formValues.published ? "publish" : "draft";
+
       const preliminaryErrors = validateProgramForm(formValues, mode, {
         hasSelectedThumbnail: Boolean(selectedThumbnail),
       });
@@ -209,7 +213,11 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
       setFormOpen(false);
       setSelectedThumbnail(null);
       setFormErrors({});
-      setMessage(mode === "publish" ? "Program saved and marked as published." : "Program draft saved.");
+      
+      const action = isExisting ? "updated" : "created";
+      const publicationStatus = formValues.published ? " and published" : " as draft";
+      setMessage(`Program ${action}${publicationStatus}.`);
+      
       await refreshPrograms(selectedTenantId || undefined);
     } catch (submitError) {
       console.error(submitError);
@@ -312,8 +320,7 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onCancel={closeForm}
-          onSaveDraft={() => void submit("draft")}
-          onPublish={() => void submit("publish")}
+          onSave={() => void submit()}
         />
       ) : null}
     </article>

@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "studioverse-dev"
+    "default": "studioverse-test"
   },
   "targets": {},
   "etags": {}

@@ -63,6 +63,11 @@
   margin-bottom: 12px;
 }
 
+.inputError {
+  border-color: #d93025;
+  box-shadow: 0 0 0 1px rgba(217, 48, 37, 0.22);
+}
+
 .actions {
   display: flex;
   gap: 10px;
@@ -378,10 +383,64 @@
   border: 1px solid var(--line);
   box-shadow: 0 16px 36px rgba(19, 58, 86, 0.2);
   padding: 18px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal h3 {
   margin-top: 0;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.modalHeader h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.modalCloseButton {
+  border: 0;
+  background: transparent;
+  color: var(--ink-strong);
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.modalCloseButton:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.modalCloseButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal > div:not(.modalHeader) {
+  overflow-y: auto;
+  flex: 1;
+  overflow-x: hidden;
+}
+
+.modal > div:last-child {
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .placeholder {

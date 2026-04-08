@@ -95,3 +95,20 @@ Use the master architecture and product documents for broader platform context.
 - Do not narrate your process with lines like "I’m pulling", "I’m reading", or "I have the substance".
 - When asked for implementation help, first provide a short plan or file list, then generate code.
 - When citing project files in chat, prefer concise references and avoid excessive line-by-line commentary unless requested.
+
+Before making architecture, routing, folder structure, provider, naming, or implementation decisions, always consult the relevant Markdown files in `/docs`.
+
+Priority order:
+1. `docs/COPILOT_CONTEXT.md`
+2. `docs/ARCHITECTURE_OVERVIEW.md`
+3. `docs/StudioVerse_Technical_architecture_Master_part1.md`
+4. `docs/StudioVerse_Technical_Architecture_Master_part2.md`
+5. `docs/StudioVerse_Executive_Product_Document_v2.md`
+6. `docs/Technical_stories_Master.md`
+
+Implementation-specific context:
+- Use `docs/T0.md` to `docs/T5.md` for technical epic implementation.
+- Use `docs/E0.md` and `docs/E1.md` for functional epic implementation.
+
+If a request affects architecture or implementation, briefly state which docs were consulted before proposing changes.
+Do not guess when the answer is defined in `/docs`.

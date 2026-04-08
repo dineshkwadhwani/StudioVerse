@@ -240,6 +240,36 @@ For local development:
 - use Firebase emulators in dev
 - keep local flows aligned with the documented setup process[file:181]
 
+## Firebase auth implementation notes (Apr 2026)
+
+Current implementation baseline:
+- Firebase Phone Auth uses standard `RecaptchaVerifier` flow in `src/app/test/auth/page.tsx`
+- Enterprise App Check wiring was removed from frontend bootstrap and auth diagnostics
+- Keep `src/services/firebase.ts` free from `initializeAppCheck` and Enterprise providers unless explicitly re-approved
+
+Operational behavior validated in this repo:
+- localhost supports configured Firebase test phone numbers
+- localhost is not reliable for real (non-test) phone OTP; use deployed HTTPS domain for real-number validation
+- Vercel real-number OTP works only when exact hostname is present in Firebase Auth Authorized domains
+
+Environment variables currently required for web Firebase initialization:
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+Superadmin seeding behavior:
+- Initial superadmin profile is auto-seeded via `ensureSuperadminProfile` in `src/modules/admin/SuperAdminPortal.tsx`
+- Seed trigger is first successful login with `MASTER_SUPERADMIN_PHONE_E164`
+- Only the configured master superadmin phone auto-seeds; other numbers require existing records
+
+Domain and testing guardrails:
+- Auth domain matching is exact; use the same hostname as browser address bar
+- Validate OTP flows in order: localhost test number, deployed test number, deployed real number
+- Keep auth in `AUDIT` mode during setup and switch to stricter enforcement only after stable validation
+
 ## Branching rule
 
 Follow the documented git model:

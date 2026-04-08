@@ -34,3 +34,28 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Firebase Notes (StudioVerse)
+
+### Web env variables
+
+Set these in local `.env.local` and Vercel project settings:
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+### Phone auth behavior
+
+- Phone auth uses standard Firebase `RecaptchaVerifier` flow.
+- Localhost is suitable for configured Firebase test numbers.
+- Real (non-test) numbers should be tested on deployed HTTPS domains (for example Vercel).
+- Add the exact deployed hostname to Firebase Auth Authorized domains.
+
+### Superadmin bootstrap
+
+- First superadmin record is auto-seeded on initial login through admin flow.
+- Seed logic is implemented in `src/modules/admin/SuperAdminPortal.tsx` using `MASTER_SUPERADMIN_PHONE_E164` from `src/modules/admin/masterData.ts`.

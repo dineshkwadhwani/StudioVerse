@@ -237,8 +237,8 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         const resolvedName = typeof userData.name === 'string' ? userData.name : 'User';
         logFlow('verify-otp:existing-user', { role: resolvedRole, name: resolvedName });
 
-        // Set session storage
-        sessionStorage.setItem('cs_uid', userDoc.id);
+        // Keep session uid aligned with Firebase Auth uid for cross-page auth checks.
+        sessionStorage.setItem('cs_uid', result.user.uid);
         sessionStorage.setItem('cs_role', resolvedRole);
         sessionStorage.setItem('cs_name', resolvedName);
 

@@ -3,10 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import type { TenantConfig } from "@/types/tenant";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
+import { auth } from "@/services/firebase";
 import styles from "./CoachingLandingPage.module.css";
+import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
 
@@ -16,8 +19,23 @@ type Props = {
 
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
+type UserRole = "company" | "professional" | "individual";
 type CarouselItem = { name: string; image: string; title: string; description: string };
 type EventLandingItem = CarouselItem & { eventType: EventType; locationCity: string; eventDateTime: string | null; promoted: boolean };
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function getRoleLabel(role: UserRole | null): string {
+  if (role === "company") return "Coaching Company";
+  if (role === "professional") return "Coach";
+  if (role === "individual") return "Learner";
+  return "Member";
+}
 
 function repeatToCount(items: CarouselItem[], limit?: number): CarouselItem[] {
   if (typeof limit !== "number" || limit <= 0) {
@@ -185,6 +203,10 @@ export default function CoachingLandingPage({ config }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [userType, setUserType] = useState<UserType>("coach");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [name, setName] = useState("User");
+  const [role, setRole] = useState<UserRole | null>(null);
   const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);
   const [eventItemsFromDb, setEventItemsFromDb] = useState<EventLandingItem[]>([]);
   const perView = useItemsPerView();
@@ -205,6 +227,42 @@ export default function CoachingLandingPage({ config }: Props) {
       localStorage.setItem("coachingStudioUserType", userType);
     }
   }, [userType]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        setIsLoggedIn(false);
+        setMenuOpen(false);
+        setName("User");
+        setRole(null);
+        return;
+      }
+
+      const sessionUid = sessionStorage.getItem("cs_uid");
+      const storedName = sessionStorage.getItem("cs_name");
+      const storedRole = sessionStorage.getItem("cs_role");
+      const resolvedRole = storedRole === "company" || storedRole === "professional" || storedRole === "individual"
+        ? storedRole
+        : null;
+      const hasActiveSession = Boolean(storedRole || storedName || sessionUid);
+
+      if (!hasActiveSession) {
+        setIsLoggedIn(false);
+        setMenuOpen(false);
+        setName("User");
+        setRole(null);
+        return;
+      }
+
+      setIsLoggedIn(true);
+      setName(storedName?.trim() || firebaseUser.displayName || "User");
+      setRole(resolvedRole);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,6 +399,7 @@ export default function CoachingLandingPage({ config }: Props) {
 
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);
+  const initials = useMemo(() => getInitials(name), [name]);
 
   const isCoach = userType === "coach";
 
@@ -380,33 +439,44 @@ export default function CoachingLandingPage({ config }: Props) {
     [landing?.heroImages?.events, landing?.heroImages?.programs, landing?.heroImages?.tools]
   );
 
+  async function handleSignOut() {
+    await signOut(auth);
+    sessionStorage.removeItem("cs_uid");
+    sessionStorage.removeItem("cs_role");
+    sessionStorage.removeItem("cs_name");
+    setMenuOpen(false);
+    setIsMobileMenuOpen(false);
+  }
+
   return (
     <main className={styles.page}>
       <header className={styles.nav}>
-        <div className={styles.brand}>
+        <Link href="/coaching-studio" className={styles.brand}>
           <Image src={config.theme.logo} width={76} height={40} alt="Coaching Studio logo" className={styles.logo} />
           <div className={styles.brandText}>
             <span className={styles.brandTitle}>Coaching Studio</span>
             <span className={styles.brandSubtitle}>Coaching | Growth | Potential</span>
           </div>
-        </div>
+        </Link>
 
-        <div className={styles.userToggle}>
-          <button
-            type="button"
-            className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
-            onClick={() => setUserType("coach")}
-          >
-            I am a Coach
-          </button>
-          <button
-            type="button"
-            className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
-            onClick={() => setUserType("learner")}
-          >
-            I am a Learner
-          </button>
-        </div>
+        {!isLoggedIn ? (
+          <div className={styles.userToggle}>
+            <button
+              type="button"
+              className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
+              onClick={() => setUserType("coach")}
+            >
+              I am a Coach
+            </button>
+            <button
+              type="button"
+              className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
+              onClick={() => setUserType("learner")}
+            >
+              I am a Learner
+            </button>
+          </div>
+        ) : null}
 
         <nav className={styles.desktopNav}>
           <a href="#tools" className={styles.navLink}>
@@ -418,9 +488,38 @@ export default function CoachingLandingPage({ config }: Props) {
           <a href="#events" className={styles.navLink}>
             Events
           </a>
-          <button type="button" className={styles.authBtn} onClick={() => setIsAuthModalOpen(true)}>
-            Sign In / Register
-          </button>
+
+          {!isLoggedIn ? (
+            <button type="button" className={styles.authBtn} onClick={() => setIsAuthModalOpen(true)}>
+              Sign In / Register
+            </button>
+          ) : (
+            <div className={headerStyles.desktopAuthWrap}>
+              <div className={headerStyles.profileArea}>
+                <button type="button" className={headerStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
+                  {initials} ▾
+                </button>
+
+                {menuOpen ? (
+                  <section className={headerStyles.menuPanel}>
+                    <div className={headerStyles.menuUser}>
+                      <p className={headerStyles.menuName}>{name}</p>
+                      <p className={headerStyles.menuRole}>{getRoleLabel(role)}</p>
+                    </div>
+
+                    <p className={headerStyles.menuTitle}>Menu</p>
+                    <Link href="/coaching-studio/dashboard" className={headerStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                      Dashboard
+                    </Link>
+                    <hr className={headerStyles.menuDivider} />
+                    <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>
+                      Sign Out
+                    </button>
+                  </section>
+                ) : null}
+              </div>
+            </div>
+          )}
         </nav>
 
         <button
@@ -435,28 +534,30 @@ export default function CoachingLandingPage({ config }: Props) {
 
       {isMobileMenuOpen && (
         <div className={styles.mobileMenu}>
-          <div className={styles.mobileUserToggle}>
-            <button
-              type="button"
-              className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "coach" ? styles.toggleActive : ""}`}
-              onClick={() => {
-                setUserType("coach");
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              I am a Coach
-            </button>
-            <button
-              type="button"
-              className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "learner" ? styles.toggleActive : ""}`}
-              onClick={() => {
-                setUserType("learner");
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              I am a Learner
-            </button>
-          </div>
+          {!isLoggedIn ? (
+            <div className={styles.mobileUserToggle}>
+              <button
+                type="button"
+                className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "coach" ? styles.toggleActive : ""}`}
+                onClick={() => {
+                  setUserType("coach");
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                I am a Coach
+              </button>
+              <button
+                type="button"
+                className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "learner" ? styles.toggleActive : ""}`}
+                onClick={() => {
+                  setUserType("learner");
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                I am a Learner
+              </button>
+            </div>
+          ) : null}
           <a href="#tools" onClick={() => setIsMobileMenuOpen(false)}>
             {sectionMeta.tools.navLabel}
           </a>
@@ -466,12 +567,26 @@ export default function CoachingLandingPage({ config }: Props) {
           <a href="#events" onClick={() => setIsMobileMenuOpen(false)}>
             Events
           </a>
-          <button type="button" onClick={() => {
-            setIsAuthModalOpen(true);
-            setIsMobileMenuOpen(false);
-          }}>
-            Sign In / Register
-          </button>
+
+          {isLoggedIn ? (
+            <>
+              <div className={headerStyles.mobileMenuUser}>
+                <p className={headerStyles.mobileMenuName}>{name}</p>
+                <p className={headerStyles.mobileMenuRole}>{getRoleLabel(role)}</p>
+              </div>
+              <Link href="/coaching-studio/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+                Dashboard
+              </Link>
+              <button type="button" onClick={handleSignOut}>Sign Out</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => {
+              setIsAuthModalOpen(true);
+              setIsMobileMenuOpen(false);
+            }}>
+              Sign In / Register
+            </button>
+          )}
         </div>
       )}
 

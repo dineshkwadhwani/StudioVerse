@@ -69,7 +69,7 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
         ? storedRole
         : null;
 
-      const hasActiveSession = Boolean(sessionUid) && sessionUid === firebaseUser.uid;
+      const hasActiveSession = Boolean(storedRole || storedName || sessionUid);
 
       if (!hasActiveSession) {
         setIsLoggedIn(false);
@@ -116,22 +116,24 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
           </div>
         </Link>
 
-        <div className={landingStyles.userToggle}>
-          <button
-            type="button"
-            className={`${landingStyles.toggleBtn} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
-            onClick={() => setUserType("coach")}
-          >
-            I am a Coach
-          </button>
-          <button
-            type="button"
-            className={`${landingStyles.toggleBtn} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
-            onClick={() => setUserType("learner")}
-          >
-            I am a Learner
-          </button>
-        </div>
+        {!isLoggedIn ? (
+          <div className={landingStyles.userToggle}>
+            <button
+              type="button"
+              className={`${landingStyles.toggleBtn} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
+              onClick={() => setUserType("coach")}
+            >
+              I am a Coach
+            </button>
+            <button
+              type="button"
+              className={`${landingStyles.toggleBtn} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
+              onClick={() => setUserType("learner")}
+            >
+              I am a Learner
+            </button>
+          </div>
+        ) : null}
 
         <nav className={landingStyles.desktopNav}>
           <Link href="/coaching-studio/tools" className={navClass("tools")}>
@@ -185,22 +187,24 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
 
       {isMobileMenuOpen ? (
         <div className={landingStyles.mobileMenu}>
-          <div className={landingStyles.mobileUserToggle}>
-            <button
-              type="button"
-              className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
-              onClick={() => setUserType("coach")}
-            >
-              I am a Coach
-            </button>
-            <button
-              type="button"
-              className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
-              onClick={() => setUserType("learner")}
-            >
-              I am a Learner
-            </button>
-          </div>
+          {!isLoggedIn ? (
+            <div className={landingStyles.mobileUserToggle}>
+              <button
+                type="button"
+                className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
+                onClick={() => setUserType("coach")}
+              >
+                I am a Coach
+              </button>
+              <button
+                type="button"
+                className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
+                onClick={() => setUserType("learner")}
+              >
+                I am a Learner
+              </button>
+            </div>
+          ) : null}
 
           <Link href="/coaching-studio/tools" onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
           <Link href="/coaching-studio/programs" onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>

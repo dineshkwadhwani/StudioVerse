@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
+import { config } from "@/tenants/coaching-studio/config";
+import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingDashboard.module.css";
 
 type UserRole = "company" | "professional" | "individual";
@@ -100,6 +103,7 @@ export default function CoachingDashboard() {
   }, [menuItems, activeKey]);
 
   const userInitials = useMemo(() => getInitials(name), [name]);
+  const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
 
   async function handleLogout() {
     await signOut(auth);
@@ -109,59 +113,78 @@ export default function CoachingDashboard() {
 
   return (
     <main className={styles.page}>
-      {/* Fixed top nav */}
-      <header className={styles.toolbar}>
-        <div className={styles.brandBlock}>
+      <header className={landingStyles.nav}>
+        <Link href="/coaching-studio" className={landingStyles.brand}>
           <Image
-            src="/sv_logo.png"
-            alt="Coaching Studio"
-            width={40}
+            src={config.theme.logo}
+            alt="Coaching Studio logo"
+            width={76}
             height={40}
-            className={styles.brandLogo}
+            className={landingStyles.logo}
           />
-        </div>
+          <div className={landingStyles.brandText}>
+            <span className={landingStyles.brandTitle}>Coaching Studio</span>
+            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
+          </div>
+        </Link>
 
-        <div className={styles.profileArea}>
-          <button
-            type="button"
-            className={styles.profileButton}
-            onClick={() => setMenuOpen((prev) => !prev)}
-          >
-            {userInitials} ▾
-          </button>
+        <div className={styles.rightControls}>
+          <nav className={landingStyles.desktopNav}>
+            <Link href="/coaching-studio/tools" className={landingStyles.navLink}>
+              {toolsLabel}
+            </Link>
+            <Link href="/coaching-studio/programs" className={landingStyles.navLink}>Programs</Link>
+            <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
+          </nav>
 
-          {menuOpen && (
-            <section className={styles.menuPanel}>
-              <div className={styles.menuUser}>
-                <p className={styles.menuName}>{name}</p>
-                <p className={styles.menuRole}>{getRoleLabel(role)}</p>
-              </div>
+          <div className={styles.profileArea}>
+            <button
+              type="button"
+              className={styles.profileButton}
+              onClick={() => setMenuOpen((prev) => !prev)}
+            >
+              {userInitials} ▾
+            </button>
 
-              <p className={styles.menuTitle}>Actions</p>
+            {menuOpen && (
+              <section className={styles.menuPanel}>
+                <div className={styles.menuUser}>
+                  <p className={styles.menuName}>{name}</p>
+                  <p className={styles.menuRole}>{getRoleLabel(role)}</p>
+                </div>
 
-              {menuItems.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
-                  onClick={() => {
-                    setActiveKey(item.key);
-                    setMenuOpen(false);
-                  }}
-                >
-                  {item.label}
+                <p className={styles.menuTitle}>Actions</p>
+
+                {menuItems.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
+                    onClick={() => {
+                      setActiveKey(item.key);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+
+                <hr className={styles.menuDivider} />
+
+                <button type="button" className={styles.menuItem} onClick={handleLogout}>
+                  Sign Out
                 </button>
-              ))}
-
-              <hr className={styles.menuDivider} />
-
-              <button type="button" className={styles.menuItem} onClick={handleLogout}>
-                Sign Out
-              </button>
-            </section>
-          )}
+              </section>
+            )}
+          </div>
         </div>
       </header>
+
+      <nav className={styles.mobileTopNav}>
+        <Link href="/coaching-studio/tools">{toolsLabel}</Link>
+        <Link href="/coaching-studio/programs">Programs</Link>
+        <Link href="/coaching-studio/events">Events</Link>
+      </nav>
 
       {/* Content */}
       <div className={styles.shell}>

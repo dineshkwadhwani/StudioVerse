@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import type { TenantConfig } from "@/types/tenant";
+import type { EventType } from "@/types/event";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth } from "@/services/firebase";

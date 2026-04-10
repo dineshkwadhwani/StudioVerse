@@ -33,6 +33,7 @@ import {
 } from "./masterData";
 import ProgramsSection from "./ProgramsSection";
 import EventsSection from "./EventsSection";
+import AssessmentsSection from "./AssessmentsSection";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -106,7 +107,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "profile", label: "Update Profile" },
   { key: "users", label: "Manage Users" },
   { key: "tenants", label: "Manage Tenants" },
-  { key: "tools", label: "Manage Tools" },
+  { key: "tools", label: "Manage Assessments" },
   { key: "programs", label: "Manage Programs" },
   { key: "events", label: "Manage Events" },
 ];
@@ -857,19 +858,7 @@ export default function SuperAdminPortal() {
             </article>
           ) : null}
 
-          {activeMenu === "tools" ? (
-            <article className={styles.card}>
-              <h2>Manage Tools</h2>
-              <div className={styles.controlCard}>
-                <div className={styles.actions}>
-                  <button type="button" className={styles.button} disabled>
-                    Add Tool (Next Step)
-                  </button>
-                </div>
-              </div>
-              <div className={styles.emptyCard}>Tools listing UI will be enabled in the next implementation step.</div>
-            </article>
-          ) : null}
+          {activeMenu === "tools" ? <AssessmentsSection tenants={tenants} /> : null}
 
           {activeMenu === "programs" ? <ProgramsSection tenants={tenants} /> : null}
 

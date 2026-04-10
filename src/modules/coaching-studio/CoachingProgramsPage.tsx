@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { TenantConfig } from "@/types/tenant";
 import { listPrograms } from "@/services/programs.service";
@@ -10,6 +8,8 @@ import {
   type ProgramDeliveryType,
   type ProgramRecord,
 } from "@/types/program";
+import LoginRegisterModal from "./auth/LoginRegisterModal";
+import CoachingViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingProgramsPage.module.css";
 
@@ -25,6 +25,7 @@ export default function CoachingProgramsPage({ config }: Props) {
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDeliveryType, setSelectedDeliveryType] = useState<string>("all");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -90,16 +91,11 @@ export default function CoachingProgramsPage({ config }: Props) {
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
-        <div className={landingStyles.brand}>
-          <Image src={config.theme.logo} width={76} height={40} alt="Coaching Studio logo" className={landingStyles.logo} />
-          <div className={landingStyles.brandText}>
-            <span className={landingStyles.brandTitle}>Coaching Studio</span>
-            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
-          </div>
-        </div>
-        <Link href="/coaching-studio" className={styles.homeLink}>Home</Link>
-      </header>
+      <CoachingViewAllHeader
+        config={config}
+        currentPage="programs"
+        onSignInRegister={() => setIsAuthModalOpen(true)}
+      />
 
       <section className={styles.heroSection}>
         <div className={styles.heroText}>
@@ -176,6 +172,8 @@ export default function CoachingProgramsPage({ config }: Props) {
           </div>
         ) : null}
       </section>
+
+      <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </main>
   );
 }

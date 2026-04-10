@@ -102,6 +102,15 @@
   font-size: 0.95rem;
 }
 
+.navLinkActive {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%);
+  border: 1px solid var(--brand-primary);
+  color: #fff;
+}
+
 .authBtn {
   border: 0;
   border-radius: 999px;

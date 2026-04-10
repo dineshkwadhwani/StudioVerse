@@ -1,0 +1,105 @@
+.profileArea {
+  position: relative;
+}
+
+.profileButton {
+  border: 1px solid #c6dcea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #133a56;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.menuPanel {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: min(280px, 86vw);
+  background: #f8fcff;
+  border: 1px solid #c6dcea;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(19, 58, 86, 0.14);
+  padding: 12px;
+  z-index: 40;
+}
+
+.menuUser {
+  padding: 6px 10px 10px;
+  border-bottom: 1px solid #c6dcea;
+  margin-bottom: 8px;
+}
+
+.menuName {
+  margin: 0;
+  font-weight: 800;
+  color: #133a56;
+}
+
+.menuRole {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: #4d6e86;
+}
+
+.menuTitle {
+  margin: 10px 8px 6px;
+  color: #4d6e86;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.menuItem,
+.menuLink {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: #133a56;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  display: block;
+}
+
+.menuItem:hover,
+.menuLink:hover {
+  background: #e9f6ff;
+}
+
+.menuDivider {
+  border: 0;
+  border-top: 1px solid #c6dcea;
+  margin: 8px 0;
+}
+
+.desktopAuthWrap {
+  display: flex;
+  align-items: center;
+}
+
+.mobileMenuUser {
+  border: 1px solid #c6dcea;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #133a56;
+}
+
+.mobileMenuName {
+  margin: 0;
+  font-weight: 800;
+}
+
+.mobileMenuRole {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+  color: #4d6e86;
+}

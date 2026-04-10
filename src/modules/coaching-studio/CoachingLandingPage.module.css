@@ -254,6 +254,29 @@
   margin-top: 0;
 }
 
+.eventsFilterRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.eventsFilterLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.eventsFilterSelect {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ink-strong);
+  min-width: 140px;
+}
+
 .viewAllInline {
   color: #1f5c9c;
   text-decoration: none;

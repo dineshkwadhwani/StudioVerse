@@ -32,6 +32,7 @@ import {
   normalizePhone,
 } from "./masterData";
 import ProgramsSection from "./ProgramsSection";
+import EventsSection from "./EventsSection";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -873,17 +874,7 @@ export default function SuperAdminPortal() {
           {activeMenu === "programs" ? <ProgramsSection tenants={tenants} /> : null}
 
           {activeMenu === "events" ? (
-            <article className={styles.card}>
-              <h2>Manage Events</h2>
-              <div className={styles.controlCard}>
-                <div className={styles.actions}>
-                  <button type="button" className={styles.button} disabled>
-                    Add Event (Next Step)
-                  </button>
-                </div>
-              </div>
-              <div className={styles.emptyCard}>Events listing UI will be enabled in the next implementation step.</div>
-            </article>
+            <EventsSection tenants={tenants} />
           ) : null}
         </section>
 

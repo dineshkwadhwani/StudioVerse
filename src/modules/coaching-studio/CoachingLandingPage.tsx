@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import type { TenantConfig } from "@/types/tenant";
 import { listPrograms } from "@/services/programs.service";
+import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import styles from "./CoachingLandingPage.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
@@ -16,6 +17,7 @@ type Props = {
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
 type CarouselItem = { name: string; image: string; title: string; description: string };
+type EventLandingItem = CarouselItem & { eventType: EventType; locationCity: string; eventDateTime: string | null; promoted: boolean };
 
 function repeatToCount(items: CarouselItem[], limit?: number): CarouselItem[] {
   if (typeof limit !== "number" || limit <= 0) {
@@ -184,6 +186,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [userType, setUserType] = useState<UserType>("coach");
   const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);
+  const [eventItemsFromDb, setEventItemsFromDb] = useState<EventLandingItem[]>([]);
   const perView = useItemsPerView();
 
   // Load userType from localStorage on mount
@@ -249,6 +252,61 @@ export default function CoachingLandingPage({ config }: Props) {
     config.landingContent?.heroImages?.programs,
   ]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEventsForLanding(): Promise<void> {
+      try {
+        let events = await listLandingPageEvents(config.id);
+
+        // Fallback for tenant-id format mismatches (e.g. coaching-studio vs coachingstudio).
+        if (events.length === 0) {
+          const allEvents = await listEvents();
+          const targetTenant = normalizeTenantToken(config.id);
+          events = allEvents
+            .filter((event) => normalizeTenantToken(event.tenantId) === targetTenant)
+            .filter((event) => event.status === "published" && event.publicationState === "published")
+            .sort((a, b) => {
+              if (a.promoted !== b.promoted) {
+                return a.promoted ? -1 : 1;
+              }
+              const aTime = a.eventDateTime ?? "";
+              const bTime = b.eventDateTime ?? "";
+              if (aTime < bTime) return -1;
+              if (aTime > bTime) return 1;
+              return (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0);
+            });
+        }
+
+        const mapped: EventLandingItem[] = events.map((event) => ({
+          name: event.id,
+          image: event.thumbnailUrl || config.landingContent?.heroImages?.events || "",
+          title: event.name,
+          description: event.shortDescription || event.longDescription || "",
+          eventType: event.eventType,
+          locationCity: event.locationCity,
+          eventDateTime: event.eventDateTime,
+          promoted: event.promoted,
+        }));
+
+        if (!cancelled) {
+          setEventItemsFromDb(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to load events for landing page:", error);
+        if (!cancelled) {
+          setEventItemsFromDb([]);
+        }
+      }
+    }
+
+    void loadEventsForLanding();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config.id, config.landingContent?.heroImages?.events]);
+
   const landing = config.landingContent;
   const programsLimit = landing?.carouselItemLimits?.programs;
   const toolsLimit = landing?.carouselItemLimits?.tools;
@@ -263,10 +321,23 @@ export default function CoachingLandingPage({ config }: Props) {
     return repeatToCount(all, toolsLimit);
   }, [landing?.tools, toolsLimit]);
 
+  const eventSource = useMemo<EventLandingItem[]>(() => {
+    if (eventItemsFromDb.length > 0) {
+      return eventItemsFromDb;
+    }
+
+    return (landing?.events ?? []).map((item) => ({
+      ...item,
+      eventType: "webinar",
+      locationCity: "",
+      eventDateTime: null,
+      promoted: false,
+    }));
+  }, [eventItemsFromDb, landing?.events]);
+
   const events = useMemo(() => {
-    const all = landing?.events ?? [];
-    return repeatToCount(all, eventsLimit);
-  }, [landing?.events, eventsLimit]);
+    return repeatToCount(eventSource, eventsLimit);
+  }, [eventSource, eventsLimit]);
 
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);

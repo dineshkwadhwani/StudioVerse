@@ -1,8 +1,11 @@
-export default function CoachingStudioProgramsPage() {
+import { config } from "@/tenants/coaching-studio/config";
+import CoachingProgramsPage from "@/modules/coaching-studio/CoachingProgramsPage";
+import TenantGate from "@/modules/tenant/TenantGate";
+
+export default function CoachingStudioProgramsRoutePage() {
   return (
-    <main style={{ padding: "40px" }}>
-      <h1>Programs</h1>
-      <p>This is a placeholder page for Programs.</p>
-    </main>
+    <TenantGate rootContext="coaching-studio">
+      <CoachingProgramsPage config={config} />
+    </TenantGate>
   );
 }

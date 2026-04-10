@@ -1,8 +1,11 @@
+import { config } from "@/tenants/coaching-studio/config";
+import CoachingEventsPage from "@/modules/coaching-studio/CoachingEventsPage";
+import TenantGate from "@/modules/tenant/TenantGate";
+
 export default function CoachingStudioEventsPage() {
   return (
-    <main style={{ padding: "40px" }}>
-      <h1>Events</h1>
-      <p>This is a placeholder page for Events.</p>
-    </main>
+    <TenantGate rootContext="coaching-studio">
+      <CoachingEventsPage config={config} />
+    </TenantGate>
   );
 }

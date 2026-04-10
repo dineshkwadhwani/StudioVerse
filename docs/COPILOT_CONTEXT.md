@@ -350,3 +350,26 @@ Before making major changes, consult:
 - `docs/T5.md`
 
 Use this file as the short instruction layer and those files as the detailed implementation context.[file:181]
+
+## Progress update — Coaching Studio headers and catalogs (Apr 10, 2026)
+
+Completed behavior baseline for Coaching Studio:
+- Programs and Events View All pages are implemented and use a common header pattern.
+- Assessment Centre, Programs, and Events top links route by context:
+  - Landing page: links target in-page anchors.
+  - View All and Dashboard: links target the respective View All routes.
+- Header logo is clickable and returns to the Coaching Studio landing page.
+
+Uniform header state model now implemented:
+- Not logged in on Landing: coach/learner toggle visible, Sign In/Register visible.
+- Not logged in on View All: coach/learner toggle visible, Sign In/Register visible.
+- Logged in on Landing: coach/learner toggle hidden, initials menu shown.
+- Logged in on View All: coach/learner toggle hidden, initials menu shown.
+- Logged in on Dashboard: clickable logo + View All links + initials menu.
+
+Auth/session persistence fix applied:
+- Session uid is stored as Firebase uid in login/register flows.
+- Header login state checks use Firebase user plus tenant session markers (`cs_uid` / `cs_role` / `cs_name`) to avoid false logged-out state when navigating between Landing, View All, and Dashboard.
+
+UI polish completed:
+- Active View All top-nav item uses pill styling with proper horizontal padding for readable spacing.

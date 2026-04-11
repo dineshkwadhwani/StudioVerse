@@ -233,6 +233,31 @@
   justify-content: space-between;
 }
 
+.statTileButton {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f2f9ff 100%);
+  padding: 14px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.statTileButton:hover {
+  border-color: #8db9d4;
+  box-shadow: 0 10px 20px rgba(19, 58, 86, 0.12);
+  transform: translateY(-1px);
+}
+
+.statTileButton:focus-visible {
+  outline: 2px solid #1f5c9c;
+  outline-offset: 2px;
+}
+
 .statLabel {
   margin: 0;
   color: var(--ink-soft);

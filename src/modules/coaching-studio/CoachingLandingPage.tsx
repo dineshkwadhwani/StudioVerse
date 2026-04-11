@@ -4,11 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { collection, getDocs } from "firebase/firestore";
 import type { TenantConfig } from "@/types/tenant";
 import type { EventType } from "@/types/event";
+import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
-import { auth } from "@/services/firebase";
+import { auth, db } from "@/services/firebase";
 import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
@@ -209,6 +211,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
   const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);
+  const [toolItemsFromDb, setToolItemsFromDb] = useState<CarouselItem[]>([]);
   const [eventItemsFromDb, setEventItemsFromDb] = useState<EventLandingItem[]>([]);
   const perView = useItemsPerView();
 
@@ -268,6 +271,45 @@ export default function CoachingLandingPage({ config }: Props) {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadToolsForLanding(): Promise<void> {
+      try {
+        const snapshot = await getDocs(collection(db, "assessments"));
+        const allAssessments = snapshot.docs.map((entry) => ({
+          id: entry.id,
+          ...(entry.data() as Omit<AssessmentRecord, "id">),
+        }));
+
+        const targetTenant = normalizeTenantToken(config.id);
+        const tenantAssessments = allAssessments.filter(
+          (item) => normalizeTenantToken(item.tenantId) === targetTenant,
+        );
+
+        const promoted = tenantAssessments.filter((item) => Boolean((item as unknown as { promoted?: boolean }).promoted));
+        const published = tenantAssessments.filter(
+          (item) => item.publicationState === "published" || item.status === "active",
+        );
+        const source = promoted.length > 0 ? promoted : published;
+
+        const mapped: CarouselItem[] = source
+          .sort((a, b) => (b.updatedAt?.toDate().getTime() ?? 0) - (a.updatedAt?.toDate().getTime() ?? 0))
+          .map((item) => ({
+            name: item.id,
+            image: item.assessmentImageUrl || config.landingContent?.heroImages?.tools || "",
+            title: item.name,
+            description: item.shortDescription || item.longDescription || "",
+          }));
+
+        if (!cancelled) {
+          setToolItemsFromDb(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to load assessments for landing page:", error);
+        if (!cancelled) {
+          setToolItemsFromDb([]);
+        }
+      }
+    }
+
     async function loadProgramsForLanding(): Promise<void> {
       try {
         const allPrograms = await listPrograms();
@@ -301,6 +343,7 @@ export default function CoachingLandingPage({ config }: Props) {
       }
     }
 
+    void loadToolsForLanding();
     void loadProgramsForLanding();
 
     return () => {
@@ -376,23 +419,12 @@ export default function CoachingLandingPage({ config }: Props) {
   }, [programItemsFromDb, programsLimit]);
 
   const tools = useMemo(() => {
-    const all = landing?.tools ?? [];
-    return repeatToCount(all, toolsLimit);
-  }, [landing?.tools, toolsLimit]);
+    return repeatToCount(toolItemsFromDb, toolsLimit);
+  }, [toolItemsFromDb, toolsLimit]);
 
   const eventSource = useMemo<EventLandingItem[]>(() => {
-    if (eventItemsFromDb.length > 0) {
-      return eventItemsFromDb;
-    }
-
-    return (landing?.events ?? []).map((item) => ({
-      ...item,
-      eventType: "webinar",
-      locationCity: "",
-      eventDateTime: null,
-      promoted: false,
-    }));
-  }, [eventItemsFromDb, landing?.events]);
+    return eventItemsFromDb;
+  }, [eventItemsFromDb]);
 
   const events = useMemo(() => {
     return repeatToCount(eventSource, eventsLimit);

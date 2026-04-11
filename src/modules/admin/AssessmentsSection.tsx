@@ -13,7 +13,8 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "@/services/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db, storage } from "@/services/firebase";
 import styles from "./SuperAdminPortal.module.css";
 import {
   ASSESSMENT_TYPE_LABELS,
@@ -53,11 +54,31 @@ function buildAssessmentId(tenantId: string, name: string): string {
   return `${tenantId}-${slug}`;
 }
 
+function sanitizeExtension(file: File): string {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension === "jpg" || extension === "jpeg" || extension === "png" || extension === "webp") {
+    return extension;
+  }
+  return "jpg";
+}
+
+function validateAssessmentImageFile(file: File): string | null {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    return "Use a JPG, PNG, or WebP image for the assessment image.";
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    return "Assessment image must be 2MB or smaller.";
+  }
+  return null;
+}
+
 const EMPTY_FORM: AssessmentFormValues = {
   tenantId: "",
   name: "",
   shortDescription: "",
   longDescription: "",
+  assessmentImageUrl: "",
+  assessmentImagePath: "",
   assessmentContext: "",
   assessmentBenefit: "",
   assessmentType: "self-awareness",
@@ -79,6 +100,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<AssessmentFormValuesWithCreatedBy>(EMPTY_FORM);
+  const [selectedAssessmentImage, setSelectedAssessmentImage] = useState<File | null>(null);
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
   const [existingQuestionCount, setExistingQuestionCount] = useState(0);
   const [loadingExistingQuestions, setLoadingExistingQuestions] = useState(false);
@@ -117,6 +139,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
 
   function openCreate() {
     setFormValues({ ...EMPTY_FORM, tenantId: selectedTenantId });
+    setSelectedAssessmentImage(null);
     setGeneratedQuestions([]);
     setExistingQuestionCount(0);
     setFetchError("");
@@ -132,6 +155,8 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       name: assessment.name,
       shortDescription: assessment.shortDescription,
       longDescription: assessment.longDescription,
+      assessmentImageUrl: assessment.assessmentImageUrl ?? "",
+      assessmentImagePath: assessment.assessmentImagePath ?? "",
       assessmentContext: assessment.assessmentContext,
       assessmentBenefit: assessment.assessmentBenefit,
       assessmentType: assessment.assessmentType,
@@ -190,11 +215,13 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
     setFetchError("");
     setFetchSuccess("");
     setError("");
+    setSelectedAssessmentImage(null);
     setFormOpen(true);
   }
 
   function closeForm() {
     setFormOpen(false);
+    setSelectedAssessmentImage(null);
     setGeneratedQuestions([]);
     setExistingQuestionCount(0);
     setLoadingExistingQuestions(false);
@@ -205,6 +232,23 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
 
   function setField<K extends keyof AssessmentFormValuesWithCreatedBy>(key: K, value: AssessmentFormValuesWithCreatedBy[K]) {
     setFormValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleAssessmentImageSelection(file: File | null) {
+    if (!file) {
+      setSelectedAssessmentImage(null);
+      return;
+    }
+
+    const validationError = validateAssessmentImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      setSelectedAssessmentImage(null);
+      return;
+    }
+
+    setError("");
+    setSelectedAssessmentImage(file);
   }
 
   async function fetchQuestions(append: boolean) {
@@ -271,11 +315,25 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       const assessmentId = formValues.id ?? buildAssessmentId(formValues.tenantId, formValues.name);
       const assessmentRef = doc(db, "assessments", assessmentId);
 
+      let assessmentImageUrl = formValues.assessmentImageUrl;
+      let assessmentImagePath = formValues.assessmentImagePath;
+
+      if (selectedAssessmentImage) {
+        const extension = sanitizeExtension(selectedAssessmentImage);
+        const nextPath = `assessments/${formValues.tenantId}/${assessmentId}/cover.${extension}`;
+        const storageRef = ref(storage, nextPath);
+        await uploadBytes(storageRef, selectedAssessmentImage, { contentType: selectedAssessmentImage.type });
+        assessmentImageUrl = await getDownloadURL(storageRef);
+        assessmentImagePath = nextPath;
+      }
+
       const assessmentDoc: Omit<AssessmentRecord, "id"> = {
         tenantId: formValues.tenantId,
         name: formValues.name.trim(),
         shortDescription: formValues.shortDescription.trim(),
         longDescription: formValues.longDescription.trim(),
+        assessmentImageUrl,
+        assessmentImagePath,
         assessmentContext: formValues.assessmentContext.trim(),
         assessmentBenefit: formValues.assessmentBenefit.trim(),
         assessmentType: formValues.assessmentType,
@@ -481,6 +539,28 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
 
               <label className={styles.label} htmlFor="a-long">Long Description</label>
               <textarea id="a-long" className={styles.input} rows={3} value={formValues.longDescription} onChange={(e) => setField("longDescription", e.target.value)} placeholder="Full description for the assessment detail page" style={{ resize: "vertical" }} />
+
+              <label className={styles.label} htmlFor="a-image">Assessment Image</label>
+              <input
+                id="a-image"
+                className={styles.input}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => handleAssessmentImageSelection(e.target.files?.[0] ?? null)}
+              />
+              {selectedAssessmentImage ? (
+                <p className={styles.info}>Selected image: {selectedAssessmentImage.name}</p>
+              ) : null}
+              {!selectedAssessmentImage && formValues.assessmentImageUrl ? (
+                <div style={{ marginBottom: 12 }}>
+                  <p className={styles.subtitle} style={{ marginBottom: 8 }}>Current assessment image</p>
+                  <img
+                    src={formValues.assessmentImageUrl}
+                    alt="Assessment"
+                    style={{ width: "100%", maxWidth: 320, borderRadius: 10, border: "1px solid #c6dcea" }}
+                  />
+                </div>
+              ) : null}
             </fieldset>
 
             {/* ── Section: Context & Purpose ── */}

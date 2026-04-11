@@ -373,3 +373,48 @@ Auth/session persistence fix applied:
 
 UI polish completed:
 - Active View All top-nav item uses pill styling with proper horizontal padding for readable spacing.
+
+## Progress update — E4 Assessment Centre admin authoring (Apr 10, 2026)
+
+Completed behavior baseline for SuperAdmin Assessment Centre:
+- SuperAdmin menu label updated from Manage Tools to Manage Assessments.
+- Tools menu route now renders Assessment management UI (`AssessmentsSection`) instead of a placeholder card.
+- Assessment dashboard metric in SuperAdmin now reads from Firestore `assessments` collection (label: Total Assessments) instead of `tools`.
+
+Assessment master-data authoring implemented:
+- Assessment create/edit form includes E4 metadata fields:
+   - name, short/long description
+   - assessment context and participant benefit
+   - assessment type and render style
+   - question bank count and questions per attempt
+   - AI analysis prompt and AI question-generation prompt
+   - status, publication state, ownership scope, owner entity id
+- Assessment-level image upload is implemented (separate from question image):
+   - file picker in assessment form (JPG/PNG/WebP, 2MB limit)
+   - upload to Firebase Storage path: `assessments/{tenantId}/{assessmentId}/cover.{ext}`
+   - persisted fields: `assessmentImageUrl`, `assessmentImagePath`
+   - existing image preview shown during edit.
+
+AI question generation and table workflow implemented:
+- Prompt placeholder replacement supported: `[No of Questions]` is replaced with form question count before API call.
+- Question generation API route added at `src/app/api/assessments/generate-questions/route.ts`.
+- Groq response parsing hardened for real-world payloads:
+   - JSON fenced blocks / wrapped payloads
+   - snake_case and camelCase key variants
+   - option arrays and option maps
+   - normalization to consistent question shape.
+- Generated questions are shown in a scrollable table with fetch success/error feedback.
+- Get More appends additional questions to the current table set.
+
+Question persistence model implemented:
+- Assessment questions are stored in Firestore `assessmentQuestions` with `assessmentId` linkage.
+- Correct answer model updated for future styles:
+   - `correctAnswers: string[]` (single-choice uses one value; multi-answer uses multiple values).
+- Edit mode behavior:
+   - existing questions are loaded into the table from `assessmentQuestions`
+   - newly fetched questions append after existing rows
+   - on save (edit), only newly appended questions are inserted; existing rows are preserved.
+
+Current architecture note:
+- Assessment authoring is implemented for Coaching Studio admin flow first.
+- Participant runtime renderers for style-specific delivery are intentionally deferred (E4 next step).

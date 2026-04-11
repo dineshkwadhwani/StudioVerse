@@ -43,6 +43,31 @@
         { "fieldPath": "promoted", "order": "ASCENDING" },
         { "fieldPath": "eventDateTime", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessmentQuestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assessmentId", "order": "ASCENDING" },
+        { "fieldPath": "displayOrder", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessmentQuestions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assessmentId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "displayOrder", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

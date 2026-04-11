@@ -34,6 +34,8 @@ import {
 import ProgramsSection from "./ProgramsSection";
 import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
+import ManageCoinsSection from "./ManageCoinsSection";
+import { listWalletSummary } from "@/services/wallet.service";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -42,6 +44,7 @@ type MenuKey =
   | "users"
   | "tenants"
   | "tools"
+  | "coins"
   | "programs"
   | "events";
 
@@ -95,8 +98,10 @@ type TenantFormState = {
 type DashboardStats = {
   tenants: number;
   programs: number;
-  tools: number;
+  assessments: number;
   events: number;
+  totalIssuedCoins: number;
+  totalUtilizedCoins: number;
   companies: number;
   professionals: number;
   individuals: number;
@@ -108,6 +113,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "users", label: "Manage Users" },
   { key: "tenants", label: "Manage Tenants" },
   { key: "tools", label: "Manage Assessments" },
+  { key: "coins", label: "Manage Coins" },
   { key: "programs", label: "Manage Programs" },
   { key: "events", label: "Manage Events" },
 ];
@@ -133,8 +139,10 @@ const EMPTY_TENANT_FORM: TenantFormState = {
 const EMPTY_DASHBOARD_STATS: DashboardStats = {
   tenants: 0,
   programs: 0,
-  tools: 0,
+  assessments: 0,
   events: 0,
+  totalIssuedCoins: 0,
+  totalUtilizedCoins: 0,
   companies: 0,
   professionals: 0,
   individuals: 0,
@@ -260,6 +268,14 @@ export default function SuperAdminPortal() {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   }, [profile?.name]);
 
+  function openDashboardMenu(menuKey: MenuKey, nextUsersFilter?: AppUserType) {
+    if (nextUsersFilter) {
+      setUsersFilter(nextUsersFilter);
+    }
+    setMenuOpen(false);
+    setActiveMenu(menuKey);
+  }
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setAuthUser(firebaseUser);
@@ -323,7 +339,7 @@ export default function SuperAdminPortal() {
   }, [profile, activeMenu, usersFilter]);
 
   useEffect(() => {
-    if (!profile || activeMenu !== "tenants") {
+    if (!profile || (activeMenu !== "tenants" && activeMenu !== "coins")) {
       return;
     }
 
@@ -404,21 +420,24 @@ export default function SuperAdminPortal() {
 
   async function loadDashboardStats() {
     try {
-      const [usersSnap, tenantsSnap, programsSnap, toolsSnap, eventsSnap] = await Promise.all([
+      const [usersSnap, tenantsSnap, programsSnap, assessmentsSnap, eventsSnap] = await Promise.all([
         getDocs(collection(db, "users")),
         getDocs(collection(db, "tenants")),
         getDocs(collection(db, "programs")),
-        getDocs(collection(db, "tools")),
+        getDocs(collection(db, "assessments")),
         getDocs(collection(db, "events")),
       ]);
+      const walletSummary = await listWalletSummary();
 
       const users = usersSnap.docs.map((entry) => entry.data() as Omit<AppUser, "id">);
 
       setDashboardStats({
         tenants: tenantsSnap.size,
         programs: programsSnap.size,
-        tools: toolsSnap.size,
+        assessments: assessmentsSnap.size,
         events: eventsSnap.size,
+        totalIssuedCoins: walletSummary.totalIssuedCoins,
+        totalUtilizedCoins: walletSummary.totalUtilizedCoins,
         companies: users.filter((entry) => entry.userType === "company").length,
         professionals: users.filter((entry) => entry.userType === "professional").length,
         individuals: users.filter((entry) => entry.userType === "individual").length,
@@ -704,34 +723,38 @@ export default function SuperAdminPortal() {
               <p className={styles.subtitle}>Platform-level overview across tenants, content, and user categories.</p>
 
               <div className={styles.dashboardGrid}>
-                <section className={styles.statTile}>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("tenants")}>
                   <p className={styles.statLabel}>No of Tenants</p>
                   <p className={styles.statValue}>{dashboardStats.tenants}</p>
-                </section>
-                <section className={styles.statTile}>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("programs")}>
                   <p className={styles.statLabel}>Total Programs</p>
                   <p className={styles.statValue}>{dashboardStats.programs}</p>
-                </section>
-                <section className={styles.statTile}>
-                  <p className={styles.statLabel}>Total Tools</p>
-                  <p className={styles.statValue}>{dashboardStats.tools}</p>
-                </section>
-                <section className={styles.statTile}>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("tools")}>
+                  <p className={styles.statLabel}>Total Assessments</p>
+                  <p className={styles.statValue}>{dashboardStats.assessments}</p>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("events")}>
                   <p className={styles.statLabel}>Total Events</p>
                   <p className={styles.statValue}>{dashboardStats.events}</p>
-                </section>
-                <section className={styles.statTile}>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("coins")}>
+                  <p className={styles.statLabel}>Coins Utilized / Issued</p>
+                  <p className={styles.statValue}>{dashboardStats.totalUtilizedCoins}/{dashboardStats.totalIssuedCoins}</p>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("users", "company")}>
                   <p className={styles.statLabel}>No of Companies</p>
                   <p className={styles.statValue}>{dashboardStats.companies}</p>
-                </section>
-                <section className={styles.statTile}>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("users", "professional")}>
                   <p className={styles.statLabel}>No of Professionals</p>
                   <p className={styles.statValue}>{dashboardStats.professionals}</p>
-                </section>
-                <section className={styles.statTile}>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("users", "individual")}>
                   <p className={styles.statLabel}>No of Individuals</p>
                   <p className={styles.statValue}>{dashboardStats.individuals}</p>
-                </section>
+                </button>
               </div>
             </article>
           ) : null}
@@ -859,6 +882,16 @@ export default function SuperAdminPortal() {
           ) : null}
 
           {activeMenu === "tools" ? <AssessmentsSection tenants={tenants} /> : null}
+
+          {activeMenu === "coins" ? (
+            <ManageCoinsSection
+              tenants={tenants}
+              adminUserId={profile.id}
+              onCoinsAssigned={() => {
+                void loadDashboardStats();
+              }}
+            />
+          ) : null}
 
           {activeMenu === "programs" ? <ProgramsSection tenants={tenants} /> : null}
 

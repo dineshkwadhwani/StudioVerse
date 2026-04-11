@@ -27,6 +27,8 @@ export type AssessmentRecord = {
   name: string;
   shortDescription: string;
   longDescription: string;
+  assessmentImageUrl?: string;
+  assessmentImagePath?: string;
   assessmentContext: string;
   assessmentBenefit: string;
   assessmentType: AssessmentType;
@@ -77,6 +79,8 @@ export type AssessmentFormValues = {
   name: string;
   shortDescription: string;
   longDescription: string;
+  assessmentImageUrl: string;
+  assessmentImagePath: string;
   assessmentContext: string;
   assessmentBenefit: string;
   assessmentType: AssessmentType;

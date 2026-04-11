@@ -1,32 +1,127 @@
 "use client";
 
 import { config } from "@/tenants/coaching-studio/config";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CoachingViewAllHeader from "@/modules/coaching-studio/CoachingViewAllHeader";
 import LoginRegisterModal from "@/modules/coaching-studio/auth/LoginRegisterModal";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/services/firebase";
+import type { AssessmentRecord } from "@/types/assessment";
+import landingStyles from "@/modules/coaching-studio/CoachingLandingPage.module.css";
+import styles from "@/modules/coaching-studio/CoachingProgramsPage.module.css";
+
+function normalizeTenantToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 export default function CoachingStudioToolsPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
+  const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAssessments() {
+      setIsLoading(true);
+
+      try {
+        const snap = await getDocs(collection(db, "assessments"));
+        const rows = snap.docs.map((entry) => ({
+          id: entry.id,
+          ...(entry.data() as Omit<AssessmentRecord, "id">),
+        }));
+
+        const targetTenant = normalizeTenantToken(config.id);
+        const nextRows = rows
+          .filter((item) => normalizeTenantToken(item.tenantId) === targetTenant)
+          .sort((a, b) => (b.updatedAt?.toDate().getTime() ?? 0) - (a.updatedAt?.toDate().getTime() ?? 0));
+
+        if (active) {
+          setAssessments(nextRows);
+        }
+      } catch {
+        if (active) {
+          setAssessments([]);
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadAssessments();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const heroImage = useMemo(() => {
+    return (
+      config.landingContent?.heroImages?.tools ||
+      config.landingContent?.heroImages?.programs ||
+      config.landingContent?.heroImages?.events ||
+      "/tenants/coaching-studio/hero2.png"
+    );
+  }, []);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%)",
-      }}
-    >
+    <main className={styles.page}>
       <CoachingViewAllHeader
         config={config}
         currentPage="tools"
         onSignInRegister={() => setIsAuthModalOpen(true)}
       />
 
-      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "2rem 1.25rem" }}>
-        <h1 style={{ margin: 0, color: "#133a56" }}>{toolsLabel}</h1>
-        <p style={{ color: "#4d6e86" }}>
-          This is the View All page for {toolsLabel}. Catalog content is being integrated.
-        </p>
+      <section className={styles.heroSection}>
+        <div className={styles.heroText}>
+          <span className={styles.heroTag}>View All {toolsLabel}</span>
+          <h1 className={styles.heroTitle}>Assessments Designed to Reveal Strengths and Growth Gaps</h1>
+          <p className={styles.heroCopy}>
+            Explore diagnostic assessments created by experts to evaluate leadership behaviors, capabilities, and
+            development priorities. Each assessment provides actionable insight you can use immediately.
+          </p>
+        </div>
+        <div className={styles.heroImageWrap}>
+          <img src={heroImage} alt={toolsLabel} className={styles.heroImage} />
+        </div>
+      </section>
+
+      <section className={styles.content}>
+        <div className={styles.topFilterRow}>
+          <h2 className={styles.title}>Available Assessments</h2>
+        </div>
+
+        {isLoading ? <p className={styles.helper}>Loading assessments...</p> : null}
+        {!isLoading && assessments.length === 0 ? (
+          <p className={styles.helper}>No assessments are currently available.</p>
+        ) : null}
+
+        {!isLoading && assessments.length > 0 ? (
+          <div className={styles.grid}>
+            {assessments.map((item) => (
+              <article key={item.id} className={landingStyles.tile}>
+                <div className={styles.cardImageWrap}>
+                  <img
+                    className={styles.cardImage}
+                    src={item.assessmentImageUrl || heroImage}
+                    alt={item.name}
+                    loading="lazy"
+                  />
+                </div>
+                <div className={landingStyles.tileBody}>
+                  <h3 className={landingStyles.tileTitle}>{item.name}</h3>
+                  <p className={landingStyles.tileCopy}>{item.shortDescription}</p>
+                  <p className={styles.meta}>Type: {item.assessmentType}</p>
+                  <p className={styles.meta}>Questions: {item.questionBankCount}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />

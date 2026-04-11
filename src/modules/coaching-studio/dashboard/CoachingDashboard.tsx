@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
+import { getWalletByUserId } from "@/services/wallet.service";
 import { config } from "@/tenants/coaching-studio/config";
 import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingDashboard.module.css";
@@ -74,6 +75,7 @@ export default function CoachingDashboard() {
   const [name, setName] = useState("User");
   const [activeKey, setActiveKey] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [wallet, setWallet] = useState<{ issued: number; utilized: number; available: number } | null>(null);
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -92,6 +94,25 @@ export default function CoachingDashboard() {
 
     setRole(storedRoleRaw);
     setName(storedName ?? "User");
+
+    const storedUid = sessionStorage.getItem("cs_uid");
+    if (storedUid) {
+      getWalletByUserId(storedUid)
+        .then((walletData) => {
+          if (!walletData) {
+            setWallet({ issued: 0, utilized: 0, available: 0 });
+            return;
+          }
+          setWallet({
+            issued: walletData.totalIssuedCoins,
+            utilized: walletData.utilizedCoins,
+            available: walletData.availableCoins,
+          });
+        })
+        .catch(() => {
+          setWallet(null);
+        });
+    }
   }, [router]);
 
   const menuItems = useMemo(() => getMenuItems(role), [role]);
@@ -189,6 +210,17 @@ export default function CoachingDashboard() {
       {/* Content */}
       <div className={styles.shell}>
         <section className={styles.contentCard}>
+          {wallet ? (
+            <article className={styles.walletCard}>
+              <p className={styles.walletTitle}>My Wallet</p>
+              <div className={styles.walletStats}>
+                <p>Available: <strong>{wallet.available}</strong></p>
+                <p>Utilized: <strong>{wallet.utilized}</strong></p>
+                <p>Total Issued: <strong>{wallet.issued}</strong></p>
+              </div>
+            </article>
+          ) : null}
+
           <h2 className={styles.sectionTitle}>
             {menuItems.find((m) => m.key === activeKey)?.label ?? "Dashboard"}
           </h2>

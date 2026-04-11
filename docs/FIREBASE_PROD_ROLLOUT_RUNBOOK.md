@@ -9,6 +9,7 @@ Scope covered:
 - Firestore rules
 - Storage rules
 - Program/Event backend schemas used by callable functions
+- Assessment Centre (E4) Firestore + Storage rollout requirements
 
 ## Source of truth files
 These files are the canonical definitions that must be promoted to production:
@@ -23,6 +24,9 @@ These files are the canonical definitions that must be promoted to production:
 - Program schema/business rules: `functions/src/programs/programSchemas.ts`
 - Event callable functions: `functions/src/events/createEvent.ts`, `functions/src/events/updateEvent.ts`
 - Event schema/business rules: `functions/src/events/eventSchemas.ts`
+- Assessment admin module: `src/modules/admin/AssessmentsSection.tsx`
+- Assessment types/schema model: `src/types/assessment.ts`
+- Assessment AI question generation route: `src/app/api/assessments/generate-questions/route.ts`
 - Shared audit helper: `functions/src/audit/writeAuditLog.ts`
 
 ## Currently exported production-relevant functions
@@ -34,6 +38,10 @@ From `functions/src/index.ts`:
 - `updateEvent` (callable, region `asia-south1`)
 - `seedInitialSuperadmin` (HTTP request function)
 
+Assessment note:
+- There is currently no Firebase callable for Assessment generation/authoring.
+- Assessment question generation currently runs through Next.js server route `src/app/api/assessments/generate-questions/route.ts` and requires `GROQ_API_KEY` in the deployed app environment.
+
 ## Current Firestore index set
 From `firestore.indexes.json`:
 
@@ -42,6 +50,13 @@ From `firestore.indexes.json`:
 - `programs`: (`tenantId`, `updatedAt desc`)
 - `events`: (`tenantId`, `updatedAt desc`)
 - `events`: (`tenantId`, `status`, `publicationState`, `promoted`, `eventDateTime`)
+
+Required additions for E4 Assessment Centre production rollout:
+- `assessments`: (`tenantId`, `createdAt desc`) for tenant-filtered admin list query.
+- `assessmentQuestions`: (`assessmentId`, `displayOrder asc`) for deterministic ordered question loads (if orderBy is re-enabled).
+
+Recommended addition for future runtime delivery:
+- `assessmentQuestions`: (`assessmentId`, `isActive`, `displayOrder asc`).
 
 ## One-time setup for project aliases
 Run once per developer machine/repo clone:
@@ -71,6 +86,69 @@ Before any prod deploy:
    npx -y firebase-tools@latest use
    ```
 4. Review rules expiry dates in `firestore.rules` and `storage.rules`.
+5. Ensure `GROQ_API_KEY` is configured in the deployed app environment (Vercel/App Hosting).
+6. Confirm `assessmentImageUrl`/`assessmentImagePath` fields are included in expected Firestore Assessment documents.
+
+## E4 Assessment Centre rollout deltas (must complete before prod cutover)
+
+### 1) Firestore indexes
+Update `firestore.indexes.json` with Assessment indexes before production deploy:
+
+- `assessments` index:
+  - `tenantId` ASC
+  - `createdAt` DESC
+
+- `assessmentQuestions` index:
+  - `assessmentId` ASC
+  - `displayOrder` ASC
+
+Then deploy indexes:
+
+```bash
+npx -y firebase-tools@latest deploy \
+  --project studioverse-prod \
+  --only firestore:indexes
+```
+
+### 2) Firestore rules
+Current `firestore.rules` is still temporary open access with an expiry date.
+For production, replace it with least-privilege rules that explicitly cover at minimum:
+
+- `assessments`
+- `assessmentQuestions`
+- existing Program/Event collections
+
+Minimum expected behavior:
+- reads/writes for admin collections restricted to authenticated superadmin/company admin roles.
+- tenant-aware checks for tenant-scoped records.
+- deny-by-default catch-all at end of rules.
+
+### 3) Storage rules
+Current `storage.rules` is still temporary open access with an expiry date.
+For production, add explicit path-level rules for assessment images:
+
+- `assessments/{tenantId}/{assessmentId}/cover.{ext}`
+
+Minimum expected behavior:
+- write restricted to admin-capable authenticated roles.
+- read policy based on intended exposure (public assessment catalog vs authenticated-only app view).
+- deny-by-default for unspecified paths.
+
+### 4) App/server environment
+Assessment generation depends on server-side environment:
+
+- `GROQ_API_KEY` must be set in production runtime.
+- no AI API key should be exposed via client-side env vars.
+
+### 5) Assessment smoke tests (prod)
+After deployment, validate end-to-end:
+
+1. SuperAdmin creates Assessment with metadata.
+2. Assessment-level image uploads and URL/path are persisted.
+3. AI question generation returns parsed rows and table shows them.
+4. Edit Assessment loads existing questions.
+5. Get More appends questions; save inserts only newly appended rows.
+6. Dashboard tile “Total Assessments” reflects `assessments` collection count.
 
 ## Production deploy commands
 Use these commands from repository root.
@@ -110,7 +188,8 @@ npx -y firebase-tools@latest deploy \
    ```
 2. Verify Firestore indexes are in READY state in Firebase Console.
 3. Smoke test admin Program/Event create + update flows against prod environment.
-4. Confirm audit log writes for create/update actions.
+4. Smoke test admin Assessment create/edit + image upload + question append flows.
+5. Confirm audit log writes for create/update actions.
 
 ## Change-management rule
 Any change to Program/Event schema, callable payload validation, Firestore rules, storage rules, or indexes must update the source-of-truth files listed above in the same pull request.

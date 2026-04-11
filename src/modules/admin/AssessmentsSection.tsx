@@ -327,7 +327,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         assessmentImagePath = nextPath;
       }
 
-      const assessmentDoc: Omit<AssessmentRecord, "id"> = {
+      const assessmentDoc: Record<string, unknown> = {
         tenantId: formValues.tenantId,
         name: formValues.name.trim(),
         shortDescription: formValues.shortDescription.trim(),
@@ -348,14 +348,14 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         ownerEntityId: formValues.ownerEntityId.trim(),
         createdBy: isExisting ? formValues.createdBy || "superadmin" : "superadmin",
         updatedBy: "superadmin",
-        createdAt: isExisting ? serverTimestamp() : (serverTimestamp() as ReturnType<typeof serverTimestamp> as never),
-        updatedAt: serverTimestamp() as ReturnType<typeof serverTimestamp> as never,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         publishedAt: null,
       };
 
       if (isExisting) {
         // Update existing assessment metadata
-        await updateDoc(assessmentRef, assessmentDoc as Record<string, unknown>);
+        await updateDoc(assessmentRef, assessmentDoc);
 
         // Add only newly appended questions, keep existing questions untouched.
         const newQuestions = generatedQuestions.slice(existingQuestionCount);

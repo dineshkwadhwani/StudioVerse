@@ -47,6 +47,7 @@ export type EventRecord = {
   details: string;
   videoUrl: string | null;
   creditsRequired: number;
+  cost: number;
   status: EventStatus;
   /** Promoted flag — eligible for landing-page elevation only when event is also published */
   promoted: boolean;
@@ -82,6 +83,7 @@ export type EventWriteInput = {
   details: string;
   videoUrl: string | null;
   creditsRequired: number;
+  cost: number;
   status: EventStatus;
   promoted: boolean;
   ownershipScope: EventOwnershipScope;
@@ -105,6 +107,7 @@ export type EventFormValues = {
   details: string;
   videoUrl: string;
   creditsRequired: string;
+  cost: string;
   status: EventStatus;
   promoted: boolean;
   /** Convenience boolean: true → publicationState="published" / status="published" */
@@ -132,6 +135,7 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   details: "",
   videoUrl: "",
   creditsRequired: "0",
+  cost: "0",
   status: "draft",
   promoted: false,
   published: false,

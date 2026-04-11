@@ -52,6 +52,7 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     details: event.details,
     videoUrl: event.videoUrl ?? "",
     creditsRequired: String(event.creditsRequired),
+    cost: String(event.cost ?? 0),
     status: event.status,
     promoted: event.promoted,
     published: event.publicationState === "published",
@@ -306,6 +307,9 @@ export default function EventsSection({
                 <p className={styles.userMeta}>
                   Publication: {event.publicationState} · Promoted:{" "}
                   {event.promoted ? "Yes" : "No"}
+                </p>
+                <p className={styles.userMeta}>
+                  Credits: {event.creditsRequired} · Cost: {event.cost}
                 </p>
               </div>
 

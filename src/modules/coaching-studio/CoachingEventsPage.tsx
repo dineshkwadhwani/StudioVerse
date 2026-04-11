@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { EVENT_TYPE_LABELS, type EventRecord } from "@/types/event";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
+import DetailModal, { type DetailItem } from "./DetailModal";
 import CoachingViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingEventsPage.module.css";
@@ -12,6 +15,13 @@ import styles from "./CoachingEventsPage.module.css";
 type Props = {
   config: TenantConfig;
 };
+
+type UserType = "coach" | "learner";
+type UserRole = "company" | "professional" | "individual";
+
+function isUserRole(value: unknown): value is UserRole {
+  return value === "company" || value === "professional" || value === "individual";
+}
 
 function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -22,6 +32,11 @@ export default function CoachingEventsPage({ config }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [guestUserType, setGuestUserType] = useState<UserType>("coach");
 
   useEffect(() => {
     let active = true;
@@ -70,6 +85,67 @@ export default function CoachingEventsPage({ config }: Props) {
       active = false;
     };
   }, [config.id]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setIsLoggedIn(!!firebaseUser);
+
+      if (!firebaseUser) {
+        setRole(null);
+        return;
+      }
+
+      const storedRole = sessionStorage.getItem("cs_role");
+      setRole(isUserRole(storedRole) ? storedRole : null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("coachingStudioUserType");
+    setGuestUserType(stored === "learner" ? "learner" : "coach");
+  }, []);
+
+  const effectiveUserType: UserType = isLoggedIn
+    ? role === "individual"
+      ? "learner"
+      : "coach"
+    : guestUserType;
+
+  const handleItemClick = (item: EventRecord) => {
+    if (!isLoggedIn) {
+      const stored = localStorage.getItem("coachingStudioUserType");
+      setGuestUserType(stored === "learner" ? "learner" : "coach");
+    }
+
+    let eventDate: string | undefined;
+    let eventTime: string | undefined;
+    if (item.eventDateTime) {
+      const dt = new Date(item.eventDateTime);
+      eventDate = dt.toISOString().split("T")[0];
+      eventTime = dt.toTimeString().slice(0, 5);
+    }
+
+    const detailItem: DetailItem = {
+      id: item.id,
+      type: "event",
+      title: item.name,
+      image: item.thumbnailUrl || "",
+      description: item.shortDescription || item.longDescription || "",
+      details: item.details,
+      creditsRequired: item.creditsRequired ?? 0,
+      cost: item.cost ?? 0,
+      eventType: item.eventType,
+      eventDate,
+      eventTime,
+      locationCity: item.locationCity,
+      locationAddress: item.locationAddress,
+      videoUrl: item.videoUrl || undefined,
+    };
+
+    setSelectedDetailItem(detailItem);
+    setIsDetailModalOpen(true);
+  };
 
   const cityOptions = useMemo(() => {
     return Array.from(
@@ -164,6 +240,13 @@ export default function CoachingEventsPage({ config }: Props) {
                   <p className={landingStyles.tileCopy}>{item.shortDescription}</p>
                   <p className={styles.meta}>{item.locationCity || "City TBA"} | {item.locationAddress || "Address TBA"}</p>
                   <p className={styles.meta}>Type: {EVENT_TYPE_LABELS[item.eventType]}</p>
+                  <button
+                    type="button"
+                    className={landingStyles.tileButton}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    Find out more...
+                  </button>
                 </div>
               </article>
             ))}
@@ -172,6 +255,17 @@ export default function CoachingEventsPage({ config }: Props) {
       </section>
 
       <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <DetailModal
+        item={selectedDetailItem}
+        isOpen={isDetailModalOpen}
+        userType={effectiveUserType}
+        isLoggedIn={isLoggedIn}
+        onAuthRequired={() => setIsAuthModalOpen(true)}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailItem(null);
+        }}
+      />
     </main>
   );
 }

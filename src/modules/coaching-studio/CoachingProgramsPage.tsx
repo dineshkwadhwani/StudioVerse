@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { listPrograms } from "@/services/programs.service";
 import {
@@ -9,6 +11,7 @@ import {
   type ProgramRecord,
 } from "@/types/program";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
+import DetailModal, { type DetailItem } from "./DetailModal";
 import CoachingViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingProgramsPage.module.css";
@@ -16,6 +19,13 @@ import styles from "./CoachingProgramsPage.module.css";
 type Props = {
   config: TenantConfig;
 };
+
+type UserType = "coach" | "learner";
+type UserRole = "company" | "professional" | "individual";
+
+function isUserRole(value: unknown): value is UserRole {
+  return value === "company" || value === "professional" || value === "individual";
+}
 
 function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -26,6 +36,11 @@ export default function CoachingProgramsPage({ config }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDeliveryType, setSelectedDeliveryType] = useState<string>("all");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [guestUserType, setGuestUserType] = useState<UserType>("coach");
 
   useEffect(() => {
     let active = true;
@@ -66,6 +81,57 @@ export default function CoachingProgramsPage({ config }: Props) {
       active = false;
     };
   }, [config.id]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setIsLoggedIn(!!firebaseUser);
+
+      if (!firebaseUser) {
+        setRole(null);
+        return;
+      }
+
+      const storedRole = sessionStorage.getItem("cs_role");
+      setRole(isUserRole(storedRole) ? storedRole : null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("coachingStudioUserType");
+    setGuestUserType(stored === "learner" ? "learner" : "coach");
+  }, []);
+
+  const effectiveUserType: UserType = isLoggedIn
+    ? role === "individual"
+      ? "learner"
+      : "coach"
+    : guestUserType;
+
+  const handleItemClick = (item: ProgramRecord) => {
+    if (!isLoggedIn) {
+      const stored = localStorage.getItem("coachingStudioUserType");
+      setGuestUserType(stored === "learner" ? "learner" : "coach");
+    }
+
+    const detailItem: DetailItem = {
+      id: item.id,
+      type: "program",
+      title: item.name,
+      image: item.thumbnailUrl || "",
+      description: item.shortDescription || item.longDescription || "",
+      details: item.details,
+      creditsRequired: item.creditsRequired ?? 0,
+      deliveryType: item.deliveryType,
+      durationValue: item.durationValue,
+      durationUnit: item.durationUnit,
+      facilitatorName: item.facilitatorName || undefined,
+      videoUrl: item.videoUrl || undefined,
+    };
+
+    setSelectedDetailItem(detailItem);
+    setIsDetailModalOpen(true);
+  };
 
   const deliveryTypeOptions = useMemo(() => {
     return Array.from(new Set(programs.map((item) => item.deliveryType))).sort((a, b) =>
@@ -166,6 +232,13 @@ export default function CoachingProgramsPage({ config }: Props) {
                   <p className={styles.meta}>
                     Duration: {item.durationValue} {item.durationUnit}
                   </p>
+                  <button
+                    type="button"
+                    className={landingStyles.tileButton}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    Find out more...
+                  </button>
                 </div>
               </article>
             ))}
@@ -174,6 +247,17 @@ export default function CoachingProgramsPage({ config }: Props) {
       </section>
 
       <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <DetailModal
+        item={selectedDetailItem}
+        isOpen={isDetailModalOpen}
+        userType={effectiveUserType}
+        isLoggedIn={isLoggedIn}
+        onAuthRequired={() => setIsAuthModalOpen(true)}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailItem(null);
+        }}
+      />
     </main>
   );
 }

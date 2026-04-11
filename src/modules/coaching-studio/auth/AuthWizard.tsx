@@ -8,20 +8,12 @@ import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
-} from "firebase/firestore";
-import { auth, db } from "@/services/firebase";
+import { auth } from "@/services/firebase";
+import { getUserProfileByPhone, saveUserProfile } from "@/services/profile.service";
+import type { ProfileUserType, UserProfileRecord } from "@/types/profile";
 import styles from "./AuthWizard.module.css";
 
-type UserRole = "company" | "professional" | "individual";
+type UserRole = ProfileUserType;
 type CompanyPosition = "owner" | "coach";
 
 type Phase =
@@ -43,6 +35,15 @@ function normalizePhone(input: string): string {
 type Props = {
   onClose?: () => void;
 };
+
+function persistSessionProfile(profile: UserProfileRecord) {
+  sessionStorage.setItem("cs_uid", profile.userId);
+  sessionStorage.setItem("cs_profile_id", profile.id);
+  sessionStorage.setItem("cs_role", profile.userType);
+  sessionStorage.setItem("cs_name", profile.fullName);
+  sessionStorage.setItem("cs_email", profile.email);
+  sessionStorage.setItem("cs_phone", profile.phoneE164);
+}
 
 function getAuthErrorMessage(error: unknown): string {
   if (error instanceof FirebaseError) {
@@ -88,6 +89,7 @@ export default function AuthWizard({ onClose }: Props) {
   const [companyName, setCompanyName] = useState("");
   const [companyPosition, setCompanyPosition] = useState<CompanyPosition>("owner");
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -100,9 +102,9 @@ export default function AuthWizard({ onClose }: Props) {
     recaptchaRef.current = null;
   }
 
-  function setupRecaptcha() {
+  useEffect(() => {
     if (recaptchaRef.current || typeof window === "undefined") {
-      return;
+      return undefined;
     }
 
     try {
@@ -117,10 +119,6 @@ export default function AuthWizard({ onClose }: Props) {
       setError("Phone verification could not be prepared. Refresh the page and try again.");
       clearRecaptcha();
     }
-  }
-
-  useEffect(() => {
-    setupRecaptcha();
 
     return () => {
       clearRecaptcha();
@@ -151,7 +149,6 @@ export default function AuthWizard({ onClose }: Props) {
       logFlow("send-otp:success");
     } catch (err) {
       clearRecaptcha();
-      setupRecaptcha();
       logFlow("send-otp:error", {
         message: err instanceof Error ? err.message : "unknown-error",
       });
@@ -172,25 +169,17 @@ export default function AuthWizard({ onClose }: Props) {
     }
     setBusy(true);
     try {
-      const credential = await confirmationRef.current.confirm(otp);
-      const firebaseUser = credential.user;
+      await confirmationRef.current.confirm(otp);
       const normalizedPhone = normalizePhone(phone);
 
-      const existing = await getDocs(
-        query(
-          collection(db, "users"),
-          where("phoneE164", "==", normalizedPhone),
-          where("tenantId", "==", "coaching-studio"),
-          limit(1)
-        )
-      );
+      const existingProfile = await getUserProfileByPhone({
+        phoneE164: normalizedPhone,
+        tenantId: "coaching-studio",
+      });
 
-      if (!existing.empty) {
-        const userData = existing.docs[0].data();
-        logFlow("verify-otp:existing-user", { role: userData.userType as string });
-        sessionStorage.setItem("cs_uid", firebaseUser.uid);
-        sessionStorage.setItem("cs_role", userData.userType as string);
-        sessionStorage.setItem("cs_name", userData.name as string);
+      if (existingProfile) {
+        logFlow("verify-otp:existing-user", { role: existingProfile.userType });
+        persistSessionProfile(existingProfile);
         router.push("/coaching-studio/dashboard");
         onClose?.();
         return;
@@ -211,6 +200,27 @@ export default function AuthWizard({ onClose }: Props) {
 
   async function handleRegister() {
     setError("");
+    setInfo("");
+
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedCompanyName = companyName.trim();
+
+    if (!trimmedName) {
+      setError("Please enter your full name.");
+      return;
+    }
+
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    if (role === "company" && !trimmedCompanyName) {
+      setError("Please enter your company name.");
+      return;
+    }
+
     setBusy(true);
     logFlow("register:start", { role });
     try {
@@ -218,44 +228,26 @@ export default function AuthWizard({ onClose }: Props) {
       if (!firebaseUser) throw new Error("Session expired. Please start again.");
 
       const normalizedPhone = normalizePhone(phone);
-      const userRef = doc(collection(db, "users"));
 
-      const base = {
-        uid: firebaseUser.uid,
-        phoneE164: normalizedPhone,
+      const savedProfile = await saveUserProfile({
+        userId: firebaseUser.uid,
         tenantId: "coaching-studio",
-        status: "active" as const,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+        userType: role,
+        fullName: trimmedName,
+        email: trimmedEmail,
+        phoneE164: normalizedPhone,
+        companyName: trimmedCompanyName,
+        companyPosition,
+        companyDisplayName: role === "company" ? trimmedCompanyName : undefined,
+        companyLegalName: role === "company" ? trimmedCompanyName : undefined,
+        companyType: role === "company" ? "coaching-company" : undefined,
+        primaryContactName: role === "company" ? trimmedName : undefined,
+        status: "active",
+      });
 
-      if (role === "individual") {
-        await setDoc(userRef, {
-          ...base,
-          name: fullName.trim(),
-          userType: "individual",
-        });
-      } else if (role === "professional") {
-        await setDoc(userRef, {
-          ...base,
-          name: fullName.trim(),
-          userType: "professional",
-        });
-      } else {
-        await setDoc(userRef, {
-          ...base,
-          name: fullName.trim(),
-          userType: "company",
-          companyName: companyName.trim(),
-          companyPosition,
-        });
-      }
-
-      sessionStorage.setItem("cs_uid", firebaseUser.uid);
-      sessionStorage.setItem("cs_role", role === "company" ? "company" : role === "professional" ? "professional" : "individual");
-      sessionStorage.setItem("cs_name", fullName.trim());
+      persistSessionProfile(savedProfile);
       setPhase("done");
-      logFlow("register:success", { role, name: fullName.trim() });
+      logFlow("register:success", { role, name: trimmedName });
       setTimeout(() => {
         router.push("/coaching-studio/dashboard");
         onClose?.();
@@ -384,6 +376,9 @@ export default function AuthWizard({ onClose }: Props) {
 
               <label className={styles.label} htmlFor="wiz-name">Your Full Name</label>
               <input id="wiz-name" className={styles.input} placeholder="Your name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+
+              <label className={styles.label} htmlFor="wiz-email">Email Address</label>
+              <input id="wiz-email" className={styles.input} type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </>
           )}
 
@@ -391,6 +386,9 @@ export default function AuthWizard({ onClose }: Props) {
             <>
               <label className={styles.label} htmlFor="wiz-name">Your Full Name</label>
               <input id="wiz-name" className={styles.input} placeholder="Your name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+
+              <label className={styles.label} htmlFor="wiz-email">Email Address</label>
+              <input id="wiz-email" className={styles.input} type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </>
           )}
 
@@ -398,6 +396,9 @@ export default function AuthWizard({ onClose }: Props) {
             <>
               <label className={styles.label} htmlFor="wiz-name">Your Full Name</label>
               <input id="wiz-name" className={styles.input} placeholder="Your name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+
+              <label className={styles.label} htmlFor="wiz-email">Email Address</label>
+              <input id="wiz-email" className={styles.input} type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </>
           )}
 

@@ -15,6 +15,7 @@ import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
+import DetailModal, { type DetailItem } from "./DetailModal";
 
 type Props = {
   config: TenantConfig;
@@ -23,8 +24,33 @@ type Props = {
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
 type UserRole = "company" | "professional" | "individual";
-type CarouselItem = { name: string; image: string; title: string; description: string };
-type EventLandingItem = CarouselItem & { eventType: EventType; locationCity: string; eventDateTime: string | null; promoted: boolean };
+type CarouselItem = {
+  name: string;
+  image: string;
+  title: string;
+  description: string;
+  type: "program" | "tool" | "event";
+  creditsRequired?: number;
+  cost?: number;
+  details?: string;
+  videoUrl?: string;
+  // Program-specific
+  deliveryType?: string;
+  durationValue?: number;
+  durationUnit?: string;
+  facilitatorName?: string;
+  // Event-specific
+  eventType?: EventType;
+  eventDate?: string;
+  eventTime?: string;
+  locationCity?: string;
+  locationAddress?: string;
+  // Tool-specific
+  assessmentContext?: string;
+  assessmentBenefit?: string;
+  assessmentType?: string;
+};
+type EventLandingItem = CarouselItem & { promoted: boolean };
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -65,13 +91,13 @@ function getSectionMeta(toolsLabel: string): Record<SectionKey, { title: string;
       title: `${toolsLabel} built to assess coachees, surface gaps, and accelerate growth.`,
       intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
       viewAllPath: "/coaching-studio/tools",
-      darkTile: true,
       navLabel: toolsLabel,
     },
     programs: {
       title: "Signature programmes designed for leadership growth and transformation.",
       intro: "Each programme pairs a clear commercial use case with a polished learner experience.",
       viewAllPath: "/coaching-studio/programs",
+      darkTile: true,
       navLabel: "Programs",
     },
     events: {
@@ -90,7 +116,7 @@ function CarouselSection({
   intro,
   viewAllPath,
   perView,
-  onTryNow,
+  onItemClick,
   darkTile,
 }: {
   id: string;
@@ -99,11 +125,14 @@ function CarouselSection({
   intro: string;
   viewAllPath: string;
   perView: number;
-  onTryNow: () => void;
+  onItemClick: (item: CarouselItem) => void;
   darkTile?: boolean;
 }) {
   const { index, next, prev } = useCarousel(items.length, perView, 5000);
   const slideWidth = 100 / perView;
+  const contentType = items[0]?.type;
+
+
 
   return (
     <section id={id} className={styles.section}>
@@ -132,8 +161,8 @@ function CarouselSection({
                   <div className={styles.tileBody}>
                     <h3 className={styles.tileTitle}>{item.title}</h3>
                     <p className={styles.tileCopy}>{truncateWords(item.description, 10)}</p>
-                    <button type="button" className={styles.tileButton} onClick={onTryNow}>
-                      Try Now
+                    <button type="button" className={styles.tileButton} onClick={() => onItemClick(item)}>
+                      Find out more...
                     </button>
                   </div>
                 </div>
@@ -205,6 +234,8 @@ function AssessLearnTransformTimeline({ userType }: { userType: UserType }) {
 export default function CoachingLandingPage({ config }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
   const [userType, setUserType] = useState<UserType>("coach");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -214,6 +245,35 @@ export default function CoachingLandingPage({ config }: Props) {
   const [toolItemsFromDb, setToolItemsFromDb] = useState<CarouselItem[]>([]);
   const [eventItemsFromDb, setEventItemsFromDb] = useState<EventLandingItem[]>([]);
   const perView = useItemsPerView();
+
+  const handleItemClick = (item: CarouselItem) => {
+    const detailItem: DetailItem = {
+      id: item.name,
+      type: item.type,
+      title: item.title,
+      image: item.image,
+      description: item.description,
+      details: item.details,
+      creditsRequired: item.creditsRequired ?? 0,
+      cost: item.cost,
+      deliveryType: item.deliveryType,
+      durationValue: item.durationValue,
+      durationUnit: item.durationUnit,
+      facilitatorName: item.facilitatorName,
+      videoUrl: item.videoUrl,
+      eventType: item.eventType,
+      eventDate: item.eventDate,
+      eventTime: item.eventTime,
+      locationCity: item.locationCity,
+      locationAddress: item.locationAddress,
+      assessmentContext: item.assessmentContext,
+      assessmentBenefit: item.assessmentBenefit,
+      assessmentType: item.assessmentType,
+    };
+
+    setSelectedDetailItem(detailItem);
+    setIsDetailModalOpen(true);
+  };
 
   // Load userType from localStorage on mount
   useEffect(() => {
@@ -294,9 +354,15 @@ export default function CoachingLandingPage({ config }: Props) {
           .sort((a, b) => (b.updatedAt?.toDate().getTime() ?? 0) - (a.updatedAt?.toDate().getTime() ?? 0))
           .map((item) => ({
             name: item.id,
+            type: "tool" as const,
             image: item.assessmentImageUrl || config.landingContent?.heroImages?.tools || "",
             title: item.name,
             description: item.shortDescription || item.longDescription || "",
+            details: item.assessmentContext,
+            creditsRequired: item.creditsRequired ?? 0,
+            assessmentContext: item.assessmentContext,
+            assessmentBenefit: item.assessmentBenefit,
+            assessmentType: item.assessmentType,
           }));
 
         if (!cancelled) {
@@ -327,9 +393,17 @@ export default function CoachingLandingPage({ config }: Props) {
 
         const mappedPrograms: CarouselItem[] = sourcePrograms.map((program) => ({
           name: program.id,
+          type: "program" as const,
           image: program.thumbnailUrl || config.landingContent?.heroImages?.programs || "",
           title: program.name,
           description: program.shortDescription || program.longDescription || "",
+          details: program.details,
+          creditsRequired: program.creditsRequired,
+          deliveryType: program.deliveryType,
+          durationValue: program.durationValue,
+          durationUnit: program.durationUnit,
+          facilitatorName: program.facilitatorName || undefined,
+          videoUrl: program.videoUrl || undefined,
         }));
 
         if (!cancelled) {
@@ -380,16 +454,34 @@ export default function CoachingLandingPage({ config }: Props) {
             });
         }
 
-        const mapped: EventLandingItem[] = events.map((event) => ({
-          name: event.id,
-          image: event.thumbnailUrl || config.landingContent?.heroImages?.events || "",
-          title: event.name,
-          description: event.shortDescription || event.longDescription || "",
-          eventType: event.eventType,
-          locationCity: event.locationCity,
-          eventDateTime: event.eventDateTime,
-          promoted: event.promoted,
-        }));
+        const mapped: EventLandingItem[] = events.map((event) => {
+          // Parse event date and time from eventDateTime ISO string
+          let eventDate: string | undefined;
+          let eventTime: string | undefined;
+          if (event.eventDateTime) {
+            const dt = new Date(event.eventDateTime);
+            eventDate = dt.toISOString().split("T")[0];
+            eventTime = dt.toTimeString().slice(0, 5);
+          }
+
+          return {
+            name: event.id,
+            type: "event" as const,
+            image: event.thumbnailUrl || config.landingContent?.heroImages?.events || "",
+            title: event.name,
+            description: event.shortDescription || event.longDescription || "",
+            details: event.details,
+            creditsRequired: event.creditsRequired ?? 0,
+            cost: event.cost ?? 0,
+            eventType: event.eventType,
+            eventDate,
+            eventTime,
+            locationCity: event.locationCity,
+            locationAddress: event.locationAddress,
+            videoUrl: event.videoUrl || undefined,
+            promoted: event.promoted,
+          };
+        });
 
         if (!cancelled) {
           setEventItemsFromDb(mapped);
@@ -433,6 +525,11 @@ export default function CoachingLandingPage({ config }: Props) {
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);
   const initials = useMemo(() => getInitials(name), [name]);
+  const effectiveUserType: UserType = isLoggedIn
+    ? role === "individual"
+      ? "learner"
+      : "coach"
+    : userType;
 
   const isCoach = userType === "coach";
 
@@ -651,7 +748,7 @@ export default function CoachingLandingPage({ config }: Props) {
           viewAllPath={sectionMeta.tools.viewAllPath}
           perView={perView}
           darkTile={sectionMeta.tools.darkTile}
-          onTryNow={() => setIsAuthModalOpen(true)}
+          onItemClick={handleItemClick}
         />
       )}
 
@@ -663,7 +760,8 @@ export default function CoachingLandingPage({ config }: Props) {
           intro={sectionMeta.programs.intro}
           viewAllPath={sectionMeta.programs.viewAllPath}
           perView={perView}
-          onTryNow={() => setIsAuthModalOpen(true)}
+          darkTile={sectionMeta.programs.darkTile}
+          onItemClick={handleItemClick}
         />
       )}
 
@@ -675,7 +773,7 @@ export default function CoachingLandingPage({ config }: Props) {
           intro={sectionMeta.events.intro}
           viewAllPath={sectionMeta.events.viewAllPath}
           perView={perView}
-          onTryNow={() => setIsAuthModalOpen(true)}
+          onItemClick={handleItemClick}
         />
       )}
 
@@ -689,6 +787,17 @@ export default function CoachingLandingPage({ config }: Props) {
       </footer>
 
       <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <DetailModal
+        item={selectedDetailItem}
+        isOpen={isDetailModalOpen}
+        userType={effectiveUserType}
+        isLoggedIn={isLoggedIn}
+        onAuthRequired={() => setIsAuthModalOpen(true)}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailItem(null);
+        }}
+      />
     </main>
   );
 }

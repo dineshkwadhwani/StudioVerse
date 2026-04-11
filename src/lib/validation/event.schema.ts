@@ -42,6 +42,7 @@ export const eventFormSchema = z.object({
   details: optionalTrimmedString,
   videoUrl: z.string().trim(),
   creditsRequired: z.string().trim(),
+  cost: z.string().trim(),
   status: z.enum(EVENT_STATUSES),
   promoted: z.boolean(),
   published: z.boolean(),
@@ -79,6 +80,7 @@ export function normalizeEventForm(
 ): EventWriteInput {
   const parsed = eventFormSchema.parse(values);
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
+  const cost = parsed.cost ? Number(parsed.cost) : 0;
 
   // Published checkbox drives both status and publicationState
   const publicationState = parsed.published ? "published" : "draft";
@@ -105,6 +107,7 @@ export function normalizeEventForm(
     details: parsed.details,
     videoUrl: parsed.videoUrl ? optionalNullableUrl.parse(parsed.videoUrl) : null,
     creditsRequired,
+    cost,
     status,
     promoted: parsed.promoted,
     ownershipScope: parsed.ownershipScope,
@@ -131,6 +134,7 @@ export function validateEventForm(
   const locationAddress = values.locationAddress.trim();
   const locationCity = values.locationCity.trim();
   const creditsRequired = values.creditsRequired.trim();
+  const cost = values.cost.trim();
 
   if (!tenantId) {
     errors.tenantId = "Select a tenant.";
@@ -188,10 +192,22 @@ export function validateEventForm(
   }
 
   // Credits
-  if (creditsRequired) {
+  if (!creditsRequired) {
+    errors.creditsRequired = "Credits required is mandatory.";
+  } else {
     const numeric = Number(creditsRequired);
     if (!Number.isFinite(numeric) || numeric < 0) {
       errors.creditsRequired = "Credits required cannot be negative.";
+    }
+  }
+
+  // Cost
+  if (!cost) {
+    errors.cost = "Cost is mandatory.";
+  } else {
+    const numeric = Number(cost);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      errors.cost = "Cost cannot be negative.";
     }
   }
 

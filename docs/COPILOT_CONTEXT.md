@@ -418,3 +418,47 @@ Question persistence model implemented:
 Current architecture note:
 - Assessment authoring is implemented for Coaching Studio admin flow first.
 - Participant runtime renderers for style-specific delivery are intentionally deferred (E4 next step).
+
+## Progress update — E4/E5 landing, wallet, and admin flows (Apr 11, 2026)
+
+Completed behavior baseline added after the Apr 10 implementation:
+- Coaching Studio Assessment Centre View All page is now implemented at `src/app/coaching-studio/tools/page.tsx`.
+- The View All Assessment page now reads from Firestore `assessments`, filters by tenant, and renders real assessment tiles instead of placeholder copy.
+- Coaching Studio landing page tools carousel now uses Firestore-backed assessments instead of static tenant config items.
+- Coaching Studio landing page events carousel now uses Firestore-backed events only; static config fallback for events was removed.
+
+Landing page catalog behavior now follows this rule:
+- If promoted records exist, show promoted records first.
+- If no promoted records exist, fall back to published/active records.
+- If the returned count is below the configured carousel limit, repeat items to fill the configured carousel size.
+- Carousel fill continues to respect `landingContent.carouselItemLimits` from tenant config.
+
+Wallet / coins implementation completed for Coaching Studio and SuperAdmin:
+- New SuperAdmin menu item: Manage Coins.
+- SuperAdmin dashboard includes a wallet summary tile showing utilized vs issued coins.
+- Dashboard tiles are clickable and route directly to the relevant management view.
+- Manage Coins flow implemented with tenant selection, user-type selection, user dropdown, coin amount input, and assignment action.
+- My Wallet panel added to Coaching Studio dashboard and reads wallet balance for the logged-in user using session key `cs_uid`.
+- Wallet persistence model implemented with Firestore collections:
+   - `wallets`
+   - `walletTransactions`
+- Coin assignment uses Firestore transactions for atomic wallet updates plus ledger entry creation.
+
+Manage Coins implementation notes:
+- Target user types are fixed as `company`, `professional`, and `individual`.
+- Tenant must be selected before user lookup runs.
+- User dropdown loading was debugged and hardened with:
+   - explicit tenant/user-type change logging
+   - cancellation guard against stale async state updates
+   - tenant slug normalization for `_` vs `-` mismatches.
+- Canonical tenant slug should be `coaching-studio` everywhere in tenant and user records.
+
+Assessment admin and deploy notes:
+- Assessment authoring save payload was adjusted so Firestore write objects use `Record<string, unknown>` instead of `Omit<AssessmentRecord, "id">` for timestamp fields.
+- This avoids Vercel TypeScript build failures caused by assigning Firestore `serverTimestamp()` (`FieldValue`) to model fields typed as `Timestamp`.
+
+Operational note from current workspace state:
+- Firestore was intentionally reset on Apr 11, 2026 for clean reseeding.
+- Deleted collections/documents included assessments, assessmentQuestions, programs, events, tenants, and all non-superadmin users.
+- Only the two superadmin user documents were preserved.
+- Any missing landing-page or admin data after this point may be due to the reset and require reseeding in Firestore.

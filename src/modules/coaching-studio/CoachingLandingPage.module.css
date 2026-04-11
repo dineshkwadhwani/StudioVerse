@@ -381,6 +381,31 @@
   cursor: pointer;
 }
 
+.tileButtonGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.tileButtonSecondary {
+  border: 2px solid #2bb6d1;
+  border-radius: 999px;
+  padding: 7px 13px;
+  color: #2bb6d1;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+}
+
+.tileButtonSecondary:hover {
+  background: rgba(43, 182, 209, 0.1);
+}
+
 .footer {
   margin-top: 30px;
   padding: 22px 28px 34px;

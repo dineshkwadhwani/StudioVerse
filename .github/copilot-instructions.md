@@ -108,7 +108,8 @@ Priority order:
 
 Implementation-specific context:
 - Use `docs/T0.md` to `docs/T5.md` for technical epic implementation.
-- Use `docs/E0.md` and `docs/E1.md` for functional epic implementation.
+- Use `docs/E0.md`,`docs/E1.md`,`docs/E2.md`,`docs/E3.md`,`docs/E4.md` and `docs/E5.md` for functional epic implementation.
+
 
 If a request affects architecture or implementation, briefly state which docs were consulted before proposing changes.
 Do not guess when the answer is defined in `/docs`.

@@ -3,9 +3,11 @@
 import { config } from "@/tenants/coaching-studio/config";
 import { useEffect, useMemo, useState } from "react";
 import CoachingViewAllHeader from "@/modules/coaching-studio/CoachingViewAllHeader";
+import DetailModal, { type DetailItem } from "@/modules/coaching-studio/DetailModal";
 import LoginRegisterModal from "@/modules/coaching-studio/auth/LoginRegisterModal";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/services/firebase";
+import { db, auth } from "@/services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import type { AssessmentRecord } from "@/types/assessment";
 import landingStyles from "@/modules/coaching-studio/CoachingLandingPage.module.css";
 import styles from "@/modules/coaching-studio/CoachingProgramsPage.module.css";
@@ -14,11 +16,72 @@ function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+type UserType = "coach" | "learner";
+type UserRole = "company" | "professional" | "individual";
+
+function isUserRole(value: unknown): value is UserRole {
+  return value === "company" || value === "professional" || value === "individual";
+}
+
 export default function CoachingStudioToolsPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [guestUserType, setGuestUserType] = useState<UserType>("coach");
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setIsLoggedIn(!!firebaseUser);
+
+      if (!firebaseUser) {
+        setRole(null);
+        return;
+      }
+
+      const storedRole = sessionStorage.getItem("cs_role");
+      setRole(isUserRole(storedRole) ? storedRole : null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("coachingStudioUserType");
+    setGuestUserType(stored === "learner" ? "learner" : "coach");
+  }, []);
+
+  const effectiveUserType: UserType = isLoggedIn
+    ? role === "individual"
+      ? "learner"
+      : "coach"
+    : guestUserType;
+
+  const handleItemClick = (item: AssessmentRecord) => {
+    if (!isLoggedIn) {
+      const stored = localStorage.getItem("coachingStudioUserType");
+      setGuestUserType(stored === "learner" ? "learner" : "coach");
+    }
+
+    const detailItem: DetailItem = {
+      id: item.id,
+      type: "tool",
+      title: item.name,
+      image: item.assessmentImageUrl || "",
+      description: item.shortDescription || item.longDescription || "",
+      details: item.assessmentContext,
+      creditsRequired: item.creditsRequired ?? 0,
+      assessmentContext: item.assessmentContext,
+      assessmentBenefit: item.assessmentBenefit,
+      assessmentType: item.assessmentType,
+    };
+
+    setSelectedDetailItem(detailItem);
+    setIsDetailModalOpen(true);
+  };
 
   useEffect(() => {
     let active = true;
@@ -117,6 +180,13 @@ export default function CoachingStudioToolsPage() {
                   <p className={landingStyles.tileCopy}>{item.shortDescription}</p>
                   <p className={styles.meta}>Type: {item.assessmentType}</p>
                   <p className={styles.meta}>Questions: {item.questionBankCount}</p>
+                  <button
+                    type="button"
+                    className={landingStyles.tileButton}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    Find out more...
+                  </button>
                 </div>
               </article>
             ))}
@@ -125,6 +195,17 @@ export default function CoachingStudioToolsPage() {
       </section>
 
       <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <DetailModal
+        item={selectedDetailItem}
+        isOpen={isDetailModalOpen}
+        userType={effectiveUserType}
+        isLoggedIn={isLoggedIn}
+        onAuthRequired={() => setIsAuthModalOpen(true)}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedDetailItem(null);
+        }}
+      />
     </main>
   );
 }

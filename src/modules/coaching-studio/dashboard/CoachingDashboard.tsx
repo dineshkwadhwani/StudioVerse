@@ -6,8 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
+import { getUserProfile } from "@/services/profile.service";
 import { getWalletByUserId } from "@/services/wallet.service";
 import { config } from "@/tenants/coaching-studio/config";
+import type { UserProfileRecord } from "@/types/profile";
 import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingDashboard.module.css";
 
@@ -69,17 +71,26 @@ function getRoleLabel(role: UserRole): string {
   return "Learner";
 }
 
+function isAssignmentAction(key: string): boolean {
+  return key === "register-programs" || key === "register-assessment" || key === "register-event";
+}
+
 export default function CoachingDashboard() {
   const router = useRouter();
   const [role, setRole] = useState<UserRole>("individual");
   const [name, setName] = useState("User");
-  const [activeKey, setActiveKey] = useState<string>("");
+  const [activeKey, setActiveKey] = useState<string>(() => getMenuItems("individual")[0]?.key ?? "");
   const [menuOpen, setMenuOpen] = useState(false);
   const [wallet, setWallet] = useState<{ issued: number; utilized: number; available: number } | null>(null);
+  const [profile, setProfile] = useState<UserProfileRecord | null>(null);
+  const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
     const storedName = sessionStorage.getItem("cs_name");
+    const storedUid = sessionStorage.getItem("cs_uid");
+    const storedProfileId = sessionStorage.getItem("cs_profile_id") ?? undefined;
+    const storedPhone = sessionStorage.getItem("cs_phone") ?? undefined;
 
     if (!storedRoleRaw) {
       router.replace("/coaching-studio");
@@ -93,9 +104,15 @@ export default function CoachingDashboard() {
     }
 
     setRole(storedRoleRaw);
+    setActiveKey((current) => {
+      const items = getMenuItems(storedRoleRaw);
+      if (items.some((item) => item.key === current)) {
+        return current;
+      }
+      return items[0]?.key ?? "";
+    });
     setName(storedName ?? "User");
 
-    const storedUid = sessionStorage.getItem("cs_uid");
     if (storedUid) {
       getWalletByUserId(storedUid)
         .then((walletData) => {
@@ -112,19 +129,36 @@ export default function CoachingDashboard() {
         .catch(() => {
           setWallet(null);
         });
+
+      getUserProfile({
+        userId: storedUid,
+        tenantId: "coaching-studio",
+        phoneE164: storedPhone,
+        profileId: storedProfileId,
+      })
+        .then((resolvedProfile) => {
+          setProfile(resolvedProfile);
+          setProfileStatus("ready");
+
+          if (resolvedProfile) {
+            setName(resolvedProfile.fullName || storedName || "User");
+            sessionStorage.setItem("cs_profile_id", resolvedProfile.id);
+            sessionStorage.setItem("cs_name", resolvedProfile.fullName);
+          }
+        })
+        .catch(() => {
+          setProfileStatus("error");
+        });
+    } else {
+      router.replace("/coaching-studio/auth");
     }
   }, [router]);
 
   const menuItems = useMemo(() => getMenuItems(role), [role]);
 
-  useEffect(() => {
-    if (menuItems.length > 0 && !activeKey) {
-      setActiveKey(menuItems[0].key);
-    }
-  }, [menuItems, activeKey]);
-
   const userInitials = useMemo(() => getInitials(name), [name]);
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
+  const profileIncomplete = Boolean(profile && !profile.mandatoryProfileCompleted);
 
   async function handleLogout() {
     await signOut(auth);
@@ -176,11 +210,16 @@ export default function CoachingDashboard() {
 
                 <p className={styles.menuTitle}>Actions</p>
 
+                <Link href="/coaching-studio/profile" className={styles.menuLink} onClick={() => setMenuOpen(false)}>
+                  Update Profile
+                </Link>
+
                 {menuItems.map((item) => (
                   <button
                     key={item.key}
                     type="button"
                     className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
+                    disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
                     onClick={() => {
                       setActiveKey(item.key);
                       setMenuOpen(false);
@@ -210,6 +249,32 @@ export default function CoachingDashboard() {
       {/* Content */}
       <div className={styles.shell}>
         <section className={styles.contentCard}>
+          {profileIncomplete ? (
+            <article className={styles.alertCard}>
+              <div>
+                <p className={styles.alertEyebrow}>Profile completion required</p>
+                <h2 className={styles.alertTitle}>Complete your mandatory profile details before assignments can be enabled.</h2>
+                <p className={styles.alertCopy}>
+                  City is still required, and adding more profile detail improves assessments and future referrals.
+                </p>
+              </div>
+              <Link href="/coaching-studio/profile" className={styles.alertAction}>
+                Update Profile
+              </Link>
+            </article>
+          ) : null}
+
+          {profileStatus === "ready" && profile ? (
+            <article className={styles.profileSummaryCard}>
+              <p className={styles.walletTitle}>Profile Status</p>
+              <div className={styles.walletStats}>
+                <p>Completion: <strong>{profile.profileCompletionPercent}%</strong></p>
+                <p>Mandatory: <strong>{profile.mandatoryProfileCompleted ? "Complete" : "Incomplete"}</strong></p>
+                <p>Assignments: <strong>{profile.assignmentEligible ? "Enabled" : "Blocked"}</strong></p>
+              </div>
+            </article>
+          ) : null}
+
           {wallet ? (
             <article className={styles.walletCard}>
               <p className={styles.walletTitle}>My Wallet</p>
@@ -225,7 +290,9 @@ export default function CoachingDashboard() {
             {menuItems.find((m) => m.key === activeKey)?.label ?? "Dashboard"}
           </h2>
           <p className={styles.sectionHint}>
-            This section is coming soon. Use the menu to navigate between actions.
+            {role === "individual" && profileIncomplete && isAssignmentAction(activeKey)
+              ? "Complete your mandatory profile details before registering for assignments."
+              : "This section is coming soon. Use the menu to navigate between actions."}
           </p>
         </section>
       </div>

@@ -65,6 +65,7 @@ export default function EventForm({
       "details",
       "videoUrl",
       "creditsRequired",
+      "cost",
       "thumbnailUrl",
       "promoted",
       "published",
@@ -241,7 +242,7 @@ export default function EventForm({
           />
           {errors.details ? <p className={styles.error}>{errors.details}</p> : null}
 
-          {/* Video URL + Credits row */}
+          {/* Video URL + Credits + Cost row */}
           <div className={styles.actions}>
             <div style={{ flex: 1, minWidth: 180 }}>
               <label className={styles.label} htmlFor="event-video-url">Video / Meeting URL</label>
@@ -269,6 +270,20 @@ export default function EventForm({
                 disabled={busy}
               />
               {errors.creditsRequired ? <p className={styles.error}>{errors.creditsRequired}</p> : null}
+            </div>
+
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <label className={styles.label} htmlFor="event-cost">Cost</label>
+              <input
+                id="event-cost"
+                ref={(el) => { fieldRefs.current.cost = el; }}
+                className={`${styles.input} ${errors.cost ? styles.inputError : ""}`}
+                value={value.cost}
+                onChange={(e) => onChange("cost", e.target.value)}
+                inputMode="decimal"
+                disabled={busy}
+              />
+              {errors.cost ? <p className={styles.error}>{errors.cost}</p> : null}
             </div>
           </div>
 

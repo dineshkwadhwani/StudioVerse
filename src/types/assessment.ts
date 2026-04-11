@@ -33,6 +33,7 @@ export type AssessmentRecord = {
   assessmentBenefit: string;
   assessmentType: AssessmentType;
   renderStyle: AssessmentRenderStyle;
+  creditsRequired: number;
   questionBankCount: number;
   questionsPerAttempt: number;
   analysisPrompt: string;
@@ -85,6 +86,7 @@ export type AssessmentFormValues = {
   assessmentBenefit: string;
   assessmentType: AssessmentType;
   renderStyle: AssessmentRenderStyle;
+  creditsRequired: string;
   questionBankCount: string;
   questionsPerAttempt: string;
   analysisPrompt: string;

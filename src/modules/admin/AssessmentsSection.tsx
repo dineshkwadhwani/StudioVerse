@@ -83,6 +83,7 @@ const EMPTY_FORM: AssessmentFormValues = {
   assessmentBenefit: "",
   assessmentType: "self-awareness",
   renderStyle: "single-choice",
+  creditsRequired: "0",
   questionBankCount: "20",
   questionsPerAttempt: "10",
   analysisPrompt: "",
@@ -161,6 +162,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       assessmentBenefit: assessment.assessmentBenefit,
       assessmentType: assessment.assessmentType,
       renderStyle: assessment.renderStyle,
+      creditsRequired: String(assessment.creditsRequired ?? 0),
       questionBankCount: String(assessment.questionBankCount),
       questionsPerAttempt: String(assessment.questionsPerAttempt),
       analysisPrompt: assessment.analysisPrompt,
@@ -306,6 +308,12 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
     if (!formValues.name.trim()) { setError("Assessment name is required."); return; }
     if (generatedQuestions.length === 0) { setError("Please generate at least one question before saving."); return; }
 
+    const parsedCreditsRequired = Number(formValues.creditsRequired);
+    if (!Number.isFinite(parsedCreditsRequired) || parsedCreditsRequired < 0) {
+      setError("Credits required must be a non-negative number.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -338,6 +346,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         assessmentBenefit: formValues.assessmentBenefit.trim(),
         assessmentType: formValues.assessmentType,
         renderStyle: formValues.renderStyle,
+        creditsRequired: parsedCreditsRequired,
         questionBankCount: generatedQuestions.length,
         questionsPerAttempt: parseInt(formValues.questionsPerAttempt, 10) || generatedQuestions.length,
         analysisPrompt: formValues.analysisPrompt.trim(),
@@ -477,6 +486,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                 <th>Name</th>
                 <th>Type</th>
                 <th>Render Style</th>
+                <th>Credits</th>
                 <th>Questions (Bank)</th>
                 <th>Per Attempt</th>
                 <th>Status</th>
@@ -491,6 +501,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                   <td style={{ fontWeight: 700 }}>{a.name}</td>
                   <td>{ASSESSMENT_TYPE_LABELS[a.assessmentType] ?? a.assessmentType}</td>
                   <td>{RENDER_STYLE_LABELS[a.renderStyle] ?? a.renderStyle}</td>
+                  <td>{a.creditsRequired ?? 0}</td>
                   <td>{a.questionBankCount}</td>
                   <td>{a.questionsPerAttempt}</td>
                   <td><span className={styles.statusBadge}>{a.status}</span></td>
@@ -598,6 +609,17 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                 <div>
                   <label className={styles.label} htmlFor="a-bank-count">Questions to Generate (Bank Count)</label>
                   <input id="a-bank-count" type="number" min={1} max={100} className={styles.input} value={formValues.questionBankCount} onChange={(e) => setField("questionBankCount", e.target.value)} />
+                </div>
+                <div>
+                  <label className={styles.label} htmlFor="a-credits-required">Credits Required</label>
+                  <input
+                    id="a-credits-required"
+                    type="number"
+                    min={0}
+                    className={styles.input}
+                    value={formValues.creditsRequired}
+                    onChange={(e) => setField("creditsRequired", e.target.value)}
+                  />
                 </div>
                 <div>
                   <label className={styles.label} htmlFor="a-per-attempt">Questions Per Attempt</label>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ConfirmationResult,
   RecaptchaVerifier,
@@ -35,6 +36,8 @@ import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
 import ManageCoinsSection from "./ManageCoinsSection";
 import { listWalletSummary } from "@/services/wallet.service";
+import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
+import type { AssignmentRecord } from "@/types/assignment";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -46,6 +49,7 @@ type MenuKey =
   | "programs"
   | "events"
   | "coins"
+  | "assigned-activities"
   | "assign-activity";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
@@ -116,8 +120,17 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "programs", label: "Manage Programs" },
   { key: "events", label: "Manage Events" },
   { key: "coins", label: "Manage Wallet" },
+  { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
 ];
+
+function formatAssignedAt(value: AssignmentRecord["createdAt"]): string {
+  if (!value || !("toDate" in value) || typeof value.toDate !== "function") {
+    return "-";
+  }
+
+  return value.toDate().toLocaleString();
+}
 
 const EMPTY_USER_FORM: UserFormState = {
   name: "",
@@ -240,6 +253,7 @@ export default function SuperAdminPortal() {
   const [usersFilter, setUsersFilter] = useState<AppUserType>("superadmin");
   const [users, setUsers] = useState<AppUser[]>([]);
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
+  const [assignedActivities, setAssignedActivities] = useState<AssignmentRecord[]>([]);
 
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
@@ -345,6 +359,27 @@ export default function SuperAdminPortal() {
     }
 
     void loadTenants();
+  }, [profile, activeMenu]);
+
+  useEffect(() => {
+    if (!profile || activeMenu !== "assigned-activities") {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const rows = await getAssignmentsForAssignerContext({
+          tenantId: profile.tenantId || "platform",
+          assignerIds: [profile.id, profile.uid ?? ""].filter(Boolean),
+        });
+
+        setAssignedActivities(rows);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load assigned activities.";
+        setAuthError(message);
+        setAssignedActivities([]);
+      }
+    })();
   }, [profile, activeMenu]);
 
   async function sendOtp() {
@@ -906,6 +941,39 @@ export default function SuperAdminPortal() {
               <p className={styles.subtitle}>
                 Use the assessment, program, and event modules to assign activities across the platform.
               </p>
+            </article>
+          ) : null}
+
+          {activeMenu === "assigned-activities" ? (
+            <article className={styles.card}>
+              <h2>Assigned Activities</h2>
+              <p className={styles.subtitle}>Track activities assigned by your superadmin account and open reports where available.</p>
+
+              {assignedActivities.length === 0 ? (
+                <div className={styles.emptyCard}>No assigned activities found.</div>
+              ) : (
+                <div className={styles.userStack}>
+                  {assignedActivities.map((item) => (
+                    <section key={item.id} className={styles.userItem}>
+                      <div>
+                        <p className={styles.userName}>{item.activityTitle}</p>
+                        <p className={styles.userMeta}>Type: {item.activityType}</p>
+                        <p className={styles.userMeta}>Assigned to: {item.assigneeFullName || "-"}</p>
+                        <p className={styles.userMeta}>Status: {item.status}</p>
+                        <p className={styles.userMeta}>Assigned on: {formatAssignedAt(item.createdAt)}</p>
+                      </div>
+
+                      <div className={styles.userActions}>
+                        {item.activityType === "assessment" ? (
+                          <Link href={`/${item.tenantId}/my-activities/assessment-report/${item.id}`} className={styles.rowAction}>
+                            Open Report
+                          </Link>
+                        ) : null}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
             </article>
           ) : null}
         </section>

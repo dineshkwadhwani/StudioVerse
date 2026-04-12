@@ -43,6 +43,7 @@ function getCompanyMenu(basePath: string): StudioMenuItem[] {
     { key: "manage-cohort", label: "Manage Cohort", href: buildPath(basePath, "/dashboard") },
     { key: "manage-individual", label: "Manage Individual", href: buildPath(basePath, "/dashboard") },
     { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/dashboard") },
+    { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
     { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
   ];
 }
@@ -58,6 +59,7 @@ function getProfessionalMenu(basePath: string): StudioMenuItem[] {
     { key: "manage-cohort", label: "Manage Cohort", href: buildPath(basePath, "/dashboard") },
     { key: "manage-individual", label: "Manage Individual", href: buildPath(basePath, "/dashboard") },
     { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/dashboard") },
+    { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
     { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
   ];
 }

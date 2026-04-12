@@ -536,3 +536,39 @@ export async function getAssignmentsForAssigneeContext(args: {
     return [];
   }
 }
+
+export async function getAssignmentsForAssignerContext(args: {
+  tenantId: string;
+  assignerIds: string[];
+}): Promise<AssignmentRecord[]> {
+  const normalizedIds = Array.from(new Set(args.assignerIds.map((id) => id.trim()).filter(Boolean)));
+
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  try {
+    const snapshots = await Promise.all(
+      normalizedIds.map((assignerId) =>
+        getDocs(query(collection(db, "assignments"), where("assignerId", "==", assignerId)))
+      )
+    );
+
+    const allMatched = snapshots
+      .flatMap((snapshot) => mapAssignmentDocsToRecords(snapshot.docs))
+      .reduce<AssignmentRecord[]>((acc, item) => {
+        if (!acc.some((existing) => existing.id === item.id)) {
+          acc.push(item);
+        }
+        return acc;
+      }, []);
+
+    const tenantMatched = allMatched.filter((item) => item.tenantId === args.tenantId);
+    const recordsToReturn = tenantMatched.length > 0 ? tenantMatched : allMatched;
+
+    return recordsToReturn.sort((a, b) => toSortableTimestamp(b.createdAt) - toSortableTimestamp(a.createdAt));
+  } catch (error) {
+    console.error("[getAssignmentsForAssignerContext] error:", error);
+    return [];
+  }
+}

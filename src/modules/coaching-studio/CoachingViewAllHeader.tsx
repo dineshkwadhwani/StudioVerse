@@ -8,6 +8,7 @@ import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
 import type { CoachingUserRole } from "./menuConfig";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingViewAllHeader.module.css";
 
@@ -41,16 +42,7 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);

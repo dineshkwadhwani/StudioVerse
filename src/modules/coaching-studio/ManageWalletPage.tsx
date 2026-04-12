@@ -12,6 +12,7 @@ import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import { config } from "@/tenants/coaching-studio/config";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
 import type { CoachingUserRole } from "./menuConfig";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
 import dashboardStyles from "./dashboard/CoachingDashboard.module.css";
 import styles from "./ManageWalletPage.module.css";
@@ -105,16 +106,7 @@ export default function ManageWalletPage() {
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);

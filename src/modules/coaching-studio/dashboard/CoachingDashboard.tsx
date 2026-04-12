@@ -13,6 +13,7 @@ import { config } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
 import { getRoleLabel, getRoleMenuItems } from "../menuConfig";
 import type { CoachingUserRole, CoachingMenuItem } from "../menuConfig";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingDashboard.module.css";
 
@@ -46,16 +47,7 @@ export default function CoachingDashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   const [wallet, setWallet] = useState<{ issued: number; utilized: number; available: number } | null>(null);
   const [profile, setProfile] = useState<UserProfileRecord | null>(null);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");

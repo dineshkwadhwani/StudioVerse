@@ -13,6 +13,7 @@ import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
 import type { CoachingUserRole } from "./menuConfig";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
@@ -236,16 +237,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
   const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);

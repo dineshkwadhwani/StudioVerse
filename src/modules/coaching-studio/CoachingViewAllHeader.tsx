@@ -41,8 +41,10 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
+  useClickOutside(mobileMenuRef, () => setIsMobileMenuOpen(false), isMobileMenuOpen);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
@@ -192,57 +194,60 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
         </button>
       </header>
 
-      {isMobileMenuOpen ? (
-        <div className={landingStyles.mobileMenu}>
-          {!isLoggedIn ? (
-            <div className={landingStyles.mobileUserToggle}>
-              <button
-                type="button"
-                className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
-                onClick={() => setUserType("coach")}
-              >
-                I am a Coach
-              </button>
-              <button
-                type="button"
-                className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
-                onClick={() => setUserType("learner")}
-              >
-                I am a Learner
-              </button>
-            </div>
-          ) : null}
-
-          <Link href="/coaching-studio/tools" onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
-          <Link href="/coaching-studio/programs" onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>
-          <Link href="/coaching-studio/events" onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
-
-          {isLoggedIn ? (
-            <>
-              <div className={styles.mobileMenuUser}>
-                <p className={styles.mobileMenuName}>{name}</p>
-                <p className={styles.mobileMenuRole}>{getRoleLabel(role)}</p>
+      {isMobileMenuOpen && (
+        <>
+          <div className={landingStyles.mobileMenuBackdrop} ref={mobileMenuRef} onClick={() => setIsMobileMenuOpen(false)} />
+          <div className={landingStyles.mobileMenu}>
+            {!isLoggedIn ? (
+              <div className={landingStyles.mobileUserToggle}>
+                <button
+                  type="button"
+                  className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
+                  onClick={() => setUserType("coach")}
+                >
+                  I am a Coach
+                </button>
+                <button
+                  type="button"
+                  className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
+                  onClick={() => setUserType("learner")}
+                >
+                  I am a Learner
+                </button>
               </div>
-              {roleMenuItems.map((item) => (
-                <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
-                  {item.label}
-                </Link>
-              ))}
-              <button type="button" onClick={handleSignOut}>Sign Out</button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                onSignInRegister();
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              Sign In / Register
-            </button>
-          )}
-        </div>
-      ) : null}
+            ) : null}
+
+            <Link href="/coaching-studio/tools" onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
+            <Link href="/coaching-studio/programs" onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>
+            <Link href="/coaching-studio/events" onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
+
+            {isLoggedIn ? (
+              <>
+                <div className={styles.mobileMenuUser}>
+                  <p className={styles.mobileMenuName}>{name}</p>
+                  <p className={styles.mobileMenuRole}>{getRoleLabel(role)}</p>
+                </div>
+                {roleMenuItems.map((item) => (
+                  <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                    {item.label}
+                  </Link>
+                ))}
+                <button type="button" onClick={handleSignOut}>Sign Out</button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onSignInRegister();
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                Sign In / Register
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }

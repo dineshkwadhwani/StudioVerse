@@ -135,6 +135,10 @@
   display: none;
 }
 
+.mobileMenuBackdrop {
+  display: none;
+}
+
 .hero {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -623,12 +627,25 @@
     display: block;
   }
 
+  .mobileMenuBackdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 999;
+  }
+
   .mobileMenu {
     display: grid;
     gap: 8px;
     padding: 0 28px 14px;
     background: rgba(233, 245, 255, 0.95);
     border-bottom: 1px solid var(--line);
+    position: relative;
+    z-index: 1000;
   }
 
   .mobileUserToggle {

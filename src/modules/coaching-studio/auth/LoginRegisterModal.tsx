@@ -235,12 +235,17 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         const userData = userDoc.data() as Record<string, unknown>;
         const resolvedRole = resolveUserRole(userData);
         const resolvedName = typeof userData.name === 'string' ? userData.name : 'User';
+        const resolvedEmail = typeof userData.email === 'string' ? userData.email : '';
+        const resolvedPhone = typeof userData.phoneE164 === 'string' ? userData.phoneE164 : phoneE164;
         logFlow('verify-otp:existing-user', { role: resolvedRole, name: resolvedName });
 
         // Keep session uid aligned with Firebase Auth uid for cross-page auth checks.
         sessionStorage.setItem('cs_uid', result.user.uid);
+        sessionStorage.setItem('cs_profile_id', userDoc.id);
         sessionStorage.setItem('cs_role', resolvedRole);
         sessionStorage.setItem('cs_name', resolvedName);
+        sessionStorage.setItem('cs_email', resolvedEmail);
+        sessionStorage.setItem('cs_phone', resolvedPhone);
 
         // Redirect to dashboard
         setPhase('success');
@@ -319,8 +324,11 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
 
       // Set session storage
       sessionStorage.setItem('cs_uid', userId);
+      sessionStorage.setItem('cs_profile_id', userDocRef.id);
       sessionStorage.setItem('cs_role', role);
       sessionStorage.setItem('cs_name', name);
+      sessionStorage.setItem('cs_email', typeof userData.email === 'string' ? userData.email : '');
+      sessionStorage.setItem('cs_phone', phoneE164);
 
       // Redirect to dashboard
       setTimeout(() => {

@@ -13,6 +13,12 @@ type ViewAllPage = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
 type UserRole = "company" | "professional" | "individual";
 
+type RoleMenuItem = {
+  key: string;
+  label: string;
+  href: string;
+};
+
 type Props = {
   config: TenantConfig;
   currentPage: ViewAllPage;
@@ -31,6 +37,53 @@ function getRoleLabel(role: UserRole | null): string {
   if (role === "professional") return "Coach";
   if (role === "individual") return "Learner";
   return "Member";
+}
+
+const COMPANY_MENU: RoleMenuItem[] = [
+  { key: "dashboard", label: "Dashboard", href: "/coaching-studio/dashboard" },
+  { key: "update-profile", label: "Update Profile", href: "/coaching-studio/profile" },
+  { key: "manage-users", label: "Manage Users", href: "/coaching-studio/dashboard" },
+  { key: "manage-programs", label: "Manage Programs", href: "/coaching-studio/programs" },
+  { key: "manage-events", label: "Manage Events", href: "/coaching-studio/events" },
+  { key: "manage-wallet", label: "Manage Wallet", href: "/coaching-studio/manage-wallet" },
+  { key: "manage-cohort", label: "Manage Cohort", href: "/coaching-studio/dashboard" },
+  { key: "manage-individual", label: "Manage Individual", href: "/coaching-studio/dashboard" },
+  { key: "assign-activity", label: "Assign Activity", href: "/coaching-studio/dashboard" },
+  { key: "my-activities", label: "My activities", href: "/coaching-studio/my-activities" },
+];
+
+const PROFESSIONAL_MENU: RoleMenuItem[] = [
+  { key: "dashboard", label: "Dashboard", href: "/coaching-studio/dashboard" },
+  { key: "update-profile", label: "Update Profile", href: "/coaching-studio/profile" },
+  { key: "manage-users", label: "Manage Users", href: "/coaching-studio/dashboard" },
+  { key: "manage-programs", label: "Manage Programs", href: "/coaching-studio/programs" },
+  { key: "manage-events", label: "Manage Events", href: "/coaching-studio/events" },
+  { key: "manage-wallet", label: "Manage Wallet", href: "/coaching-studio/manage-wallet" },
+  { key: "manage-cohort", label: "Manage Cohort", href: "/coaching-studio/dashboard" },
+  { key: "manage-individual", label: "Manage Individual", href: "/coaching-studio/dashboard" },
+  { key: "assign-activity", label: "Assign Activity", href: "/coaching-studio/dashboard" },
+  { key: "my-activities", label: "My activities", href: "/coaching-studio/my-activities" },
+];
+
+const INDIVIDUAL_MENU: RoleMenuItem[] = [
+  { key: "dashboard", label: "Dashboard", href: "/coaching-studio/dashboard" },
+  { key: "update-profile", label: "Update Profile", href: "/coaching-studio/profile" },
+  { key: "manage-wallet", label: "Manage Wallet", href: "/coaching-studio/manage-wallet" },
+  { key: "assign-activity", label: "Assign Activity", href: "/coaching-studio/dashboard" },
+  { key: "my-activities", label: "My activities", href: "/coaching-studio/my-activities" },
+];
+
+function getRoleMenuItems(role: UserRole | null): RoleMenuItem[] {
+  if (role === "company") {
+    return COMPANY_MENU;
+  }
+  if (role === "professional") {
+    return PROFESSIONAL_MENU;
+  }
+  if (role === "individual") {
+    return INDIVIDUAL_MENU;
+  }
+  return [];
 }
 
 export default function CoachingViewAllHeader({ config, currentPage, onSignInRegister }: Props) {
@@ -91,6 +144,7 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
 
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
   const initials = useMemo(() => getInitials(name), [name]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
 
   const navClass = (page: ViewAllPage): string => {
     return `${landingStyles.navLink} ${currentPage === page ? landingStyles.navLinkActive : ""}`;
@@ -161,9 +215,16 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
                     </div>
 
                     <p className={styles.menuTitle}>Menu</p>
-                    <Link href="/coaching-studio/dashboard" className={styles.menuLink} onClick={() => setMenuOpen(false)}>
-                      Dashboard
-                    </Link>
+                    {roleMenuItems.map((item) => (
+                      <Link
+                        key={item.key}
+                        href={item.href}
+                        className={styles.menuLink}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
                     <hr className={styles.menuDivider} />
                     <button type="button" className={styles.menuItem} onClick={handleSignOut}>
                       Sign Out
@@ -216,9 +277,11 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
                 <p className={styles.mobileMenuName}>{name}</p>
                 <p className={styles.mobileMenuRole}>{getRoleLabel(role)}</p>
               </div>
-              <Link href="/coaching-studio/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-                Dashboard
-              </Link>
+              {roleMenuItems.map((item) => (
+                <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                  {item.label}
+                </Link>
+              ))}
               <button type="button" onClick={handleSignOut}>Sign Out</button>
             </>
           ) : (

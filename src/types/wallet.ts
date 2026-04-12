@@ -22,6 +22,25 @@ export type WalletSummary = {
   totalUtilizedCoins: number;
 };
 
+export type WalletTransactionType = "credit" | "debit";
+
+export type WalletTransactionRecord = {
+  id: string;
+  walletId: string;
+  userId: string;
+  tenantId: string;
+  userType: WalletUserType;
+  userName: string;
+  transactionType: WalletTransactionType;
+  reason?: string;
+  coins: number;
+  assignmentId?: string;
+  activityType?: string;
+  activityId?: string;
+  createdBy: string;
+  createdAt?: Timestamp;
+};
+
 export type AssignCoinsInput = {
   userId: string;
   tenantId: string;

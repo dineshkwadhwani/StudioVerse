@@ -44,9 +44,10 @@ type MenuKey =
   | "users"
   | "tenants"
   | "tools"
-  | "coins"
   | "programs"
-  | "events";
+  | "events"
+  | "coins"
+  | "assign-activity";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
 type Status = "active" | "inactive";
@@ -112,10 +113,11 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "profile", label: "Update Profile" },
   { key: "users", label: "Manage Users" },
   { key: "tenants", label: "Manage Tenants" },
-  { key: "tools", label: "Manage Assessments" },
-  { key: "coins", label: "Manage Coins" },
+  { key: "tools", label: "Manage Assessment" },
   { key: "programs", label: "Manage Programs" },
   { key: "events", label: "Manage Events" },
+  { key: "coins", label: "Manage Wallet" },
+  { key: "assign-activity", label: "Assign Activity" },
 ];
 
 const EMPTY_USER_FORM: UserFormState = {
@@ -897,6 +899,15 @@ export default function SuperAdminPortal() {
 
           {activeMenu === "events" ? (
             <EventsSection tenants={tenants} />
+          ) : null}
+
+          {activeMenu === "assign-activity" ? (
+            <article className={styles.card}>
+              <h2>Assign Activity</h2>
+              <p className={styles.subtitle}>
+                Use the assessment, program, and event modules to assign activities across the platform.
+              </p>
+            </article>
           ) : null}
         </section>
 

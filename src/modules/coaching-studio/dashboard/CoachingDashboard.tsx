@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
-import { getWalletByUserId } from "@/services/wallet.service";
+import { getWalletForUserContext } from "@/services/wallet.service";
 import { config } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
 import landingStyles from "../CoachingLandingPage.module.css";
@@ -25,31 +25,37 @@ function isUserRole(value: unknown): value is UserRole {
 }
 
 const COMPANY_MENU: MenuItem[] = [
-  { key: "manage-coaches", label: "Manage Coaches" },
-  { key: "manage-cohort", label: "Manage Cohort" },
-  { key: "manage-individuals", label: "Manage Individuals" },
-  { key: "manage-tools", label: "Manage Tools" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "update-profile", label: "Update Profile" },
+  { key: "manage-users", label: "Manage Users" },
   { key: "manage-programs", label: "Manage Programs" },
   { key: "manage-events", label: "Manage Events" },
-  { key: "assign-program", label: "Assign Program" },
-  { key: "assign-tool", label: "Assign Tool" },
+  { key: "manage-wallet", label: "Manage Wallet" },
+  { key: "manage-cohort", label: "Manage Cohort" },
+  { key: "manage-individual", label: "Manage Individual" },
+  { key: "assign-activity", label: "Assign Activity" },
+  { key: "my-activities", label: "My activities" },
 ];
 
 const PROFESSIONAL_MENU: MenuItem[] = [
-  { key: "manage-cohort", label: "Manage Cohort" },
-  { key: "manage-individuals", label: "Manage Individuals" },
-  { key: "manage-tools", label: "Manage Tools" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "update-profile", label: "Update Profile" },
+  { key: "manage-users", label: "Manage Users" },
   { key: "manage-programs", label: "Manage Programs" },
   { key: "manage-events", label: "Manage Events" },
-  { key: "assign-program", label: "Assign Program" },
-  { key: "assign-tool", label: "Assign Tool" },
+  { key: "manage-wallet", label: "Manage Wallet" },
+  { key: "manage-cohort", label: "Manage Cohort" },
+  { key: "manage-individual", label: "Manage Individual" },
+  { key: "assign-activity", label: "Assign Activity" },
+  { key: "my-activities", label: "My activities" },
 ];
 
 const INDIVIDUAL_MENU: MenuItem[] = [
-  { key: "register-programs", label: "Register for Programs" },
-  { key: "register-assessment", label: "Register for Assessment" },
-  { key: "register-event", label: "Register for Event" },
-  { key: "my-assignments", label: "My Assignments" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "update-profile", label: "Update Profile" },
+  { key: "manage-wallet", label: "Manage Wallet" },
+  { key: "assign-activity", label: "Assign Activity" },
+  { key: "my-activities", label: "My activities" },
 ];
 
 function getMenuItems(role: UserRole): MenuItem[] {
@@ -72,7 +78,7 @@ function getRoleLabel(role: UserRole): string {
 }
 
 function isAssignmentAction(key: string): boolean {
-  return key === "register-programs" || key === "register-assessment" || key === "register-event";
+  return key === "assign-activity";
 }
 
 export default function CoachingDashboard() {
@@ -114,7 +120,7 @@ export default function CoachingDashboard() {
     setName(storedName ?? "User");
 
     if (storedUid) {
-      getWalletByUserId(storedUid)
+      getWalletForUserContext([storedUid, storedProfileId ?? ""])
         .then((walletData) => {
           if (!walletData) {
             setWallet({ issued: 0, utilized: 0, available: 0 });
@@ -209,11 +215,6 @@ export default function CoachingDashboard() {
                 </div>
 
                 <p className={styles.menuTitle}>Actions</p>
-
-                <Link href="/coaching-studio/profile" className={styles.menuLink} onClick={() => setMenuOpen(false)}>
-                  Update Profile
-                </Link>
-
                 {menuItems.map((item) => (
                   <button
                     key={item.key}
@@ -221,6 +222,21 @@ export default function CoachingDashboard() {
                     className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
                     disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
                     onClick={() => {
+                      if (item.key === "update-profile") {
+                        setMenuOpen(false);
+                        router.push("/coaching-studio/profile");
+                        return;
+                      }
+                      if (item.key === "my-activities") {
+                        setMenuOpen(false);
+                        router.push("/coaching-studio/my-activities");
+                        return;
+                      }
+                      if (item.key === "manage-wallet") {
+                        setMenuOpen(false);
+                        router.push("/coaching-studio/manage-wallet");
+                        return;
+                      }
                       setActiveKey(item.key);
                       setMenuOpen(false);
                     }}

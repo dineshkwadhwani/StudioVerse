@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import styles from "./DetailModal.module.css";
+import AssignmentModal from "./AssignmentModal";
+import type { ActivityType } from "@/types/assignment";
 
 type ContentType = "program" | "event" | "tool";
 type UserType = "coach" | "learner";
@@ -40,17 +42,71 @@ type Props = {
   userType?: UserType;
   isLoggedIn?: boolean;
   onAuthRequired?: () => void;
+  userId?: string;
+  userName?: string;
+  userRole?: string;
+  tenantId?: string;
 };
 
-export default function DetailModal({ item, isOpen, onClose, userType = "coach", isLoggedIn = false, onAuthRequired }: Props) {
-  const handleAction = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    if (!isLoggedIn && onAuthRequired) {
-      onClose();        // close detail modal first so it doesn't sit on top
-      onAuthRequired(); // then open auth modal
-    } else {
-      onClose();
+export default function DetailModal({ 
+  item, 
+  isOpen, 
+  onClose, 
+  userType = "coach", 
+  isLoggedIn = false, 
+  onAuthRequired,
+  userId,
+  userName,
+  userRole,
+  tenantId
+}: Props) {
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [assignmentActionType, setAssignmentActionType] = useState<"assign" | "recommend">("assign");
+  const [isSelfAssignmentFlow, setIsSelfAssignmentFlow] = useState(false);
+
+  const mapItemTypeToActivityType = (itemType: ContentType): ActivityType => {
+    if (itemType === "tool") {
+      return "assessment";
     }
+    return itemType;
+  };
+
+  const requireAuth = (): boolean => {
+    if (!isLoggedIn && onAuthRequired) {
+      onClose();
+      onAuthRequired();
+      return false;
+    }
+    return true;
+  };
+
+  const openAssignmentModal = (actionType: "assign" | "recommend", selfAssign = false) => {
+    if (!requireAuth()) {
+      return;
+    }
+    setAssignmentActionType(actionType);
+    setIsSelfAssignmentFlow(selfAssign);
+    setIsAssignmentModalOpen(true);
+  };
+
+  const handleAssign = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    openAssignmentModal("assign");
+  };
+
+  const handleRegisterNow = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    openAssignmentModal("assign", true);
+  };
+
+  const handleRecommend = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    openAssignmentModal("recommend");
+  };
+
+  const handleCloseAssignmentModal = () => {
+    setIsAssignmentModalOpen(false);
+    setIsSelfAssignmentFlow(false);
   };
   // Close modal on Escape key
   useEffect(() => {
@@ -236,14 +292,14 @@ export default function DetailModal({ item, isOpen, onClose, userType = "coach",
             {/* Tool buttons */}
             {item.type === "tool" && (
               <>
-                <button type="button" className={styles.primaryButton} onClick={handleAction}>
+                <button type="button" className={styles.primaryButton} onClick={handleRegisterNow}>
                   Try Now
                 </button>
                 {userType === "coach" && (
                   <button
                     type="button"
                     className={styles.secondaryButton}
-                    onClick={handleAction}
+                    onClick={handleAssign}
                   >
                     Assign
                   </button>
@@ -254,11 +310,11 @@ export default function DetailModal({ item, isOpen, onClose, userType = "coach",
             {/* Program buttons */}
             {item.type === "program" && (
               <>
-                <button type="button" className={styles.primaryButton} onClick={handleAction}>
+                <button type="button" className={styles.primaryButton} onClick={handleRegisterNow}>
                   Register Now
                 </button>
                 {userType === "coach" && (
-                  <button type="button" className={styles.secondaryButton} onClick={handleAction}>
+                  <button type="button" className={styles.secondaryButton} onClick={handleAssign}>
                     Assign
                   </button>
                 )}
@@ -266,7 +322,7 @@ export default function DetailModal({ item, isOpen, onClose, userType = "coach",
                   <button
                     type="button"
                     className={styles.secondaryButton}
-                    onClick={handleAction}
+                    onClick={handleRecommend}
                   >
                     Recommend
                   </button>
@@ -277,10 +333,10 @@ export default function DetailModal({ item, isOpen, onClose, userType = "coach",
             {/* Event buttons */}
             {item.type === "event" && (
               <>
-                <button type="button" className={styles.primaryButton} onClick={handleAction}>
+                <button type="button" className={styles.primaryButton} onClick={handleRegisterNow}>
                   Register Now
                 </button>
-                <button type="button" className={styles.secondaryButton} onClick={handleAction}>
+                <button type="button" className={styles.secondaryButton} onClick={handleRecommend}>
                   Recommend Now
                 </button>
               </>
@@ -288,6 +344,22 @@ export default function DetailModal({ item, isOpen, onClose, userType = "coach",
           </div>
         </div>
       </div>
+
+      {/* Assignment Modal */}
+      {item && (
+        <AssignmentModal
+          isOpen={isAssignmentModalOpen}
+          onClose={handleCloseAssignmentModal}
+          item={item}
+          activityType={mapItemTypeToActivityType(item.type)}
+          assigneeId={userId ?? ""}
+          assignerName={userName ?? "User"}
+          tenantId={tenantId ?? ""}
+          actionType={assignmentActionType}
+          selfAssign={isSelfAssignmentFlow}
+          onSuccess={onClose}
+        />
+      )}
     </div>
   );
 }

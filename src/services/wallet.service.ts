@@ -9,7 +9,13 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
-import type { AssignCoinsInput, WalletRecord, WalletSummary, WalletUserType } from "@/types/wallet";
+import type {
+  AssignCoinsInput,
+  WalletRecord,
+  WalletSummary,
+  WalletTransactionRecord,
+  WalletUserType,
+} from "@/types/wallet";
 
 type AdminSelectableUser = {
   id: string;
@@ -50,11 +56,94 @@ function mapWalletDoc(id: string, data: Record<string, unknown>): WalletRecord {
   };
 }
 
+function mapWalletTransactionDoc(id: string, data: Record<string, unknown>): WalletTransactionRecord {
+  return {
+    id,
+    walletId: String(data.walletId ?? ""),
+    userId: String(data.userId ?? ""),
+    tenantId: String(data.tenantId ?? ""),
+    userType: (data.userType as WalletUserType) ?? "individual",
+    userName: String(data.userName ?? "User"),
+    transactionType: (data.transactionType as WalletTransactionRecord["transactionType"]) ?? "credit",
+    reason: typeof data.reason === "string" ? data.reason : undefined,
+    coins: toNumber(data.coins),
+    assignmentId: typeof data.assignmentId === "string" ? data.assignmentId : undefined,
+    activityType: typeof data.activityType === "string" ? data.activityType : undefined,
+    activityId: typeof data.activityId === "string" ? data.activityId : undefined,
+    createdBy: String(data.createdBy ?? ""),
+    createdAt: data.createdAt as WalletTransactionRecord["createdAt"],
+  };
+}
+
 export async function getWalletByUserId(userId: string): Promise<WalletRecord | null> {
   if (!userId) return null;
   const snap = await getDoc(doc(db, "wallets", userId));
   if (!snap.exists()) return null;
   return mapWalletDoc(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function getWalletForUserContext(userIds: string[]): Promise<WalletRecord | null> {
+  for (const userId of userIds.map((item) => item.trim()).filter(Boolean)) {
+    const wallet = await getWalletByUserId(userId);
+    if (wallet) {
+      return wallet;
+    }
+  }
+
+  return null;
+}
+
+export async function listWallets(): Promise<WalletRecord[]> {
+  const snap = await getDocs(collection(db, "wallets"));
+  return snap.docs
+    .map((entry) => mapWalletDoc(entry.id, entry.data() as Record<string, unknown>))
+    .sort((a, b) => a.userName.localeCompare(b.userName));
+}
+
+function toTransactionMillis(value: WalletTransactionRecord["createdAt"]): number {
+  if (!value || !("toMillis" in value) || typeof value.toMillis !== "function") {
+    return 0;
+  }
+
+  return value.toMillis();
+}
+
+export async function listWalletTransactionsForUserContext(args: {
+  userIds: string[];
+  tenantId?: string;
+}): Promise<WalletTransactionRecord[]> {
+  const normalizedIds = Array.from(new Set(args.userIds.map((id) => id.trim()).filter(Boolean)));
+
+  try {
+    const snapshots = await Promise.all(
+      normalizedIds.flatMap((userId) => [
+        getDocs(query(collection(db, "walletTransactions"), where("userId", "==", userId))),
+        getDocs(query(collection(db, "walletTransactions"), where("createdBy", "==", userId))),
+        getDocs(query(collection(db, "walletTransactions"), where("walletId", "==", userId))),
+      ])
+    );
+
+    const allMatched = snapshots
+      .flatMap((snapshot) =>
+        snapshot.docs.map((entry) => mapWalletTransactionDoc(entry.id, entry.data() as Record<string, unknown>))
+      )
+      .reduce<WalletTransactionRecord[]>((acc, item) => {
+        if (!acc.some((existing) => existing.id === item.id)) {
+          acc.push(item);
+        }
+        return acc;
+      }, []);
+
+    const tenantMatched = args.tenantId
+      ? allMatched.filter((item) => item.tenantId === args.tenantId)
+      : allMatched;
+
+    return (tenantMatched.length > 0 ? tenantMatched : allMatched)
+      .sort((a, b) => toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt));
+  } catch (error) {
+    console.error("[listWalletTransactionsForUserContext] error:", error);
+    return [];
+  }
 }
 
 export async function listWalletSummary(): Promise<WalletSummary> {
@@ -176,6 +265,37 @@ export async function assignCoins(input: AssignCoinsInput): Promise<void> {
       coins: input.coinsToAssign,
       createdBy: input.assignedBy,
       createdAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function createWalletForUser(input: {
+  userId: string;
+  tenantId: string;
+  userType: WalletUserType;
+  userName: string;
+  createdBy: string;
+}): Promise<void> {
+  const walletRef = doc(db, "wallets", input.userId);
+
+  await runTransaction(db, async (transaction) => {
+    const walletSnap = await transaction.get(walletRef);
+    if (walletSnap.exists()) {
+      throw new Error("Wallet already exists for this user.");
+    }
+
+    transaction.set(walletRef, {
+      userId: input.userId,
+      tenantId: input.tenantId,
+      userType: input.userType,
+      userName: input.userName,
+      totalIssuedCoins: 0,
+      utilizedCoins: 0,
+      availableCoins: 0,
+      createdBy: input.createdBy,
+      updatedBy: input.createdBy,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
   });
 }

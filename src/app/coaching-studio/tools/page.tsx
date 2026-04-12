@@ -32,11 +32,17 @@ export default function CoachingStudioToolsPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState<UserRole | null>(null);
   const [guestUserType, setGuestUserType] = useState<UserType>("coach");
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [currentUserName, setCurrentUserName] = useState<string | undefined>();
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setIsLoggedIn(!!firebaseUser);
+      setCurrentUserId(firebaseUser?.uid);
+        setCurrentUserName(
+          firebaseUser?.displayName || sessionStorage.getItem("cs_name") || undefined
+        );
 
       if (!firebaseUser) {
         setRole(null);
@@ -201,6 +207,10 @@ export default function CoachingStudioToolsPage() {
         userType={effectiveUserType}
         isLoggedIn={isLoggedIn}
         onAuthRequired={() => setIsAuthModalOpen(true)}
+        userId={currentUserId}
+        userName={currentUserName}
+        userRole={role ?? undefined}
+        tenantId={config.id}
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedDetailItem(null);

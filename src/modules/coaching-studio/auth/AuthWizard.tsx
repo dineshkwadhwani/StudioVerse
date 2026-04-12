@@ -7,6 +7,7 @@ import {
   ConfirmationResult,
   RecaptchaVerifier,
   signInWithPhoneNumber,
+  updateProfile,
 } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfileByPhone, saveUserProfile } from "@/services/profile.service";
@@ -246,6 +247,17 @@ export default function AuthWizard({ onClose }: Props) {
       });
 
       persistSessionProfile(savedProfile);
+
+        // Set Firebase user's displayName for consistency
+        try {
+          await updateProfile(firebaseUser, { displayName: trimmedName });
+        } catch (err) {
+          logFlow("update-profile:error", {
+            message: err instanceof Error ? err.message : "unknown-error",
+          });
+          // Non-fatal error, we continue even if displayName update fails
+        }
+
       setPhase("done");
       logFlow("register:success", { role, name: trimmedName });
       setTimeout(() => {

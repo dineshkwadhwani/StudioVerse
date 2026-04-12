@@ -244,6 +244,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);
   const [toolItemsFromDb, setToolItemsFromDb] = useState<CarouselItem[]>([]);
   const [eventItemsFromDb, setEventItemsFromDb] = useState<EventLandingItem[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const perView = useItemsPerView();
 
   const handleItemClick = (item: CarouselItem) => {
@@ -299,6 +300,7 @@ export default function CoachingLandingPage({ config }: Props) {
         setMenuOpen(false);
         setName("User");
         setRole(null);
+        setCurrentUserId(undefined);
         return;
       }
 
@@ -315,12 +317,14 @@ export default function CoachingLandingPage({ config }: Props) {
         setMenuOpen(false);
         setName("User");
         setRole(null);
+        setCurrentUserId(undefined);
         return;
       }
 
       setIsLoggedIn(true);
       setName(storedName?.trim() || firebaseUser.displayName || "User");
       setRole(resolvedRole);
+      setCurrentUserId(firebaseUser.uid);
     });
 
     return () => {
@@ -793,6 +797,10 @@ export default function CoachingLandingPage({ config }: Props) {
         userType={effectiveUserType}
         isLoggedIn={isLoggedIn}
         onAuthRequired={() => setIsAuthModalOpen(true)}
+        userId={currentUserId}
+        userName={name}
+        userRole={role ?? undefined}
+        tenantId={config.id}
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedDetailItem(null);

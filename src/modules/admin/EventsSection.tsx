@@ -19,6 +19,7 @@ import {
   validateEventThumbnailFile,
 } from "@/services/events.service";
 import {
+  EVENT_SOURCE_LABELS,
   EVENT_STATUS_LABELS,
   EVENT_TYPE_LABELS,
   type EventFormValues,
@@ -43,6 +44,7 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     tenantId: event.tenantId,
     name: event.name,
     eventType: event.eventType,
+    eventSource: event.eventSource,
     shortDescription: event.shortDescription,
     longDescription: event.longDescription,
     eventDate: event.eventDate ?? "",
@@ -299,6 +301,7 @@ export default function EventsSection({
                 <p className={styles.userName}>{event.name}</p>
                 <p className={styles.userMeta}>Tenant: {event.tenantId}</p>
                 <p className={styles.userMeta}>Type: {EVENT_TYPE_LABELS[event.eventType]}</p>
+                <p className={styles.userMeta}>Source: {EVENT_SOURCE_LABELS[event.eventSource]}</p>
                 <p className={styles.userMeta}>
                   {event.eventDate ?? "—"} {event.eventTime ? `at ${event.eventTime}` : ""}
                   {event.locationCity ? ` · ${event.locationCity}` : ""}

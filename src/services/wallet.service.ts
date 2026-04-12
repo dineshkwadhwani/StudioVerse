@@ -93,6 +93,35 @@ export async function getWalletForUserContext(userIds: string[]): Promise<Wallet
   return null;
 }
 
+/**
+ * Idempotent: creates a zero-balance wallet for a user if one does not already exist.
+ * Safe to call on every login for pre-provisioned users created by the assignment flow.
+ */
+export async function ensureWalletExists(args: {
+  userId: string;
+  lookupUserIds?: string[];
+  tenantId: string;
+  userType: WalletUserType;
+  userName: string;
+}): Promise<void> {
+  const existing = await getWalletForUserContext([
+    args.userId,
+    ...(args.lookupUserIds ?? []),
+  ]);
+  if (existing) return;
+  try {
+    await createWalletForUser({
+      userId: args.userId,
+      tenantId: args.tenantId,
+      userType: args.userType,
+      userName: args.userName,
+      createdBy: "system",
+    });
+  } catch {
+    // Creation race (parallel login) — safe to ignore.
+  }
+}
+
 export async function listWallets(): Promise<WalletRecord[]> {
   const snap = await getDocs(collection(db, "wallets"));
   return snap.docs

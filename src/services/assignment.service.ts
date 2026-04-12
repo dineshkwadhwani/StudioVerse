@@ -7,10 +7,12 @@ import {
   runTransaction,
   setDoc,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import type { WithFieldValue } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
+import type { AssignmentStatus } from "@/types/assignment";
 import type { UserProfileRecord } from "@/types/profile";
 import { getWalletByUserId, getWalletForUserContext } from "@/services/wallet.service";
 
@@ -214,6 +216,7 @@ export async function createAssignment(args: {
   assignerId: string;
   assignerName: string;
   assignerLookupIds?: string[];
+  status?: AssignmentStatus;
 }): Promise<{ success: boolean; message: string; assignmentId?: string }> {
   try {
     const provisionedAssignee = await provisionAssigneeIfNeeded({
@@ -247,7 +250,7 @@ export async function createAssignment(args: {
         assigneeFirstName: args.assigneeFirstName,
         assigneeLastName: args.assigneeLastName,
         assigneeFullName: effectiveAssigneeFullName,
-        status: "assigned",
+        status: args.status ?? "assigned",
         coinsDeducted: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -302,7 +305,7 @@ export async function createAssignment(args: {
         assigneeFirstName: args.assigneeFirstName,
         assigneeLastName: args.assigneeLastName,
         assigneeFullName: effectiveAssigneeFullName,
-        status: "assigned",
+        status: args.status ?? "assigned",
         coinsDeducted: args.creditsRequired,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -421,6 +424,16 @@ export async function createRecommendation(args: {
       message: "Error creating recommendation. Please try again.",
     };
   }
+}
+
+export async function updateAssignmentStatus(args: {
+  assignmentId: string;
+  status: AssignmentStatus;
+}): Promise<void> {
+  await updateDoc(doc(db, "assignments", args.assignmentId), {
+    status: args.status,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /**

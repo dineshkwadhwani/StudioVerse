@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
 import type { TenantConfig } from "@/types/tenant";
@@ -11,6 +11,8 @@ import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
+import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import type { CoachingUserRole } from "./menuConfig";
 import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
@@ -23,7 +25,7 @@ type Props = {
 
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
-type UserRole = "company" | "professional" | "individual";
+type UserRole = CoachingUserRole;
 type CarouselItem = {
   name: string;
   image: string;
@@ -57,13 +59,6 @@ function getInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function getRoleLabel(role: UserRole | null): string {
-  if (role === "company") return "Coaching Company";
-  if (role === "professional") return "Coach";
-  if (role === "individual") return "Learner";
-  return "Member";
 }
 
 function repeatToCount(items: CarouselItem[], limit?: number): CarouselItem[] {
@@ -239,6 +234,18 @@ export default function CoachingLandingPage({ config }: Props) {
   const [userType, setUserType] = useState<UserType>("coach");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
   const [programItemsFromDb, setProgramItemsFromDb] = useState<CarouselItem[]>([]);
@@ -529,6 +536,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);
   const initials = useMemo(() => getInitials(name), [name]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
   const effectiveUserType: UserType = isLoggedIn
     ? role === "individual"
       ? "learner"
@@ -629,7 +637,7 @@ export default function CoachingLandingPage({ config }: Props) {
             </button>
           ) : (
             <div className={headerStyles.desktopAuthWrap}>
-              <div className={headerStyles.profileArea}>
+              <div className={headerStyles.profileArea} ref={menuRef}>
                 <button type="button" className={headerStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
                   {initials} ▾
                 </button>
@@ -642,9 +650,16 @@ export default function CoachingLandingPage({ config }: Props) {
                     </div>
 
                     <p className={headerStyles.menuTitle}>Menu</p>
-                    <Link href="/coaching-studio/dashboard" className={headerStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                      Dashboard
-                    </Link>
+                    {roleMenuItems.map((item) => (
+                      <Link
+                        key={item.key}
+                        href={item.href}
+                        className={headerStyles.menuLink}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
                     <hr className={headerStyles.menuDivider} />
                     <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>
                       Sign Out
@@ -708,9 +723,11 @@ export default function CoachingLandingPage({ config }: Props) {
                 <p className={headerStyles.mobileMenuName}>{name}</p>
                 <p className={headerStyles.mobileMenuRole}>{getRoleLabel(role)}</p>
               </div>
-              <Link href="/coaching-studio/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-                Dashboard
-              </Link>
+              {roleMenuItems.map((item) => (
+                <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                  {item.label}
+                </Link>
+              ))}
               <button type="button" onClick={handleSignOut}>Sign Out</button>
             </>
           ) : (

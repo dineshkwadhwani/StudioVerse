@@ -46,6 +46,7 @@ type Props = {
   userName?: string;
   userRole?: string;
   tenantId?: string;
+  eventActionMode?: "default" | "recommend-only";
 };
 
 export default function DetailModal({ 
@@ -58,7 +59,8 @@ export default function DetailModal({
   userId,
   userName,
   userRole,
-  tenantId
+  tenantId,
+  eventActionMode = "default",
 }: Props) {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [assignmentActionType, setAssignmentActionType] = useState<"assign" | "recommend">("assign");
@@ -271,8 +273,8 @@ export default function DetailModal({
             </div>
           )}
 
-          {/* Video section */}
-          {item.videoUrl && (
+          {/* Video section (program details should not show video URL/preview) */}
+          {item.type !== "program" && item.videoUrl && (
             <div className={styles.videoSection}>
               <h3 className={styles.detailsHeading}>Video Preview</h3>
               <div className={styles.videoContainer}>
@@ -333,9 +335,11 @@ export default function DetailModal({
             {/* Event buttons */}
             {item.type === "event" && (
               <>
-                <button type="button" className={styles.primaryButton} onClick={handleRegisterNow}>
-                  Register Now
-                </button>
+                {eventActionMode !== "recommend-only" ? (
+                  <button type="button" className={styles.primaryButton} onClick={handleRegisterNow}>
+                    Register Now
+                  </button>
+                ) : null}
                 <button type="button" className={styles.secondaryButton} onClick={handleRecommend}>
                   Recommend Now
                 </button>

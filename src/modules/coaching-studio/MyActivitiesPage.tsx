@@ -2,19 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
-import { getAssignmentsForAssigneeContext } from "@/services/assignment.service";
+import { getAssignmentsForAssigneeContext, updateAssignmentStatus } from "@/services/assignment.service";
 import { getUserProfile } from "@/services/profile.service";
-import type { AssignmentRecord, ActivityType } from "@/types/assignment";
+import { getEvent } from "@/services/events.service";
+import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
 import { config } from "@/tenants/coaching-studio/config";
+import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import type { CoachingUserRole } from "./menuConfig";
 import landingStyles from "./CoachingLandingPage.module.css";
 import dashboardStyles from "./dashboard/CoachingDashboard.module.css";
+import DetailModal, { type DetailItem } from "./DetailModal";
 import styles from "./MyActivitiesPage.module.css";
 
-type UserRole = "company" | "professional" | "individual";
+type UserRole = CoachingUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
@@ -25,12 +29,6 @@ function getInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function getRoleLabel(role: UserRole): string {
-  if (role === "company") return "Coaching Company";
-  if (role === "professional") return "Coach";
-  return "Learner";
 }
 
 function formatTypeLabel(value: ActivityType): string {
@@ -55,15 +53,30 @@ function formatDate(value: AssignmentRecord["createdAt"]): string {
   return maybeDate.toLocaleString();
 }
 
+function formatStatusLabel(status: AssignmentStatus): string {
+  if (status === "in_progress") return "In Progress";
+  if (status === "recommended") return "Recommended";
+  if (status === "registered") return "Registered";
+  if (status === "completed") return "Completed";
+  if (status === "cancelled") return "Cancelled";
+  return "Assigned";
+}
+
 export default function MyActivitiesPage() {
   const router = useRouter();
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<"all" | ActivityType>("all");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [eventDetailItem, setEventDetailItem] = useState<DetailItem | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
+  const [eventActionMode, setEventActionMode] = useState<"default" | "recommend-only">("default");
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -85,6 +98,7 @@ export default function MyActivitiesPage() {
         router.replace("/coaching-studio");
         return;
       }
+      setCurrentUserId(firebaseUser.uid);
 
       const storedUid = sessionStorage.getItem("cs_uid");
       const storedProfileId = sessionStorage.getItem("cs_profile_id");
@@ -124,7 +138,20 @@ export default function MyActivitiesPage() {
     return () => unsubscribe();
   }, [router]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
   const initials = useMemo(() => getInitials(name), [name]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
+  const detailUserType = role === "individual" ? "learner" : "coach";
   const filteredAssignments = useMemo(() => {
     if (selectedFilter === "all") {
       return assignments;
@@ -136,6 +163,69 @@ export default function MyActivitiesPage() {
     await signOut(auth);
     sessionStorage.clear();
     router.replace("/coaching-studio");
+  }
+
+  function setAssignmentStatusLocal(assignmentId: string, status: AssignmentStatus): void {
+    setAssignments((prev) =>
+      prev.map((item) => (item.id === assignmentId ? { ...item, status } : item))
+    );
+  }
+
+  async function handleUpdateStatus(item: AssignmentRecord, status: AssignmentStatus): Promise<void> {
+    setActionBusyId(item.id);
+    setError("");
+    try {
+      await updateAssignmentStatus({ assignmentId: item.id, status });
+      setAssignmentStatusLocal(item.id, status);
+    } catch (statusError) {
+      const message = statusError instanceof Error ? statusError.message : "Failed to update activity status.";
+      setError(message);
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function handleLaunchAssessment(item: AssignmentRecord): Promise<void> {
+    await handleUpdateStatus(item, "in_progress");
+    router.push(`/coaching-studio/my-activities/assessment-launch/${item.id}`);
+  }
+
+  async function handleOpenEventDetails(item: AssignmentRecord): Promise<void> {
+    setActionBusyId(item.id);
+    setError("");
+    try {
+      const event = await getEvent(item.activityId);
+      if (!event) {
+        setError("Event not found.");
+        return;
+      }
+
+      const details: DetailItem = {
+        id: event.id,
+        type: "event",
+        title: event.name,
+        image: event.thumbnailUrl ?? "",
+        description: event.shortDescription,
+        details: event.details || event.longDescription,
+        creditsRequired: event.creditsRequired,
+        cost: event.cost,
+        videoUrl: event.videoUrl ?? undefined,
+        eventType: event.eventType,
+        eventDate: event.eventDate ?? undefined,
+        eventTime: event.eventTime ?? undefined,
+        locationAddress: event.locationAddress,
+        locationCity: event.locationCity,
+      };
+
+      setEventDetailItem(details);
+      setEventActionMode(item.status === "registered" ? "recommend-only" : "default");
+      setEventDetailOpen(true);
+    } catch (detailsError) {
+      const message = detailsError instanceof Error ? detailsError.message : "Failed to load event details.";
+      setError(message);
+    } finally {
+      setActionBusyId(null);
+    }
   }
 
   return (
@@ -162,7 +252,7 @@ export default function MyActivitiesPage() {
             <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={dashboardStyles.profileArea}>
+          <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button
               type="button"
               className={dashboardStyles.profileButton}
@@ -179,15 +269,11 @@ export default function MyActivitiesPage() {
                 </div>
 
                 <p className={dashboardStyles.menuTitle}>Menu</p>
-                <Link href="/coaching-studio/dashboard" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                  Dashboard
-                </Link>
-                <Link href="/coaching-studio/profile" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                  Update Profile
-                </Link>
-                <Link href="/coaching-studio/my-activities" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                  My activities
-                </Link>
+                {roleMenuItems.map((item) => (
+                  <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                    {item.label}
+                  </Link>
+                ))}
 
                 <hr className={dashboardStyles.menuDivider} />
                 <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>
@@ -245,14 +331,81 @@ export default function MyActivitiesPage() {
                   <p className={styles.itemMeta}>Type: {formatTypeLabel(item.activityType)}</p>
                   <p className={styles.itemMeta}>Assigned by: {item.assignerName || "-"}</p>
                   <p className={styles.itemMeta}>Credits: {item.creditsRequired}</p>
-                  <p className={styles.itemMeta}>Status: {item.status}</p>
+                  <p className={styles.itemMeta}>Status: {formatStatusLabel(item.status)}</p>
                   <p className={styles.itemMeta}>Assigned on: {formatDate(item.createdAt)}</p>
+
+                  <div className={styles.actionRow}>
+                    {item.activityType === "program" ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.actionButton}
+                          onClick={() => void handleUpdateStatus(item, "in_progress")}
+                          disabled={actionBusyId === item.id}
+                        >
+                          Launch the program
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.actionButton}
+                          onClick={() => void handleUpdateStatus(item, "completed")}
+                          disabled={actionBusyId === item.id}
+                        >
+                          Mark Complete
+                        </button>
+                      </>
+                    ) : null}
+
+                    {item.activityType === "assessment" ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.actionButton}
+                          onClick={() => void handleLaunchAssessment(item)}
+                          disabled={actionBusyId === item.id}
+                        >
+                          Launch Assessment
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.actionButton}
+                          onClick={() => router.push(`/coaching-studio/my-activities/assessment-report/${item.id}`)}
+                          disabled={item.status !== "completed"}
+                        >
+                          Open Report
+                        </button>
+                      </>
+                    ) : null}
+
+                    {item.activityType === "event" ? (
+                      <button
+                        type="button"
+                        className={styles.actionButton}
+                        onClick={() => void handleOpenEventDetails(item)}
+                        disabled={actionBusyId === item.id}
+                      >
+                        {item.status === "registered" ? "View Details" : "Open Details"}
+                      </button>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>
           ) : null}
         </section>
       </div>
+
+      <DetailModal
+        item={eventDetailItem}
+        isOpen={eventDetailOpen}
+        onClose={() => setEventDetailOpen(false)}
+        userType={detailUserType}
+        isLoggedIn
+        userId={currentUserId}
+        userName={name}
+        tenantId="coaching-studio"
+        eventActionMode={eventActionMode}
+      />
     </main>
   );
 }

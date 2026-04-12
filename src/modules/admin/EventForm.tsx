@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import {
+  EVENT_SOURCES,
+  EVENT_SOURCE_LABELS,
   EVENT_TYPES,
   EVENT_TYPE_LABELS,
   EVENT_STATUS_LABELS,
@@ -56,6 +58,7 @@ export default function EventForm({
       "tenantId",
       "name",
       "eventType",
+      "eventSource",
       "shortDescription",
       "longDescription",
       "eventDate",
@@ -138,6 +141,21 @@ export default function EventForm({
           >
             {EVENT_TYPES.map((eventType) => (
               <option key={eventType} value={eventType}>{EVENT_TYPE_LABELS[eventType]}</option>
+            ))}
+          </select>
+
+          {/* Event source */}
+          <label className={styles.label} htmlFor="event-source">Event Source</label>
+          <select
+            id="event-source"
+            ref={(el) => { fieldRefs.current.eventSource = el; }}
+            className={styles.select}
+            value={value.eventSource}
+            onChange={(e) => onChange("eventSource", e.target.value as EventFormValues["eventSource"])}
+            disabled={busy}
+          >
+            {EVENT_SOURCES.map((eventSource) => (
+              <option key={eventSource} value={eventSource}>{EVENT_SOURCE_LABELS[eventSource]}</option>
             ))}
           </select>
 

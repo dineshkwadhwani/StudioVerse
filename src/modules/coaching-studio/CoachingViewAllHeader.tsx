@@ -2,22 +2,18 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
+import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import type { CoachingUserRole } from "./menuConfig";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingViewAllHeader.module.css";
 
 type ViewAllPage = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
-type UserRole = "company" | "professional" | "individual";
-
-type RoleMenuItem = {
-  key: string;
-  label: string;
-  href: string;
-};
+type UserRole = CoachingUserRole;
 
 type Props = {
   config: TenantConfig;
@@ -32,60 +28,6 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-function getRoleLabel(role: UserRole | null): string {
-  if (role === "company") return "Coaching Company";
-  if (role === "professional") return "Coach";
-  if (role === "individual") return "Learner";
-  return "Member";
-}
-
-const COMPANY_MENU: RoleMenuItem[] = [
-  { key: "dashboard", label: "Dashboard", href: "/coaching-studio/dashboard" },
-  { key: "update-profile", label: "Update Profile", href: "/coaching-studio/profile" },
-  { key: "manage-users", label: "Manage Users", href: "/coaching-studio/dashboard" },
-  { key: "manage-programs", label: "Manage Programs", href: "/coaching-studio/programs" },
-  { key: "manage-events", label: "Manage Events", href: "/coaching-studio/events" },
-  { key: "manage-wallet", label: "Manage Wallet", href: "/coaching-studio/manage-wallet" },
-  { key: "manage-cohort", label: "Manage Cohort", href: "/coaching-studio/dashboard" },
-  { key: "manage-individual", label: "Manage Individual", href: "/coaching-studio/dashboard" },
-  { key: "assign-activity", label: "Assign Activity", href: "/coaching-studio/dashboard" },
-  { key: "my-activities", label: "My activities", href: "/coaching-studio/my-activities" },
-];
-
-const PROFESSIONAL_MENU: RoleMenuItem[] = [
-  { key: "dashboard", label: "Dashboard", href: "/coaching-studio/dashboard" },
-  { key: "update-profile", label: "Update Profile", href: "/coaching-studio/profile" },
-  { key: "manage-users", label: "Manage Users", href: "/coaching-studio/dashboard" },
-  { key: "manage-programs", label: "Manage Programs", href: "/coaching-studio/programs" },
-  { key: "manage-events", label: "Manage Events", href: "/coaching-studio/events" },
-  { key: "manage-wallet", label: "Manage Wallet", href: "/coaching-studio/manage-wallet" },
-  { key: "manage-cohort", label: "Manage Cohort", href: "/coaching-studio/dashboard" },
-  { key: "manage-individual", label: "Manage Individual", href: "/coaching-studio/dashboard" },
-  { key: "assign-activity", label: "Assign Activity", href: "/coaching-studio/dashboard" },
-  { key: "my-activities", label: "My activities", href: "/coaching-studio/my-activities" },
-];
-
-const INDIVIDUAL_MENU: RoleMenuItem[] = [
-  { key: "dashboard", label: "Dashboard", href: "/coaching-studio/dashboard" },
-  { key: "update-profile", label: "Update Profile", href: "/coaching-studio/profile" },
-  { key: "manage-wallet", label: "Manage Wallet", href: "/coaching-studio/manage-wallet" },
-  { key: "assign-activity", label: "Assign Activity", href: "/coaching-studio/dashboard" },
-  { key: "my-activities", label: "My activities", href: "/coaching-studio/my-activities" },
-];
-
-function getRoleMenuItems(role: UserRole | null): RoleMenuItem[] {
-  if (role === "company") {
-    return COMPANY_MENU;
-  }
-  if (role === "professional") {
-    return PROFESSIONAL_MENU;
-  }
-  if (role === "individual") {
-    return INDIVIDUAL_MENU;
-  }
-  return [];
-}
-
 export default function CoachingViewAllHeader({ config, currentPage, onSignInRegister }: Props) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userType, setUserType] = useState<UserType>(() => {
@@ -97,6 +39,18 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
     return stored === "learner" ? "learner" : "coach";
   });
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
@@ -202,7 +156,7 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
             </button>
           ) : (
             <div className={styles.desktopAuthWrap}>
-              <div className={styles.profileArea}>
+              <div className={styles.profileArea} ref={menuRef}>
                 <button type="button" className={styles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
                   {initials} ▾
                 </button>

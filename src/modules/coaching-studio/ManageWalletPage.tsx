@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
@@ -10,11 +10,13 @@ import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext, listWalletTransactionsForUserContext } from "@/services/wallet.service";
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import { config } from "@/tenants/coaching-studio/config";
+import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import type { CoachingUserRole } from "./menuConfig";
 import landingStyles from "./CoachingLandingPage.module.css";
 import dashboardStyles from "./dashboard/CoachingDashboard.module.css";
 import styles from "./ManageWalletPage.module.css";
 
-type UserRole = "company" | "professional" | "individual";
+type UserRole = CoachingUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
@@ -25,12 +27,6 @@ function getInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function getRoleLabel(role: UserRole): string {
-  if (role === "company") return "Coaching Company";
-  if (role === "professional") return "Coach";
-  return "Learner";
 }
 
 function formatDate(value: WalletTransactionRecord["createdAt"]): string {
@@ -45,6 +41,7 @@ export default function ManageWalletPage() {
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [transactions, setTransactions] = useState<WalletTransactionRecord[]>([]);
   const [busy, setBusy] = useState(true);
@@ -108,7 +105,19 @@ export default function ManageWalletPage() {
     return () => unsubscribe();
   }, [router]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
   const initials = useMemo(() => getInitials(name), [name]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
 
   async function handleLogout() {
     await signOut(auth);
@@ -134,7 +143,7 @@ export default function ManageWalletPage() {
             <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={dashboardStyles.profileArea}>
+          <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
               {initials} ▾
             </button>
@@ -145,10 +154,11 @@ export default function ManageWalletPage() {
                   <p className={dashboardStyles.menuRole}>{getRoleLabel(role)}</p>
                 </div>
                 <p className={dashboardStyles.menuTitle}>Menu</p>
-                <Link href="/coaching-studio/dashboard" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                <Link href="/coaching-studio/profile" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>Update Profile</Link>
-                <Link href="/coaching-studio/manage-wallet" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>Manage Wallet</Link>
-                <Link href="/coaching-studio/my-activities" className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>My activities</Link>
+                {roleMenuItems.map((item) => (
+                  <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                    {item.label}
+                  </Link>
+                ))}
                 <hr className={dashboardStyles.menuDivider} />
                 <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>
               </section>

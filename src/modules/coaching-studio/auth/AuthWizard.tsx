@@ -11,6 +11,8 @@ import {
 } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfileByPhone, saveUserProfile } from "@/services/profile.service";
+import { ensureWalletExists } from "@/services/wallet.service";
+import type { WalletUserType } from "@/types/wallet";
 import type { ProfileUserType, UserProfileRecord } from "@/types/profile";
 import styles from "./AuthWizard.module.css";
 
@@ -180,6 +182,17 @@ export default function AuthWizard({ onClose }: Props) {
 
       if (existingProfile) {
         logFlow("verify-otp:existing-user", { role: existingProfile.userType });
+        // Ensure pre-provisioned users (created by assignment flow) have a wallet.
+        const walletEligible: WalletUserType[] = ["company", "professional", "individual"];
+        if ((walletEligible as string[]).includes(existingProfile.userType)) {
+          void ensureWalletExists({
+            userId: existingProfile.userId,
+            lookupUserIds: [existingProfile.id],
+            tenantId: existingProfile.tenantId,
+            userType: existingProfile.userType as WalletUserType,
+            userName: existingProfile.fullName,
+          });
+        }
         persistSessionProfile(existingProfile);
         router.push("/coaching-studio/dashboard");
         onClose?.();

@@ -462,3 +462,87 @@ Operational note from current workspace state:
 - Deleted collections/documents included assessments, assessmentQuestions, programs, events, tenants, and all non-superadmin users.
 - Only the two superadmin user documents were preserved.
 - Any missing landing-page or admin data after this point may be due to the reset and require reseeding in Firestore.
+
+## Progress update — E7 Activity Assignment, E8 Role Menus, E5 Manage Wallet, build fix (Apr 12, 2026)
+
+### E7 — Activity Assignment and Self-Registration
+
+Full multi-stage assignment modal implemented at `src/modules/coaching-studio/AssignmentModal.tsx`:
+- Stage machine: `search → found | not_found → confirm`.
+- Search by phone or email via `searchUsersByPhoneOrEmail` in `src/services/assignment.service.ts`.
+- Found path: target user details shown read-only at confirmation stage; no editable fields.
+- Not-found path: all four fields are required — first name, last name, plus the missing contact field (if searched by phone, email is captured; if searched by email, phone is captured).
+- Self-assignment: Register Now and Try Now buttons on `DetailModal` set a self-assign flag; the modal auto-populates from the logged-in session and skips the search stage.
+- Assignment confirmation popup shown after success; placeholder mail utility `src/services/mail.service.ts` returns `{ success: true, message: "Mail sent" }`.
+- Recommendation flow: Recommend button creates a record with `status: "recommended"` in the `assignments` collection using `createRecommendation`.
+
+Unknown assignee auto-provisioning (in `assignment.service.ts`):
+- If a searched assignee is not found, a new `Individual` user document is created in `users`.
+- A zero-balance wallet document is created in `wallets` for the new user.
+- Assignment record is then written with the provisioned user's identity.
+
+Wallet ownership rule (implemented and documented):
+- Assign-to-other debits the **assignor** wallet, not the assignee wallet.
+- Self-assignment debits the logged-in user's own wallet.
+- Assignments where `creditsRequired === 0` skip all wallet validation entirely; no debit record is written.
+
+Identity resolution pattern (recurring fix):
+- Users and wallets are looked up by multiple identifiers: `uid`, `userId`, `profileId`, stored session ids, `phoneE164`, and `email`.
+- Session keys persisted across login/register: `cs_uid`, `cs_profile_id`, `cs_phone`, `cs_email`, `cs_name`, `cs_role`.
+- Firebase Auth `displayName` is set during registration to resolve "User User" self-assignment name issues.
+
+### E7 — My Activities page
+
+New page at `src/modules/coaching-studio/MyActivitiesPage.tsx` with route `src/app/coaching-studio/my-activities/page.tsx`:
+- Resolves assignee identity from Firebase Auth plus profile service on load.
+- Fetches assignments by all known identifiers using `getAssignmentsForAssigneeContext`.
+- Radio filters: All / Assessments / Programs / Events.
+- Shows both `assigned` and `recommended` status records.
+
+### E5 — Manage Wallet (renamed from Manage Coins)
+
+Terminology: "Manage Coins" is renamed to "Manage Wallet" throughout all UI, routes, and documentation.
+
+SuperAdmin Manage Wallet page (`ManageCoinsSection.tsx`) redesigned:
+- Wallet list loads first, showing all existing wallets.
+- Radio filters: All / Company / Professional / Individual.
+- Explicit wallet creation form for users who have no wallet.
+- Coin assignment (credit) updates `wallets/{userId}` and creates a `walletTransactions` credit ledger row.
+
+User Manage Wallet page at `src/modules/coaching-studio/ManageWalletPage.tsx` with route `src/app/coaching-studio/manage-wallet/page.tsx`:
+- Shows wallet balance summary for the logged-in user.
+- Lists full transaction history (credits and debits) from `walletTransactions`, resolved by `userId`, `createdBy`, and `walletId`.
+
+Extended `walletTransactions` schema fields (now live):
+- `transactionType`: `credit` (admin issuance) or `debit` (assignment spend).
+- `reason` (optional string).
+- `assignmentId` (optional, present on debit records).
+- `activityType`, `activityId` (optional, present on debit records).
+
+### E8 — Role-based menus
+
+Both the CoachingDashboard and CoachingViewAllHeader (shared logged-in dropdown) now implement the E8 access matrix:
+- Company: Dashboard, Update Profile, Manage Wallet, My activities, Sign Out.
+- Professional: Dashboard, Update Profile, Manage Wallet, My activities, Sign Out.
+- Individual (Learner): Dashboard, Update Profile, Manage Wallet, My activities, Sign Out.
+- SuperAdmin: full admin portal menu.
+- Menu order, labels, and routes are consistent between dashboard and shared header dropdown.
+
+Visual consistency: coaching-user logged-in dropdown opacity and style aligned toward the solid SuperAdmin menu treatment.
+
+### TypeScript build fix — Vercel deployment (Apr 12, 2026)
+
+Root cause: `Omit<AssignmentRecord, "id">` typed write payloads in `assignment.service.ts` rejected `serverTimestamp()` (`FieldValue`) because the record type has `createdAt?: Timestamp`.
+
+Fix applied: write payloads for assignment and recommendation creates now use `WithFieldValue<Omit<AssignmentRecord, "id">>` (imported from `firebase/firestore`). The stored record type is unchanged. `npm run build` now passes clean.
+
+Pattern to follow going forward: any Firestore write object that uses `serverTimestamp()` must be typed with `WithFieldValue<T>`, not the raw record type.
+
+### Documentation sync (Apr 12, 2026)
+
+All nine epic docs updated:
+- `docs/E0.md` to `docs/E8.md` — implementation status snapshots added.
+- `docs/E5.md` — "Manage Coins" corrected to "Manage Wallet" in key functional requirements.
+- `docs/E7.md` — assignment/recommendation/self-registration rules corrected to match implementation.
+- `docs/E8.md` — role menu implementation snapshot added; My activities and Manage Wallet noted as live routes.
+- `docs/FIREBASE_PROD_ROLLOUT_RUNBOOK.md` — extended with E7 assignments section (collection schema, required indexes, rules, smoke tests), E8 pre-prod checks, updated walletTransactions schema (debit type + extra fields), wallet ownership rule, and the TypeScript build fix note.

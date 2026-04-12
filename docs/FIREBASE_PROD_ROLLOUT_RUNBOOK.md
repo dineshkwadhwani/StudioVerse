@@ -10,7 +10,9 @@ Scope covered:
 - Storage rules
 - Program/Event backend schemas used by callable functions
 - Assessment Centre (E4) Firestore + Storage rollout requirements
-- Wallet / Manage Coins (E5) Firestore rollout requirements
+- Wallet / Manage Wallet (E5) Firestore rollout requirements
+- Activity Assignment (E7) Firestore collections, indexes, and rules requirements
+- Role-based access menus (E8) routing and access confirmation requirements
 
 ## Source of truth files
 These files are the canonical definitions that must be promoted to production:
@@ -30,6 +32,11 @@ These files are the canonical definitions that must be promoted to production:
 - Assessment AI question generation route: `src/app/api/assessments/generate-questions/route.ts`
 - Wallet types/schema model: `src/types/wallet.ts`
 - Wallet client service / transaction logic: `src/services/wallet.service.ts`
+- Assignment types/schema model: `src/types/assignment.ts`
+- Assignment client service (search, create, recommend, fetch): `src/services/assignment.service.ts`
+- Mail placeholder service: `src/services/mail.service.ts`
+- User Manage Wallet page: `src/modules/coaching-studio/ManageWalletPage.tsx`
+- User My activities page: `src/modules/coaching-studio/MyActivitiesPage.tsx`
 - Shared audit helper: `functions/src/audit/writeAuditLog.ts`
 
 ## Currently exported production-relevant functions
@@ -115,6 +122,7 @@ Before any prod deploy:
   - or `seedInitialSuperadmin` can be executed with a configured `SUPERADMIN_SEED_KEY`.
 12. Confirm Event callable schema parity for admin form fields:
   - `creditsRequired` and `cost` must be accepted by `functions/src/events/eventSchemas.ts`.
+  - `eventSource` must be accepted by `functions/src/events/eventSchemas.ts` with allowed values `studioverse_manager` and `external`.
   - deploy Event callables (`createEvent`, `updateEvent`) before using new Event fields in production.
 13. Confirm Assessment schema parity for admin form fields:
   - `creditsRequired` must be present in `assessments` documents written by admin flows.
@@ -122,6 +130,11 @@ Before any prod deploy:
 14. Confirm legacy data defaults for newly introduced numeric fields:
   - existing Event docs missing `creditsRequired`/`cost` should be treated as `0` in UI.
   - existing Assessment docs missing `creditsRequired` should be treated as `0` in UI.
+15. Confirm `assignments` collection exists and is covered by Firestore rules before enabling assignment flows in production.
+16. Confirm wallet debit behavior: assign-to-other debits the **assignor** wallet, not the assignee wallet. Validate this against implemented service logic before cutover.
+17. Confirm zero-credit self-assignment bypass is intentional: assignments where `creditsRequired === 0` skip all wallet validation and write the assignment record directly.
+18. Confirm auto-provisioning behavior for unknown assignees is acceptable: if an assignee is not found by phone/email search, the service creates a new `Individual` user record in `users` and initializes a zero-balance wallet before writing the assignment.
+19. Confirm TypeScript production build passes with `npm run build` before any Vercel deploy. Last known blocker was the `serverTimestamp()` / `Timestamp` type mismatch in `assignment.service.ts`; fixed April 12, 2026 using `WithFieldValue<Omit<AssignmentRecord, "id">>` for write payloads.
 
 ## Production environment and platform configuration
 
@@ -241,8 +254,8 @@ For production, replace it with least-privilege rules that explicitly cover at m
 Minimum expected behavior:
 - reads/writes for admin collections restricted to authenticated superadmin/company admin roles.
 - tenant-aware checks for tenant-scoped records.
-- explicit coverage for `wallets` and `walletTransactions`.
-- own-user read access defined explicitly for user-facing wallet/profile/dashboard flows where needed.
+  - explicit coverage for `wallets`, `walletTransactions`, and `assignments`.
+  - own-user read access defined explicitly for user-facing wallet/profile/my-activities/dashboard flows where needed.
 - superadmin user bootstrap path preserved without leaving broad open writes in place.
 - deny-by-default catch-all at end of rules.
 
@@ -309,17 +322,20 @@ After deployment, validate end-to-end:
 ## Event field rollout notes (credits + cost)
 
 Event schema fields currently expected for admin create/update:
+- `eventSource` (`studioverse_manager` | `external`)
 - `creditsRequired` (number, non-negative)
 - `cost` (number, non-negative)
 
 Pre-prod validation:
-1. Confirm admin Event form sends both fields.
-2. Confirm callable validation accepts both fields in `functions/src/events/eventSchemas.ts`.
-3. Confirm Event list/detail views tolerate missing values in legacy docs (default to `0`).
+1. Confirm admin Event form sends `eventSource`, `creditsRequired`, and `cost`.
+2. Confirm callable validation accepts all three fields in `functions/src/events/eventSchemas.ts`.
+3. Confirm Event list/detail views tolerate missing values in legacy docs:
+  - missing `eventSource` defaults to `studioverse_manager`.
+  - missing `creditsRequired`/`cost` default to `0`.
 
 Prod smoke tests:
-1. Create Event with non-zero credits and cost; verify fields persist in Firestore.
-2. Edit same Event and update both numbers; verify values are updated.
+1. Create Event with `eventSource=external`, non-zero credits, and cost; verify all three fields persist in Firestore.
+2. Edit same Event and change `eventSource` to `studioverse_manager`; verify source and numbers are updated.
 3. Open Event in tenant-facing pages and verify no runtime/serialization errors.
 
 ### Latest deployment validation (Apr 12, 2026)
@@ -352,7 +368,7 @@ Security note from debug deploys:
 - `--debug` can print runtime environment values in logs.
 - Do not share raw debug output externally; rotate any sensitive keys if they were exposed in terminal history.
 
-## E5 Wallet / Manage Coins rollout deltas
+## E5 Wallet / Manage Wallet rollout deltas
 
 ### 1) Firestore collections
 Current wallet implementation persists these collections:
@@ -380,10 +396,19 @@ Current wallet implementation persists these collections:
     - `tenantId`
     - `userType`
     - `userName`
-    - `transactionType` (`credit` currently implemented)
+    - `transactionType` (`credit` for admin issuance, `debit` for assignment spend)
     - `coins`
+    - `reason` (optional string — describes the transaction purpose)
+    - `assignmentId` (optional — present on debit records created by assignment flow)
+    - `activityType` (optional — `program` | `event` | `assessment`, present on assignment debit records)
+    - `activityId` (optional — Firestore doc id of the activity, present on assignment debit records)
     - `createdBy`
     - `createdAt`
+
+Wallet ownership rule (implemented April 2026):
+- Assign-to-other debits the **assignor** wallet (the user who initiates the assignment), not the assignee wallet.
+- Self-assignment debits the logged-in user's own wallet.
+- Assignments where `creditsRequired === 0` bypass all wallet validation; no debit record is written.
 
 ### 2) Rules / access expectations
 For production, rules must explicitly address wallet data:
@@ -393,10 +418,11 @@ For production, rules must explicitly address wallet data:
 - If wallet issuance is later migrated to Functions, update this runbook and restrict client writes further.
 
 Current decision point:
-- wallet issuance is still client-side.
-- before prod rollout, explicitly choose one of these two supported paths:
-  - keep client-side issuance and implement tight role-based Firestore rules for `wallets` and `walletTransactions`
-  - migrate issuance to callable/backend logic and deny direct client writes for issuance collections
+- Wallet issuance (credit) is still client-side from SuperAdmin portal.
+- Wallet debit is also client-side, triggered by the assignment flow in `assignment.service.ts`.
+- Before prod rollout, explicitly choose one of these two supported paths:
+  - keep client-side issuance/debit and implement tight role-based Firestore rules for `wallets` and `walletTransactions`
+  - migrate issuance/debit to callable/backend logic and deny direct client writes for wallet collections
 
 Do not roll to production while this remains implicit.
 
@@ -407,11 +433,104 @@ No additional composite indexes are currently required for wallet issuance or My
 After deployment, validate end-to-end:
 
 1. SuperAdmin dashboard shows utilized/issued wallet summary tile.
-2. Manage Coins loads tenants.
-3. Selecting tenant + user type populates matching users.
-4. Assign Coins updates `wallets/{userId}` totals correctly.
-5. A `walletTransactions` credit ledger row is created.
-6. Coaching Studio dashboard My Wallet panel reflects updated balance for the logged-in user.
+2. Manage Wallet (SuperAdmin) loads wallet list with radio filters (All / Company / Professional / Individual).
+3. Creating a wallet for a new user initializes it with zero balance.
+4. Assigning coins updates `wallets/{userId}` totals correctly.
+5. A `walletTransactions` credit ledger row is created for the issuance.
+6. Coaching Studio dashboard Manage Wallet shows the correct balance for the logged-in user.
+7. User Manage Wallet page (`/coaching-studio/manage-wallet`) shows the balance and full transaction history (credits and debits).
+8. After an assign-to-other action where `creditsRequired > 0`, confirm a `debit` walletTransaction row exists for the assignor.
+
+## E7 Activity Assignment rollout deltas
+
+### 1) Firestore collections
+Current assignment implementation persists these collections:
+
+- `assignments`
+  - auto id
+  - fields:
+    - `tenantId`
+    - `activityType` (`program` | `event` | `assessment`)
+    - `activityId`
+    - `activityTitle`
+    - `creditsRequired`
+    - `cost` (optional)
+    - `assignerId`
+    - `assignerName`
+    - `assigneeId`
+    - `assigneePhone`
+    - `assigneeEmail`
+    - `assigneeFirstName`
+    - `assigneeLastName`
+    - `assigneeFullName`
+    - `status` (`assigned` | `recommended` | `completed` | `cancelled`)
+    - `coinsDeducted`
+    - `notes` (optional)
+    - `createdAt`
+    - `updatedAt`
+
+Both assigned and recommended records are written to the same `assignments` collection, distinguished by `status`.
+
+Auto-provisioning behavior:
+- If a searched assignee is not found by phone/email, the assignment service creates a new user document in `users` with `userType: "individual"` and a zero-balance wallet before writing the assignment.
+
+### 2) Firestore indexes
+The My activities page reads assignments by multiple identifier fields. Add these composite indexes before production cutover:
+
+```json
+{ "collectionGroup": "assignments", "fields": [{"fieldPath": "tenantId", "order": "ASCENDING"}, {"fieldPath": "assigneeId", "order": "ASCENDING"}, {"fieldPath": "createdAt", "order": "DESCENDING"}] },
+{ "collectionGroup": "assignments", "fields": [{"fieldPath": "tenantId", "order": "ASCENDING"}, {"fieldPath": "assigneePhone", "order": "ASCENDING"}, {"fieldPath": "createdAt", "order": "DESCENDING"}] },
+{ "collectionGroup": "assignments", "fields": [{"fieldPath": "tenantId", "order": "ASCENDING"}, {"fieldPath": "assigneeEmail", "order": "ASCENDING"}, {"fieldPath": "createdAt", "order": "DESCENDING"}] },
+{ "collectionGroup": "assignments", "fields": [{"fieldPath": "tenantId", "order": "ASCENDING"}, {"fieldPath": "assignerId", "order": "ASCENDING"}, {"fieldPath": "createdAt", "order": "DESCENDING"}] }
+```
+
+Deploy indexes after updating `firestore.indexes.json`:
+
+```bash
+npx -y firebase-tools@latest deploy \
+  --project studioverse-prod \
+  --only firestore:indexes
+```
+
+### 3) Firestore rules
+`assignments` must be added to production rules:
+
+Minimum expected behavior:
+- Authenticated users can read assignment records where they are the assignee (by `assigneeId`, `assigneeEmail`, or `assigneePhone`).
+- Authenticated users can read assignment records they created (where `assignerId` matches their uid).
+- Write access restricted to authenticated users for creating new assignments.
+- Admin can read all assignments within a tenant.
+- No unauthenticated read or write access.
+
+### 4) Auto-provisioning note
+The assignment service creates new `users` documents for unknown assignees. The provisioned user record has no Firebase Auth account; it only exists in Firestore. The user can later register using the same phone/email and the identity will merge at the UI level. Ensure `users` write rules support creation by authenticated users, not just admins.
+
+### 5) Smoke tests (prod)
+After deployment, validate end-to-end:
+
+1. Find an existing user by phone on the assignment modal.
+2. Confirm the found user summary is shown read-only in the assignment confirmation stage.
+3. Assign a program/event/assessment with `creditsRequired > 0` to an existing user.
+4. Confirm an `assignments` document is created with `status: "assigned"`.
+5. Confirm a `walletTransactions` debit record is created for the **assignor** wallet.
+6. Confirm the assignee can see the item on `/coaching-studio/my-activities`.
+7. Assign to an unknown user (non-existent phone/email).
+8. Confirm a new `users` document and a zero-balance `wallets` document are created for the unknown assignee.
+9. Recommend an activity (Recommend button) and confirm a `status: "recommended"` record is created in `assignments`.
+10. Confirm recommendations appear under My activities for the recommended user.
+11. Confirm self-assignment (Register Now / Try Now) creates a record with the logged-in user as both assigner and assignee.
+12. Confirm self-assignment with `creditsRequired === 0` completes without any wallet validation.
+
+## E8 Role-based menus rollout notes
+
+No additional Firestore collections, indexes, or functions are required for E8.
+
+Pre-prod checks:
+- Confirm `/coaching-studio/my-activities` route resolves correctly for authenticated users.
+- Confirm `/coaching-studio/manage-wallet` route resolves correctly for authenticated users.
+- Confirm `/coaching-studio/profile` route resolves and requires authentication gating.
+- Confirm SuperAdmin portal (`/admin`) shows Manage Wallet section and Assign Activity section.
+- Confirm dropdown menus in both dashboard and shared logged-in header show the correct role-specific items from the E8 access matrix.
 
 ## Production deploy commands
 Use these commands from repository root.
@@ -455,8 +574,12 @@ npx -y firebase-tools@latest deploy \
 5. Verify at least one active superadmin record exists and can access the admin portal.
 6. Smoke test admin Program/Event create + update flows against prod environment.
 7. Smoke test admin Assessment create/edit + image upload + question append flows.
-8. Smoke test Manage Coins issuance + My Wallet read path.
+8. Smoke test Manage Wallet (SuperAdmin) issuance + user Manage Wallet balance/history read path.
 9. Confirm audit log writes for create/update actions where applicable.
+10. Smoke test activity assignment flow including found-user confirm stage, wallet debit, and My activities visibility for assignee.
+11. Smoke test Recommend flow and confirm recommended item appears in assignee My activities.
+12. Smoke test unknown assignee path and confirm auto-provisioned user and zero wallet are created.
+13. Confirm role-based menus render correctly across company, professional, individual, and superadmin roles.
 
 ## Datastore reset note (Apr 11, 2026)
 During current development, Firestore was intentionally cleared to enable clean reseeding.

@@ -77,6 +77,29 @@
   font-size: 0.92rem;
 }
 
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.actionButton {
+  border: 1px solid #c8ddee;
+  border-radius: 999px;
+  background: #eef7ff;
+  color: #1b4a6e;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .empty {
   margin-top: 14px;
   border: 1px dashed #c6d8ea;

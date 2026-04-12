@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DetailItem } from "./DetailModal";
 import type { UserSearchResult, ActivityType } from "@/types/assignment";
+import type { AssignmentStatus } from "@/types/assignment";
 import { searchUsersByPhoneOrEmail, createAssignment, createRecommendation } from "@/services/assignment.service";
 import { sendAssignmentEmail } from "@/services/mail.service";
 import styles from "./AssignmentModal.module.css";
@@ -296,6 +297,9 @@ export default function AssignmentModal({
     setMessage("");
 
     try {
+      const assignmentStatus: AssignmentStatus =
+        activityType === "event" && selfAssign ? "registered" : "assigned";
+
       const assignerLookupIds = Array.from(
         new Set([
           assigneeId,
@@ -319,6 +323,7 @@ export default function AssignmentModal({
         assignerId: assigneeId,
         assignerName,
         assignerLookupIds,
+        status: assignmentStatus,
       });
 
       if (result.success) {

@@ -1,7 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 
 export type ActivityType = "program" | "event" | "assessment";
-export type AssignmentStatus = "assigned" | "recommended" | "completed" | "cancelled";
+export type AssignmentStatus = "assigned" | "registered" | "recommended" | "in_progress" | "completed" | "cancelled";
 
 export type AssignmentRecord = {
   id: string;

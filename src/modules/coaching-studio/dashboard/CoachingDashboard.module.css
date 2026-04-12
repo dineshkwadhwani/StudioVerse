@@ -139,89 +139,61 @@
   padding: 24px;
 }
 
-.alertCard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border: 1px solid #f0c483;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #fff7ea 0%, #fffdf7 100%);
-  padding: 18px;
-  margin-bottom: 14px;
-}
-
-.alertEyebrow {
-  margin: 0 0 6px;
-  color: #8b5f16;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.alertTitle {
+.dashboardTitle {
   margin: 0;
-  font-size: 1.1rem;
-}
-
-.alertCopy {
-  margin: 8px 0 0;
-  color: #715731;
-}
-
-.alertAction {
-  flex-shrink: 0;
-  text-decoration: none;
-  border-radius: 999px;
-  padding: 12px 16px;
-  background: linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%);
-  color: #fff;
-  font-weight: 700;
-}
-
-.profileSummaryCard {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-
-.sectionTitle {
-  margin: 0 0 8px;
-  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
-}
-
-.sectionHint {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-.walletCard {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-
-.walletTitle {
-  margin: 0 0 8px;
-  font-weight: 800;
+  font-size: clamp(1.8rem, 3vw, 2.2rem);
   color: var(--ink);
 }
 
-.walletStats {
+.summaryStack {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.summaryCard {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.summaryTitle {
+  margin: 0 0 8px;
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.summaryStats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
 }
 
-.walletStats p {
+.summaryStats p {
   margin: 0;
   color: var(--ink-soft);
   font-size: 0.92rem;
+}
+
+.summaryAction {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  background: #eef8ff;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.summaryAction:hover {
+  background: #e0f1ff;
 }
 
 /* Mobile */
@@ -263,8 +235,7 @@
     padding: 16px;
   }
 
-  .alertCard {
-    flex-direction: column;
-    align-items: flex-start;
+  .summaryStats {
+    grid-template-columns: 1fr;
   }
 }

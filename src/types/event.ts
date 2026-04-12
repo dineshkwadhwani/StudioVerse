@@ -10,6 +10,7 @@
 export const EVENT_OWNERSHIP_SCOPES = ["platform", "company", "professional"] as const;
 export const EVENT_CATALOG_VISIBILITY = ["tenant_wide", "company_only", "professional_only"] as const;
 export const EVENT_TYPES = ["classroom_session", "casual_meeting", "webinar", "workshop"] as const;
+export const EVENT_SOURCES = ["studioverse_manager", "external"] as const;
 export const EVENT_PUBLICATION_STATES = [
   "draft",
   "published",
@@ -23,6 +24,7 @@ export const EVENT_STATUSES = ["draft", "published", "inactive", "archived", "ca
 export type EventOwnershipScope = (typeof EVENT_OWNERSHIP_SCOPES)[number];
 export type EventCatalogVisibility = (typeof EVENT_CATALOG_VISIBILITY)[number];
 export type EventType = (typeof EVENT_TYPES)[number];
+export type EventSource = (typeof EVENT_SOURCES)[number];
 export type EventPublicationState = (typeof EVENT_PUBLICATION_STATES)[number];
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
@@ -32,6 +34,7 @@ export type EventRecord = {
   tenantId: string;
   name: string;
   eventType: EventType;
+  eventSource: EventSource;
   shortDescription: string;
   longDescription: string;
   thumbnailUrl: string | null;
@@ -71,6 +74,7 @@ export type EventWriteInput = {
   tenantId: string;
   name: string;
   eventType: EventType;
+  eventSource: EventSource;
   shortDescription: string;
   longDescription: string;
   thumbnailUrl: string | null;
@@ -98,6 +102,7 @@ export type EventFormValues = {
   tenantId: string;
   name: string;
   eventType: EventType;
+  eventSource: EventSource;
   shortDescription: string;
   longDescription: string;
   eventDate: string;
@@ -126,6 +131,7 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   tenantId: "",
   name: "",
   eventType: "webinar",
+  eventSource: "studioverse_manager",
   shortDescription: "",
   longDescription: "",
   eventDate: "",
@@ -160,4 +166,9 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   casual_meeting: "Casual Meeting",
   webinar: "Webinar",
   workshop: "Workshop",
+};
+
+export const EVENT_SOURCE_LABELS: Record<EventSource, string> = {
+  studioverse_manager: "StudioVerse Manager",
+  external: "External",
 };

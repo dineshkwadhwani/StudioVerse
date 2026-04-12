@@ -10,6 +10,8 @@ import {
 import { getFirestore, collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
+import { createWalletForUser, ensureWalletExists } from '@/services/wallet.service';
+import type { WalletUserType } from '@/types/wallet';
 
 type Phase = 'login-phone' | 'login-otp' | 'register-role' | 'register-details' | 'success';
 type UserRole = 'company' | 'professional' | 'individual';
@@ -239,6 +241,16 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         const resolvedPhone = typeof userData.phoneE164 === 'string' ? userData.phoneE164 : phoneE164;
         logFlow('verify-otp:existing-user', { role: resolvedRole, name: resolvedName });
 
+        // Ensure pre-provisioned users (created by assignment flow) have a wallet.
+        const resolvedUserId = typeof userData.userId === 'string' ? userData.userId : undefined;
+        void ensureWalletExists({
+          userId: result.user.uid,
+          lookupUserIds: [userDoc.id, resolvedUserId].filter(Boolean) as string[],
+          tenantId: 'coaching-studio',
+          userType: resolvedRole as WalletUserType,
+          userName: resolvedName,
+        });
+
         // Keep session uid aligned with Firebase Auth uid for cross-page auth checks.
         sessionStorage.setItem('cs_uid', result.user.uid);
         sessionStorage.setItem('cs_profile_id', userDoc.id);
@@ -317,6 +329,19 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
       // Save to Firestore users collection
       const userDocRef = doc(db, 'users', userId);
       await setDoc(userDocRef, userData, { merge: true });
+
+      // Auto-create a zero-balance wallet for the new user.
+      try {
+        await createWalletForUser({
+          userId,
+          tenantId: 'coaching-studio',
+          userType: role as WalletUserType,
+          userName: name,
+          createdBy: 'system',
+        });
+      } catch {
+        // Wallet already exists or creation failed — non-fatal.
+      }
 
       logFlow('register:success', { userId, role });
       setPhase('success');

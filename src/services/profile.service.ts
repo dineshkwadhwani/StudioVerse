@@ -14,6 +14,8 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db } from "@/services/firebase";
 import { storage } from "@/services/firebase";
+import { createWalletForUser } from "@/services/wallet.service";
+import type { WalletUserType } from "@/types/wallet";
 import type {
   ProfileUserType,
   UserProfileRecord,
@@ -463,5 +465,25 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
   );
 
   const savedSnapshot = await getDoc(targetRef);
-  return mapUserProfile(savedSnapshot.id, savedSnapshot.data() as ProfileDocData);
+  const savedProfile = mapUserProfile(savedSnapshot.id, savedSnapshot.data() as ProfileDocData);
+
+  // Auto-create a zero-balance wallet for brand-new registrations.
+  // Only runs when current is undefined (first save, not a profile update).
+  // Superadmin role is excluded — superadmins do not hold coaching wallets.
+  const walletEligibleTypes: WalletUserType[] = ["company", "professional", "individual"];
+  if (!current && (walletEligibleTypes as string[]).includes(savedProfile.userType)) {
+    try {
+      await createWalletForUser({
+        userId: savedProfile.userId,
+        tenantId: savedProfile.tenantId,
+        userType: savedProfile.userType as WalletUserType,
+        userName: savedProfile.fullName,
+        createdBy: "system",
+      });
+    } catch {
+      // Wallet already exists or creation failed — non-fatal, profile save still succeeds.
+    }
+  }
+
+  return savedProfile;
 }

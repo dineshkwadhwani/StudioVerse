@@ -595,25 +595,6 @@ export default function CoachingLandingPage({ config }: Props) {
           </div>
         </Link>
 
-        {!isLoggedIn ? (
-          <div className={styles.userToggle}>
-            <button
-              type="button"
-              className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
-              onClick={() => setUserType("coach")}
-            >
-              I am a Coach
-            </button>
-            <button
-              type="button"
-              className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
-              onClick={() => setUserType("learner")}
-            >
-              I am a Learner
-            </button>
-          </div>
-        ) : null}
-
         <nav className={styles.desktopNav}>
           <a href="#tools" className={styles.navLink}>
             {sectionMeta.tools.navLabel}
@@ -679,30 +660,6 @@ export default function CoachingLandingPage({ config }: Props) {
         <>
           <div className={styles.mobileMenuBackdrop} ref={mobileMenuRef} onClick={() => setIsMobileMenuOpen(false)} />
           <div className={styles.mobileMenu}>
-            {!isLoggedIn ? (
-              <div className={styles.mobileUserToggle}>
-                <button
-                  type="button"
-                  className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "coach" ? styles.toggleActive : ""}`}
-                  onClick={() => {
-                    setUserType("coach");
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  I am a Coach
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.toggleBtn} ${styles.toggleSmall} ${userType === "learner" ? styles.toggleActive : ""}`}
-                  onClick={() => {
-                    setUserType("learner");
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  I am a Learner
-                </button>
-              </div>
-            ) : null}
             <a href="#tools" onClick={() => setIsMobileMenuOpen(false)}>
               {sectionMeta.tools.navLabel}
             </a>
@@ -740,6 +697,24 @@ export default function CoachingLandingPage({ config }: Props) {
 
       <section className={styles.hero}>
         <div className={styles.heroLeft}>
+          {!isLoggedIn && (
+            <div className={styles.userTypeSelector}>
+              <button
+                type="button"
+                className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
+                onClick={() => setUserType("coach")}
+              >
+                I am a Coach
+              </button>
+              <button
+                type="button"
+                className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
+                onClick={() => setUserType("learner")}
+              >
+                I am a Learner
+              </button>
+            </div>
+          )}
           <span className={styles.heroLabel}>{currentHero.label}</span>
           <h1>{currentHero.title}</h1>
           <p className={styles.heroCopy}>{currentHero.copy}</p>

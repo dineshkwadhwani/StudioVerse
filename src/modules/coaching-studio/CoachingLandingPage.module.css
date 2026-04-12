@@ -67,6 +67,13 @@
   gap: 8px;
 }
 
+.userTypeSelector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  margin-top: -20px;
+}
+
 .toggleBtn {
   border: 2px solid var(--line);
   border-radius: 999px;
@@ -623,6 +630,10 @@
     display: none;
   }
 
+  .userTypeSelector {
+    justify-content: center;
+  }
+
   .mobileMenuBtn {
     display: block;
   }
@@ -646,18 +657,6 @@
     border-bottom: 1px solid var(--line);
     position: relative;
     z-index: 1000;
-  }
-
-  .mobileUserToggle {
-    display: flex;
-    gap: 6px;
-    padding: 6px 0;
-  }
-
-  .mobileUserToggle .toggleBtn {
-    flex: 1;
-    font-size: 0.75rem;
-    padding: 6px 8px;
   }
 
   .mobileMenu a,

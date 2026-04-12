@@ -1,24 +1,31 @@
-// src/config/studio.config.ts
+import { getTenantConfigById } from "@/tenants";
+import type { TenantConfig } from "@/types/tenant";
 
-import { coachingConfig } from './studios/coaching.config'
-import { trainingConfig } from './studios/training.config'
-import { recruitmentConfig } from './studios/recruitment.config'
+export type StudioType = "coaching" | "training" | "recruitment";
 
-export type StudioType = 'coaching' | 'training' | 'recruitment'
+const STUDIO_TO_TENANT: Record<StudioType, string> = {
+  coaching: "coaching-studio",
+  training: "training-studio",
+  recruitment: "recruitment-studio",
+};
 
-const studioConfigMap = {
-  coaching: coachingConfig,
-  training: trainingConfig,
-  recruitment: recruitmentConfig,
-} as const
-
-export function getStudioConfig(studioType?: StudioType) {
+export function getStudioConfig(studioType?: StudioType): TenantConfig {
   const activeStudio =
     studioType ||
     (process.env.NEXT_PUBLIC_STUDIO_TYPE as StudioType | undefined) ||
-    'coaching'
+    "coaching";
 
-  return studioConfigMap[activeStudio]
+  const matched = getTenantConfigById(STUDIO_TO_TENANT[activeStudio]);
+  if (matched) {
+    return matched;
+  }
+
+  const fallback = getTenantConfigById("coaching-studio");
+  if (!fallback) {
+    throw new Error("Tenant configuration missing for coaching-studio.");
+  }
+
+  return fallback;
 }
 
-export const studioConfig = getStudioConfig()
+export const studioConfig = getStudioConfig();

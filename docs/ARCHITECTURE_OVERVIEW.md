@@ -75,9 +75,12 @@ The technical architecture expects a monorepo-style structure centered around `s
 Important structural areas:
 - `src/app/` for Next.js App Router pages
 - `src/modules/` for feature modules and shared UI structure
-- `src/config/studios/` for Studio runtime config
+- `src/tenants/` for tenant runtime config and per-tenant metadata
+- `src/config/studio.ts` for resolved active studio config
 - `src/services/` for all Firestore access
-- `src/hooks/` and `src/stores/` for shared app state
+- `src/hooks/` and `src/store/` for shared app state
+- `src/lib/tenant/` for tenant resolution and host/path routing helpers
+- `src/proxy.ts` for host-based rewrite logic
 - `functions/` for trusted backend logic[file:181]
 
 ## Frontend model
@@ -86,8 +89,8 @@ The frontend is built with Next.js App Router and TypeScript.
 
 Key frontend rules:
 - all code lives under `src/`
-- authenticated routes live under `src/app/(app)/`
-- landing pages live in separate Studio directories
+- studio routes currently live under tenant-prefixed paths in `src/app/<tenant-id>/`
+- tenant-prefixed paths include both landing and authenticated app-shell pages
 - shared components follow a module pattern
 - components do not call Firestore directly
 - all data access goes through the service layer[file:181]
@@ -175,10 +178,9 @@ The project expects:
 Routing follows the Next.js App Router structure.
 
 Important route rules:
-- `(app)` wraps authenticated routes
-- `/login` and `/register` remain public
-- Studio landing pages are separate routes internally
-- domain rewrites map each Studio domain to the right landing page
+- tenant entrypoints are `/coaching-studio`, `/training-studio`, and `/recruitment-studio`
+- shared app-shell pages are exposed under each tenant prefix (for example `/training-studio/dashboard`)
+- root (`/`) and shared tenant paths are resolved via host-based rewrites in `src/proxy.ts`
 - typed route constants should be used instead of magic strings[file:181]
 
 ## Service and logic boundaries
@@ -208,13 +210,13 @@ The technical foundation is organized like this:
 
 The technical status currently stands as:
 - `T0` done
-- `T1` partial
-- `T2` not started
-- `T3` partial
-- `T4` not started
-- `T5` not started
+- `T1` in progress
+- `T2` in progress
+- `T3` in progress
+- `T4` in progress
+- `T5` in progress
 
-This means the documentation foundation is ahead of implementation, which is useful because it gives the repo a strong architectural contract before large-scale coding begins.[file:181]
+Implementation has moved beyond initial scaffolding: tenant-prefixed routing, domain-aware rewrites, shared app-shell wrappers, and assessment runtime/report flows are present in code and actively evolving.[file:181]
 
 ## Local docs map
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DetailItem } from "./DetailModal";
 import type { UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
@@ -46,7 +46,7 @@ export default function AssignmentModal({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const buildSelfUser = (): UserSearchResult | null => {
+  const buildSelfUser = useCallback((): UserSearchResult | null => {
     if (!assigneeId) {
       return null;
     }
@@ -67,7 +67,7 @@ export default function AssignmentModal({
       userType: "individual",
       tenantId,
     };
-  };
+  }, [assigneeId, assignerName, tenantId]);
 
   useEffect(() => {
     if (!isOpen || !selfAssign) {
@@ -84,7 +84,7 @@ export default function AssignmentModal({
     setStage("confirm");
     setMessage(`Ready to assign to ${selfUser.fullName}`);
     setError("");
-  }, [isOpen, selfAssign, assigneeId, assignerName, tenantId]);
+  }, [isOpen, selfAssign, buildSelfUser]);
 
   if (!isOpen || !item) return null;
 

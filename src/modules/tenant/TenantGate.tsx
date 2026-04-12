@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTenantByContext } from "@/hooks/useTenantByContext";
+import { getTenantConfigById } from "@/tenants";
 import styles from "./TenantGate.module.css";
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 
 export default function TenantGate({ rootContext, children }: Props) {
   const { status, tenant, error } = useTenantByContext(rootContext);
+  const knownTenant = getTenantConfigById(rootContext);
 
   if (status === "loading") {
     return (
@@ -22,6 +24,18 @@ export default function TenantGate({ rootContext, children }: Props) {
   }
 
   if (status === "not-found") {
+    if (knownTenant) {
+      return (
+        <main className={styles.state}>
+          <h1 className={styles.heading}>Under Construction</h1>
+          <p className={styles.body}>
+            {knownTenant.name} is recognized, but this experience is not fully provisioned yet.
+            Please check back soon.
+          </p>
+        </main>
+      );
+    }
+
     return (
       <main className={styles.state}>
         <h1 className={styles.heading}>Studio not found</h1>

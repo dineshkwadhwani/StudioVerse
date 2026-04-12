@@ -12,7 +12,7 @@ import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
-import type { CoachingUserRole } from "./menuConfig";
+import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
@@ -26,7 +26,7 @@ type Props = {
 
 type SectionKey = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
-type UserRole = CoachingUserRole;
+type UserRole = StudioUserRole;
 type CarouselItem = {
   name: string;
   image: string;
@@ -55,6 +55,15 @@ type CarouselItem = {
 };
 type EventLandingItem = CarouselItem & { promoted: boolean };
 
+function getInitialUserType(storageKey: string): UserType {
+  if (typeof window === "undefined") {
+    return "coach";
+  }
+
+  const stored = localStorage.getItem(storageKey);
+  return stored === "coach" || stored === "learner" ? stored : "coach";
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -81,25 +90,25 @@ function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function getSectionMeta(toolsLabel: string): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
+function getSectionMeta(toolsLabel: string, basePath: string): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
   return {
     tools: {
       title: `${toolsLabel} built to assess coachees, surface gaps, and accelerate growth.`,
       intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
-      viewAllPath: "/coaching-studio/tools",
+      viewAllPath: `${basePath}/tools`,
       navLabel: toolsLabel,
     },
     programs: {
       title: "Signature programmes designed for leadership growth and transformation.",
       intro: "Each programme pairs a clear commercial use case with a polished learner experience.",
-      viewAllPath: "/coaching-studio/programs",
+      viewAllPath: `${basePath}/programs`,
       darkTile: true,
       navLabel: "Programs",
     },
     events: {
       title: "Curated events that connect leaders, coaches, and growth-focused teams.",
       intro: "From roundtables to showcases, each event is designed for practical outcomes.",
-      viewAllPath: "/coaching-studio/events",
+      viewAllPath: `${basePath}/events`,
       navLabel: "Events",
     },
   };
@@ -126,7 +135,6 @@ function CarouselSection({
 }) {
   const { index, next, prev } = useCarousel(items.length, perView, 5000);
   const slideWidth = 100 / perView;
-  const contentType = items[0]?.type;
 
 
 
@@ -228,11 +236,14 @@ function AssessLearnTransformTimeline({ userType }: { userType: UserType }) {
 }
 
 export default function CoachingLandingPage({ config }: Props) {
+  const tenantId = config.id;
+  const basePath = `/${tenantId}`;
+  const userTypeStorageKey = `${tenantId}:userType`;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
-  const [userType, setUserType] = useState<UserType>("coach");
+  const [userType, setUserType] = useState<UserType>(() => getInitialUserType(userTypeStorageKey));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -277,22 +288,12 @@ export default function CoachingLandingPage({ config }: Props) {
     setIsDetailModalOpen(true);
   };
 
-  // Load userType from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("coachingStudioUserType") as UserType | null;
-      if (stored && (stored === "coach" || stored === "learner")) {
-        setUserType(stored);
-      }
-    }
-  }, []);
-
   // Save userType to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("coachingStudioUserType", userType);
+      localStorage.setItem(userTypeStorageKey, userType);
     }
-  }, [userType]);
+  }, [userType, userTypeStorageKey]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -430,6 +431,7 @@ export default function CoachingLandingPage({ config }: Props) {
     };
   }, [
     config.id,
+    config.landingContent?.heroImages?.tools,
     config.landingContent?.heroImages?.programs,
   ]);
 
@@ -528,27 +530,27 @@ export default function CoachingLandingPage({ config }: Props) {
   }, [eventSource, eventsLimit]);
 
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
-  const sectionMeta = useMemo(() => getSectionMeta(toolsLabel), [toolsLabel]);
+  const sectionMeta = useMemo(() => getSectionMeta(toolsLabel, basePath), [basePath, toolsLabel]);
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const brandSubtitle = "StudioVerse Platform";
+  const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn
     ? role === "individual"
       ? "learner"
       : "coach"
     : userType;
 
-  const isCoach = userType === "coach";
-
   const heroMessages = {
     coach: {
-      label: "Coach Platform",
-      title: "Your Playground for Coaching Excellence",
-        copy: "Coaching Studio is your playground for delivering premium coaching journeys. Leverage best-in-class programmes or deliver your own, use powerful diagnostic tools to assess your coachees, and host curated events — all in one place to scale your coaching impact.",
+      label: `${config.roles.professional} Platform`,
+      title: `Your Playground for ${config.roles.professional} Excellence`,
+      copy: `${config.name} is your workspace for delivering premium growth journeys. Leverage best-in-class programs or deliver your own, use powerful diagnostic tools to assess your participants, and host curated events in one place to scale your impact.`,
     },
     learner: {
       label: "Learning Platform",
       title: "Unlock Your Leadership Potential",
-      copy: "Coaching Studio connects you with expert-designed programmes, proven assessment tools, and industry leaders. Assess your capabilities, close gaps, and transform into the leader you aspire to be.",
+      copy: `${config.name} connects you with expert-designed programs, proven assessment tools, and industry leaders. Assess your capabilities, close gaps, and transform into the leader you aspire to be.`,
     },
   };
 
@@ -587,11 +589,11 @@ export default function CoachingLandingPage({ config }: Props) {
   return (
     <main className={styles.page}>
       <header className={styles.nav}>
-        <Link href="/coaching-studio" className={styles.brand}>
-          <Image src={config.theme.logo} width={76} height={40} alt="Coaching Studio logo" className={styles.logo} />
+        <Link href={basePath} className={styles.brand}>
+          <Image src={config.theme.logo} width={76} height={40} alt={`${config.name} logo`} className={styles.logo} />
           <div className={styles.brandText}>
-            <span className={styles.brandTitle}>Coaching Studio</span>
-            <span className={styles.brandSubtitle}>Coaching | Growth | Potential</span>
+            <span className={styles.brandTitle}>{config.name}</span>
+            <span className={styles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
 
@@ -621,7 +623,11 @@ export default function CoachingLandingPage({ config }: Props) {
                   <section className={headerStyles.menuPanel}>
                     <div className={headerStyles.menuUser}>
                       <p className={headerStyles.menuName}>{name}</p>
-                      <p className={headerStyles.menuRole}>{getRoleLabel(role)}</p>
+                      <p className={headerStyles.menuRole}>{getRoleLabel(role, {
+                        company: config.roles.company,
+                        professional: config.roles.professional,
+                        individual: config.roles.individual,
+                      })}</p>
                     </div>
 
                     <p className={headerStyles.menuTitle}>Menu</p>
@@ -674,7 +680,11 @@ export default function CoachingLandingPage({ config }: Props) {
               <>
                 <div className={headerStyles.mobileMenuUser}>
                   <p className={headerStyles.mobileMenuName}>{name}</p>
-                  <p className={headerStyles.mobileMenuRole}>{getRoleLabel(role)}</p>
+                  <p className={headerStyles.mobileMenuRole}>{getRoleLabel(role, {
+                    company: config.roles.company,
+                    professional: config.roles.professional,
+                    individual: config.roles.individual,
+                  })}</p>
                 </div>
                 {roleMenuItems.map((item) => (
                   <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
@@ -704,14 +714,14 @@ export default function CoachingLandingPage({ config }: Props) {
                 className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
                 onClick={() => setUserType("coach")}
               >
-                I am a Coach
+                I am a {config.roles.professional}
               </button>
               <button
                 type="button"
                 className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
                 onClick={() => setUserType("learner")}
               >
-                I am a Learner
+                I am a {config.roles.individual}
               </button>
             </div>
           )}
@@ -772,10 +782,10 @@ export default function CoachingLandingPage({ config }: Props) {
 
       <footer className={styles.footer}>
         <p className={styles.footerLine}>
-          <span>&copy; {new Date().getFullYear()} Coaching Studio. All rights reserved.</span>
-          <Link href="/coaching-studio/privacy-policy">Privacy Policy</Link>
+          <span>&copy; {new Date().getFullYear()} {config.name}. All rights reserved.</span>
+          <Link href={`${basePath}/privacy-policy`}>Privacy Policy</Link>
           <a href="tel:+919604188725">+91 9604188725</a>
-          <a href="mailto:contact@coachingstudio.com">contact@coachingstudio.com</a>
+          <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
         </p>
       </footer>
 

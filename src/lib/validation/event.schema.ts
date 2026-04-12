@@ -78,8 +78,9 @@ function toEventDateTime(date: string, time: string): string | null {
 // ---------------------------------------------------------------------------
 export function normalizeEventForm(
   values: EventFormValues,
-  _mode: EventSaveMode,
+  mode: EventSaveMode,
 ): EventWriteInput {
+  void mode;
   const parsed = eventFormSchema.parse(values);
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
   const cost = parsed.cost ? Number(parsed.cost) : 0;
@@ -125,9 +126,10 @@ export function normalizeEventForm(
 // ---------------------------------------------------------------------------
 export function validateEventForm(
   values: EventFormValues,
-  _mode: EventSaveMode,
+  mode: EventSaveMode,
   options?: { hasSelectedThumbnail?: boolean },
 ): EventFormErrors {
+  void mode;
   const errors: EventFormErrors = {};
 
   const tenantId = values.tenantId.trim();

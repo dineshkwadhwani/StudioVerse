@@ -29,12 +29,7 @@ export function useCarousel(length: number, perView: number, intervalMs = 5000) 
   const [index, setIndex] = useState(0);
 
   const maxStartIndex = Math.max(0, length - perView);
-
-  useEffect(() => {
-    if (index > maxStartIndex) {
-      setIndex(maxStartIndex);
-    }
-  }, [index, maxStartIndex]);
+  const safeIndex = Math.min(index, maxStartIndex);
 
   useEffect(() => {
     if (length <= perView || length <= 1) return;
@@ -52,7 +47,7 @@ export function useCarousel(length: number, perView: number, intervalMs = 5000) 
   const prev = () => setIndex((current) => (current <= 0 ? maxStartIndex : current - 1));
 
   return {
-    index,
+    index: safeIndex,
     setIndex,
     next,
     prev,

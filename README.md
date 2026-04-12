@@ -1,39 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StudioVerse
 
-## Getting Started
+StudioVerse is a multi-tenant platform with three tenant experiences built on one shared codebase:
 
-First, run the development server:
+- Coaching Studio
+- Training Studio
+- Recruitment Studio
+
+The frontend is Next.js App Router (TypeScript) and the backend foundation is Firebase (Auth, Firestore, Storage, Functions).
+
+## Current Architecture (Implemented)
+
+- Tenant routes are mounted under `src/app/<tenant-id>/`.
+- Shared app-shell behavior is reused through `src/modules/app-shell/*` wrappers.
+- Tenant configuration is centralized under `src/tenants/*` with resolver support in `src/lib/tenant/*`.
+- Host/domain-based entrypoint rewrites are handled by `src/proxy.ts`.
+- Firestore access is routed through `src/services/*`.
+
+Examples:
+
+- `/coaching-studio/dashboard`
+- `/training-studio/my-activities`
+- `/recruitment-studio/tools`
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Quality checks:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run lint
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Firebase Web Env Variables
 
-## Learn More
+Set these in `.env.local` (and corresponding deployment environments):
 
-To learn more about Next.js, take a look at the following resources:
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Tenant resolution env options:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `NEXT_PUBLIC_TENANT_ID` (direct tenant id override)
+- `NEXT_PUBLIC_STUDIO_TYPE` (`coaching` | `training` | `recruitment`)
 
-## Deploy on Vercel
+## Phone Auth Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Phone auth uses Firebase `RecaptchaVerifier`.
+- Localhost is suitable for configured Firebase test numbers.
+- Real (non-test) number OTP should be validated on deployed HTTPS domains.
+- Authorized domains in Firebase Auth must match the exact host.
 
 ## Firebase Notes (StudioVerse)
 

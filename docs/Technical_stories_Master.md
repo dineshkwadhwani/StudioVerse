@@ -582,7 +582,7 @@ Configure the Firebase Local Emulator Suite for full offline local development w
 
 **Application emulator detection:**
 - When `NEXT_PUBLIC_APP_ENV=dev` and running locally, Firebase client SDK connects to emulators
-- Emulator connection logic lives in `src/lib/firebase.ts`
+- Emulator connection logic lives in `src/services/firebase.ts`
 
 **Acceptance Criteria:**
 - `firebase emulators:start` runs all emulators without port conflicts
@@ -865,7 +865,7 @@ Create the root layout and authenticated app layout that all pages will inherit 
 - Wraps children in global providers (Auth provider, Studio provider, Zustand stores)
 - Includes global error boundary
 
-**App shell layout (`src/app/(app)/layout.tsx`):**
+**App shell layout (tenant-prefixed routes under `src/app/<tenant-id>/`):**
 - Authenticated layout shell
 - Renders: AppHeader + AppSidebar (desktop) + main content area
 - Reads `userContext` to determine role
@@ -886,7 +886,7 @@ Create the root layout and authenticated app layout that all pages will inherit 
 
 **Acceptance Criteria:**
 - `src/app/layout.tsx` exists with provider wrapping
-- `src/app/(app)/layout.tsx` exists with shell structure
+- tenant app-shell pages exist under `src/app/coaching-studio/*`, `src/app/training-studio/*`, and `src/app/recruitment-studio/*`
 - `npm run build` succeeds with both layouts in place
 - No TypeScript errors
 
@@ -1034,7 +1034,7 @@ Implement the global Zustand stores used across the StudioVerse application.
 
 **Stores to create:**
 
-**1. Auth Store (`src/stores/auth.store.ts`)**
+**1. Auth Store (`src/store/auth.store.ts`)**
 ```typescript
 interface AuthStore {
   user: FirebaseUser | null
@@ -1048,7 +1048,7 @@ interface AuthStore {
 }
 ```
 
-**2. Studio Store (`src/stores/studio.store.ts`)**
+**2. Studio Store (`src/store/studio.store.ts`)**
 ```typescript
 interface StudioStore {
   studioType: StudioType
@@ -1057,7 +1057,7 @@ interface StudioStore {
 }
 ```
 
-**3. Notifications Store (`src/stores/notifications.store.ts`)**
+**3. Notifications Store (`src/store/notifications.store.ts`)**
 ```typescript
 interface NotificationsStore {
   notifications: Notification[]
@@ -1075,7 +1075,7 @@ interface NotificationsStore {
 - Stores are reset on logout
 
 **Acceptance Criteria:**
-- All three stores created in `src/stores/`
+- All three stores created in `src/store/`
 - Stores are typed with TypeScript interfaces
 - Auth store initialised on Firebase `onAuthStateChanged`
 - `npm run build` succeeds with stores in place
@@ -1093,7 +1093,7 @@ Create the service layer that mediates all Firestore reads and writes. No compon
 - Each service function is async and returns typed data
 - All service functions accept `studioType` as a required parameter for tenant scoping
 - Service functions never throw raw Firestore errors — they catch, log, and rethrow with a typed `ServiceError`
-- No Firebase SDK imports outside of `src/lib/firebase.ts` and `src/services/`
+- No Firebase SDK imports outside of `src/services/firebase.ts` and `src/services/`
 
 **Example service pattern:**
 ```typescript
@@ -1130,7 +1130,7 @@ export async function getPrograms(studioType: StudioType): Promise<Program[]> {
 - All service stub files created in `src/services/`
 - Service pattern documented with example
 - `ServiceError` class created in `src/utils/`
-- No Firestore imports outside `src/lib/firebase.ts` and `src/services/`
+- No Firestore imports outside `src/services/firebase.ts` and `src/services/`
 
 ---
 
@@ -1256,7 +1256,7 @@ Implement centralised error handling for both the frontend application and the s
 
 **1. Route-level error boundaries (Next.js App Router)**
 - `src/app/error.tsx` — global error boundary
-- `src/app/(app)/error.tsx` — app shell error boundary
+- tenant-prefixed app-shell error boundaries, as applicable under `src/app/<tenant-id>/`
 - Each must display a user-friendly error message with a retry option
 
 **2. Service layer errors**
@@ -1290,7 +1290,7 @@ export class NotFoundError extends Error { ... }
 
 **Acceptance Criteria:**
 - `src/app/error.tsx` exists and renders correctly
-- `src/app/(app)/error.tsx` exists and renders correctly
+- app-shell routes expose tenant-scoped error handling without relying on a single `(app)` segment
 - `ServiceError` and other typed errors defined in `src/utils/errors.ts`
 - No raw Firebase error messages shown to users in any state
 
@@ -1746,12 +1746,12 @@ Implement route-level authentication and authorisation guards using Next.js App 
 
 **Two-layer guard strategy:**
 
-**Layer 1: Middleware (`src/middleware.ts`)**
+**Layer 1: Proxy (`src/proxy.ts`)**
 - Checks Firebase Auth session cookie on every request to `(app)` routes
 - Redirects unauthenticated users to `/login`
 - Does not check roles — only checks authentication
 
-**Layer 2: Layout-level role check (`src/app/(app)/layout.tsx`)**
+**Layer 2: Layout/route-level role check (tenant-prefixed routes in `src/app/<tenant-id>/`)**
 - Reads `userContext` from Firestore on load
 - Redirects user to their role-appropriate dashboard if accessing wrong area
 - Example: a `individual` user accessing `/admin/users` is redirected to `/dashboard/individual`

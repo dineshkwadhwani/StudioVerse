@@ -8,7 +8,7 @@ import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { EVENT_TYPE_LABELS, type EventRecord } from "@/types/event";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "./DetailModal";
-import CoachingViewAllHeader from "./CoachingViewAllHeader";
+import TenantViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingEventsPage.module.css";
 
@@ -174,7 +174,7 @@ export default function CoachingEventsPage({ config }: Props) {
 
   return (
     <main className={styles.page}>
-      <CoachingViewAllHeader
+      <TenantViewAllHeader
         config={config}
         currentPage="events"
         onSignInRegister={() => setIsAuthModalOpen(true)}
@@ -185,7 +185,7 @@ export default function CoachingEventsPage({ config }: Props) {
           <span className={styles.heroTag}>View All Events</span>
           <h1 className={styles.heroTitle}>Events That Build Capability, Community, and Momentum</h1>
           <p className={styles.heroCopy}>
-            Coaching Studio events are curated learning experiences where leaders, coaches, and professionals come
+            {config.name} events are curated learning experiences where leaders and professionals come
             together to exchange practical insights, build stronger networks, and apply new ideas immediately.
           </p>
           <p className={styles.heroCopy}>
@@ -197,7 +197,7 @@ export default function CoachingEventsPage({ config }: Props) {
         <div className={styles.heroImageWrap}>
           <img
             src={heroImage}
-            alt="Coaching Studio events"
+            alt={`${config.name} events`}
             className={styles.heroImage}
           />
         </div>

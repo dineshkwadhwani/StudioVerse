@@ -13,8 +13,9 @@ import {
   splitProfileList,
   uploadProfilePhoto,
 } from "@/services/profile.service";
-import { config } from "@/tenants/coaching-studio/config";
+import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileFormValues, UserProfileRecord } from "@/types/profile";
+import type { TenantConfig } from "@/types/tenant";
 import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingProfilePage.module.css";
 
@@ -24,8 +25,14 @@ function getRoleLabel(role: UserProfileRecord["userType"]): string {
   return "Learner";
 }
 
-export default function CoachingProfilePage() {
+type ProfilePageProps = {
+  tenantConfig?: TenantConfig;
+};
+
+export default function CoachingProfilePage({ tenantConfig = coachingTenantConfig }: ProfilePageProps) {
   const router = useRouter();
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
   const [profile, setProfile] = useState<UserProfileRecord | null>(null);
   const [formValues, setFormValues] = useState<UserProfileFormValues>(createProfileFormValues());
   const [errors, setErrors] = useState<ProfileFormErrors>({});
@@ -35,7 +42,8 @@ export default function CoachingProfilePage() {
   const [pageError, setPageError] = useState("");
   const [info, setInfo] = useState("");
 
-  const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
+  const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";
+  const brandSubtitle = "StudioVerse Platform";
 
   useEffect(() => {
     async function loadProfile() {
@@ -44,20 +52,20 @@ export default function CoachingProfilePage() {
       const phoneE164 = sessionStorage.getItem("cs_phone") ?? undefined;
 
       if (!userId) {
-        router.replace("/coaching-studio/auth");
+        router.replace(`${basePath}/auth`);
         return;
       }
 
       try {
         const resolvedProfile = await getUserProfile({
           userId,
-          tenantId: "coaching-studio",
+          tenantId,
           phoneE164,
           profileId,
         });
 
         if (!resolvedProfile) {
-          router.replace("/coaching-studio/auth");
+          router.replace(`${basePath}/auth`);
           return;
         }
 
@@ -71,7 +79,7 @@ export default function CoachingProfilePage() {
     }
 
     void loadProfile();
-  }, [router]);
+  }, [basePath, router, tenantId]);
 
   const roleLabel = useMemo(() => (profile ? getRoleLabel(profile.userType) : "Profile"), [profile]);
   const isEmailLocked = useMemo(() => Boolean(profile?.email.trim()), [profile?.email]);
@@ -197,7 +205,7 @@ export default function CoachingProfilePage() {
   async function handleLogout() {
     await signOut(auth);
     sessionStorage.clear();
-    router.replace("/coaching-studio");
+    router.replace(basePath);
   }
 
   if (loading) {
@@ -211,26 +219,26 @@ export default function CoachingProfilePage() {
   return (
     <main className={styles.page}>
       <header className={landingStyles.nav}>
-        <Link href="/coaching-studio" className={landingStyles.brand}>
+        <Link href={basePath} className={landingStyles.brand}>
           <Image
-            src={config.theme.logo}
-            alt="Coaching Studio logo"
+            src={tenantConfig.theme.logo}
+            alt={`${tenantConfig.name} logo`}
             width={76}
             height={40}
             className={landingStyles.logo}
           />
           <div className={landingStyles.brandText}>
-            <span className={landingStyles.brandTitle}>Coaching Studio</span>
-            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
+            <span className={landingStyles.brandTitle}>{tenantConfig.name}</span>
+            <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
 
         <div className={styles.navActions}>
           <nav className={landingStyles.desktopNav}>
-            <Link href="/coaching-studio/dashboard" className={landingStyles.navLink}>Dashboard</Link>
-            <Link href="/coaching-studio/tools" className={landingStyles.navLink}>{toolsLabel}</Link>
-            <Link href="/coaching-studio/programs" className={landingStyles.navLink}>Programs</Link>
-            <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
+            <Link href={`${basePath}/dashboard`} className={landingStyles.navLink}>Dashboard</Link>
+            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
           <button type="button" className={styles.signOutButton} onClick={handleLogout}>
@@ -515,7 +523,7 @@ export default function CoachingProfilePage() {
           ) : null}
 
           <div className={styles.actionsRow}>
-            <Link href="/coaching-studio/dashboard" className={styles.secondaryAction}>
+            <Link href={`${basePath}/dashboard`} className={styles.secondaryAction}>
               Back to dashboard
             </Link>
             <button type="submit" className={styles.primaryAction} disabled={saving || uploadingPhoto}>

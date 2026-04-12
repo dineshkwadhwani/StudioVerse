@@ -9,15 +9,16 @@ import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext, listWalletTransactionsForUserContext } from "@/services/wallet.service";
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
-import { config } from "@/tenants/coaching-studio/config";
+import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
-import type { CoachingUserRole } from "./menuConfig";
+import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
 import dashboardStyles from "./dashboard/CoachingDashboard.module.css";
 import styles from "./ManageWalletPage.module.css";
 
-type UserRole = CoachingUserRole;
+type UserRole = StudioUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
@@ -37,8 +38,14 @@ function formatDate(value: WalletTransactionRecord["createdAt"]): string {
   return value.toDate().toLocaleString();
 }
 
-export default function ManageWalletPage() {
+type ManageWalletPageProps = {
+  tenantConfig?: TenantConfig;
+};
+
+export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }: ManageWalletPageProps) {
   const router = useRouter();
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,7 +60,7 @@ export default function ManageWalletPage() {
     const storedName = sessionStorage.getItem("cs_name");
 
     if (!isUserRole(storedRoleRaw)) {
-      router.replace("/coaching-studio");
+      router.replace(basePath);
       return;
     }
 
@@ -64,7 +71,7 @@ export default function ManageWalletPage() {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        router.replace("/coaching-studio");
+        router.replace(basePath);
         return;
       }
 
@@ -75,7 +82,7 @@ export default function ManageWalletPage() {
       try {
         const profile = await getUserProfile({
           userId: firebaseUser.uid,
-          tenantId: "coaching-studio",
+          tenantId,
           phoneE164: storedPhone ?? undefined,
           profileId: storedProfileId ?? undefined,
         });
@@ -86,7 +93,7 @@ export default function ManageWalletPage() {
 
         const [resolvedWallet, resolvedTransactions] = await Promise.all([
           getWalletForUserContext(userIds),
-          listWalletTransactionsForUserContext({ userIds, tenantId: "coaching-studio" }),
+          listWalletTransactionsForUserContext({ userIds, tenantId }),
         ]);
 
         setWallet(resolvedWallet);
@@ -104,35 +111,37 @@ export default function ManageWalletPage() {
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [basePath, router, tenantId]);
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
+  const brandSubtitle = "StudioVerse Platform";
 
   async function handleLogout() {
     await signOut(auth);
     sessionStorage.clear();
-    router.replace("/coaching-studio");
+    router.replace(basePath);
   }
 
   return (
     <main className={styles.page}>
       <header className={landingStyles.nav}>
-        <Link href="/coaching-studio" className={landingStyles.brand}>
-          <Image src={config.theme.logo} alt="Coaching Studio logo" width={76} height={40} className={landingStyles.logo} />
+        <Link href={basePath} className={landingStyles.brand}>
+          <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
-            <span className={landingStyles.brandTitle}>Coaching Studio</span>
-            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
+            <span className={landingStyles.brandTitle}>{tenantConfig.name}</span>
+            <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
 
         <div className={dashboardStyles.rightControls}>
           <nav className={landingStyles.desktopNav}>
-            <Link href="/coaching-studio/tools" className={landingStyles.navLink}>Assessment Centre</Link>
-            <Link href="/coaching-studio/programs" className={landingStyles.navLink}>Programs</Link>
-            <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
+            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
@@ -143,7 +152,11 @@ export default function ManageWalletPage() {
               <section className={dashboardStyles.menuPanel}>
                 <div className={dashboardStyles.menuUser}>
                   <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role)}</p>
+                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
+                    company: tenantConfig.roles.company,
+                    professional: tenantConfig.roles.professional,
+                    individual: tenantConfig.roles.individual,
+                  })}</p>
                 </div>
                 <p className={dashboardStyles.menuTitle}>Menu</p>
                 {roleMenuItems.map((item) => (

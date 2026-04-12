@@ -10,16 +10,17 @@ import { getAssignmentsForAssigneeContext, updateAssignmentStatus } from "@/serv
 import { getUserProfile } from "@/services/profile.service";
 import { getEvent } from "@/services/events.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
-import { config } from "@/tenants/coaching-studio/config";
+import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
-import type { CoachingUserRole } from "./menuConfig";
+import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
 import dashboardStyles from "./dashboard/CoachingDashboard.module.css";
 import DetailModal, { type DetailItem } from "./DetailModal";
 import styles from "./MyActivitiesPage.module.css";
 
-type UserRole = CoachingUserRole;
+type UserRole = StudioUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
@@ -63,8 +64,14 @@ function formatStatusLabel(status: AssignmentStatus): string {
   return "Assigned";
 }
 
-export default function MyActivitiesPage() {
+type MyActivitiesPageProps = {
+  tenantConfig?: TenantConfig;
+};
+
+export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }: MyActivitiesPageProps) {
   const router = useRouter();
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -84,7 +91,7 @@ export default function MyActivitiesPage() {
     const storedName = sessionStorage.getItem("cs_name");
 
     if (!isUserRole(storedRoleRaw)) {
-      router.replace("/coaching-studio");
+      router.replace(basePath);
       return;
     }
 
@@ -96,7 +103,7 @@ export default function MyActivitiesPage() {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        router.replace("/coaching-studio");
+        router.replace(basePath);
         return;
       }
       setCurrentUserId(firebaseUser.uid);
@@ -109,7 +116,7 @@ export default function MyActivitiesPage() {
       try {
         const profile = await getUserProfile({
           userId: firebaseUser.uid,
-          tenantId: "coaching-studio",
+          tenantId,
           phoneE164: storedPhone ?? undefined,
           profileId: storedProfileId ?? undefined,
         });
@@ -121,7 +128,7 @@ export default function MyActivitiesPage() {
         );
 
         const rows = await getAssignmentsForAssigneeContext({
-          tenantId: "coaching-studio",
+          tenantId,
           assigneeIds,
           assigneePhone: profile?.phoneE164 || storedPhone || undefined,
           assigneeEmail: profile?.email || storedEmail || undefined,
@@ -137,12 +144,14 @@ export default function MyActivitiesPage() {
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [basePath, router, tenantId]);
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
+  const brandSubtitle = "StudioVerse Platform";
   const detailUserType = role === "individual" ? "learner" : "coach";
   const filteredAssignments = useMemo(() => {
     if (selectedFilter === "all") {
@@ -154,7 +163,7 @@ export default function MyActivitiesPage() {
   async function handleLogout() {
     await signOut(auth);
     sessionStorage.clear();
-    router.replace("/coaching-studio");
+    router.replace(basePath);
   }
 
   function setAssignmentStatusLocal(assignmentId: string, status: AssignmentStatus): void {
@@ -179,7 +188,7 @@ export default function MyActivitiesPage() {
 
   async function handleLaunchAssessment(item: AssignmentRecord): Promise<void> {
     await handleUpdateStatus(item, "in_progress");
-    router.push(`/coaching-studio/my-activities/assessment-launch/${item.id}`);
+    router.push(`${basePath}/my-activities/assessment-launch/${item.id}`);
   }
 
   async function handleOpenEventDetails(item: AssignmentRecord): Promise<void> {
@@ -223,25 +232,25 @@ export default function MyActivitiesPage() {
   return (
     <main className={styles.page}>
       <header className={landingStyles.nav}>
-        <Link href="/coaching-studio" className={landingStyles.brand}>
+        <Link href={basePath} className={landingStyles.brand}>
           <Image
-            src={config.theme.logo}
-            alt="Coaching Studio logo"
+            src={tenantConfig.theme.logo}
+            alt={`${tenantConfig.name} logo`}
             width={76}
             height={40}
             className={landingStyles.logo}
           />
           <div className={landingStyles.brandText}>
-            <span className={landingStyles.brandTitle}>Coaching Studio</span>
-            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
+            <span className={landingStyles.brandTitle}>{tenantConfig.name}</span>
+            <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
 
         <div className={dashboardStyles.rightControls}>
           <nav className={landingStyles.desktopNav}>
-            <Link href="/coaching-studio/tools" className={landingStyles.navLink}>Assessment Centre</Link>
-            <Link href="/coaching-studio/programs" className={landingStyles.navLink}>Programs</Link>
-            <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
+            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
@@ -257,7 +266,11 @@ export default function MyActivitiesPage() {
               <section className={dashboardStyles.menuPanel}>
                 <div className={dashboardStyles.menuUser}>
                   <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role)}</p>
+                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
+                    company: tenantConfig.roles.company,
+                    professional: tenantConfig.roles.professional,
+                    individual: tenantConfig.roles.individual,
+                  })}</p>
                 </div>
 
                 <p className={dashboardStyles.menuTitle}>Menu</p>
@@ -361,7 +374,7 @@ export default function MyActivitiesPage() {
                         <button
                           type="button"
                           className={styles.actionButton}
-                          onClick={() => router.push(`/coaching-studio/my-activities/assessment-report/${item.id}`)}
+                          onClick={() => router.push(`${basePath}/my-activities/assessment-report/${item.id}`)}
                           disabled={item.status !== "completed"}
                         >
                           Open Report
@@ -395,7 +408,7 @@ export default function MyActivitiesPage() {
         isLoggedIn
         userId={currentUserId}
         userName={name}
-        tenantId="coaching-studio"
+        tenantId={tenantId}
         eventActionMode={eventActionMode}
       />
     </main>

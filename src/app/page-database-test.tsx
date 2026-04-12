@@ -13,9 +13,10 @@ export default function HandshakeTest() {
         const q = query(collection(db, "connection_test"), limit(1));
         await getDocs(q);
         setStatus("✅ SUCCESS: CoachingStudio is connected to Firebase Mumbai!");
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Firebase Error:", error);
-        setStatus(`❌ CONNECTION FAILED: ${error.message}`);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        setStatus(`❌ CONNECTION FAILED: ${message}`);
       }
     }
     checkConnection();

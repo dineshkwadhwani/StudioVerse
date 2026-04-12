@@ -7,14 +7,14 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
-import type { CoachingUserRole } from "./menuConfig";
+import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingViewAllHeader.module.css";
 
 type ViewAllPage = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
-type UserRole = CoachingUserRole;
+type UserRole = StudioUserRole;
 
 type Props = {
   config: TenantConfig;
@@ -30,13 +30,16 @@ function getInitials(name: string): string {
 }
 
 export default function CoachingViewAllHeader({ config, currentPage, onSignInRegister }: Props) {
+  const tenantId = config.id;
+  const basePath = `/${tenantId}`;
+  const userTypeStorageKey = `${tenantId}:userType`;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userType, setUserType] = useState<UserType>(() => {
     if (typeof window === "undefined") {
       return "coach";
     }
 
-    const stored = localStorage.getItem("coachingStudioUserType");
+    const stored = localStorage.getItem(userTypeStorageKey);
     return stored === "learner" ? "learner" : "coach";
   });
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,8 +53,8 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
   const [role, setRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
-    localStorage.setItem("coachingStudioUserType", userType);
-  }, [userType]);
+    localStorage.setItem(userTypeStorageKey, userType);
+  }, [userType, userTypeStorageKey]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -91,8 +94,11 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
   }, []);
 
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
+  const brandSubtitle = "StudioVerse Platform";
+  const professionalLabel = config.roles.professional;
+  const individualLabel = config.roles.individual;
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role), [role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
 
   const navClass = (page: ViewAllPage): string => {
     return `${landingStyles.navLink} ${currentPage === page ? landingStyles.navLinkActive : ""}`;
@@ -110,11 +116,11 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
   return (
     <>
       <header className={landingStyles.nav}>
-        <Link href="/coaching-studio" className={landingStyles.brand}>
-          <Image src={config.theme.logo} width={76} height={40} alt="Coaching Studio logo" className={landingStyles.logo} />
+        <Link href={basePath} className={landingStyles.brand}>
+          <Image src={config.theme.logo} width={76} height={40} alt={`${config.name} logo`} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
-            <span className={landingStyles.brandTitle}>Coaching Studio</span>
-            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
+            <span className={landingStyles.brandTitle}>{config.name}</span>
+            <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
 
@@ -125,24 +131,24 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
               className={`${landingStyles.toggleBtn} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
               onClick={() => setUserType("coach")}
             >
-              I am a Coach
+              I am a {professionalLabel}
             </button>
             <button
               type="button"
               className={`${landingStyles.toggleBtn} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
               onClick={() => setUserType("learner")}
             >
-              I am a Learner
+              I am a {individualLabel}
             </button>
           </div>
         ) : null}
 
         <nav className={landingStyles.desktopNav}>
-          <Link href="/coaching-studio/tools" className={navClass("tools")}>
+          <Link href={`${basePath}/tools`} className={navClass("tools")}>
             {toolsLabel}
           </Link>
-          <Link href="/coaching-studio/programs" className={navClass("programs")}>Programs</Link>
-          <Link href="/coaching-studio/events" className={navClass("events")}>Events</Link>
+          <Link href={`${basePath}/programs`} className={navClass("programs")}>Programs</Link>
+          <Link href={`${basePath}/events`} className={navClass("events")}>Events</Link>
 
           {!isLoggedIn ? (
             <button type="button" className={landingStyles.authBtn} onClick={onSignInRegister}>
@@ -159,7 +165,11 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
                   <section className={styles.menuPanel}>
                     <div className={styles.menuUser}>
                       <p className={styles.menuName}>{name}</p>
-                      <p className={styles.menuRole}>{getRoleLabel(role)}</p>
+                      <p className={styles.menuRole}>{getRoleLabel(role, {
+                        company: config.roles.company,
+                        professional: config.roles.professional,
+                        individual: config.roles.individual,
+                      })}</p>
                     </div>
 
                     <p className={styles.menuTitle}>Menu</p>
@@ -205,27 +215,31 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
                   className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
                   onClick={() => setUserType("coach")}
                 >
-                  I am a Coach
+                  I am a {professionalLabel}
                 </button>
                 <button
                   type="button"
                   className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
                   onClick={() => setUserType("learner")}
                 >
-                  I am a Learner
+                  I am a {individualLabel}
                 </button>
               </div>
             ) : null}
 
-            <Link href="/coaching-studio/tools" onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
-            <Link href="/coaching-studio/programs" onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>
-            <Link href="/coaching-studio/events" onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
+            <Link href={`${basePath}/tools`} onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
+            <Link href={`${basePath}/programs`} onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>
+            <Link href={`${basePath}/events`} onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
 
             {isLoggedIn ? (
               <>
                 <div className={styles.mobileMenuUser}>
                   <p className={styles.mobileMenuName}>{name}</p>
-                  <p className={styles.mobileMenuRole}>{getRoleLabel(role)}</p>
+                  <p className={styles.mobileMenuRole}>{getRoleLabel(role, {
+                    company: config.roles.company,
+                    professional: config.roles.professional,
+                    individual: config.roles.individual,
+                  })}</p>
                 </div>
                 {roleMenuItems.map((item) => (
                   <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>

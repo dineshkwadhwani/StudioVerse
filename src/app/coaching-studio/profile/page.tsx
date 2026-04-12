@@ -1,5 +1,6 @@
-import CoachingProfilePage from "@/modules/coaching-studio/profile/CoachingProfilePage";
+import ProfilePage from "@/modules/app-shell/ProfilePage";
+import { config } from "@/tenants/coaching-studio/config";
 
 export default function CoachingStudioProfilePage() {
-  return <CoachingProfilePage />;
+  return <ProfilePage tenantConfig={config} />;
 }

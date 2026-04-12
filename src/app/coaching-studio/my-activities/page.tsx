@@ -1,5 +1,6 @@
-import MyActivitiesPage from "@/modules/coaching-studio/MyActivitiesPage";
+import MyActivitiesPage from "@/modules/app-shell/MyActivitiesPage";
+import { config } from "@/tenants/coaching-studio/config";
 
 export default function CoachingStudioMyActivitiesRoutePage() {
-  return <MyActivitiesPage />;
+  return <MyActivitiesPage tenantConfig={config} />;
 }

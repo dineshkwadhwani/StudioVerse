@@ -12,7 +12,7 @@ import {
 } from "@/types/program";
 import LoginRegisterModal from "./auth/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "./DetailModal";
-import CoachingViewAllHeader from "./CoachingViewAllHeader";
+import TenantViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingProgramsPage.module.css";
 
@@ -163,7 +163,7 @@ export default function CoachingProgramsPage({ config }: Props) {
 
   return (
     <main className={styles.page}>
-      <CoachingViewAllHeader
+      <TenantViewAllHeader
         config={config}
         currentPage="programs"
         onSignInRegister={() => setIsAuthModalOpen(true)}
@@ -174,7 +174,7 @@ export default function CoachingProgramsPage({ config }: Props) {
           <span className={styles.heroTag}>View All Programs</span>
           <h1 className={styles.heroTitle}>Programs Designed for Measurable Leadership Growth</h1>
           <p className={styles.heroCopy}>
-            Coaching Studio programs combine structured learning, practical application, and expert facilitation to
+            {config.name} programs combine structured learning, practical application, and expert facilitation to
             help leaders improve real-world performance. Each published program is built to move beyond theory and
             drive change where it matters most: in teams, decision-making, and business outcomes.
           </p>
@@ -186,7 +186,7 @@ export default function CoachingProgramsPage({ config }: Props) {
         <div className={styles.heroImageWrap}>
           <img
             src={heroImage}
-            alt="Coaching Studio programs"
+            alt={`${config.name} programs`}
             className={styles.heroImage}
           />
         </div>

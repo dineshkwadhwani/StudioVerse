@@ -8,7 +8,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
   updateDoc,
   where,
   writeBatch,
@@ -199,7 +198,15 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
 
         const ordered = existing
           .sort((a, b) => a.displayOrder - b.displayOrder)
-          .map(({ displayOrder, ...question }) => question as GeneratedQuestion);
+          .map((question) => ({
+            questionText: question.questionText,
+            options: question.options,
+            correctAnswers: question.correctAnswers,
+            scoringRule: question.scoringRule,
+            imageDescription: question.imageDescription,
+            tags: question.tags,
+            weight: question.weight,
+          }));
 
         setGeneratedQuestions(ordered);
         setFetchError("");

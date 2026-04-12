@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requestGroqChatCompletion } from "@/lib/ai/groq";
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export type GenerateQuestionsRequestBody = {
@@ -185,12 +185,6 @@ export async function POST(request: NextRequest) {
   const traceId = `assessment-gen-${Date.now()}`;
   console.info(`[${traceId}] Request received for assessment question generation.`);
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    console.error(`[${traceId}] Missing GROQ_API_KEY.`);
-    return NextResponse.json({ error: "GROQ_API_KEY is not configured." }, { status: 500 });
-  }
-
   let body: GenerateQuestionsRequestBody;
   try {
     body = await request.json();
@@ -251,34 +245,30 @@ Generate exactly ${questionCount} unique questions for this assessment.
 ${existingCount > 0 ? `There are already ${existingCount} questions created — generate new ones that do not repeat those topics.` : ""}
 Return only a JSON array of ${questionCount} question objects. No other text.`;
 
-  const groqResponse = await fetch(GROQ_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      temperature: 0.6,
-      messages: [
+  let rawContent = "";
+  try {
+    const completion = await requestGroqChatCompletion(
+      [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-    }),
-  });
+      {
+        model: GROQ_MODEL,
+        temperature: 0.6,
+      }
+    );
 
-  if (!groqResponse.ok) {
-    const errText = await groqResponse.text();
-    console.error(`[${traceId}] Groq API error status=${groqResponse.status}.`, {
-      detailPreview: errText.slice(0, 500),
+    rawContent = completion.choices[0]?.message?.content ?? "";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Groq error";
+    console.error(`[${traceId}] Groq request failed.`, {
+      message,
     });
-    return NextResponse.json({ error: `Groq API error: ${groqResponse.status}`, detail: errText }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 
-  const groqData = await groqResponse.json();
-  const rawContent: string = groqData?.choices?.[0]?.message?.content ?? "";
   console.info(`[${traceId}] Groq response received.`, {
-    hasChoices: Array.isArray(groqData?.choices),
+    hasChoices: Boolean(rawContent),
     rawLength: rawContent.length,
     rawPreview: rawContent.slice(0, 400),
   });

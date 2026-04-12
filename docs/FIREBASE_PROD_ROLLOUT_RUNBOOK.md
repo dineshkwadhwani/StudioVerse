@@ -14,6 +14,24 @@ Scope covered:
 - Activity Assignment (E7) Firestore collections, indexes, and rules requirements
 - Role-based access menus (E8) routing and access confirmation requirements
 
+## Refactor impact note (Apr 12, 2026)
+
+Recent multi-tenant refactors (shared app-shell wrappers, tenant-prefixed route normalization,
+domain/path proxy rewrites, and tenant-aware copy updates) are frontend/runtime changes.
+
+For this refactor set, backend rollout impact is:
+
+- no new Firebase Functions are required
+- no Firebase Function redeploy is required solely for these refactors
+- no Firestore index changes are required solely for these refactors
+- no Firestore rules changes are required solely for these refactors
+- no Storage rules changes are required solely for these refactors
+
+Operational caveat:
+- if a tenant route exists in code but has no corresponding document in `tenants`, UI may show
+  an under-construction/provisioning state depending on gate logic. This does not require function deploys,
+  but may require tenant document seeding as an environment data operation.
+
 ## Source of truth files
 These files are the canonical definitions that must be promoted to production:
 

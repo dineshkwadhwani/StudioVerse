@@ -1,16 +1,54 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { auth } from '@/services/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import type { FirebaseError } from 'firebase/app';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 type LogEntry = { time: string; msg: string; level: LogLevel };
+
+function buildInitialLogs(): LogEntry[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const rows: LogEntry[] = [];
+  const push = (msg: string, level: LogLevel = 'info') => {
+    rows.push({ time: now, msg, level });
+  };
+
+  push('=== Phase 1: Environment ===');
+  push(`Origin: ${window.location.origin}`, 'info');
+  push(`Protocol: ${window.location.protocol}`, window.location.protocol === 'https:' ? 'ok' : 'warn');
+
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (isLocalhost) {
+    push('Localhost detected: Firebase test numbers should work here.', 'ok');
+    push('Real phone numbers may fail on localhost. Use hosted HTTPS domain (for example Vercel) for real-number OTP.', 'warn');
+  } else if (window.location.protocol === 'https:') {
+    push('Hosted HTTPS domain detected: suitable for real phone-number OTP testing.', 'ok');
+  } else {
+    push('Non-HTTPS hosted domain detected. Use HTTPS for reliable real-number OTP.', 'warn');
+  }
+
+  const cfg = auth.app.options;
+  push(`apiKey: ${cfg.apiKey ? cfg.apiKey.slice(0, 12) + '...' : 'MISSING'}`, cfg.apiKey ? 'ok' : 'err');
+  push(`authDomain: ${cfg.authDomain ?? 'MISSING'}`, cfg.authDomain ? 'ok' : 'err');
+  push(`projectId: ${cfg.projectId ?? 'MISSING'}`, cfg.projectId ? 'ok' : 'err');
+  push(`appId: ${cfg.appId ? cfg.appId.slice(0, 20) + '...' : 'MISSING'}`, cfg.appId ? 'ok' : 'err');
+  push('Using standard Firebase Phone Auth reCAPTCHA verifier.', 'info');
+  push(`Firebase auth currentUser: ${auth.currentUser?.uid ?? 'none'}`, 'info');
+  push('=== Environment check complete ===');
+
+  return rows;
+}
 
 export default function AuthDiagnostic() {
   const [phone, setPhone] = useState('+91');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [log, setLog] = useState<LogEntry[]>([]);
+  const [log, setLog] = useState<LogEntry[]>(() => buildInitialLogs());
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const verifierRef = useRef<RecaptchaVerifier | null>(null);
@@ -22,33 +60,6 @@ export default function AuthDiagnostic() {
     setLog(p => [...p, { time: ts(), msg, level }]);
     setTimeout(() => logRef.current?.scrollTo(0, logRef.current.scrollHeight), 50);
   };
-
-  // ─── Phase 1: Environment check ───────────────────────────────────────────
-  useEffect(() => {
-    addLog('=== Phase 1: Environment ===');
-    addLog(`Origin: ${window.location.origin}`, 'info');
-    addLog(`Protocol: ${window.location.protocol}`, window.location.protocol === 'https:' ? 'ok' : 'warn');
-
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
-      addLog('Localhost detected: Firebase test numbers should work here.', 'ok');
-      addLog('Real phone numbers may fail on localhost. Use hosted HTTPS domain (for example Vercel) for real-number OTP.', 'warn');
-    } else if (window.location.protocol === 'https:') {
-      addLog('Hosted HTTPS domain detected: suitable for real phone-number OTP testing.', 'ok');
-    } else {
-      addLog('Non-HTTPS hosted domain detected. Use HTTPS for reliable real-number OTP.', 'warn');
-    }
-
-    const cfg = auth.app.options;
-    addLog(`apiKey: ${cfg.apiKey ? cfg.apiKey.slice(0, 12) + '...' : 'MISSING'}`, cfg.apiKey ? 'ok' : 'err');
-    addLog(`authDomain: ${cfg.authDomain ?? 'MISSING'}`, cfg.authDomain ? 'ok' : 'err');
-    addLog(`projectId: ${cfg.projectId ?? 'MISSING'}`, cfg.projectId ? 'ok' : 'err');
-    addLog(`appId: ${cfg.appId ? cfg.appId.slice(0, 20) + '...' : 'MISSING'}`, cfg.appId ? 'ok' : 'err');
-    addLog('Using standard Firebase Phone Auth reCAPTCHA verifier.', 'info');
-
-    addLog(`Firebase auth currentUser: ${auth.currentUser?.uid ?? 'none'}`, 'info');
-    addLog('=== Environment check complete ===');
-  }, []);
 
   // ─── Phase 2: reCAPTCHA + OTP send ────────────────────────────────────────
   const resetVerifier = () => {
@@ -84,7 +95,7 @@ export default function AuthDiagnostic() {
           addLog('reCAPTCHA token expired — please solve the checkbox again', 'warn');
           resetVerifier();
         },
-        'error-callback': (err: any) => {
+        'error-callback': (err: unknown) => {
           addLog(`reCAPTCHA error-callback: ${JSON.stringify(err)}`, 'err');
         },
       });
@@ -106,31 +117,32 @@ export default function AuthDiagnostic() {
       setConfirmation(result);
       setStep('otp');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const firebaseErr = err as FirebaseError;
       addLog(`=== FAILED ===`, 'err');
-      addLog(`code: ${err.code}`, 'err');
-      addLog(`message: ${err.message}`, 'err');
+      addLog(`code: ${firebaseErr.code ?? 'unknown'}`, 'err');
+      addLog(`message: ${firebaseErr.message ?? 'Unknown error'}`, 'err');
 
       // Specific guidance per error code
-      if (err.code === 'auth/invalid-app-credential') {
+      if (firebaseErr.code === 'auth/invalid-app-credential') {
         addLog('DIAGNOSIS: Firebase rejected the reCAPTCHA token.', 'warn');
         addLog('Check 1: Is your current hostname in Firebase Auth Authorized domains?', 'warn');
         addLog('Check 2: Hard refresh and retry to regenerate token.', 'warn');
         addLog('Check 3: Ensure you are on HTTPS for real-number testing.', 'warn');
       }
-      if (err.code === 'auth/too-many-requests') {
+      if (firebaseErr.code === 'auth/too-many-requests') {
         addLog('DIAGNOSIS: This number/IP is rate limited. Wait 30+ min or use a different number.', 'warn');
       }
-      if (err.code === 'auth/captcha-check-failed') {
+      if (firebaseErr.code === 'auth/captcha-check-failed') {
         addLog('DIAGNOSIS: reCAPTCHA token invalid. Try hard refresh (Ctrl+Shift+R).', 'warn');
       }
-      if (err.code === 'auth/missing-phone-number') {
+      if (firebaseErr.code === 'auth/missing-phone-number') {
         addLog('DIAGNOSIS: Phone number is empty or malformed.', 'warn');
       }
-      if (err.code === 'auth/quota-exceeded') {
+      if (firebaseErr.code === 'auth/quota-exceeded') {
         addLog('DIAGNOSIS: SMS quota exceeded on this Firebase project. Check Firebase console usage.', 'warn');
       }
-      if (err.code === 'auth/network-request-failed') {
+      if (firebaseErr.code === 'auth/network-request-failed') {
         addLog('DIAGNOSIS: Network error — check your internet connection.', 'warn');
       }
 
@@ -158,12 +170,13 @@ export default function AuthDiagnostic() {
       addLog(`UID: ${result.user.uid}`, 'ok');
       addLog(`Phone: ${result.user.phoneNumber}`, 'ok');
       addLog(`isNewUser: ${result.operationType}`, 'ok');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const firebaseErr = err as FirebaseError;
       addLog(`=== VERIFY FAILED ===`, 'err');
-      addLog(`code: ${err.code}`, 'err');
-      addLog(`message: ${err.message}`, 'err');
-      if (err.code === 'auth/invalid-verification-code') addLog('Wrong OTP — double check the SMS', 'warn');
-      if (err.code === 'auth/code-expired') addLog('OTP expired — click Reset and resend', 'warn');
+      addLog(`code: ${firebaseErr.code ?? 'unknown'}`, 'err');
+      addLog(`message: ${firebaseErr.message ?? 'Unknown error'}`, 'err');
+      if (firebaseErr.code === 'auth/invalid-verification-code') addLog('Wrong OTP — double check the SMS', 'warn');
+      if (firebaseErr.code === 'auth/code-expired') addLog('OTP expired — click Reset and resend', 'warn');
     }
     setBusy(false);
   };

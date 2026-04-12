@@ -1,11 +1,11 @@
 import TenantGate from "@/modules/tenant/TenantGate";
-import CoachingLandingPage from "@/modules/coaching-studio/CoachingLandingPage";
+import LandingPage from "@/modules/app-shell/LandingPage";
 import { config } from "@/tenants/coaching-studio/config";
 
 export default function CoachingStudioPage() {
   return (
     <TenantGate rootContext="coaching-studio">
-      <CoachingLandingPage config={config} />
+      <LandingPage tenantConfig={config} />
     </TenantGate>
   );
 }

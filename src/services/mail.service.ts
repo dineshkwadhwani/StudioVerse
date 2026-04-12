@@ -14,8 +14,9 @@ type SendAssignmentEmailResult = {
 
 // Placeholder utility until real mail provider is integrated.
 export async function sendAssignmentEmail(
-  _args: SendAssignmentEmailArgs
+  args: SendAssignmentEmailArgs
 ): Promise<SendAssignmentEmailResult> {
+  void args;
   return {
     success: true,
     message: "Mail sent",

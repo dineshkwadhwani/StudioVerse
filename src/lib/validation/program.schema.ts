@@ -58,6 +58,7 @@ function toProgramBoundaryIso(value: string, boundary: "start" | "end"): string 
 }
 
 export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSaveMode): ProgramWriteInput {
+  void mode;
   const parsed = programFormSchema.parse(values);
   const durationValue = parsed.durationValue ? Number(parsed.durationValue) : 0;
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;

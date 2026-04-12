@@ -74,6 +74,48 @@ export type AssessmentQuestionRecord = {
   updatedAt?: Timestamp;
 };
 
+export type AssessmentAttemptStatus = "in_progress" | "completed" | "abandoned";
+
+export type AssessmentAnswerRecord = {
+  questionId: string;
+  questionText: string;
+  selectedValue: string;
+  selectedLabel: string;
+  correctAnswers: string[];
+  isCorrect: boolean;
+};
+
+export type AssessmentAttemptRecord = {
+  id: string;
+  assessmentId: string;
+  tenantId: string;
+  userId: string;
+  assignmentId: string;
+  questionsServed: AssessmentQuestionRecord[];
+  answersSubmitted: AssessmentAnswerRecord[];
+  rawScore: number;
+  rawResultPayload: Record<string, unknown>;
+  status: AssessmentAttemptStatus;
+  startedAt?: Timestamp;
+  completedAt?: Timestamp;
+};
+
+export type AssessmentReportRecord = {
+  id: string;
+  assessmentId: string;
+  attemptId: string;
+  tenantId: string;
+  userId: string;
+  assignmentId: string;
+  aiProvider: string;
+  analysisPromptUsed: string;
+  aiResponseRaw: string;
+  reportSummary: string;
+  reportStructuredData: Record<string, unknown>;
+  pdfUrl?: string;
+  createdAt?: Timestamp;
+};
+
 export type AssessmentFormValues = {
   id?: string;
   tenantId: string;

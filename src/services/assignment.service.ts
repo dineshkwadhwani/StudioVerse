@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   where,
@@ -13,8 +14,7 @@ import type { WithFieldValue } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
-import type { UserProfileRecord } from "@/types/profile";
-import { getWalletByUserId, getWalletForUserContext } from "@/services/wallet.service";
+import { getWalletForUserContext } from "@/services/wallet.service";
 
 type AssignmentWriteData = WithFieldValue<Omit<AssignmentRecord, "id">>;
 
@@ -434,6 +434,23 @@ export async function updateAssignmentStatus(args: {
     status: args.status,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function getAssignmentById(assignmentId: string): Promise<AssignmentRecord | null> {
+  try {
+    const snap = await getDoc(doc(db, "assignments", assignmentId));
+    if (!snap.exists()) {
+      return null;
+    }
+
+    return {
+      id: snap.id,
+      ...(snap.data() as Omit<AssignmentRecord, "id">),
+    };
+  } catch (error) {
+    console.error("[getAssignmentById] error:", error);
+    return null;
+  }
 }
 
 /**

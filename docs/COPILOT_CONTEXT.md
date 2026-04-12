@@ -39,7 +39,7 @@ Do not create separate feature implementations per Studio unless the underlying 
 
 Keep these two config systems separate:
 
-1. `src/config/studios/*`
+1. `src/tenants/*` and `src/config/studio.ts`
    - authenticated app-shell config
    - terminology
    - role labels
@@ -62,9 +62,9 @@ Follow the Next.js App Router conventions already defined for this repo.
 
 Rules:
 - landing pages live in Studio-specific routes under `src/app/`
-- authenticated routes live under `src/app/(app)/`
+- shared app-shell pages are mounted under each tenant prefix (for example `src/app/training-studio/dashboard/page.tsx`)
 - public widget routes stay separate
-- route constants should be defined in `src/constants/routes.ts`
+- domain/host rewrites are handled in `src/proxy.ts` using `src/lib/tenant/routing.ts`
 - do not invent alternative route structures unless the docs explicitly require them[file:181]
 
 ## Data access rule
@@ -96,7 +96,7 @@ Service rules:
 Keep Firebase SDK usage contained.
 
 Allowed places for Firebase imports:
-- `src/lib/firebase.ts`
+- `src/services/firebase.ts`
 - `src/services/*`
 - Firebase Functions backend code
 
@@ -155,8 +155,7 @@ Use typed constants instead of string literals whenever possible.
 
 Important constants belong in:
 - `src/constants/roles.ts`
-- `src/constants/studio.ts`
-- `src/constants/routes.ts`
+- `src/config/studio.ts`
 - `src/constants/site.ts`
 
 Do not scatter magic strings for roles, Studio types, or core routes across the codebase.[file:181]
@@ -170,8 +169,9 @@ Use:
 - `src/modules/` for feature modules
 - `src/services/` for data access
 - `src/hooks/` for hooks
-- `src/stores/` for Zustand stores
-- `src/config/studios/` for Studio app config
+- `src/store/` for shared client state
+- `src/tenants/` for Studio app config
+- `src/lib/tenant/` and `src/proxy.ts` for tenant resolution and routing
 - `src/utils/` for utilities
 - `functions/` for backend logic
 

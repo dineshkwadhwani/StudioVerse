@@ -58,7 +58,6 @@ export default function DetailModal({
   onAuthRequired,
   userId,
   userName,
-  userRole,
   tenantId,
   eventActionMode = "default",
 }: Props) {

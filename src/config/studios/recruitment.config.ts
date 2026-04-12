@@ -2,7 +2,7 @@
 export const recruitmentConfig = {
   id: 'recruitment-studio',
   name: 'Recruitment Studio',
-  domain: 'recruitmentstudio.com',
+  domain: 'recruitment-studio.com',
   roles: {
     superAdmin: 'Super Admin',
     company: 'Recruitment Agency',

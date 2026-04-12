@@ -1,11 +1,11 @@
 import { config } from "@/tenants/coaching-studio/config";
-import CoachingProgramsPage from "@/modules/coaching-studio/CoachingProgramsPage";
+import ProgramsPage from "@/modules/app-shell/ProgramsPage";
 import TenantGate from "@/modules/tenant/TenantGate";
 
 export default function CoachingStudioProgramsRoutePage() {
   return (
     <TenantGate rootContext="coaching-studio">
-      <CoachingProgramsPage config={config} />
+      <ProgramsPage tenantConfig={config} />
     </TenantGate>
   );
 }

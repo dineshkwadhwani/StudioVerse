@@ -2,7 +2,7 @@
 export const trainingConfig = {
   id: 'training-studio',
   name: 'Training Studio',
-  domain: 'trainingstudio.com',
+  domain: 'training-studio.in',
   roles: {
     superAdmin: 'Super Admin',
     company: 'Training Company',

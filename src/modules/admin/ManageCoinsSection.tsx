@@ -86,7 +86,6 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
     console.log("[ManageCoins] fetching users", {
       selectedTenantId,
       selectedUserType,
-      tenantsCount: tenants.length,
     });
 
     setUsers([]);

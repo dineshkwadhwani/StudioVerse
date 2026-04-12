@@ -12,8 +12,10 @@ import {
 import { auth } from "@/services/firebase";
 import { getUserProfileByPhone, saveUserProfile } from "@/services/profile.service";
 import { ensureWalletExists } from "@/services/wallet.service";
+import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { WalletUserType } from "@/types/wallet";
 import type { ProfileUserType, UserProfileRecord } from "@/types/profile";
+import type { TenantConfig } from "@/types/tenant";
 import styles from "./AuthWizard.module.css";
 
 type UserRole = ProfileUserType;
@@ -36,6 +38,7 @@ function normalizePhone(input: string): string {
 }
 
 type Props = {
+  tenantConfig?: TenantConfig;
   onClose?: () => void;
 };
 
@@ -76,12 +79,17 @@ function getAuthErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-export default function AuthWizard({ onClose }: Props) {
+export default function AuthWizard({ tenantConfig = coachingTenantConfig, onClose }: Props) {
   const router = useRouter();
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
+  const professionalLabel = tenantConfig.roles.professional;
+  const individualLabel = tenantConfig.roles.individual;
+  const companyLabel = tenantConfig.roles.company;
 
   function logFlow(step: string, details?: Record<string, unknown>) {
     if (process.env.NODE_ENV !== "production") {
-      console.info("[CoachingAuthWizard]", step, details ?? {});
+      console.info("[TenantAuthWizard]", step, details ?? {});
     }
   }
 
@@ -104,6 +112,23 @@ export default function AuthWizard({ onClose }: Props) {
     recaptchaRef.current?.clear();
     recaptchaRef.current = null;
   }
+
+  useEffect(() => {
+    const onWindowError = (event: ErrorEvent) => {
+      const isRecaptchaNullStyle =
+        typeof event.filename === "string" &&
+        event.filename.includes("recaptcha__en.js") &&
+        typeof event.message === "string" &&
+        event.message.includes("Cannot read properties of null (reading 'style')");
+
+      if (isRecaptchaNullStyle) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("error", onWindowError, true);
+    return () => window.removeEventListener("error", onWindowError, true);
+  }, []);
 
   useEffect(() => {
     if (recaptchaRef.current || typeof window === "undefined") {
@@ -177,7 +202,7 @@ export default function AuthWizard({ onClose }: Props) {
 
       const existingProfile = await getUserProfileByPhone({
         phoneE164: normalizedPhone,
-        tenantId: "coaching-studio",
+        tenantId,
       });
 
       if (existingProfile) {
@@ -194,7 +219,7 @@ export default function AuthWizard({ onClose }: Props) {
           });
         }
         persistSessionProfile(existingProfile);
-        router.push("/coaching-studio/dashboard");
+        router.push(`${basePath}/dashboard`);
         onClose?.();
         return;
       }
@@ -245,7 +270,7 @@ export default function AuthWizard({ onClose }: Props) {
 
       const savedProfile = await saveUserProfile({
         userId: firebaseUser.uid,
-        tenantId: "coaching-studio",
+        tenantId,
         userType: role,
         fullName: trimmedName,
         email: trimmedEmail,
@@ -254,7 +279,7 @@ export default function AuthWizard({ onClose }: Props) {
         companyPosition,
         companyDisplayName: role === "company" ? trimmedCompanyName : undefined,
         companyLegalName: role === "company" ? trimmedCompanyName : undefined,
-        companyType: role === "company" ? "coaching-company" : undefined,
+        companyType: role === "company" ? `${tenantId}-company` : undefined,
         primaryContactName: role === "company" ? trimmedName : undefined,
         status: "active",
       });
@@ -274,7 +299,7 @@ export default function AuthWizard({ onClose }: Props) {
       setPhase("done");
       logFlow("register:success", { role, name: trimmedName });
       setTimeout(() => {
-        router.push("/coaching-studio/dashboard");
+        router.push(`${basePath}/dashboard`);
         onClose?.();
       }, 800);
     } catch (err) {
@@ -289,6 +314,9 @@ export default function AuthWizard({ onClose }: Props) {
 
   return (
     <div className={styles.wizard}>
+      {/* Keep reCAPTCHA container mounted across phase changes to avoid script races on unmounted DOM nodes. */}
+      <div id="auth-wizard-recaptcha" className={styles.recaptcha} style={phase === "phone" ? undefined : { display: "none" }} />
+
       {/* Progress indicator */}
       <div className={styles.steps}>
         <span className={`${styles.step} ${["phone","otp"].includes(phase) ? styles.stepActive : styles.stepDone}`}>1. Verify</span>
@@ -312,7 +340,6 @@ export default function AuthWizard({ onClose }: Props) {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-          <div id="auth-wizard-recaptcha" className={styles.recaptcha} />
           <button
             type="button"
             className={styles.primary}
@@ -353,7 +380,7 @@ export default function AuthWizard({ onClose }: Props) {
       {phase === "role-select" && (
         <div className={styles.phaseBlock}>
           <h3 className={styles.phaseTitle}>Who are you?</h3>
-          <p className={styles.phaseHint}>Tell us how you will use Coaching Studio.</p>
+          <p className={styles.phaseHint}>Tell us how you will use {tenantConfig.name}.</p>
           <div className={styles.roleGrid}>
             {(["company", "professional", "individual"] as UserRole[]).map((r) => (
               <button
@@ -366,7 +393,7 @@ export default function AuthWizard({ onClose }: Props) {
                   {r === "company" ? "🏢" : r === "professional" ? "🎓" : "👤"}
                 </span>
                 <span className={styles.roleLabel}>
-                  {r === "company" ? "Coaching Company" : r === "professional" ? "Coach" : "Learner"}
+                  {r === "company" ? companyLabel : r === "professional" ? professionalLabel : individualLabel}
                 </span>
               </button>
             ))}
@@ -385,7 +412,7 @@ export default function AuthWizard({ onClose }: Props) {
           {role === "company" && (
             <>
               <label className={styles.label} htmlFor="wiz-company">Company Name</label>
-              <input id="wiz-company" className={styles.input} placeholder="e.g. Acme Coaching" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              <input id="wiz-company" className={styles.input} placeholder={`e.g. Acme ${tenantConfig.name}`} value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
 
               <label className={styles.label}>Your role in this company</label>
               <div className={styles.radioRow}>
@@ -395,7 +422,7 @@ export default function AuthWizard({ onClose }: Props) {
                 </label>
                 <label className={styles.radioPill}>
                   <input type="radio" name="pos" checked={companyPosition === "coach"} onChange={() => setCompanyPosition("coach")} />
-                  Coach
+                  {professionalLabel}
                 </label>
               </div>
 

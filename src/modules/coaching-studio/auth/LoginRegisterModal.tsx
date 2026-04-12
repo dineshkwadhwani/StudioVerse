@@ -11,7 +11,9 @@ import { getFirestore, collection, query, where, getDocs, setDoc, doc } from 'fi
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
 import { createWalletForUser, ensureWalletExists } from '@/services/wallet.service';
+import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
 import type { WalletUserType } from '@/types/wallet';
+import type { TenantConfig } from '@/types/tenant';
 
 type Phase = 'login-phone' | 'login-otp' | 'register-role' | 'register-details' | 'success';
 type UserRole = 'company' | 'professional' | 'individual';
@@ -19,6 +21,7 @@ type UserRole = 'company' | 'professional' | 'individual';
 interface LoginRegisterModalProps {
   isOpen: boolean;
   onClose: () => void;
+  tenantConfig?: TenantConfig;
 }
 
 function isUserRole(value: unknown): value is UserRole {
@@ -33,11 +36,19 @@ function resolveUserRole(data: Record<string, unknown>): UserRole {
   return 'individual';
 }
 
-export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterModalProps) {
+export default function LoginRegisterModal({
+  isOpen,
+  onClose,
+  tenantConfig = coachingTenantConfig,
+}: LoginRegisterModalProps) {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const auth = getAuth(firebaseApp);
   const db = getFirestore(firebaseApp);
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
+  const professionalLabel = tenantConfig.roles.professional;
+  const individualLabel = tenantConfig.roles.individual;
 
   const [phase, setPhase] = useState<Phase>('login-phone');
   const [phone, setPhone] = useState('');
@@ -73,7 +84,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
   }, []);
 
   function logFlow(step: string, details?: Record<string, unknown>) {
-    console.info('[LoginRegisterModal]', step, details);
+    console.info('[TenantAuthModal]', step, details);
   }
 
   function pushDebug(message: string) {
@@ -114,7 +125,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
     if (!isOpen) {
       // Clear verifier when modal closes.
       if (recaptchaRef.current) {
-        try { recaptchaRef.current.clear(); } catch (_) {}
+        try { recaptchaRef.current.clear(); } catch {}
         recaptchaRef.current = null;
       }
     }
@@ -221,7 +232,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
       const q = query(
         usersRef,
         where('phoneE164', '==', phoneE164),
-        where('tenantId', '==', 'coaching-studio')
+        where('tenantId', '==', tenantId)
       );
       const snapshot = await getDocs(q);
 
@@ -246,7 +257,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         void ensureWalletExists({
           userId: result.user.uid,
           lookupUserIds: [userDoc.id, resolvedUserId].filter(Boolean) as string[],
-          tenantId: 'coaching-studio',
+          tenantId,
           userType: resolvedRole as WalletUserType,
           userName: resolvedName,
         });
@@ -262,7 +273,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         // Redirect to dashboard
         setPhase('success');
         setTimeout(() => {
-          window.location.href = '/coaching-studio/dashboard';
+          window.location.href = `${basePath}/dashboard`;
         }, 500);
       }
     } catch (err) {
@@ -317,7 +328,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         name,
         role,
         userType: role,
-        tenantId: 'coaching-studio',
+        tenantId,
         createdAt: new Date().toISOString(),
       };
 
@@ -334,7 +345,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
       try {
         await createWalletForUser({
           userId,
-          tenantId: 'coaching-studio',
+          tenantId,
           userType: role as WalletUserType,
           userName: name,
           createdBy: 'system',
@@ -357,7 +368,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
 
       // Redirect to dashboard
       setTimeout(() => {
-        window.location.href = '/coaching-studio/dashboard';
+        window.location.href = `${basePath}/dashboard`;
       }, 500);
     } catch (err) {
       logFlow('register:error', { message: (err as Error).message });
@@ -523,7 +534,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
                   checked={role === 'professional'}
                   onChange={(e) => setRole(e.target.value as 'professional')}
                 />
-                <span>Professional (Coach)</span>
+                <span>{professionalLabel}</span>
               </label>
               <label className={styles.roleOption}>
                 <input
@@ -533,7 +544,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
                   checked={role === 'individual'}
                   onChange={(e) => setRole(e.target.value as 'individual')}
                 />
-                <span>Individual (Learner)</span>
+                <span>{individualLabel}</span>
               </label>
             </div>
 
@@ -557,7 +568,7 @@ export default function LoginRegisterModal({ isOpen, onClose }: LoginRegisterMod
         {phase === 'register-details' && (
           <div className={styles.content}>
             <h2 className={styles.title}>Complete Your Profile</h2>
-            <p className={styles.subtitle}>A few more details and you're ready to go.</p>
+            <p className={styles.subtitle}>A few more details and you are ready to go.</p>
 
             <label className={styles.label}>Your Name</label>
             <input

@@ -1,5 +1,6 @@
-import ManageWalletPage from "@/modules/coaching-studio/ManageWalletPage";
+import ManageWalletPage from "@/modules/app-shell/ManageWalletPage";
+import { config } from "@/tenants/coaching-studio/config";
 
 export default function CoachingStudioManageWalletRoutePage() {
-  return <ManageWalletPage />;
+  return <ManageWalletPage tenantConfig={config} />;
 }

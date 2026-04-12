@@ -9,15 +9,16 @@ import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext } from "@/services/wallet.service";
 import { getAssignmentsForAssigneeContext } from "@/services/assignment.service";
-import { config } from "@/tenants/coaching-studio/config";
+import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
+import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuItems } from "../menuConfig";
-import type { CoachingUserRole, CoachingMenuItem } from "../menuConfig";
+import type { StudioUserRole, StudioMenuItem } from "../menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingDashboard.module.css";
 
-type UserRole = CoachingUserRole;
+type UserRole = StudioUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
@@ -34,13 +35,19 @@ function isAssignmentAction(key: string): boolean {
   return key === "assign-activity";
 }
 
-function getInitialMenuItem(role: UserRole): CoachingMenuItem | null {
-  const items = getRoleMenuItems(role);
+function getInitialMenuItem(role: UserRole): StudioMenuItem | null {
+  const items = getRoleMenuItems(role, { basePath: `/${coachingTenantConfig.id}` });
   return items[0] ?? null;
 }
 
-export default function CoachingDashboard() {
+type DashboardProps = {
+  tenantConfig?: TenantConfig;
+};
+
+export default function CoachingDashboard({ tenantConfig = coachingTenantConfig }: DashboardProps) {
   const router = useRouter();
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
   const [role, setRole] = useState<UserRole>("individual");
   const [name, setName] = useState("User");
   const [activeKey, setActiveKey] = useState<string>(() => getInitialMenuItem("individual")?.key ?? "");
@@ -72,25 +79,21 @@ export default function CoachingDashboard() {
     const storedEmail = sessionStorage.getItem("cs_email") ?? undefined;
 
     if (!storedRoleRaw) {
-      router.replace("/coaching-studio");
+      router.replace(basePath);
       return;
     }
 
     if (!isUserRole(storedRoleRaw)) {
       sessionStorage.removeItem("cs_role");
-      router.replace("/coaching-studio");
+      router.replace(basePath);
       return;
     }
 
-    setRole(storedRoleRaw);
-    setActiveKey((current) => {
-      const items = getRoleMenuItems(storedRoleRaw);
-      if (items.some((item) => item.key === current)) {
-        return current;
-      }
-      return items[0]?.key ?? "";
+    queueMicrotask(() => {
+      setRole(storedRoleRaw);
+      setName(storedName ?? "User");
+      setActiveKey(getInitialMenuItem(storedRoleRaw)?.key ?? "");
     });
-    setName(storedName ?? "User");
 
     if (storedUid) {
       getWalletForUserContext([storedUid, storedProfileId ?? ""])
@@ -111,7 +114,7 @@ export default function CoachingDashboard() {
 
       getUserProfile({
         userId: storedUid,
-        tenantId: "coaching-studio",
+        tenantId,
         phoneE164: storedPhone,
         profileId: storedProfileId,
       })
@@ -130,7 +133,7 @@ export default function CoachingDashboard() {
           );
 
           return getAssignmentsForAssigneeContext({
-            tenantId: "coaching-studio",
+            tenantId,
             assigneeIds,
             assigneePhone: resolvedProfile?.phoneE164 || storedPhone,
             assigneeEmail: resolvedProfile?.email || storedEmail,
@@ -148,46 +151,47 @@ export default function CoachingDashboard() {
           setActivitySummary({ total: 0, assigned: 0, recommended: 0, completed: 0 });
         });
     } else {
-      router.replace("/coaching-studio/auth");
+      router.replace(`${basePath}/auth`);
     }
-  }, [router]);
+  }, [basePath, router, tenantId]);
 
-  const menuItems = useMemo(() => getRoleMenuItems(role), [role]);
+  const menuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
 
   const userInitials = useMemo(() => getInitials(name), [name]);
-  const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Assessment Centre";
+  const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";
   const profileIncomplete = Boolean(profile && !profile.mandatoryProfileCompleted);
+  const brandSubtitle = "StudioVerse Platform";
 
   async function handleLogout() {
     await signOut(auth);
     sessionStorage.clear();
-    router.replace("/coaching-studio");
+    router.replace(basePath);
   }
 
   return (
     <main className={styles.page}>
       <header className={landingStyles.nav}>
-        <Link href="/coaching-studio" className={landingStyles.brand}>
+        <Link href={basePath} className={landingStyles.brand}>
           <Image
-            src={config.theme.logo}
-            alt="Coaching Studio logo"
+            src={tenantConfig.theme.logo}
+            alt={`${tenantConfig.name} logo`}
             width={76}
             height={40}
             className={landingStyles.logo}
           />
           <div className={landingStyles.brandText}>
-            <span className={landingStyles.brandTitle}>Coaching Studio</span>
-            <span className={landingStyles.brandSubtitle}>Coaching | Growth | Potential</span>
+            <span className={landingStyles.brandTitle}>{tenantConfig.name}</span>
+            <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
 
         <div className={styles.rightControls}>
           <nav className={landingStyles.desktopNav}>
-            <Link href="/coaching-studio/tools" className={landingStyles.navLink}>
+            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>
               {toolsLabel}
             </Link>
-            <Link href="/coaching-studio/programs" className={landingStyles.navLink}>Programs</Link>
-            <Link href="/coaching-studio/events" className={landingStyles.navLink}>Events</Link>
+            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
           <div className={styles.profileArea} ref={menuRef}>
@@ -203,7 +207,11 @@ export default function CoachingDashboard() {
               <section className={styles.menuPanel}>
                 <div className={styles.menuUser}>
                   <p className={styles.menuName}>{name}</p>
-                  <p className={styles.menuRole}>{getRoleLabel(role)}</p>
+                  <p className={styles.menuRole}>{getRoleLabel(role, {
+                    company: tenantConfig.roles.company,
+                    professional: tenantConfig.roles.professional,
+                    individual: tenantConfig.roles.individual,
+                  })}</p>
                 </div>
 
                 <p className={styles.menuTitle}>Actions</p>
@@ -214,7 +222,7 @@ export default function CoachingDashboard() {
                     className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
                     disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
                     onClick={() => {
-                      if (item.href !== "/coaching-studio/dashboard") {
+                      if (item.href !== `${basePath}/dashboard`) {
                         setMenuOpen(false);
                         router.push(item.href);
                         return;
@@ -239,9 +247,9 @@ export default function CoachingDashboard() {
       </header>
 
       <nav className={styles.mobileTopNav}>
-        <Link href="/coaching-studio/tools">{toolsLabel}</Link>
-        <Link href="/coaching-studio/programs">Programs</Link>
-        <Link href="/coaching-studio/events">Events</Link>
+        <Link href={`${basePath}/tools`}>{toolsLabel}</Link>
+        <Link href={`${basePath}/programs`}>Programs</Link>
+        <Link href={`${basePath}/events`}>Events</Link>
       </nav>
 
       {/* Content */}
@@ -257,7 +265,7 @@ export default function CoachingDashboard() {
                 <p>Mandatory: <strong>{profileStatus === "ready" && profile ? (profile.mandatoryProfileCompleted ? "Complete" : "Incomplete") : "-"}</strong></p>
                 <p>Assignments: <strong>{profileStatus === "ready" && profile ? (profile.assignmentEligible ? "Enabled" : "Blocked") : "-"}</strong></p>
               </div>
-              <Link href="/coaching-studio/profile" className={styles.summaryAction}>
+              <Link href={`${basePath}/profile`} className={styles.summaryAction}>
                 Update Profile
               </Link>
             </article>
@@ -269,7 +277,7 @@ export default function CoachingDashboard() {
                 <p>Utilized: <strong>{wallet?.utilized ?? 0}</strong></p>
                 <p>Total Issued: <strong>{wallet?.issued ?? 0}</strong></p>
               </div>
-              <Link href="/coaching-studio/manage-wallet" className={styles.summaryAction}>
+              <Link href={`${basePath}/manage-wallet`} className={styles.summaryAction}>
                 Manage Wallet
               </Link>
             </article>
@@ -282,7 +290,7 @@ export default function CoachingDashboard() {
                 <p>Recommended: <strong>{activitySummary.recommended}</strong></p>
                 <p>Completed: <strong>{activitySummary.completed}</strong></p>
               </div>
-              <Link href="/coaching-studio/my-activities" className={styles.summaryAction}>
+              <Link href={`${basePath}/my-activities`} className={styles.summaryAction}>
                 Complete now
               </Link>
             </article>

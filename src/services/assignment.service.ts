@@ -8,10 +8,13 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import type { WithFieldValue } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { UserProfileRecord } from "@/types/profile";
 import { getWalletByUserId, getWalletForUserContext } from "@/services/wallet.service";
+
+type AssignmentWriteData = WithFieldValue<Omit<AssignmentRecord, "id">>;
 
 /**
  * Search for users by phone or email
@@ -229,7 +232,7 @@ export async function createAssignment(args: {
 
     if (args.creditsRequired <= 0) {
       const assignmentRef = doc(collection(db, "assignments"));
-      const assignmentData: Omit<AssignmentRecord, "id"> = {
+      const assignmentData: AssignmentWriteData = {
         tenantId: args.tenantId,
         activityType: args.activityType,
         activityId: args.activityId,
@@ -284,7 +287,7 @@ export async function createAssignment(args: {
     const result = await runTransaction(db, async (transaction) => {
       // Create assignment document
       const assignmentRef = doc(collection(db, "assignments"));
-      const assignmentData: Omit<AssignmentRecord, "id"> = {
+      const assignmentData: AssignmentWriteData = {
         tenantId: args.tenantId,
         activityType: args.activityType,
         activityId: args.activityId,
@@ -383,7 +386,7 @@ export async function createRecommendation(args: {
     });
 
     const recommendationRef = doc(collection(db, "assignments"));
-    const recommendationData: Omit<AssignmentRecord, "id"> = {
+    const recommendationData: AssignmentWriteData = {
       tenantId: args.tenantId,
       activityType: args.activityType,
       activityId: args.activityId,

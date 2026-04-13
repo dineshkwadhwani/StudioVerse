@@ -79,8 +79,8 @@ export type AssessmentAttemptStatus = "in_progress" | "completed" | "abandoned";
 export type AssessmentAnswerRecord = {
   questionId: string;
   questionText: string;
-  selectedValue: string;
-  selectedLabel: string;
+  /** All values the participant selected. Single-choice = 1-item array. Multi/signal-noise = N items. */
+  selectedValues: string[];
   correctAnswers: string[];
   isCorrect: boolean;
 };

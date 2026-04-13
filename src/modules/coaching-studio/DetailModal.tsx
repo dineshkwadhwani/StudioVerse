@@ -172,9 +172,11 @@ export default function DetailModal({
         {/* Content */}
         <div className={styles.content}>
           {/* Image */}
-          <div className={styles.imageSection}>
-            <img src={item.image} alt={item.title} className={styles.image} />
-          </div>
+          {item.image ? (
+            <div className={styles.imageSection}>
+              <img src={item.image} alt={item.title} className={styles.image} />
+            </div>
+          ) : null}
 
           {/* Title and basic info */}
           <h2 className={styles.title}>{item.title}</h2>

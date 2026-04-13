@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   doc,
@@ -93,6 +93,13 @@ const EMPTY_FORM: AssessmentFormValues = {
   ownerEntityId: "",
 };
 
+function processQuestionPromptTemplate(prompt: string, count: number): string {
+  return prompt.replace(
+    /\[\s*(?:no\s*of\s*questions|no_of_questions)\s*\]|\bno_of_questions\b/gi,
+    String(count)
+  );
+}
+
 export default function AssessmentsSection({ tenants: propTenants }: AssessmentsSectionProps) {
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
@@ -110,6 +117,15 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const processedPromptPreview = useMemo(() => {
+    const count = parseInt(formValues.questionBankCount, 10);
+    if (!formValues.questionGenerationPrompt.trim() || !Number.isFinite(count) || count < 1) {
+      return "";
+    }
+
+    return processQuestionPromptTemplate(formValues.questionGenerationPrompt, count);
+  }, [formValues.questionBankCount, formValues.questionGenerationPrompt]);
 
   // Load tenants if not passed in as props
   useEffect(() => {
@@ -276,8 +292,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
     setFetchSuccess("");
 
     try {
-      // Replace placeholder with actual count
-      const processedPrompt = formValues.questionGenerationPrompt.replace(/\[No of Questions\]/gi, String(count));
+      const processedPrompt = processQuestionPromptTemplate(formValues.questionGenerationPrompt, count);
 
       const res = await fetch("/api/assessments/generate-questions", {
         method: "POST",
@@ -671,7 +686,16 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
               <textarea id="a-analysis-prompt" className={styles.input} rows={3} value={formValues.analysisPrompt} onChange={(e) => setField("analysisPrompt", e.target.value)} placeholder="Describe how the AI should interpret submitted answers and generate the narrative report for this assessment" style={{ resize: "vertical" }} />
 
               <label className={styles.label} htmlFor="a-gen-prompt">Question Generation Prompt *</label>
-              <textarea id="a-gen-prompt" className={styles.input} rows={4} value={formValues.questionGenerationPrompt} onChange={(e) => setField("questionGenerationPrompt", e.target.value)} placeholder={`Describe the type of questions to generate. Use [No of Questions] as a placeholder.\nE.g. "Generate exactly [No of Questions] self-awareness questions for senior leaders that explore emotional intelligence, blind spots, and behavioural patterns."`} style={{ resize: "vertical" }} />
+              <textarea id="a-gen-prompt" className={styles.input} rows={4} value={formValues.questionGenerationPrompt} onChange={(e) => setField("questionGenerationPrompt", e.target.value)} placeholder={`Describe the type of questions to generate. Use [No of Questions] or [NO_OF_QUESTIONS] as a placeholder.\nE.g. "Generate exactly [NO_OF_QUESTIONS] self-awareness questions for senior leaders that explore emotional intelligence, blind spots, and behavioural patterns."`} style={{ resize: "vertical" }} />
+
+              {processedPromptPreview ? (
+                <div style={{ marginTop: 10, border: "1px solid #c6dcea", borderRadius: 10, background: "#f6fbff", padding: 10 }}>
+                  <p style={{ margin: "0 0 6px 0", fontSize: "0.82rem", color: "#1a6189", fontWeight: 700 }}>Processed Prompt Preview</p>
+                  <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace", fontSize: "0.8rem", color: "#335269" }}>
+                    {processedPromptPreview}
+                  </pre>
+                </div>
+              ) : null}
 
               {fetchError && <p className={styles.error}>{fetchError}</p>}
               {fetchSuccess && <p className={styles.info}>{fetchSuccess}</p>}

@@ -66,6 +66,143 @@ function extractJsonPayload(raw: string): string {
   return trimmed;
 }
 
+function extractBalancedJsonBlocks(raw: string): string[] {
+  const blocks: string[] = [];
+  const stack: string[] = [];
+  let startIndex = -1;
+  let inString = false;
+  let escaping = false;
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaping = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{" || ch === "[") {
+      if (stack.length === 0) {
+        startIndex = i;
+      }
+      stack.push(ch === "{" ? "}" : "]");
+      continue;
+    }
+
+    if (ch === "}" || ch === "]") {
+      if (stack.length === 0) {
+        continue;
+      }
+
+      const expectedClose = stack[stack.length - 1];
+      if (ch !== expectedClose) {
+        continue;
+      }
+
+      stack.pop();
+      if (stack.length === 0 && startIndex >= 0) {
+        blocks.push(raw.slice(startIndex, i + 1));
+        startIndex = -1;
+      }
+    }
+  }
+
+  return blocks;
+}
+
+function parseJsonFromRaw(raw: string): { parsed: unknown; payload: string } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const candidateSet = new Set<string>();
+  const candidates: string[] = [];
+
+  function addCandidate(value: string) {
+    const normalized = value.trim();
+    if (!normalized || candidateSet.has(normalized)) {
+      return;
+    }
+    candidateSet.add(normalized);
+    candidates.push(normalized);
+  }
+
+  addCandidate(extractJsonPayload(trimmed));
+  addCandidate(trimmed);
+
+  const fenceRegex = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  for (const match of trimmed.matchAll(fenceRegex)) {
+    if (match[1]) {
+      addCandidate(match[1]);
+    }
+  }
+
+  for (const block of extractBalancedJsonBlocks(trimmed)) {
+    addCandidate(block);
+  }
+
+  for (const payload of candidates) {
+    try {
+      return {
+        parsed: JSON.parse(payload),
+        payload,
+      };
+    } catch {
+      // Try the next candidate; model output may contain non-JSON wrappers.
+    }
+  }
+
+  return null;
+}
+
+async function repairJsonWithGroq(rawContent: string): Promise<{ parsed: unknown; payload: string } | null> {
+  if (!rawContent.trim()) {
+    return null;
+  }
+
+  try {
+    const completion = await requestGroqChatCompletion(
+      [
+        {
+          role: "system",
+          content:
+            "You are a strict JSON repair utility. Convert the user's content into valid JSON only. Return a JSON object with shape {\"questions\":[...]} where each question has keys questionText, options, correctAnswer (or correctAnswers), scoringRule, imageDescription, tags, weight. No markdown.",
+        },
+        {
+          role: "user",
+          content: `Repair this content into valid JSON:\n\n${rawContent}`,
+        },
+      ],
+      {
+        model: GROQ_MODEL,
+        temperature: 0,
+        responseFormat: { type: "json_object" },
+      }
+    );
+
+    const repairedRaw = completion.choices[0]?.message?.content ?? "";
+    return parseJsonFromRaw(repairedRaw);
+  } catch {
+    return null;
+  }
+}
+
 function unwrapQuestionsContainer(parsed: unknown): unknown[] {
   if (Array.isArray(parsed)) return parsed;
   if (!parsed || typeof parsed !== "object") return [];
@@ -113,7 +250,7 @@ function normalizeOptions(input: unknown): Array<{ label: string; value: string 
         const label =
           toStringValue(getFirstValue(maybe, ["label", "text", "option", "name"])).trim();
         const value =
-          toStringValue(getFirstValue(maybe, ["value", "key", "id", "optionKey", "option_key", "style"]))
+          toStringValue(getFirstValue(maybe, ["value", "key", "id", "optionKey", "option_key", "style", "type"]))
             .trim() ||
           String.fromCharCode(65 + index);
 
@@ -132,31 +269,62 @@ function normalizeQuestions(rawQuestions: unknown[]): NormalizedQuestion[] {
       if (!item || typeof item !== "object") return null;
 
       const row = item as Record<string, unknown>;
+      // Support schemas that split context into "scenario" + "question" fields
+      const scenarioText = toStringValue(getFirstValue(row, ["scenario", "context", "background"])).trim();
       const questionText =
-        toStringValue(
-          getFirstValue(row, [
-            "questionText",
-            "question_text",
-            "question",
-            "prompt",
-            "text",
-            "statement",
-            "question_title",
-          ])
-        )
-          .trim();
+        (() => {
+          const q = toStringValue(
+            getFirstValue(row, [
+              "questionText",
+              "question_text",
+              "question",
+              "prompt",
+              "text",
+              "statement",
+              "question_title",
+            ])
+          ).trim();
+          // If a separate scenario/context is present, prepend it
+          return scenarioText && scenarioText !== q
+            ? `${scenarioText}\n\n${q}`
+            : q;
+        })();
 
-      const options = normalizeOptions(
-        getFirstValue(row, ["options", "choices", "answers", "answerOptions", "answer_options"])
+      const rawItemsField = getFirstValue(row, ["items"]);
+      let options = normalizeOptions(
+        getFirstValue(row, ["options", "choices", "answers", "answerOptions", "answer_options", "items"])
       );
+      // Derive correctAnswers from isSignal flags when using the signal-noise schema
+      let derivedCorrectAnswers: string[] | null = null;
+      if (Array.isArray(rawItemsField) && rawItemsField.length > 0) {
+        derivedCorrectAnswers = (rawItemsField as unknown[])
+          .map((item, idx) => {
+            if (!item || typeof item !== "object") return null;
+            const it = item as Record<string, unknown>;
+            return it.isSignal === true ? String.fromCharCode(65 + idx) : null;
+          })
+          .filter((v): v is string => v !== null);
+        // Re-derive options from items to ensure consistent A/B/C value assignment
+        options = (rawItemsField as unknown[])
+          .map((item, idx) => {
+            if (!item || typeof item !== "object") return null;
+            const it = item as Record<string, unknown>;
+            const label = toStringValue(getFirstValue(it, ["label", "text", "name"])).trim();
+            if (!label) return null;
+            return { label, value: String.fromCharCode(65 + idx) };
+          })
+          .filter((o): o is { label: string; value: string } => Boolean(o));
+      }
       const correctAnswerRaw = getFirstValue(row, ["correctAnswers", "correctAnswer", "correct_option", "answer", "correct", "correct_answers"]);
-      const correctAnswers = Array.isArray(correctAnswerRaw)
-        ? (correctAnswerRaw as unknown[])
-            .map((v) => toStringValue(v).trim())
-            .filter(Boolean)
-        : toStringValue(correctAnswerRaw).trim()
-        ? [toStringValue(correctAnswerRaw).trim()]
-        : [];
+      const correctAnswers = derivedCorrectAnswers ?? (
+        Array.isArray(correctAnswerRaw)
+          ? (correctAnswerRaw as unknown[])
+              .map((v) => toStringValue(v).trim())
+              .filter(Boolean)
+          : toStringValue(correctAnswerRaw).trim()
+          ? [toStringValue(correctAnswerRaw).trim()]
+          : []
+      );
 
       if (!questionText) return null;
 
@@ -276,13 +444,23 @@ Return only a JSON array of ${questionCount} question objects. No other text.`;
   let questions: unknown[];
   let jsonPayload = "";
   try {
-    jsonPayload = extractJsonPayload(rawContent);
+    let parsedResult = parseJsonFromRaw(rawContent);
+    if (!parsedResult) {
+      console.warn(`[${traceId}] Initial JSON parse failed. Attempting repair pass.`);
+      parsedResult = await repairJsonWithGroq(rawContent);
+    }
+
+    if (!parsedResult) {
+      throw new Error("Could not parse a valid JSON payload from AI response");
+    }
+
+    jsonPayload = parsedResult.payload;
     console.info(`[${traceId}] JSON payload extracted.`, {
       payloadLength: jsonPayload.length,
       payloadPreview: jsonPayload.slice(0, 400),
     });
 
-    const parsed = JSON.parse(jsonPayload);
+    const parsed = parsedResult.parsed;
     console.info(`[${traceId}] Parsed JSON.`, {
       parsedType: Array.isArray(parsed) ? "array" : typeof parsed,
       parsedKeys: parsed && typeof parsed === "object" && !Array.isArray(parsed)

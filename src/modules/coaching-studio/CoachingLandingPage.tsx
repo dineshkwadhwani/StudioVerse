@@ -161,7 +161,9 @@ function CarouselSection({
             {items.map((item, itemIndex) => (
               <article key={`${item.name}-${itemIndex}`} className={styles.slide} style={{ flex: `0 0 ${slideWidth}%` }}>
                 <div className={`${styles.tile} ${darkTile ? styles.tileDark : ""}`}>
-                  <img src={item.image} alt={item.title} className={styles.tileImage} />
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} className={styles.tileImage} />
+                  ) : null}
                   <div className={styles.tileBody}>
                     <h3 className={styles.tileTitle}>{item.title}</h3>
                     <p className={styles.tileCopy}>{truncateWords(item.description, 10)}</p>

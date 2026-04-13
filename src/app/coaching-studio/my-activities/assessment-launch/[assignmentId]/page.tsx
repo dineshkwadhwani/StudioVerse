@@ -7,6 +7,7 @@ import {
   getAssessmentLaunchPayload,
   saveAssessmentCompletion,
 } from "@/services/assessment-runtime.service";
+import { getQuizRunner } from "@/modules/assessments/quiz-runners";
 import type { AssessmentQuestionRecord, AssessmentAnswerRecord } from "@/types/assessment";
 import type { AssignmentRecord } from "@/types/assignment";
 
@@ -40,6 +41,68 @@ function toList(value: unknown): string[] {
   return value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
 }
 
+/**
+ * Build per-question answer text to send to the AI analysis route.
+ * - single-choice: "Selected: [label]"
+ * - instant-feedback-multi-choice: rich per-scenario signal/noise breakdown
+ */
+function buildAnswersForApi(
+  questions: AssessmentQuestionRecord[],
+  answersByQuestionId: Record<string, string[]>,
+  renderStyle: string
+): Array<{ questionText: string; selectedLabel: string; selectedValue: string }> {
+  if (renderStyle === "instant-feedback-multi-choice") {
+    return questions.map((q) => {
+      const keptValues = answersByQuestionId[q.id] ?? [];
+      const correctSignalValues = q.correctAnswers ?? [];
+      const allItems = q.options;
+
+      const keptLabels = allItems
+        .filter((o) => keptValues.includes(o.value))
+        .map((o) => o.label);
+      const dismissedLabels = allItems
+        .filter((o) => !keptValues.includes(o.value))
+        .map((o) => o.label);
+      const trueSignalLabels = allItems
+        .filter((o) => correctSignalValues.includes(o.value))
+        .map((o) => o.label);
+      const signalsMissed = allItems
+        .filter((o) => correctSignalValues.includes(o.value) && !keptValues.includes(o.value))
+        .map((o) => o.label);
+      const falsePositives = allItems
+        .filter((o) => !correctSignalValues.includes(o.value) && keptValues.includes(o.value))
+        .map((o) => o.label);
+
+      const richText = [
+        `True Signals: ${trueSignalLabels.join(" | ") || "none"}`,
+        `User kept as Signal: ${keptLabels.join(" | ") || "none"}`,
+        `User dismissed as Noise: ${dismissedLabels.join(" | ") || "none"}`,
+        `Signals Missed: ${signalsMissed.join(" | ") || "none"}`,
+        `Noise incorrectly kept: ${falsePositives.join(" | ") || "none"}`,
+        `Score: ${trueSignalLabels.length - signalsMissed.length}/${trueSignalLabels.length} signals correct`,
+      ].join("\n   ");
+
+      return {
+        questionText: q.questionText,
+        selectedLabel: richText,
+        selectedValue: keptValues.join(","),
+      };
+    });
+  }
+
+  // Default: single-choice
+  return questions.map((q) => {
+    const vals = answersByQuestionId[q.id] ?? [];
+    const selectedValue = vals[0] ?? "";
+    const selectedOption = q.options.find((o) => o.value === selectedValue);
+    return {
+      questionText: q.questionText,
+      selectedLabel: selectedOption?.label ?? selectedValue,
+      selectedValue,
+    };
+  });
+}
+
 export default function AssessmentLaunchPage() {
   const params = useParams<{ assignmentId: string }>();
   const pathname = usePathname();
@@ -48,7 +111,8 @@ export default function AssessmentLaunchPage() {
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<AssessmentPhase>("welcome");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string>>({});
+  // All answers keyed by questionId — always string[] (1-item for single-choice, N-items for multi)
+  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
@@ -90,22 +154,18 @@ export default function AssessmentLaunchPage() {
   }, [params]);
 
   const currentQuestion = useMemo(() => {
-    if (!launchState) {
-      return null;
-    }
-
+    if (!launchState) return null;
     return launchState.questions[currentIndex] ?? null;
   }, [currentIndex, launchState]);
 
-  const answeredCount = useMemo(() => Object.keys(answersByQuestionId).length, [answersByQuestionId]);
-
+  // answeredCount used by SingleChoiceQuiz internally — kept here only for the null guard below
   const routeTenantId = useMemo(() => {
     const segment = pathname.split("/")[1];
     return segment || "coaching-studio";
   }, [pathname]);
 
-  function setAnswer(questionId: string, value: string): void {
-    setAnswersByQuestionId((prev) => ({ ...prev, [questionId]: value }));
+  function setAnswer(questionId: string, values: string[]): void {
+    setAnswersByQuestionId((prev) => ({ ...prev, [questionId]: values }));
   }
 
   async function submitAssessment(): Promise<void> {
@@ -113,25 +173,25 @@ export default function AssessmentLaunchPage() {
       return;
     }
 
-    const unanswered = launchState.questions.find((question) => !answersByQuestionId[question.id]);
-    if (unanswered) {
-      setError("Please answer all questions before submitting.");
-      return;
+    // Single-choice: validate all questions have a selection before allowing submit
+    if (launchState.renderStyle === "single-choice") {
+      const unanswered = launchState.questions.find(
+        (question) => !(answersByQuestionId[question.id]?.length)
+      );
+      if (unanswered) {
+        setError("Please answer all questions before submitting.");
+        return;
+      }
     }
 
     setSubmitting(true);
     setError("");
 
-    const answersForApi = launchState.questions.map((question) => {
-      const selectedValue = answersByQuestionId[question.id] ?? "";
-      const selectedOption = question.options.find((option) => option.value === selectedValue);
-
-      return {
-        questionText: question.questionText,
-        selectedValue,
-        selectedLabel: selectedOption?.label ?? selectedValue,
-      };
-    });
+    const answersForApi = buildAnswersForApi(
+      launchState.questions,
+      answersByQuestionId,
+      launchState.renderStyle
+    );
 
     try {
       const response = await fetch("/api/assessments/analyze-attempt", {
@@ -158,18 +218,22 @@ export default function AssessmentLaunchPage() {
         throw new Error(data.error ?? "Failed to analyze assessment.");
       }
 
+      // Build Firestore answer records — isCorrect works for both single and multi
       const answersSubmitted: AssessmentAnswerRecord[] = launchState.questions.map((question) => {
-        const selectedValue = answersByQuestionId[question.id] ?? "";
-        const selectedOption = question.options.find((option) => option.value === selectedValue);
+        const selectedValues = answersByQuestionId[question.id] ?? [];
         const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers : [];
+
+        const isCorrect =
+          correctAnswers.length > 0 &&
+          correctAnswers.every((v) => selectedValues.includes(v)) &&
+          selectedValues.every((v) => correctAnswers.includes(v));
 
         return {
           questionId: question.id,
           questionText: question.questionText,
-          selectedValue,
-          selectedLabel: selectedOption?.label ?? selectedValue,
+          selectedValues,
           correctAnswers,
-          isCorrect: correctAnswers.includes(selectedValue),
+          isCorrect,
         };
       });
 
@@ -197,7 +261,8 @@ export default function AssessmentLaunchPage() {
         structured: data.structured ?? {},
       });
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Failed to submit assessment.";
+      const message =
+        submitError instanceof Error ? submitError.message : "Failed to submit assessment.";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -232,13 +297,15 @@ export default function AssessmentLaunchPage() {
     return null;
   }
 
-  if (launchState.renderStyle !== "single-choice") {
+  // ── Unsupported render style ─────────────────────────────────────────────
+  const QuizRunner = getQuizRunner(launchState.renderStyle);
+  if (!QuizRunner) {
     return (
       <main style={{ minHeight: "100vh", padding: 24, background: "#f4f9ff", color: "#19334d" }}>
         <section style={{ maxWidth: 780, margin: "0 auto", background: "#fff", border: "1px solid #d7e8f8", borderRadius: 14, padding: 18 }}>
           <h1 style={{ margin: 0 }}>{launchState.assessmentName}</h1>
           <p style={{ marginTop: 10 }}>
-            This assessment uses render style <strong>{launchState.renderStyle}</strong>, which is not enabled in this phase.
+            Render style <strong>{launchState.renderStyle}</strong> is not yet enabled.
           </p>
           <Link href={`/${launchState.assignment.tenantId}/my-activities`}>Back to My activities</Link>
         </section>
@@ -368,9 +435,7 @@ export default function AssessmentLaunchPage() {
     );
   }
 
-  const selectedValue = answersByQuestionId[currentQuestion.id] ?? "";
-  const isLastQuestion = currentIndex === launchState.questions.length - 1;
-
+  // ── Completion screen ────────────────────────────────────────────────────
   if (completed && result) {
     const strengths = toList(result.structured.strengths);
     const blindSpots = toList(result.structured.blindSpots);
@@ -387,9 +452,7 @@ export default function AssessmentLaunchPage() {
             <section style={{ marginTop: 14 }}>
               <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Strengths</h2>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {strengths.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
+                {strengths.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
           ) : null}
@@ -398,9 +461,7 @@ export default function AssessmentLaunchPage() {
             <section style={{ marginTop: 14 }}>
               <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Blind Spots</h2>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {blindSpots.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
+                {blindSpots.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
           ) : null}
@@ -409,9 +470,7 @@ export default function AssessmentLaunchPage() {
             <section style={{ marginTop: 14 }}>
               <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Recommendations</h2>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {recommendations.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
+                {recommendations.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
           ) : null}
@@ -420,15 +479,15 @@ export default function AssessmentLaunchPage() {
             <section style={{ marginTop: 14 }}>
               <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Next Actions</h2>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {nextActions.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
+                {nextActions.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
           ) : null}
 
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            <Link href={`/${launchState.assignment.tenantId}/my-activities`}>Back to My activities</Link>
+            <Link href={`/${launchState.assignment.tenantId}/my-activities`}>
+              Back to My activities
+            </Link>
             <Link href={`/${launchState.assignment.tenantId}/my-activities/assessment-report/${launchState.assignment.id}`}>
               Open Report
             </Link>
@@ -438,83 +497,24 @@ export default function AssessmentLaunchPage() {
     );
   }
 
+  // ── Quiz phase — delegate entirely to the runner ─────────────────────────
   return (
-    <main style={{ minHeight: "100vh", padding: "24px", background: "#f4f9ff", color: "#19334d" }}>
-      <section style={{ maxWidth: 780, margin: "0 auto", background: "#fff", border: "1px solid #d7e8f8", borderRadius: 14, padding: 18 }}>
-        <h1 style={{ margin: 0 }}>{launchState.assessmentName}</h1>
-        <p style={{ marginTop: 8, marginBottom: 4 }}>
-          Question {currentIndex + 1} of {launchState.questions.length}
-        </p>
-        <p style={{ marginTop: 0, color: "#325370" }}>
-          Answered {answeredCount}/{launchState.questions.length}
-        </p>
-
-        <article style={{ marginTop: 16 }}>
-          <h2 style={{ fontSize: 22, marginBottom: 12 }}>{currentQuestion.questionText}</h2>
-
-          <div style={{ display: "grid", gap: 10 }}>
-            {currentQuestion.options.map((option) => (
-              <label
-                key={`${currentQuestion.id}-${option.value}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  border: "1px solid #d7e8f8",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name={`question-${currentQuestion.id}`}
-                  checked={selectedValue === option.value}
-                  onChange={() => setAnswer(currentQuestion.id, option.value)}
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </article>
-
-        {error ? <p style={{ color: "#8b1f1f", marginTop: 12 }}>{error}</p> : null}
-
-        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-          <button
-            type="button"
-            onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-            disabled={currentIndex === 0 || submitting}
-            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #9dc3dd", background: "#fff" }}
-          >
-            Previous
-          </button>
-
-          {!isLastQuestion ? (
-            <button
-              type="button"
-              onClick={() => setCurrentIndex((prev) => Math.min(launchState.questions.length - 1, prev + 1))}
-              disabled={!selectedValue || submitting}
-              style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #9dc3dd", background: "#e8f3fc" }}
-            >
-              Next Question
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void submitAssessment()}
-              disabled={submitting || !selectedValue}
-              style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #1c4f73", background: "#1c4f73", color: "#fff" }}
-            >
-              {submitting ? "Submitting..." : "Submit Assessment"}
-            </button>
-          )}
-
-          <Link href={`/${launchState.assignment.tenantId}/my-activities`} style={{ marginLeft: "auto" }}>
-            Exit
-          </Link>
-        </div>
-      </section>
+    <main style={{ minHeight: "100vh", padding: "24px 16px", background: "#f4f9ff", color: "#19334d" }}>
+      <QuizRunner
+        assessmentName={launchState.assessmentName}
+        tenantId={launchState.assignment.tenantId}
+        questions={launchState.questions}
+        currentIndex={currentIndex}
+        answersByQuestionId={answersByQuestionId}
+        onAnswer={setAnswer}
+        onNext={() =>
+          setCurrentIndex((prev) => Math.min(launchState.questions.length - 1, prev + 1))
+        }
+        onPrev={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+        onSubmit={() => void submitAssessment()}
+        submitting={submitting}
+        error={error}
+      />
     </main>
   );
 }

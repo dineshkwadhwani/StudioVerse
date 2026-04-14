@@ -3,6 +3,82 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Refactor progress update (14 April 2026)
+
+Objective:
+- move shared app-shell implementations out of `src/modules/coaching-studio/` into neutral shared module folders
+- keep tenant routes as thin wrappers
+- preserve one privacy policy page per tenant (left as-is by decision)
+
+Completed phases:
+- Phase 1: Activities
+   - moved My Activities + Assigned Activities into `src/modules/activities/`
+   - moved shared detail/assignment modal components into `src/modules/activities/components/`
+   - moved shared menu config into `src/modules/activities/config/menuConfig.ts`
+   - updated `src/modules/app-shell/MyActivitiesPage.tsx` and `src/modules/app-shell/AssignedActivitiesPage.tsx`
+- Phase 2: Profile
+   - moved profile page implementation into `src/modules/profile/pages/ProfilePage.tsx`
+   - updated `src/modules/app-shell/ProfilePage.tsx`
+- Phase 3: Programs
+   - moved programs page implementation into `src/modules/programs/pages/ProgramsPage.tsx`
+   - updated `src/modules/app-shell/ProgramsPage.tsx`
+- Phase 4: Events
+   - moved events page implementation into `src/modules/events/pages/EventsPage.tsx`
+   - updated `src/modules/app-shell/EventsPage.tsx`
+- Phase 5: Tools
+   - moved tools page implementation into `src/modules/tools/pages/ToolsPage.tsx`
+   - updated `src/modules/app-shell/ToolsPage.tsx`
+- Phase 6: Wallet
+   - moved wallet page implementation into `src/modules/wallet/pages/ManageWalletPage.tsx`
+   - updated `src/modules/app-shell/ManageWalletPage.tsx`
+- Phase 7: Landing
+   - copied landing page + carousel hook into `src/modules/landing/`
+   - app-shell import switched to `src/modules/landing/pages/LandingPage.tsx`
+   - moved shared view-all header into `src/modules/landing/components/ViewAllHeader.tsx`
+   - rewired programs/events/tools/activities/profile/wallet modules to use landing-owned styles/components
+   - completed with successful production build validation
+- Phase 8: Auth
+   - auth components are now in `src/modules/auth/components/`
+   - `src/modules/app-shell/AuthPage.tsx` uses `@/modules/auth/components/AuthWizard`
+- Phase 9: Dashboard
+   - dashboard page is now in `src/modules/dashboard/pages/DashboardPage.tsx`
+   - `src/modules/app-shell/DashboardPage.tsx` uses `@/modules/dashboard/pages/DashboardPage`
+
+Pending phases:
+- full regression testing after all phases complete
+- remove legacy files from `src/modules/coaching-studio/` only after final verification
+
+Removal tracking (planned, not deleted yet):
+- `src/modules/coaching-studio/MyActivitiesPage.tsx`
+- `src/modules/coaching-studio/MyActivitiesPage.module.css`
+- `src/modules/coaching-studio/AssignedActivitiesPage.tsx`
+- `src/modules/coaching-studio/AssignedActivitiesPage.module.css`
+- `src/modules/coaching-studio/DetailModal.tsx`
+- `src/modules/coaching-studio/DetailModal.module.css`
+- `src/modules/coaching-studio/AssignmentModal.tsx`
+- `src/modules/coaching-studio/AssignmentModal.module.css`
+- `src/modules/coaching-studio/menuConfig.ts`
+- `src/modules/coaching-studio/profile/CoachingProfilePage.tsx`
+- `src/modules/coaching-studio/profile/CoachingProfilePage.module.css`
+- `src/modules/coaching-studio/CoachingProgramsPage.tsx`
+- `src/modules/coaching-studio/CoachingProgramsPage.module.css`
+- `src/modules/coaching-studio/CoachingEventsPage.tsx`
+- `src/modules/coaching-studio/CoachingEventsPage.module.css`
+- `src/modules/coaching-studio/CoachingToolsPage.tsx`
+- `src/modules/coaching-studio/ManageWalletPage.tsx`
+- `src/modules/coaching-studio/ManageWalletPage.module.css`
+- `src/modules/coaching-studio/CoachingLandingPage.tsx`
+- `src/modules/coaching-studio/CoachingLandingPage.module.css`
+- `src/modules/coaching-studio/useCarousel.ts`
+- `src/modules/coaching-studio/CoachingViewAllHeader.tsx`
+- `src/modules/coaching-studio/CoachingViewAllHeader.module.css`
+- `src/modules/coaching-studio/auth/AuthWizard.tsx`
+- `src/modules/coaching-studio/auth/AuthWizard.module.css`
+- `src/modules/coaching-studio/auth/LoginRegisterModal.tsx`
+- `src/modules/coaching-studio/auth/LoginRegisterModal.module.css`
+- `src/modules/coaching-studio/dashboard/CoachingDashboard.tsx`
+- `src/modules/coaching-studio/dashboard/CoachingDashboard.module.css`
+
 ## Project model
 
 StudioVerse is:

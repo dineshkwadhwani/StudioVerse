@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { TenantConfig } from "@/types/tenant";
-import AuthWizard from "@/modules/coaching-studio/auth/AuthWizard";
+import AuthWizard from "@/modules/auth/components/AuthWizard";
 
 type Props = {
   tenantConfig: TenantConfig;

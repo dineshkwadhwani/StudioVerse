@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import TenantViewAllHeader from "@/modules/coaching-studio/CoachingViewAllHeader";
-import DetailModal, { type DetailItem } from "@/modules/coaching-studio/DetailModal";
+import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
 import LoginRegisterModal from "@/modules/coaching-studio/auth/LoginRegisterModal";
 import { db, auth } from "@/services/firebase";
 import type { AssessmentRecord } from "@/types/assessment";

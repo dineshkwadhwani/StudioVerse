@@ -1,5 +1,5 @@
 import type { TenantConfig } from "@/types/tenant";
-import TenantProgramsPage from "@/modules/coaching-studio/CoachingProgramsPage";
+import TenantProgramsPage from "@/modules/programs/pages/ProgramsPage";
 
 type Props = { tenantConfig: TenantConfig };
 

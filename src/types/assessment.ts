@@ -1,11 +1,14 @@
 import { Timestamp } from "firebase/firestore";
 
 export type AssessmentRenderStyle =
+  | "forced-trade-off"
+  | "gamified-drag-drop"
+  | "image-based-single-choice"
   | "single-choice"
   | "instant-feedback-multi-choice"
   | "select-and-move"
-  | "image-based-single-choice"
-  | "gamified-drag-drop";
+  | "likert-rating-scale"
+  | "slider-scale";
 
 export type AssessmentType =
   | "self-awareness"
@@ -140,11 +143,14 @@ export type AssessmentFormValues = {
 };
 
 export const RENDER_STYLE_LABELS: Record<AssessmentRenderStyle, string> = {
-  "single-choice": "Single Choice (Radio Buttons)",
-  "instant-feedback-multi-choice": "Instant Feedback Multi-Choice",
-  "select-and-move": "Prioritize",
-  "image-based-single-choice": "Image-Based Single Choice",
+  "forced-trade-off": "Forced Trade-off",
   "gamified-drag-drop": "Gamified Drag & Drop",
+  "image-based-single-choice": "Image-Based Single Choice",
+  "instant-feedback-multi-choice": "Instant Feedback Multi-Choice",
+  "likert-rating-scale": "Likert / Rating Scale",
+  "select-and-move": "Prioritize",
+  "single-choice": "Single Choice (Radio Buttons)",
+  "slider-scale": "Slider Scale",
 };
 
 export const ASSESSMENT_TYPE_LABELS: Record<AssessmentType, string> = {

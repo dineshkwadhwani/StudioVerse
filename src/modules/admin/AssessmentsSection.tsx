@@ -127,6 +127,14 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
     return processQuestionPromptTemplate(formValues.questionGenerationPrompt, count);
   }, [formValues.questionBankCount, formValues.questionGenerationPrompt]);
 
+  const renderStyleOptions = useMemo(
+    () =>
+      (Object.entries(RENDER_STYLE_LABELS) as [AssessmentRenderStyle, string][]).sort((a, b) =>
+        a[1].localeCompare(b[1])
+      ),
+    []
+  );
+
   // Load tenants if not passed in as props
   useEffect(() => {
     if (propTenants && propTenants.length > 0) return;
@@ -623,7 +631,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                 <div>
                   <label className={styles.label} htmlFor="a-render">Render Style</label>
                   <select id="a-render" className={styles.select} value={formValues.renderStyle} onChange={(e) => setField("renderStyle", e.target.value as AssessmentRenderStyle)}>
-                    {(Object.entries(RENDER_STYLE_LABELS) as [AssessmentRenderStyle, string][]).map(([k, v]) => (
+                    {renderStyleOptions.map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>

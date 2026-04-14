@@ -401,6 +401,9 @@ Each question object must follow this exact schema:
 For single-choice and image-based questions: provide 4 options.
 For instant-feedback-multi-choice: provide 4-6 options, mark multiple as correct by setting correctAnswer to a comma-separated list of values.
 For select-and-move: provide 8-12 items as options, correctAnswer lists the ones that belong in the selected group.
+For likert-rating-scale: provide 5 options representing Strongly Disagree to Strongly Agree.
+For forced-trade-off: provide 4 plausible actions where each has trade-offs; one may be best depending on strategic judgement.
+For slider-scale: provide exactly 2 endpoint options representing the low/high anchors.
 For gamified-drag-drop: provide 6-8 pairs as options where value includes the matching pair.`;
 
   const userPrompt = `Assessment Name: ${assessmentName}

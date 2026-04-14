@@ -1,1 +1,1 @@
-export { default } from "@/app/coaching-studio/my-activities/assessment-launch/[assignmentId]/page";
+export { default } from "@/modules/assessments/pages/AssessmentLaunchPage";

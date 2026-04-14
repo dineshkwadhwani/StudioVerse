@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   getAssessmentLaunchPayload,
   saveAssessmentCompletion,
@@ -25,13 +25,6 @@ type LaunchState = {
 };
 
 type AssessmentPhase = "welcome" | "quiz";
-
-type AnalysisResponse = {
-  aiProvider: string;
-  raw: string;
-  summary: string;
-  structured: Record<string, unknown>;
-};
 
 function toList(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -106,6 +99,8 @@ function buildAnswersForApi(
 export default function AssessmentLaunchPage() {
   const params = useParams<{ assignmentId: string }>();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [launchState, setLaunchState] = useState<LaunchState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,8 +109,8 @@ export default function AssessmentLaunchPage() {
   // All answers keyed by questionId — always string[] (1-item for single-choice, N-items for multi)
   const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [result, setResult] = useState<AnalysisResponse | null>(null);
+  const [redirectingToReport, setRedirectingToReport] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [startedAtMs, setStartedAtMs] = useState<number>(0);
 
   useEffect(() => {
@@ -163,6 +158,16 @@ export default function AssessmentLaunchPage() {
     const segment = pathname.split("/")[1];
     return segment || "coaching-studio";
   }, [pathname]);
+
+  const backDestination = useMemo(() => {
+    const target = (searchParams.get("returnTo") || "").trim().toLowerCase();
+    if (target === "assigned-activities") {
+      return "assigned-activities";
+    }
+    return "my-activities";
+  }, [searchParams]);
+
+  const backHref = `/${launchState?.assignment.tenantId || routeTenantId}/${backDestination}`;
 
   function setAnswer(questionId: string, values: string[]): void {
     setAnswersByQuestionId((prev) => ({ ...prev, [questionId]: values }));
@@ -253,13 +258,14 @@ export default function AssessmentLaunchPage() {
         reportStructuredData: data.structured ?? {},
       });
 
-      setCompleted(true);
-      setResult({
-        aiProvider: data.aiProvider ?? "groq",
-        raw: data.raw ?? "",
-        summary: data.summary ?? "Assessment completed.",
-        structured: data.structured ?? {},
-      });
+      setShowSuccessToast(true);
+      setRedirectingToReport(true);
+      window.setTimeout(() => {
+        router.replace(
+          `/${launchState.assignment.tenantId}/my-activities/assessment-report/${launchState.assignment.id}`
+        );
+      }, 500);
+      return;
     } catch (submitError) {
       const message =
         submitError instanceof Error ? submitError.message : "Failed to submit assessment.";
@@ -295,6 +301,61 @@ export default function AssessmentLaunchPage() {
 
   if (!launchState || !currentQuestion) {
     return null;
+  }
+
+  const welcomeDetailsText =
+    launchState.longDescription?.trim() ||
+    launchState.shortDescription?.trim() ||
+    "This assessment helps you build practical awareness of your leadership patterns in real-world situations.";
+
+  const welcomeContextText =
+    launchState.assessmentContext?.trim() ||
+    launchState.shortDescription?.trim() ||
+    "This assessment helps you evaluate how you think, decide, and respond in real-world leadership scenarios.";
+
+  const welcomeBenefitText =
+    launchState.assessmentBenefit?.trim() ||
+    "You will receive practical insights into your patterns, blind spots, and focused actions you can apply immediately.";
+
+  const keyTakeaways = welcomeBenefitText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[\-\*\u2022\d\.\)\s]+/, "").trim())
+    .filter(Boolean);
+
+  if (redirectingToReport) {
+    return (
+      <main style={{ minHeight: "100vh", padding: 24, background: "#f4f9ff", color: "#19334d" }}>
+        <section style={{ maxWidth: 780, margin: "0 auto", background: "#fff", border: "1px solid #d7e8f8", borderRadius: 14, padding: 18 }}>
+          <h1 style={{ margin: 0 }}>Assessment Completed</h1>
+          <p style={{ marginTop: 10 }}>Opening your report...</p>
+        </section>
+
+        {showSuccessToast ? (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "fixed",
+              right: 20,
+              bottom: 20,
+              background: "#1c4f73",
+              color: "#fff",
+              padding: "10px 14px",
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(28,79,115,0.22)",
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: 0.2,
+              zIndex: 60,
+            }}
+          >
+            Assessment submitted. Opening report...
+          </div>
+        ) : null}
+      </main>
+    );
   }
 
   // ── Unsupported render style ─────────────────────────────────────────────
@@ -351,35 +412,40 @@ export default function AssessmentLaunchPage() {
 
             <hr style={{ border: "none", borderTop: "1px solid #e4eef7", margin: "24px 0" }} />
 
-            {launchState.assessmentContext ? (
-              <div style={{ marginBottom: 20 }}>
-                <h2 style={{ margin: "0 0 8px 0", fontSize: 17, fontWeight: 600, color: "#1c4f73" }}>
-                  What this assessment is about
-                </h2>
-                <p style={{ margin: 0, fontSize: 15, color: "#325370", lineHeight: 1.65 }}>
-                  {launchState.assessmentContext}
-                </p>
-              </div>
-            ) : null}
+            <section style={{ marginBottom: 20, padding: "14px 16px", background: "#f8fbff", border: "1px solid #e4eef7", borderRadius: 10 }}>
+              <h2 style={{ margin: "0 0 8px 0", fontSize: 17, fontWeight: 600, color: "#1c4f73" }}>
+                Details
+              </h2>
+              <p style={{ margin: 0, fontSize: 15, color: "#325370", lineHeight: 1.65 }}>
+                {welcomeDetailsText}
+              </p>
+            </section>
 
-            {launchState.assessmentBenefit ? (
-              <div style={{ marginBottom: 20 }}>
-                <h2 style={{ margin: "0 0 8px 0", fontSize: 17, fontWeight: 600, color: "#1c4f73" }}>
-                  What you will gain
-                </h2>
-                <p style={{ margin: 0, fontSize: 15, color: "#325370", lineHeight: 1.65 }}>
-                  {launchState.assessmentBenefit}
-                </p>
-              </div>
-            ) : null}
+            <section style={{ marginBottom: 20, padding: "14px 16px", background: "#f8fbff", border: "1px solid #e4eef7", borderRadius: 10 }}>
+              <h2 style={{ margin: "0 0 8px 0", fontSize: 17, fontWeight: 600, color: "#1c4f73" }}>
+                Assessment Context
+              </h2>
+              <p style={{ margin: 0, fontSize: 15, color: "#325370", lineHeight: 1.65 }}>
+                {welcomeContextText}
+              </p>
+            </section>
 
-            {launchState.longDescription ? (
-              <div style={{ marginBottom: 20 }}>
+            <section style={{ marginBottom: 20, padding: "14px 16px", background: "#f8fbff", border: "1px solid #e4eef7", borderRadius: 10 }}>
+              <h2 style={{ margin: "0 0 8px 0", fontSize: 17, fontWeight: 600, color: "#1c4f73" }}>
+                Key Takeaways
+              </h2>
+              {keyTakeaways.length > 1 ? (
+                <ul style={{ margin: 0, paddingLeft: 18, color: "#325370", lineHeight: 1.65 }}>
+                  {keyTakeaways.map((item) => (
+                    <li key={item} style={{ marginBottom: 6 }}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
                 <p style={{ margin: 0, fontSize: 15, color: "#325370", lineHeight: 1.65 }}>
-                  {launchState.longDescription}
+                  {welcomeBenefitText}
                 </p>
-              </div>
-            ) : null}
+              )}
+            </section>
 
             <div
               style={{
@@ -425,72 +491,10 @@ export default function AssessmentLaunchPage() {
               >
                 Start Now
               </button>
-              <Link href={`${launchState.assignment.tenantId || routeTenantId}/my-activities`} style={{ color: "#325370", fontSize: 14 }}>
+              <Link href={backHref} style={{ color: "#325370", fontSize: 14 }}>
                 Go back
               </Link>
             </div>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  // ── Completion screen ────────────────────────────────────────────────────
-  if (completed && result) {
-    const strengths = toList(result.structured.strengths);
-    const blindSpots = toList(result.structured.blindSpots);
-    const recommendations = toList(result.structured.recommendations);
-    const nextActions = toList(result.structured.nextActions);
-
-    return (
-      <main style={{ minHeight: "100vh", padding: 24, background: "#f4f9ff", color: "#19334d" }}>
-        <section style={{ maxWidth: 900, margin: "0 auto", background: "#fff", border: "1px solid #d7e8f8", borderRadius: 14, padding: 20 }}>
-          <h1 style={{ margin: 0 }}>Assessment Completed</h1>
-          <p style={{ marginTop: 10 }}>{result.summary}</p>
-
-          {strengths.length > 0 ? (
-            <section style={{ marginTop: 14 }}>
-              <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Strengths</h2>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {strengths.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </section>
-          ) : null}
-
-          {blindSpots.length > 0 ? (
-            <section style={{ marginTop: 14 }}>
-              <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Blind Spots</h2>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {blindSpots.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </section>
-          ) : null}
-
-          {recommendations.length > 0 ? (
-            <section style={{ marginTop: 14 }}>
-              <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Recommendations</h2>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {recommendations.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </section>
-          ) : null}
-
-          {nextActions.length > 0 ? (
-            <section style={{ marginTop: 14 }}>
-              <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Next Actions</h2>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {nextActions.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </section>
-          ) : null}
-
-          <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            <Link href={`/${launchState.assignment.tenantId}/my-activities`}>
-              Back to My activities
-            </Link>
-            <Link href={`/${launchState.assignment.tenantId}/my-activities/assessment-report/${launchState.assignment.id}`}>
-              Open Report
-            </Link>
           </div>
         </section>
       </main>

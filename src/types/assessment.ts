@@ -142,7 +142,7 @@ export type AssessmentFormValues = {
 export const RENDER_STYLE_LABELS: Record<AssessmentRenderStyle, string> = {
   "single-choice": "Single Choice (Radio Buttons)",
   "instant-feedback-multi-choice": "Instant Feedback Multi-Choice",
-  "select-and-move": "Select & Move (Select All That Apply)",
+  "select-and-move": "Prioritize",
   "image-based-single-choice": "Image-Based Single Choice",
   "gamified-drag-drop": "Gamified Drag & Drop",
 };

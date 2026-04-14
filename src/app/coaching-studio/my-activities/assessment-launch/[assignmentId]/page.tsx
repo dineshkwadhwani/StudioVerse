@@ -38,6 +38,7 @@ function toList(value: unknown): string[] {
  * Build per-question answer text to send to the AI analysis route.
  * - single-choice: "Selected: [label]"
  * - instant-feedback-multi-choice: rich per-scenario signal/noise breakdown
+ * - select-and-move / gamified-drag-drop: prioritization order with strategic explanation
  */
 function buildAnswersForApi(
   questions: AssessmentQuestionRecord[],
@@ -79,6 +80,26 @@ function buildAnswersForApi(
         questionText: q.questionText,
         selectedLabel: richText,
         selectedValue: keptValues.join(","),
+      };
+    });
+  }
+
+  if (renderStyle === "select-and-move" || renderStyle === "gamified-drag-drop") {
+    return questions.map((q) => {
+      const prioritizedValues = answersByQuestionId[q.id] ?? [];
+      const prioritizedLabels = prioritizedValues
+        .map((val) => q.options.find((o) => o.value === val)?.label ?? val)
+        .filter(Boolean);
+
+      const richText = [
+        "Strategic Priority Order:",
+        ...prioritizedLabels.map((label, i) => `  ${i + 1}. ${label}`),
+      ].join("\n");
+
+      return {
+        questionText: q.questionText,
+        selectedLabel: richText,
+        selectedValue: prioritizedValues.join(","),
       };
     });
   }
@@ -173,15 +194,28 @@ export default function AssessmentLaunchPage() {
     setAnswersByQuestionId((prev) => ({ ...prev, [questionId]: values }));
   }
 
-  async function submitAssessment(): Promise<void> {
+  async function submitAssessment(
+    pendingAnswer?: { questionId: string; values: string[] }
+  ): Promise<void> {
     if (!launchState) {
       return;
     }
 
-    // Single-choice: validate all questions have a selection before allowing submit
-    if (launchState.renderStyle === "single-choice") {
+    const resolvedAnswersByQuestionId = pendingAnswer
+      ? {
+          ...answersByQuestionId,
+          [pendingAnswer.questionId]: pendingAnswer.values,
+        }
+      : answersByQuestionId;
+
+    // Single-choice and prioritize styles: validate all questions have a selection before allowing submit
+    if (
+      launchState.renderStyle === "single-choice" ||
+      launchState.renderStyle === "select-and-move" ||
+      launchState.renderStyle === "gamified-drag-drop"
+    ) {
       const unanswered = launchState.questions.find(
-        (question) => !(answersByQuestionId[question.id]?.length)
+        (question) => !(resolvedAnswersByQuestionId[question.id]?.length)
       );
       if (unanswered) {
         setError("Please answer all questions before submitting.");
@@ -194,7 +228,7 @@ export default function AssessmentLaunchPage() {
 
     const answersForApi = buildAnswersForApi(
       launchState.questions,
-      answersByQuestionId,
+      resolvedAnswersByQuestionId,
       launchState.renderStyle
     );
 
@@ -225,7 +259,7 @@ export default function AssessmentLaunchPage() {
 
       // Build Firestore answer records — isCorrect works for both single and multi
       const answersSubmitted: AssessmentAnswerRecord[] = launchState.questions.map((question) => {
-        const selectedValues = answersByQuestionId[question.id] ?? [];
+        const selectedValues = resolvedAnswersByQuestionId[question.id] ?? [];
         const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers : [];
 
         const isCorrect =
@@ -515,7 +549,7 @@ export default function AssessmentLaunchPage() {
           setCurrentIndex((prev) => Math.min(launchState.questions.length - 1, prev + 1))
         }
         onPrev={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-        onSubmit={() => void submitAssessment()}
+        onSubmit={(pendingAnswer) => void submitAssessment(pendingAnswer)}
         submitting={submitting}
         error={error}
       />

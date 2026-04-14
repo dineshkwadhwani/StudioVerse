@@ -20,7 +20,7 @@ export type QuizRunnerProps = {
   onAnswer: (questionId: string, values: string[]) => void;
   onNext: () => void;
   onPrev: () => void;
-  onSubmit: () => void;
+  onSubmit: (pendingAnswer?: { questionId: string; values: string[] }) => void;
   submitting: boolean;
   error: string;
 };

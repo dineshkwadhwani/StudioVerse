@@ -124,7 +124,7 @@ export default function SingleChoiceQuiz({
         ) : (
           <button
             type="button"
-            onClick={onSubmit}
+            onClick={() => onSubmit()}
             disabled={submitting || !selectedValue}
             style={{
               padding: "8px 20px",

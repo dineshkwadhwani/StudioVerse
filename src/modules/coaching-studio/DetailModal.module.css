@@ -212,6 +212,31 @@
   word-break: break-word;
 }
 
+/* Tool/Assessment detail sections — stacked vertical layout */
+.toolDetailSection {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background-color: #f8fbff;
+  border: 1px solid #e4eef7;
+  border-radius: 10px;
+}
+
+.toolSectionHeading {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c4f73;
+}
+
+.toolSectionText {
+  margin: 0;
+  font-size: 15px;
+  color: #325370;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .videoSection {
   margin-bottom: 20px;
 }

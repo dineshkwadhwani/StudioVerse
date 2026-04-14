@@ -248,26 +248,37 @@ export default function DetailModal({
             </div>
           )}
 
-          {/* Tool-specific details */}
+          {/* Tool-specific details — stacked vertical sections */}
           {item.type === "tool" && (
-            <div className={styles.detailsGrid}>
+            <>
+              {/* Details section */}
+              {item.details && (
+                <section className={styles.toolDetailSection}>
+                  <h3 className={styles.toolSectionHeading}>Details</h3>
+                  <p className={styles.toolSectionText}>{item.details}</p>
+                </section>
+              )}
+
+              {/* Assessment Context section */}
               {item.assessmentContext && (
-                <div className={styles.detailItem}>
-                  <p className={styles.detailLabel}>Context</p>
-                  <p className={styles.detailValue}>{item.assessmentContext}</p>
-                </div>
+                <section className={styles.toolDetailSection}>
+                  <h3 className={styles.toolSectionHeading}>Assessment Context</h3>
+                  <p className={styles.toolSectionText}>{item.assessmentContext}</p>
+                </section>
               )}
+
+              {/* Benefits section */}
               {item.assessmentBenefit && (
-                <div className={styles.detailItem}>
-                  <p className={styles.detailLabel}>Benefits</p>
-                  <p className={styles.detailValue}>{item.assessmentBenefit}</p>
-                </div>
+                <section className={styles.toolDetailSection}>
+                  <h3 className={styles.toolSectionHeading}>Key Takeaways</h3>
+                  <p className={styles.toolSectionText}>{item.assessmentBenefit}</p>
+                </section>
               )}
-            </div>
+            </>
           )}
 
-          {/* Full details section */}
-          {item.details && (
+          {/* Full details section — only for non-tool items */}
+          {item.type !== "tool" && item.details && (
             <div className={styles.fullDetails}>
               <h3 className={styles.detailsHeading}>Details</h3>
               <p className={styles.detailsText}>{item.details}</p>

@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { QuizRunnerProps } from "./types";
 import SingleChoiceQuiz from "./SingleChoiceQuiz";
 import InstantFeedbackMultiChoiceQuiz from "./InstantFeedbackMultiChoiceQuiz";
+import GamifiedDragDropQuiz from "./GamifiedDragDropQuiz";
 
 export type { QuizRunnerProps } from "./types";
 
@@ -16,10 +17,10 @@ export type { QuizRunnerProps } from "./types";
 const QUIZ_RUNNERS: Record<string, ComponentType<QuizRunnerProps>> = {
   "single-choice": SingleChoiceQuiz,
   "instant-feedback-multi-choice": InstantFeedbackMultiChoiceQuiz,
+  "select-and-move": GamifiedDragDropQuiz,
+  "gamified-drag-drop": GamifiedDragDropQuiz,
   // Future runners:
   // "image-based-single-choice": ImageSingleChoiceQuiz,
-  // "select-and-move": SelectAndMoveQuiz,
-  // "gamified-drag-drop": GamifiedDragDropQuiz,
 };
 
 /**

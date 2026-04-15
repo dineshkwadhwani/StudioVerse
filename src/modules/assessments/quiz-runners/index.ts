@@ -3,6 +3,9 @@ import type { QuizRunnerProps } from "./types";
 import SingleChoiceQuiz from "./SingleChoiceQuiz";
 import InstantFeedbackMultiChoiceQuiz from "./InstantFeedbackMultiChoiceQuiz";
 import GamifiedDragDropQuiz from "./GamifiedDragDropQuiz";
+import LikertRatingScaleQuiz from "./LikertRatingScaleQuiz";
+import ForcedTradeoffQuiz from "./ForcedTradeoffQuiz";
+import SliderScaleQuiz from "./SliderScaleQuiz";
 
 export type { QuizRunnerProps } from "./types";
 
@@ -19,6 +22,9 @@ const QUIZ_RUNNERS: Record<string, ComponentType<QuizRunnerProps>> = {
   "instant-feedback-multi-choice": InstantFeedbackMultiChoiceQuiz,
   "select-and-move": GamifiedDragDropQuiz,
   "gamified-drag-drop": GamifiedDragDropQuiz,
+  "likert-rating-scale": LikertRatingScaleQuiz,
+  "forced-trade-off": ForcedTradeoffQuiz,
+  "slider-scale": SliderScaleQuiz,
   // Future runners:
   // "image-based-single-choice": ImageSingleChoiceQuiz,
 };

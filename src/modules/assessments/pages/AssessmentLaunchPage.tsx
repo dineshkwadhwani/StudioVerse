@@ -39,6 +39,9 @@ function toList(value: unknown): string[] {
  * - single-choice: "Selected: [label]"
  * - instant-feedback-multi-choice: rich per-scenario signal/noise breakdown
  * - select-and-move / gamified-drag-drop: prioritization order with strategic explanation
+ * - likert-rating-scale: single selected agreement/scale label
+ * - forced-trade-off: selected strategic action with explicit alternatives not chosen
+ * - slider-scale: numeric position between question anchors (0-100)
  */
 function buildAnswersForApi(
   questions: AssessmentQuestionRecord[],
@@ -104,7 +107,53 @@ function buildAnswersForApi(
     });
   }
 
-  // Default: single-choice
+  if (renderStyle === "forced-trade-off") {
+    return questions.map((q) => {
+      const selectedValue = answersByQuestionId[q.id]?.[0] ?? "";
+      const selectedOption = q.options.find((o) => o.value === selectedValue);
+      const nonSelectedLabels = q.options
+        .filter((o) => o.value !== selectedValue)
+        .map((o) => o.label);
+      const prioritizedActionLabel = selectedOption?.label || selectedValue || "none";
+
+      const richText = [
+        `Prioritized Action: ${prioritizedActionLabel}`,
+        `Alternatives Not Chosen: ${nonSelectedLabels.join(" | ") || "none"}`,
+      ].join("\n   ");
+
+      return {
+        questionText: q.questionText,
+        selectedLabel: richText,
+        selectedValue,
+      };
+    });
+  }
+
+  if (renderStyle === "slider-scale") {
+    return questions.map((q) => {
+      const numericRaw = answersByQuestionId[q.id]?.[0] ?? "";
+      const numericValue = Number(numericRaw);
+      const sliderValue = Number.isFinite(numericValue)
+        ? Math.min(100, Math.max(0, Math.round(numericValue)))
+        : 50;
+      const leftAnchor = q.options[0]?.label ?? "Low";
+      const rightAnchor = q.options[1]?.label ?? "High";
+
+      const richText = [
+        `Slider Position: ${sliderValue}/100`,
+        `Left Anchor: ${leftAnchor}`,
+        `Right Anchor: ${rightAnchor}`,
+      ].join("\n   ");
+
+      return {
+        questionText: q.questionText,
+        selectedLabel: richText,
+        selectedValue: String(sliderValue),
+      };
+    });
+  }
+
+  // Default single-selection styles: single-choice, likert-rating-scale, etc.
   return questions.map((q) => {
     const vals = answersByQuestionId[q.id] ?? [];
     const selectedValue = vals[0] ?? "";
@@ -211,6 +260,9 @@ export default function AssessmentLaunchPage() {
     // Single-choice and prioritize styles: validate all questions have a selection before allowing submit
     if (
       launchState.renderStyle === "single-choice" ||
+      launchState.renderStyle === "likert-rating-scale" ||
+      launchState.renderStyle === "forced-trade-off" ||
+      launchState.renderStyle === "slider-scale" ||
       launchState.renderStyle === "select-and-move" ||
       launchState.renderStyle === "gamified-drag-drop"
     ) {

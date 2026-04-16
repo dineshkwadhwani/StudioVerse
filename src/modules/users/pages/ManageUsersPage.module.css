@@ -1,0 +1,139 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+}
+
+.card {
+  border: 1px solid #c6dcea;
+  border-radius: 16px;
+  background: #f8fcff;
+  box-shadow: 0 10px 22px rgba(19, 58, 86, 0.1);
+  padding: 18px;
+}
+
+.title {
+  margin: 0;
+  color: #133a56;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #4d6e86;
+  font-size: 0.9rem;
+}
+
+.field {
+  margin-top: 12px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  color: #315972;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.input,
+.select {
+  width: 100%;
+  border: 1px solid #c6dcea;
+  border-radius: 10px;
+  background: #fff;
+  color: #133a56;
+  font-size: 0.92rem;
+  padding: 9px 10px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin-top: 10px;
+  color: #b3261e;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.success {
+  margin-top: 10px;
+  color: #1b6c45;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.usersList {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.userRow {
+  border: 1px solid #d7e8f8;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+}
+
+.userName {
+  margin: 0;
+  color: #133a56;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.userMeta {
+  margin: 4px 0 0;
+  color: #4d6e86;
+  font-size: 0.85rem;
+}
+
+.empty {
+  margin-top: 12px;
+  color: #4d6e86;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 920px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shell {
+    padding: 16px;
+  }
+}

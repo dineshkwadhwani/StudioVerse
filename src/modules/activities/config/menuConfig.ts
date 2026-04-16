@@ -54,12 +54,12 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       key: "manage",
       label: "Manage",
       items: [
-        { key: "manage-users", label: "Users", href: buildPath(basePath, "/dashboard") },
+        { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/events") },
         { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/dashboard") },
-        { key: "manage-individual", label: "Individual", href: buildPath(basePath, "/dashboard") },
+        { key: "manage-individual", label: "Individual", href: buildPath(basePath, "/manage-users") },
       ],
     },
     {
@@ -88,12 +88,12 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       key: "manage",
       label: "Manage",
       items: [
-        { key: "manage-users", label: "Users", href: buildPath(basePath, "/dashboard") },
+        { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/events") },
         { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/dashboard") },
-        { key: "manage-individual", label: "Individual", href: buildPath(basePath, "/dashboard") },
+        { key: "manage-individual", label: "Individual", href: buildPath(basePath, "/manage-users") },
       ],
     },
     {

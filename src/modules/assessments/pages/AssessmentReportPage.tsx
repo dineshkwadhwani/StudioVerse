@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
+import {
+  DEFAULT_REPORT_STYLE,
+  REPORT_STYLE_LABELS,
+  REPORT_STYLE_SECTIONS,
+} from "@/modules/assessments/report-styles";
 import { getLatestAssessmentReportByAssignmentId } from "@/services/assessment-runtime.service";
-import type { AssessmentReportRecord } from "@/types/assessment";
+import type { AssessmentReportRecord, AssessmentReportStyle } from "@/types/assessment";
 
 function toList(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -13,6 +18,83 @@ function toList(value: unknown): string[] {
 
   return value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
 }
+
+type ReportSectionViewModel = {
+  key: string;
+  title: string;
+  items: string[];
+  tone: "positive" | "warning" | "neutral" | "action";
+};
+
+function resolveReportStyle(report: AssessmentReportRecord | null): AssessmentReportStyle {
+  if (report?.reportStyle) {
+    return report.reportStyle;
+  }
+
+  const structuredStyle = report?.reportStructuredData?.reportStyle;
+  if (typeof structuredStyle === "string" && structuredStyle in REPORT_STYLE_LABELS) {
+    return structuredStyle as AssessmentReportStyle;
+  }
+
+  return DEFAULT_REPORT_STYLE;
+}
+
+function getReportSections(report: AssessmentReportRecord | null, reportStyle: AssessmentReportStyle): ReportSectionViewModel[] {
+  const definitions = REPORT_STYLE_SECTIONS[reportStyle] ?? REPORT_STYLE_SECTIONS[DEFAULT_REPORT_STYLE];
+  const structuredSections = report?.reportStructuredData?.sections;
+
+  if (Array.isArray(structuredSections)) {
+    const normalizedSections = structuredSections
+      .map((section) => {
+        if (!section || typeof section !== "object") {
+          return null;
+        }
+
+        const row = section as Record<string, unknown>;
+        const key = typeof row.key === "string" ? row.key.trim() : "";
+        const definition = definitions.find((item) => item.key === key);
+        const items = toList(row.items);
+        if (!definition || items.length === 0) {
+          return null;
+        }
+
+        return {
+          key: definition.key,
+          title: definition.title,
+          items,
+          tone: definition.tone,
+        };
+      })
+      .filter((section): section is ReportSectionViewModel => Boolean(section));
+
+    if (normalizedSections.length > 0) {
+      return normalizedSections;
+    }
+  }
+
+  const legacyBuckets = [
+    toList(report?.reportStructuredData?.strengths),
+    toList(report?.reportStructuredData?.blindSpots),
+    toList(report?.reportStructuredData?.recommendations),
+    toList(report?.reportStructuredData?.nextActions),
+  ];
+
+  return definitions
+    .map((definition, index) => ({
+      key: definition.key,
+      title: definition.title,
+      items: legacyBuckets[index] ?? [],
+      tone: definition.tone,
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
+const SECTION_STYLES = {
+  positive: { background: "#f0f9f4", border: "#c8e6dc", title: "#1b5e3f", text: "#2d5a3d", marker: "#2a8f5a" },
+  warning: { background: "#fff5f0", border: "#fbd9cd", title: "#a83e2e", text: "#7a2f24", marker: "#d15d42" },
+  neutral: { background: "#f7f8fc", border: "#dde3f0", title: "#2d3b57", text: "#325370", marker: "#5b68d8" },
+  action: { background: "#fffaf0", border: "#fce4d6", title: "#6b4423", text: "#325370", marker: "#d97706" },
+} as const;
 
 export default function AssessmentReportPage() {
   const params = useParams<{ assignmentId: string }>();
@@ -43,6 +125,17 @@ export default function AssessmentReportPage() {
       })
       .catch((loadError) => {
         const message = loadError instanceof Error ? loadError.message : "Failed to load report.";
+        
+        // Log detailed error information
+        console.error("[AssessmentReportPage] Fetch Report Error", {
+          timestamp: new Date().toISOString(),
+          assignmentId,
+          errorMessage: message,
+          errorName: loadError instanceof Error ? loadError.name : "Unknown",
+          errorStack: loadError instanceof Error ? loadError.stack : "No stack trace",
+          fullError: loadError,
+        });
+        
         setError(message);
       })
       .finally(() => {
@@ -88,10 +181,8 @@ export default function AssessmentReportPage() {
     );
   }
 
-  const strengths = toList(report?.reportStructuredData?.strengths);
-  const blindSpots = toList(report?.reportStructuredData?.blindSpots);
-  const recommendations = toList(report?.reportStructuredData?.recommendations);
-  const nextActions = toList(report?.reportStructuredData?.nextActions);
+  const reportStyle = resolveReportStyle(report);
+  const reportSections = getReportSections(report, reportStyle);
 
   const reportDateStr = report?.createdAt
     ? new Date(
@@ -204,7 +295,9 @@ export default function AssessmentReportPage() {
             >
               <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: "1px solid #e4eef7" }}>
                 <h1 style={{ margin: 0, fontSize: 28, color: "#19334d", marginBottom: 8 }}>Assessment Report</h1>
-                <p style={{ margin: 0, color: "#446177", fontSize: 13 }}>Generated on {reportDateStr}</p>
+                <p style={{ margin: 0, color: "#446177", fontSize: 13 }}>
+                  Generated on {reportDateStr} • {REPORT_STYLE_LABELS[reportStyle]}
+                </p>
               </div>
 
               <p style={{ margin: 0, fontSize: 16, color: "#325370", lineHeight: 1.7 }}>
@@ -212,123 +305,59 @@ export default function AssessmentReportPage() {
               </p>
             </section>
 
-            {/* Key Insights Grid */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: 16,
-                marginBottom: 24,
-              }}
-            >
-              {/* Strengths */}
-              {strengths.length > 0 && (
-                <section
-                  style={{
-                    background: "#f0f9f4",
-                    border: "1px solid #c8e6dc",
-                    borderRadius: 10,
-                    padding: 20,
-                  }}
-                >
-                  <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#1b5e3f" }}>
-                    💪 Strengths
-                  </h3>
-                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
-                    {strengths.map((item) => (
-                      <li key={item} style={{ marginBottom: 8, color: "#2d5a3d" }}>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {/* Blind Spots */}
-              {blindSpots.length > 0 && (
-                <section
-                  style={{
-                    background: "#fff5f0",
-                    border: "1px solid #fbd9cd",
-                    borderRadius: 10,
-                    padding: 20,
-                  }}
-                >
-                  <h3 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600, color: "#a83e2e" }}>
-                    ⚠️ Blind Spots
-                  </h3>
-                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
-                    {blindSpots.map((item) => (
-                      <li key={item} style={{ marginBottom: 8, color: "#7a2f24" }}>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-            </div>
-
-            {/* Recommendations & Next Actions */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: 16,
-                marginBottom: 24,
-              }}
-            >
-              {/* Recommendations */}
-              {recommendations.length > 0 && (
-                <section
-                  style={{
-                    background: "#f8f5ff",
-                    border: "1px solid #e4ddf7",
-                    borderRadius: 10,
-                    padding: 24,
-                  }}
-                >
-                  <h2 style={{ margin: "0 0 16px 0", fontSize: 17, fontWeight: 600, color: "#2d2360", display: "flex", alignItems: "center", gap: 8 }}>
-                    💡 Recommendations
-                  </h2>
-                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, listStyle: "none" }}>
-                    {recommendations.map((item) => (
-                      <li key={item} style={{ marginBottom: 10, paddingLeft: 0, color: "#325370", lineHeight: 1.6 }}>
-                        <span style={{ display: "inline-block", marginRight: 8, color: "#5b68d8", fontWeight: 600 }}>
-                          •
-                        </span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {/* Next Actions */}
-              {nextActions.length > 0 && (
-                <section
-                  style={{
-                    background: "#fffaf0",
-                    border: "1px solid #fce4d6",
-                    borderRadius: 10,
-                    padding: 24,
-                  }}
-                >
-                  <h2 style={{ margin: "0 0 16px 0", fontSize: 17, fontWeight: 600, color: "#6b4423", display: "flex", alignItems: "center", gap: 8 }}>
-                    🎯 Next Actions
-                  </h2>
-                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, listStyle: "none" }}>
-                    {nextActions.map((item) => (
-                      <li key={item} style={{ marginBottom: 10, paddingLeft: 0, color: "#325370", lineHeight: 1.6 }}>
-                        <span style={{ display: "inline-block", marginRight: 8, color: "#d97706", fontWeight: 600 }}>
-                          →
-                        </span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-            </div>
+            {reportSections.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                  gap: 16,
+                  marginBottom: 24,
+                }}
+              >
+                {reportSections.map((section) => {
+                  const palette = SECTION_STYLES[section.tone];
+                  return (
+                    <section
+                      key={section.key}
+                      style={{
+                        background: palette.background,
+                        border: `1px solid ${palette.border}`,
+                        borderRadius: 10,
+                        padding: 22,
+                      }}
+                    >
+                      <h2
+                        style={{
+                          margin: "0 0 16px 0",
+                          fontSize: 17,
+                          fontWeight: 600,
+                          color: palette.title,
+                        }}
+                      >
+                        {section.title}
+                      </h2>
+                      <ul style={{ margin: 0, paddingLeft: 0, fontSize: 14, listStyle: "none" }}>
+                        {section.items.map((item) => (
+                          <li key={item} style={{ marginBottom: 10, color: palette.text, lineHeight: 1.6 }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                marginRight: 8,
+                                color: palette.marker,
+                                fontWeight: 700,
+                              }}
+                            >
+                              •
+                            </span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Raw AI Response (Dev only) */}
             {showRawAiResponse && report.aiResponseRaw && (
@@ -344,6 +373,38 @@ export default function AssessmentReportPage() {
                 <h3 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 600, color: "#446177" }}>
                   🔬 Raw AI Response (Dev Only)
                 </h3>
+                {report.analysisPromptUsed ? (
+                  <>
+                    <h4
+                      style={{
+                        margin: "0 0 8px 0",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#446177",
+                      }}
+                    >
+                      🧠 Effective Analysis Prompt
+                    </h4>
+                    <pre
+                      style={{
+                        margin: "0 0 12px 0",
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        background: "#f7fbff",
+                        border: "1px solid #d7e8f8",
+                        borderRadius: 8,
+                        padding: 12,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        maxHeight: 260,
+                        overflowY: "auto",
+                        color: "#325370",
+                      }}
+                    >
+                      {report.analysisPromptUsed}
+                    </pre>
+                  </>
+                ) : null}
                 <pre
                   style={{
                     margin: 0,

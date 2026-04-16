@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import type { QuizRunnerProps } from "./types";
 
@@ -26,6 +26,7 @@ export default function LikertRatingScaleQuiz({
   submitting,
   error,
 }: QuizRunnerProps) {
+  const router = useRouter();
   const currentQuestion = questions[currentIndex] ?? null;
   if (!currentQuestion) return null;
 
@@ -36,6 +37,23 @@ export default function LikertRatingScaleQuiz({
     () => Object.values(answersByQuestionId).filter((v) => v.length > 0).length,
     [answersByQuestionId]
   );
+
+  function handleSelect(optionValue: string) {
+    if (submitting) {
+      return;
+    }
+
+    onAnswer(currentQuestion.id, [optionValue]);
+
+    window.setTimeout(() => {
+      if (isLastQuestion) {
+        onSubmit({ questionId: currentQuestion.id, values: [optionValue] });
+        return;
+      }
+
+      onNext();
+    }, 120);
+  }
 
   return (
     <section
@@ -71,8 +89,11 @@ export default function LikertRatingScaleQuiz({
           {currentQuestion.options.map((option) => {
             const isSelected = selectedValue === option.value;
             return (
-              <label
+              <button
                 key={`${currentQuestion.id}-${option.value}`}
+                type="button"
+                onClick={() => handleSelect(option.value)}
+                disabled={submitting}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -84,16 +105,24 @@ export default function LikertRatingScaleQuiz({
                   background: isSelected ? "#edf4fb" : "#fff",
                   transition: "all 0.15s ease",
                   minHeight: 52,
+                  textAlign: "left",
+                  width: "100%",
                 }}
               >
-                <input
-                  type="radio"
-                  name={`question-${currentQuestion.id}`}
-                  checked={isSelected}
-                  onChange={() => onAnswer(currentQuestion.id, [option.value])}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    border: `2px solid ${isSelected ? "#1c4f73" : "#8db8d8"}`,
+                    background: isSelected ? "#1c4f73" : "#fff",
+                    boxShadow: isSelected ? "inset 0 0 0 4px #fff" : "none",
+                    flexShrink: 0,
+                  }}
                 />
                 <span style={{ fontSize: 14, color: "#19334d", lineHeight: 1.35 }}>{option.label}</span>
-              </label>
+              </button>
             );
           })}
         </div>
@@ -155,12 +184,22 @@ export default function LikertRatingScaleQuiz({
           </button>
         )}
 
-        <Link
-          href={`/${tenantId}/my-activities`}
-          style={{ marginLeft: "auto", color: "#6a8fa8", fontSize: 13, textDecoration: "none" }}
+        <button
+          type="button"
+          onClick={() => router.push(`/${tenantId}/my-activities`)}
+          style={{
+            marginLeft: "auto",
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "1px solid #c7a27a",
+            background: "#fff4e8",
+            color: "#8a5222",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
         >
           Exit
-        </Link>
+        </button>
       </div>
     </section>
   );

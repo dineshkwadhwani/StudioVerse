@@ -14,6 +14,7 @@ import type {
   AssessmentAttemptRecord,
   AssessmentRecord,
   AssessmentQuestionRecord,
+  AssessmentReportStyle,
   AssessmentReportRecord,
 } from "@/types/assessment";
 import type { AssignmentRecord } from "@/types/assignment";
@@ -33,6 +34,7 @@ export type SaveAssessmentCompletionArgs = {
   questionsServed: AssessmentQuestionRecord[];
   answersSubmitted: AssessmentAnswerRecord[];
   startedAtMs: number;
+  reportStyle: AssessmentReportStyle;
   aiProvider: string;
   analysisPromptUsed: string;
   aiResponseRaw: string;
@@ -142,6 +144,7 @@ export async function saveAssessmentCompletion(
     rawResultPayload: {
       assessmentName: args.assessment.name,
       questionsPerAttempt: args.questionsServed.length,
+      reportStyle: args.reportStyle,
       reportSummary: args.reportSummary,
       reportStructuredData: args.reportStructuredData,
     },
@@ -154,6 +157,7 @@ export async function saveAssessmentCompletion(
     tenantId: args.assignment.tenantId,
     userId: args.assignment.assigneeId,
     assignmentId: args.assignment.id,
+    reportStyle: args.reportStyle,
     aiProvider: args.aiProvider,
     analysisPromptUsed: args.analysisPromptUsed,
     aiResponseRaw: args.aiResponseRaw,
@@ -188,19 +192,41 @@ export async function saveAssessmentCompletion(
 export async function getLatestAssessmentReportByAssignmentId(
   assignmentId: string
 ): Promise<AssessmentReportRecord | null> {
-  const reportSnap = await getDocs(
-    query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId))
-  );
+  try {
+    console.log("[getLatestAssessmentReportByAssignmentId] Fetching report for assignmentId:", assignmentId);
+    
+    const reportSnap = await getDocs(
+      query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId))
+    );
 
-  if (reportSnap.empty) {
-    return null;
+    if (reportSnap.empty) {
+      console.warn("[getLatestAssessmentReportByAssignmentId] No reports found for assignmentId:", assignmentId);
+      return null;
+    }
+
+    const reports = reportSnap.docs.map((row) => ({
+      id: row.id,
+      ...(row.data() as Omit<AssessmentReportRecord, "id">),
+    }));
+
+    reports.sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+    
+    console.log("[getLatestAssessmentReportByAssignmentId] Found report:", {
+      reportId: reports[0]?.id,
+      assignmentId,
+      documentCount: reports.length,
+    });
+    
+    return reports[0] ?? null;
+  } catch (error) {
+    console.error("[getLatestAssessmentReportByAssignmentId] Error fetching report", {
+      timestamp: new Date().toISOString(),
+      assignmentId,
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+      errorName: error instanceof Error ? error.name : "Unknown",
+      errorStack: error instanceof Error ? error.stack : "No stack trace",
+      fullError: error,
+    });
+    throw error;
   }
-
-  const reports = reportSnap.docs.map((row) => ({
-    id: row.id,
-    ...(row.data() as Omit<AssessmentReportRecord, "id">),
-  }));
-
-  reports.sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-  return reports[0] ?? null;
 }

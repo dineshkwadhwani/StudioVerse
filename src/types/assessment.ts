@@ -23,6 +23,17 @@ export type AssessmentType =
 export type AssessmentStatus = "draft" | "active" | "archived";
 export type AssessmentPublicationState = "unpublished" | "published" | "scheduled";
 export type AssessmentOwnershipScope = "platform" | "tenant" | "professional";
+export type AssessmentReportStyle =
+  | "development-template"
+  | "diagnostic-template"
+  | "capability-scorecard-template"
+  | "leadership-readiness-template"
+  | "behavioral-pattern-template"
+  | "360-influence-template"
+  | "growth-journey-template"
+  | "executive-coaching-premium-template"
+  | "action-centric-template"
+  | "psychological-insight-template";
 
 export type AssessmentRecord = {
   id: string;
@@ -36,6 +47,7 @@ export type AssessmentRecord = {
   assessmentBenefit: string;
   assessmentType: AssessmentType;
   renderStyle: AssessmentRenderStyle;
+  reportStyle: AssessmentReportStyle;
   creditsRequired: number;
   questionBankCount: number;
   questionsPerAttempt: number;
@@ -110,6 +122,7 @@ export type AssessmentReportRecord = {
   tenantId: string;
   userId: string;
   assignmentId: string;
+  reportStyle?: AssessmentReportStyle;
   aiProvider: string;
   analysisPromptUsed: string;
   aiResponseRaw: string;
@@ -131,6 +144,7 @@ export type AssessmentFormValues = {
   assessmentBenefit: string;
   assessmentType: AssessmentType;
   renderStyle: AssessmentRenderStyle;
+  reportStyle: AssessmentReportStyle;
   creditsRequired: string;
   questionBankCount: string;
   questionsPerAttempt: string;

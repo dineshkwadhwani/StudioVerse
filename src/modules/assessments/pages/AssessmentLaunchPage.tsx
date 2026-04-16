@@ -7,6 +7,7 @@ import {
   getAssessmentLaunchPayload,
   saveAssessmentCompletion,
 } from "@/services/assessment-runtime.service";
+import { DEFAULT_REPORT_STYLE } from "@/modules/assessments/report-styles";
 import { getQuizRunner } from "@/modules/assessments/quiz-runners";
 import type { AssessmentQuestionRecord, AssessmentAnswerRecord } from "@/types/assessment";
 import type { AssignmentRecord } from "@/types/assignment";
@@ -18,6 +19,7 @@ type LaunchState = {
   longDescription: string;
   assessmentImageUrl: string;
   renderStyle: string;
+  reportStyle: string;
   assessmentContext: string;
   assessmentBenefit: string;
   analysisPrompt: string;
@@ -203,6 +205,7 @@ export default function AssessmentLaunchPage() {
           longDescription: payload.assessment.longDescription ?? "",
           assessmentImageUrl: payload.assessment.assessmentImageUrl ?? "",
           renderStyle: payload.assessment.renderStyle,
+          reportStyle: payload.assessment.reportStyle ?? DEFAULT_REPORT_STYLE,
           assessmentContext: payload.assessment.assessmentContext,
           assessmentBenefit: payload.assessment.assessmentBenefit,
           analysisPrompt: payload.assessment.analysisPrompt,
@@ -292,21 +295,69 @@ export default function AssessmentLaunchPage() {
           assessmentName: launchState.assessmentName,
           assessmentContext: launchState.assessmentContext,
           assessmentBenefit: launchState.assessmentBenefit,
+          reportStyle: launchState.reportStyle,
           analysisPrompt: launchState.analysisPrompt,
           answers: answersForApi,
         }),
       });
 
-      const data = (await response.json()) as {
+      const responseText = await response.text();
+      let data: {
         error?: string;
+        requestId?: string;
+        debug?: {
+          name?: string;
+          stack?: string;
+          code?: string;
+          errno?: string | number;
+          syscall?: string;
+          hostname?: string;
+          address?: string;
+          port?: number;
+          cause?: unknown;
+        };
         aiProvider?: string;
         raw?: string;
         summary?: string;
+        effectiveAnalysisPrompt?: string;
         structured?: Record<string, unknown>;
-      };
+      } = {};
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText) as typeof data;
+        } catch {
+          console.error("[AssessmentLaunchPage] analyze-attempt returned non-JSON response", {
+            status: response.status,
+            statusText: response.statusText,
+            responsePreview: responseText.slice(0, 400),
+          });
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Failed to analyze assessment.");
+        console.error("[AssessmentLaunchPage] analyze-attempt failed", {
+          status: response.status,
+          statusText: response.statusText,
+          requestId: data.requestId,
+          apiError: data.error,
+          apiDebug: data.debug,
+          responsePreview: responseText.slice(0, 400),
+          assignmentId: launchState.assignment.id,
+          activityId: launchState.assignment.activityId,
+          tenantId: launchState.assignment.tenantId,
+          renderStyle: launchState.renderStyle,
+          reportStyle: launchState.reportStyle,
+          answerCount: answersForApi.length,
+        });
+
+        const failureMessage = data.error
+          ? data.requestId
+            ? `${data.error} (Request ID: ${data.requestId})`
+            : data.error
+          : `Failed to analyze assessment (HTTP ${response.status}).`;
+
+        throw new Error(failureMessage);
       }
 
       // Build Firestore answer records — isCorrect works for both single and multi
@@ -337,8 +388,9 @@ export default function AssessmentLaunchPage() {
         questionsServed: launchState.questions,
         answersSubmitted,
         startedAtMs,
+        reportStyle: launchState.reportStyle as never,
         aiProvider: data.aiProvider ?? "groq",
-        analysisPromptUsed: launchState.analysisPrompt,
+        analysisPromptUsed: data.effectiveAnalysisPrompt ?? launchState.analysisPrompt,
         aiResponseRaw: data.raw ?? "",
         reportSummary: data.summary ?? "Assessment completed.",
         reportStructuredData: data.structured ?? {},
@@ -355,6 +407,17 @@ export default function AssessmentLaunchPage() {
     } catch (submitError) {
       const message =
         submitError instanceof Error ? submitError.message : "Failed to submit assessment.";
+      console.error("[AssessmentLaunchPage] submitAssessment exception", {
+        assignmentId: launchState.assignment.id,
+        activityId: launchState.assignment.activityId,
+        tenantId: launchState.assignment.tenantId,
+        renderStyle: launchState.renderStyle,
+        reportStyle: launchState.reportStyle,
+        answerCount: answersForApi.length,
+        message,
+        errorName: submitError instanceof Error ? submitError.name : "UnknownError",
+        stack: submitError instanceof Error ? submitError.stack : undefined,
+      });
       setError(message);
     } finally {
       setSubmitting(false);

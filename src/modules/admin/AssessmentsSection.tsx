@@ -14,6 +14,10 @@ import {
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "@/services/firebase";
+import {
+  DEFAULT_REPORT_STYLE,
+  REPORT_STYLE_LABELS,
+} from "@/modules/assessments/report-styles";
 import styles from "./SuperAdminPortal.module.css";
 import {
   ASSESSMENT_TYPE_LABELS,
@@ -21,6 +25,7 @@ import {
   type AssessmentFormValues,
   type AssessmentOwnershipScope,
   type AssessmentPublicationState,
+  type AssessmentReportStyle,
   type AssessmentQuestionRecord,
   type AssessmentRecord,
   type AssessmentRenderStyle,
@@ -82,6 +87,7 @@ const EMPTY_FORM: AssessmentFormValues = {
   assessmentBenefit: "",
   assessmentType: "self-awareness",
   renderStyle: "single-choice",
+  reportStyle: DEFAULT_REPORT_STYLE,
   creditsRequired: "0",
   questionBankCount: "20",
   questionsPerAttempt: "10",
@@ -130,6 +136,14 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   const renderStyleOptions = useMemo(
     () =>
       (Object.entries(RENDER_STYLE_LABELS) as [AssessmentRenderStyle, string][]).sort((a, b) =>
+        a[1].localeCompare(b[1])
+      ),
+    []
+  );
+
+  const reportStyleOptions = useMemo(
+    () =>
+      (Object.entries(REPORT_STYLE_LABELS) as [AssessmentReportStyle, string][]).sort((a, b) =>
         a[1].localeCompare(b[1])
       ),
     []
@@ -185,6 +199,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       assessmentBenefit: assessment.assessmentBenefit,
       assessmentType: assessment.assessmentType,
       renderStyle: assessment.renderStyle,
+      reportStyle: assessment.reportStyle ?? DEFAULT_REPORT_STYLE,
       creditsRequired: String(assessment.creditsRequired ?? 0),
       questionBankCount: String(assessment.questionBankCount),
       questionsPerAttempt: String(assessment.questionsPerAttempt),
@@ -376,6 +391,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         assessmentBenefit: formValues.assessmentBenefit.trim(),
         assessmentType: formValues.assessmentType,
         renderStyle: formValues.renderStyle,
+        reportStyle: formValues.reportStyle || DEFAULT_REPORT_STYLE,
         creditsRequired: parsedCreditsRequired,
         questionBankCount: generatedQuestions.length,
         questionsPerAttempt: parseInt(formValues.questionsPerAttempt, 10) || generatedQuestions.length,
@@ -692,6 +708,18 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
 
               <label className={styles.label} htmlFor="a-analysis-prompt">Analysis Prompt (used to generate participant reports)</label>
               <textarea id="a-analysis-prompt" className={styles.input} rows={3} value={formValues.analysisPrompt} onChange={(e) => setField("analysisPrompt", e.target.value)} placeholder="Describe how the AI should interpret submitted answers and generate the narrative report for this assessment" style={{ resize: "vertical" }} />
+
+              <label className={styles.label} htmlFor="a-report-style">Report Style</label>
+              <select
+                id="a-report-style"
+                className={styles.select}
+                value={formValues.reportStyle}
+                onChange={(e) => setField("reportStyle", e.target.value as AssessmentReportStyle)}
+              >
+                {reportStyleOptions.map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
 
               <label className={styles.label} htmlFor="a-gen-prompt">Question Generation Prompt *</label>
               <textarea id="a-gen-prompt" className={styles.input} rows={4} value={formValues.questionGenerationPrompt} onChange={(e) => setField("questionGenerationPrompt", e.target.value)} placeholder={`Describe the type of questions to generate. Use [No of Questions] or [NO_OF_QUESTIONS] as a placeholder.\nE.g. "Generate exactly [NO_OF_QUESTIONS] self-awareness questions for senior leaders that explore emotional intelligence, blind spots, and behavioural patterns."`} style={{ resize: "vertical" }} />

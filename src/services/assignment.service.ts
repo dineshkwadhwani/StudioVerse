@@ -15,6 +15,8 @@ import { db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
 import { getWalletForUserContext } from "@/services/wallet.service";
+import { getCohortAssignmentPayload } from "@/services/cohorts.service";
+import type { CohortCreatorRole } from "@/types/cohort";
 
 type AssignmentWriteData = WithFieldValue<Omit<AssignmentRecord, "id">>;
 
@@ -358,6 +360,150 @@ export async function createAssignment(args: {
     return {
       success: false,
       message: "Error creating assignment. Please try again.",
+    };
+  }
+}
+
+export async function createCohortAssignment(args: {
+  tenantId: string;
+  cohortId: string;
+  assignerRole: CohortCreatorRole;
+  activityType: ActivityType;
+  activityId: string;
+  activityTitle: string;
+  creditsRequired: number;
+  cost?: number;
+  assignerId: string;
+  assignerName: string;
+  assignerLookupIds?: string[];
+  status?: AssignmentStatus;
+}): Promise<{ success: boolean; message: string; assignmentCount?: number; cohortAssignmentId?: string }> {
+  try {
+    const payload = await getCohortAssignmentPayload({
+      tenantId: args.tenantId,
+      cohortId: args.cohortId,
+      role: args.assignerRole,
+      actorUserId: args.assignerId,
+    });
+
+    if (payload.members.length < 2) {
+      return {
+        success: false,
+        message: "A cohort must include at least two Individuals.",
+      };
+    }
+
+    const perMemberCost = Math.max(0, args.creditsRequired);
+    const totalCost = perMemberCost * payload.members.length;
+
+    const wallet = await getWalletForUserContext([
+      ...(args.assignerLookupIds ?? []),
+      args.assignerId,
+    ]);
+
+    if (!wallet) {
+      return {
+        success: false,
+        message: "Assignor wallet not found. Please ensure your wallet has been set up.",
+      };
+    }
+
+    if (wallet.availableCoins < totalCost) {
+      return {
+        success: false,
+        message: `Not enough coins. Required: ${totalCost}, Available: ${wallet.availableCoins}.`,
+      };
+    }
+
+    const result = await runTransaction(db, async (transaction) => {
+      const cohortAssignmentRef = doc(collection(db, "cohortAssignments"));
+
+      transaction.set(cohortAssignmentRef, {
+        tenantId: args.tenantId,
+        cohortId: payload.cohortId,
+        cohortName: payload.cohortName,
+        activityType: args.activityType,
+        activityId: args.activityId,
+        activityTitle: args.activityTitle,
+        perMemberCredits: perMemberCost,
+        memberCount: payload.members.length,
+        totalCoinsDeducted: totalCost,
+        assignerId: args.assignerId,
+        assignerName: args.assignerName,
+        createdAt: serverTimestamp(),
+      });
+
+      payload.members.forEach((member) => {
+        const assignmentRef = doc(collection(db, "assignments"));
+        const assignmentData: AssignmentWriteData = {
+          tenantId: args.tenantId,
+          cohortId: payload.cohortId,
+          cohortName: payload.cohortName,
+          cohortAssignmentId: cohortAssignmentRef.id,
+          activityType: args.activityType,
+          activityId: args.activityId,
+          activityTitle: args.activityTitle,
+          creditsRequired: perMemberCost,
+          ...(args.cost !== undefined && { cost: args.cost }),
+          assignerId: args.assignerId,
+          assignerName: args.assignerName,
+          assigneeId: member.id,
+          assigneePhone: member.phoneE164,
+          assigneeEmail: member.email,
+          assigneeFirstName: member.firstName,
+          assigneeLastName: member.lastName,
+          assigneeFullName: member.fullName,
+          status: args.status ?? "assigned",
+          coinsDeducted: perMemberCost,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        transaction.set(assignmentRef, assignmentData);
+      });
+
+      if (totalCost > 0) {
+        const walletRef = doc(db, "wallets", wallet.id);
+        transaction.update(walletRef, {
+          availableCoins: wallet.availableCoins - totalCost,
+          utilizedCoins: wallet.utilizedCoins + totalCost,
+          updatedBy: args.assignerId,
+          updatedAt: serverTimestamp(),
+        });
+
+        const walletTransactionRef = doc(collection(db, "walletTransactions"));
+        transaction.set(walletTransactionRef, {
+          walletId: wallet.id,
+          userId: wallet.userId,
+          tenantId: args.tenantId,
+          userType: wallet.userType,
+          userName: wallet.userName || args.assignerName,
+          transactionType: "debit",
+          reason: `Cohort Assignment: ${payload.cohortName} - ${args.activityTitle}`,
+          coins: totalCost,
+          cohortId: payload.cohortId,
+          cohortAssignmentId: cohortAssignmentRef.id,
+          activityType: args.activityType,
+          activityId: args.activityId,
+          createdBy: args.assignerId,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      return cohortAssignmentRef.id;
+    });
+
+    return {
+      success: true,
+      message: `Assigned to ${payload.members.length} cohort members. ${totalCost} coins deducted from wallet.`,
+      assignmentCount: payload.members.length,
+      cohortAssignmentId: result,
+    };
+  } catch (error) {
+    console.error("[createCohortAssignment] error:", error);
+    return {
+      success: false,
+      message: "Error assigning activity to cohort. Please try again.",
     };
   }
 }

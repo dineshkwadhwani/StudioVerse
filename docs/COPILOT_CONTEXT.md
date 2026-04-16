@@ -3,6 +3,27 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest implementation progress (16 April 2026)
+
+- Epic E10 user-management scope is now expanded beyond SuperAdmin:
+   - SuperAdmin: can create `company`, `professional`, and `individual` users (existing behavior retained).
+   - Company: can create `professional` and `individual` users; created users are associated to the same tenant/company context.
+   - Professional: can create `individual` users; created individuals are associated to the creating professional.
+- New scoped user-creation backend endpoint is active: `src/app/api/users/create-scoped/route.ts`.
+- Tenant routes for role-scoped user management are active under each studio:
+   - `/<tenant>/manage-users` for coaching, training, and recruitment studios.
+- Assessment report system now supports style-aware structures (not just fixed generic buckets):
+   - 10 report styles with style-specific section contracts.
+   - API response includes structured sections aligned to selected report style.
+   - Report page renders style-specific sections dynamically with legacy fallback support.
+- User dropdown menu redesign is implemented platform-wide:
+   - Three non-clickable group headers: `My Account`, `Manage`, `Actions`.
+   - Group labels are visually distinct and premium-styled.
+   - Redundant `Manage` prefixes removed from item labels within `Manage` group.
+   - Dropdown width and spacing were tightened for denser, cleaner layout.
+   - Mobile outside-tap close behavior reinforced via pointer/touch/mouse listeners in `src/hooks/useClickOutside.ts`.
+- Recent production build validations complete successfully with new routes and pages compiling.
+
 ## Refactor progress update (16 April 2026)
 
 **Recent addition (16 April 2026):**

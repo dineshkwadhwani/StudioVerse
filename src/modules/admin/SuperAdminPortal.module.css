@@ -162,6 +162,7 @@
   padding: 8px 14px;
   font-weight: 700;
   cursor: pointer;
+  letter-spacing: 0.02em;
 }
 
 .profileInitials {
@@ -171,10 +172,33 @@
 .menuPanel {
   position: absolute;
   right: 0;
-  top: 46px;
+  top: 48px;
   width: clamp(212px, 22vw, 246px);
+  background: #f8fcff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 24px rgba(19, 58, 86, 0.12);
+  opacity: 1;
   padding: 10px;
-  z-index: 20;
+  z-index: 40;
+}
+
+.menuUser {
+  padding: 5px 9px 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
+}
+
+.menuName {
+  margin: 0;
+  font-weight: 800;
+  color: var(--ink-strong);
+}
+
+.menuRole {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
 }
 
 .menuTitle {
@@ -219,6 +243,12 @@
 .menuItem:hover,
 .menuItemActive {
   background: #e9f6ff;
+}
+
+.menuDivider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 6px 0;
 }
 
 .grid {

@@ -58,6 +58,7 @@ export default function DetailModal({
   onAuthRequired,
   userId,
   userName,
+  userRole,
   tenantId,
   eventActionMode = "default",
 }: Props) {
@@ -370,6 +371,7 @@ export default function DetailModal({
           activityType={mapItemTypeToActivityType(item.type)}
           assigneeId={userId ?? ""}
           assignerName={userName ?? "User"}
+          assignerRole={userRole}
           tenantId={tenantId ?? ""}
           actionType={assignmentActionType}
           selfAssign={isSelfAssignmentFlow}

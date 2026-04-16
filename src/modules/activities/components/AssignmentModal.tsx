@@ -1,12 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DetailItem } from "./DetailModal";
 import type { UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
-import { searchUsersByPhoneOrEmail, createAssignment, createRecommendation } from "@/services/assignment.service";
+import type { CohortListItem } from "@/types/cohort";
+import {
+  searchUsersByPhoneOrEmail,
+  createAssignment,
+  createCohortAssignment,
+  createRecommendation,
+} from "@/services/assignment.service";
+import { listCohortsForScope } from "@/services/cohorts.service";
 import { sendAssignmentEmail } from "@/services/mail.service";
 import styles from "./AssignmentModal.module.css";
+
+type AssignerRole = "company" | "professional" | "individual";
+type AssignmentTarget = "individual" | "cohort";
+type Stage = "search" | "found" | "not_found" | "confirm" | "cohort_select" | "cohort_confirm";
 
 type Props = {
   isOpen: boolean;
@@ -15,6 +26,7 @@ type Props = {
   activityType: ActivityType;
   assigneeId: string;
   assignerName: string;
+  assignerRole?: string;
   tenantId: string;
   actionType: "assign" | "recommend";
   selfAssign?: boolean;
@@ -28,6 +40,7 @@ export default function AssignmentModal({
   activityType,
   assigneeId,
   assignerName,
+  assignerRole,
   tenantId,
   actionType,
   selfAssign = false,
@@ -40,11 +53,34 @@ export default function AssignmentModal({
   const [lastName, setLastName] = useState("");
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
+
+  const [assignmentTarget, setAssignmentTarget] = useState<AssignmentTarget>("individual");
+  const [cohorts, setCohorts] = useState<CohortListItem[]>([]);
+  const [selectedCohortId, setSelectedCohortId] = useState("");
+  const [isLoadingCohorts, setIsLoadingCohorts] = useState(false);
+
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [stage, setStage] = useState<"search" | "found" | "not_found" | "confirm">("search");
+  const [stage, setStage] = useState<Stage>("search");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const profileIdFromSession =
+    typeof window !== "undefined" ? sessionStorage.getItem("cs_profile_id") ?? "" : "";
+  const actorScopeId = profileIdFromSession || assigneeId;
+
+  const normalizedRole: AssignerRole =
+    assignerRole === "company" || assignerRole === "professional" || assignerRole === "individual"
+      ? assignerRole
+      : "individual";
+
+  const canAssignToCohort =
+    actionType === "assign" && !selfAssign && (normalizedRole === "company" || normalizedRole === "professional");
+
+  const selectedCohort = useMemo(
+    () => cohorts.find((entry) => entry.id === selectedCohortId) ?? null,
+    [cohorts, selectedCohortId]
+  );
 
   const buildSelfUser = useCallback((): UserSearchResult | null => {
     if (!assigneeId) {
@@ -53,15 +89,15 @@ export default function AssignmentModal({
 
     const fullName = assignerName?.trim() || "User";
     const nameParts = fullName.split(/\s+/).filter(Boolean);
-    const firstName = nameParts[0] ?? fullName;
-    const lastName = nameParts.slice(1).join(" ");
+    const first = nameParts[0] ?? fullName;
+    const last = nameParts.slice(1).join(" ");
 
     return {
       id: assigneeId,
       userId: assigneeId,
       fullName,
-      firstName,
-      lastName,
+      firstName: first,
+      lastName: last,
       phone: "",
       email: "",
       userType: "individual",
@@ -70,21 +106,68 @@ export default function AssignmentModal({
   }, [assigneeId, assignerName, tenantId]);
 
   useEffect(() => {
-    if (!isOpen || !selfAssign) {
+    if (!isOpen) {
       return;
     }
 
-    const selfUser = buildSelfUser();
-    if (!selfUser) {
-      setError("Unable to identify current user for self-assignment.");
+    if (selfAssign) {
+      const selfUser = buildSelfUser();
+      if (!selfUser) {
+        setError("Unable to identify current user for self-assignment.");
+        return;
+      }
+      setSelectedUser(selfUser);
+      setStage("confirm");
+      setMessage(`Ready to assign to ${selfUser.fullName}`);
       return;
     }
 
-    setSelectedUser(selfUser);
-    setStage("confirm");
-    setMessage(`Ready to assign to ${selfUser.fullName}`);
-    setError("");
-  }, [isOpen, selfAssign, buildSelfUser]);
+    setStage(assignmentTarget === "cohort" ? "cohort_select" : "search");
+  }, [isOpen, selfAssign, assignmentTarget, buildSelfUser]);
+
+  useEffect(() => {
+    if (!isOpen || !canAssignToCohort || !actorScopeId) {
+      return;
+    }
+
+    let active = true;
+    setIsLoadingCohorts(true);
+
+    void listCohortsForScope({
+      role: normalizedRole === "company" ? "company" : "professional",
+      tenantId,
+      actorUserId: actorScopeId,
+      status: "active",
+    })
+      .then((rows) => {
+        if (!active) {
+          return;
+        }
+
+        setCohorts(rows);
+        if (rows.length === 0) {
+          setMessage("No active cohorts available for assignment.");
+        }
+      })
+      .catch((loadError) => {
+        if (!active) {
+          return;
+        }
+
+        const loadMessage =
+          loadError instanceof Error ? loadError.message : "Failed to load cohorts.";
+        setError(loadMessage);
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoadingCohorts(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, canAssignToCohort, normalizedRole, tenantId, actorScopeId]);
 
   if (!isOpen || !item) return null;
 
@@ -102,6 +185,8 @@ export default function AssignmentModal({
     setLastName("");
     setSearchResults([]);
     setSelectedUser(null);
+    setAssignmentTarget("individual");
+    setSelectedCohortId("");
     setStage("search");
     setMessage("");
     setError("");
@@ -123,6 +208,14 @@ export default function AssignmentModal({
   };
 
   const validateSearch = (): boolean => {
+    if (assignmentTarget === "cohort") {
+      if (stage === "cohort_select" && !selectedCohortId) {
+        setError("Please select an active cohort.");
+        return false;
+      }
+      return true;
+    }
+
     if (stage === "search") {
       if (!phoneOrEmail.trim()) {
         setError("Please enter phone number or email");
@@ -130,6 +223,7 @@ export default function AssignmentModal({
       }
       return true;
     }
+
     if (stage === "not_found") {
       if (!firstName.trim() || !lastName.trim() || !alternateContact.trim()) {
         const missingFieldLabel = searchIdentifierType === "email" ? "phone number" : "email";
@@ -138,9 +232,7 @@ export default function AssignmentModal({
       }
       return true;
     }
-    if (stage === "found") {
-      return true;
-    }
+
     return true;
   };
 
@@ -152,7 +244,17 @@ export default function AssignmentModal({
       return;
     }
 
-    // Handle confirming found user - move to confirm stage
+    if (assignmentTarget === "cohort") {
+      if (!selectedCohort) {
+        setError("Please select an active cohort.");
+        return;
+      }
+
+      setStage("cohort_confirm");
+      setMessage(`Ready to assign to cohort ${selectedCohort.name}`);
+      return;
+    }
+
     if (stage === "found" && selectedUser) {
       setStage("confirm");
       setMessage(
@@ -161,7 +263,6 @@ export default function AssignmentModal({
       return;
     }
 
-    // Handle confirming not-found user with first/last name - move to confirm stage
     if (stage === "not_found" && firstName.trim() && lastName.trim() && alternateContact.trim()) {
       const searchedValue = phoneOrEmail.trim();
       const alternateValue = alternateContact.trim();
@@ -187,7 +288,6 @@ export default function AssignmentModal({
       return;
     }
 
-    // Search mode by phone/email
     if (!phoneOrEmail.trim()) {
       setError("Please enter phone number or email to search");
       return;
@@ -233,12 +333,66 @@ export default function AssignmentModal({
   };
 
   const handleAssign = async () => {
-    if (!selectedUser || !item) {
+    if (!item) {
+      setError("Activity details are missing.");
+      return;
+    }
+
+    if (assignmentTarget === "cohort") {
+      if (!selectedCohort) {
+        setError("Please select a cohort first.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      setError("");
+      setMessage("");
+
+      try {
+        const assignerLookupIds = Array.from(
+          new Set([assigneeId, profileIdFromSession].filter(Boolean))
+        );
+
+        const result = await createCohortAssignment({
+          tenantId,
+          cohortId: selectedCohort.id,
+          assignerRole: normalizedRole === "company" ? "company" : "professional",
+          activityType,
+          activityId: item.id,
+          activityTitle: item.title,
+          creditsRequired: item.creditsRequired ?? 0,
+          cost: item.cost,
+          assignerId: actorScopeId,
+          assignerName,
+          assignerLookupIds,
+        });
+
+        if (result.success) {
+          const activityLabel = getActivityLabel();
+          window.alert(`The ${activityLabel} has been assigned to the cohort.`);
+          setMessage(result.message);
+          setTimeout(() => {
+            handleClose();
+            onSuccess?.();
+          }, 1400);
+        } else {
+          setError(result.message);
+        }
+      } catch (err) {
+        console.error("[handleAssignCohort] error:", err);
+        setError("Error processing cohort assignment. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+
+      return;
+    }
+
+    if (!selectedUser) {
       setError("Please select a user first");
       return;
     }
 
-    // For recommend action, no wallet deduction needed
     if (actionType === "recommend") {
       setIsSubmitting(true);
       setError("");
@@ -291,7 +445,6 @@ export default function AssignmentModal({
       return;
     }
 
-    // For assign action, proceed with wallet validation and coin deduction
     setIsSubmitting(true);
     setError("");
     setMessage("");
@@ -301,10 +454,7 @@ export default function AssignmentModal({
         activityType === "event" && selfAssign ? "registered" : "assigned";
 
       const assignerLookupIds = Array.from(
-        new Set([
-          assigneeId,
-          typeof window !== "undefined" ? sessionStorage.getItem("cs_profile_id") ?? "" : "",
-        ].filter(Boolean))
+        new Set([assigneeId, profileIdFromSession].filter(Boolean))
       );
 
       const result = await createAssignment({
@@ -354,6 +504,35 @@ export default function AssignmentModal({
     }
   };
 
+  const renderTargetSelector = canAssignToCohort ? (
+    <div className={styles.targetSwitch}>
+      <button
+        type="button"
+        className={`${styles.switchButton} ${assignmentTarget === "individual" ? styles.switchButtonActive : ""}`}
+        onClick={() => {
+          setAssignmentTarget("individual");
+          setStage("search");
+          setError("");
+          setMessage("");
+        }}
+      >
+        Individual
+      </button>
+      <button
+        type="button"
+        className={`${styles.switchButton} ${assignmentTarget === "cohort" ? styles.switchButtonActive : ""}`}
+        onClick={() => {
+          setAssignmentTarget("cohort");
+          setStage("cohort_select");
+          setError("");
+          setMessage("");
+        }}
+      >
+        Cohort
+      </button>
+    </div>
+  ) : null;
+
   return (
     <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div className={styles.modal}>
@@ -373,7 +552,62 @@ export default function AssignmentModal({
         </div>
 
         <div className={styles.content}>
-          {stage === "search" && (
+          {renderTargetSelector}
+
+          {assignmentTarget === "cohort" && stage === "cohort_select" ? (
+            <div className={styles.searchStage}>
+              <div className={styles.formGroup}>
+                <label htmlFor="cohortSelect">Active Cohort</label>
+                <select
+                  id="cohortSelect"
+                  className={styles.input}
+                  value={selectedCohortId}
+                  onChange={(event) => setSelectedCohortId(event.target.value)}
+                  disabled={isLoadingCohorts}
+                >
+                  <option value="">Select cohort</option>
+                  {cohorts.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {`${entry.name} (${entry.memberCount} individuals)`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {message ? <div className={styles.message}>{message}</div> : null}
+              {error ? <div className={styles.error}>{error}</div> : null}
+            </div>
+          ) : null}
+
+          {assignmentTarget === "cohort" && stage === "cohort_confirm" && selectedCohort ? (
+            <div className={styles.confirmStage}>
+              <div className={styles.confirmInfo}>
+                <div className={styles.infoRow}>
+                  <span className={styles.label}>Cohort:</span>
+                  <span className={styles.value}>{selectedCohort.name}</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span className={styles.label}>Individuals:</span>
+                  <span className={styles.value}>{selectedCohort.memberCount}</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span className={styles.label}>Activity:</span>
+                  <span className={styles.value}>{item.title}</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span className={styles.label}>Coins per Person:</span>
+                  <span className={styles.value}>{item.creditsRequired ?? 0}</span>
+                </div>
+                <div className={styles.infoRow}>
+                  <span className={styles.label}>Total Coins:</span>
+                  <span className={styles.value}>{(item.creditsRequired ?? 0) * selectedCohort.memberCount}</span>
+                </div>
+              </div>
+              {error ? <div className={styles.error}>{error}</div> : null}
+              {message && !isSubmitting ? <div className={styles.message}>{message}</div> : null}
+            </div>
+          ) : null}
+
+          {assignmentTarget === "individual" && stage === "search" ? (
             <div className={styles.searchStage}>
               <div className={styles.formGroup}>
                 <label htmlFor="phoneOrEmail">Phone or Email</label>
@@ -390,15 +624,14 @@ export default function AssignmentModal({
                   className={styles.input}
                 />
               </div>
-
-              {error && <div className={styles.error}>{error}</div>}
-              {message && <div className={styles.message}>{message}</div>}
+              {error ? <div className={styles.error}>{error}</div> : null}
+              {message ? <div className={styles.message}>{message}</div> : null}
             </div>
-          )}
+          ) : null}
 
-          {stage === "found" && selectedUser && (
+          {assignmentTarget === "individual" && stage === "found" && selectedUser ? (
             <div className={styles.searchStage}>
-              {message && <p className={styles.message}>{message}</p>}
+              {message ? <p className={styles.message}>{message}</p> : null}
               <div className={styles.confirmInfo}>
                 <div className={styles.infoRow}>
                   <span className={styles.label}>Phone:</span>
@@ -417,14 +650,13 @@ export default function AssignmentModal({
                   <span className={styles.value}>{selectedUser.lastName}</span>
                 </div>
               </div>
-
-              {error && <div className={styles.error}>{error}</div>}
+              {error ? <div className={styles.error}>{error}</div> : null}
             </div>
-          )}
+          ) : null}
 
-          {stage === "not_found" && (
+          {assignmentTarget === "individual" && stage === "not_found" ? (
             <div className={styles.searchStage}>
-              {message && <p className={styles.message}>{message}</p>}
+              {message ? <p className={styles.message}>{message}</p> : null}
               <div className={styles.confirmInfo} style={{ marginBottom: "16px" }}>
                 <div className={styles.infoRow}>
                   <span className={styles.label}>Searched:</span>
@@ -472,9 +704,7 @@ export default function AssignmentModal({
                   id="alternateContact"
                   type="text"
                   placeholder={
-                    searchIdentifierType === "email"
-                      ? "Enter phone number"
-                      : "Enter email address"
+                    searchIdentifierType === "email" ? "Enter phone number" : "Enter email address"
                   }
                   value={alternateContact}
                   disabled={isSearching}
@@ -486,35 +716,31 @@ export default function AssignmentModal({
                 />
               </div>
 
-              {error && <div className={styles.error}>{error}</div>}
+              {error ? <div className={styles.error}>{error}</div> : null}
             </div>
-          )}
+          ) : null}
 
-          {searchResults.length > 1 && stage === "search" && (
+          {assignmentTarget === "individual" && searchResults.length > 1 && stage === "search" ? (
             <div className={styles.searchStage}>
-              {message && <p className={styles.message}>{message}</p>}
+              {message ? <p className={styles.message}>{message}</p> : null}
               <div className={styles.results}>
                 <p className={styles.resultsLabel}>Search Results:</p>
                 {searchResults.map((user) => (
                   <button
                     key={user.id}
                     type="button"
-                    className={`${styles.resultItem} ${
-                      selectedUser?.id === user.id ? styles.resultItemSelected : ""
-                    }`}
+                    className={`${styles.resultItem} ${selectedUser?.id === user.id ? styles.resultItemSelected : ""}`}
                     onClick={() => handleSelectUser(user)}
                   >
                     <span className={styles.resultName}>{user.fullName}</span>
-                    <span className={styles.resultInfo}>
-                      {user.phone || user.email}
-                    </span>
+                    <span className={styles.resultInfo}>{user.phone || user.email}</span>
                   </button>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {stage === "confirm" && selectedUser && (
+          {assignmentTarget === "individual" && stage === "confirm" && selectedUser ? (
             <div className={styles.confirmStage}>
               <div className={styles.confirmInfo}>
                 <div className={styles.infoRow}>
@@ -530,25 +756,22 @@ export default function AssignmentModal({
                   <span className={styles.value}>{item.creditsRequired ?? 0}</span>
                 </div>
 
-                {actionType === "assign" && (
+                {actionType === "assign" ? (
                   <div className={styles.confirmMessage}>
-                    <p>
-                      {item.creditsRequired ?? 0} coins will be deducted from your wallet upon assignment.
-                    </p>
+                    <p>{item.creditsRequired ?? 0} coins will be deducted from your wallet upon assignment.</p>
                   </div>
-                )}
+                ) : null}
 
-                {actionType === "recommend" && (
+                {actionType === "recommend" ? (
                   <div className={styles.confirmMessage}>
                     <p>{selectedUser.fullName} will be notified of this recommendation.</p>
                   </div>
-                )}
+                ) : null}
               </div>
-
-              {error && <div className={styles.error}>{error}</div>}
-              {message && !isSubmitting && <div className={styles.message}>{message}</div>}
+              {error ? <div className={styles.error}>{error}</div> : null}
+              {message && !isSubmitting ? <div className={styles.message}>{message}</div> : null}
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className={styles.footer}>
@@ -556,6 +779,17 @@ export default function AssignmentModal({
             type="button"
             className={styles.secondaryButton}
             onClick={() => {
+              if (assignmentTarget === "cohort") {
+                if (stage === "cohort_confirm") {
+                  setStage("cohort_select");
+                  setError("");
+                  setMessage("");
+                } else {
+                  handleClose();
+                }
+                return;
+              }
+
               if (stage === "found") {
                 setStage("search");
                 setSelectedUser(null);
@@ -582,24 +816,33 @@ export default function AssignmentModal({
             }}
             disabled={isSearching || isSubmitting}
           >
-            {stage === "search" ? "Cancel" : "Back"}
+            {stage === "search" || stage === "cohort_select" ? "Cancel" : "Back"}
           </button>
           <button
             type="button"
             className={styles.primaryButton}
-            onClick={stage === "search" || stage === "not_found" || stage === "found" ? handleSearch : handleAssign}
+            onClick={
+              stage === "search" || stage === "not_found" || stage === "found" || stage === "cohort_select"
+                ? handleSearch
+                : handleAssign
+            }
             disabled={
               isSearching ||
               isSubmitting ||
-              (stage === "search" && !phoneOrEmail.trim()) ||
-              (stage === "not_found" && (!firstName.trim() || !lastName.trim() || !alternateContact.trim())) ||
-              (stage === "found" && !selectedUser)
+              (assignmentTarget === "individual" && stage === "search" && !phoneOrEmail.trim()) ||
+              (assignmentTarget === "individual" &&
+                stage === "not_found" &&
+                (!firstName.trim() || !lastName.trim() || !alternateContact.trim())) ||
+              (assignmentTarget === "individual" && stage === "found" && !selectedUser) ||
+              (assignmentTarget === "cohort" && stage === "cohort_select" && !selectedCohortId)
             }
           >
             {isSearching || isSubmitting ? (
-              <span>
-                {isSearching ? "Searching..." : "Processing..."}
-              </span>
+              <span>{isSearching ? "Searching..." : "Processing..."}</span>
+            ) : assignmentTarget === "cohort" && stage === "cohort_select" ? (
+              "Continue"
+            ) : assignmentTarget === "cohort" && stage === "cohort_confirm" ? (
+              "Assign"
             ) : stage === "search" ? (
               "Search"
             ) : stage === "found" ? (

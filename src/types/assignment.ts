@@ -6,6 +6,9 @@ export type AssignmentStatus = "assigned" | "registered" | "recommended" | "in_p
 export type AssignmentRecord = {
   id: string;
   tenantId: string;
+  cohortId?: string;
+  cohortName?: string;
+  cohortAssignmentId?: string;
   activityType: ActivityType;
   activityId: string;
   activityTitle: string;

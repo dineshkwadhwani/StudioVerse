@@ -13,6 +13,7 @@ Scope covered:
 - Wallet / Manage Wallet (E5) Firestore rollout requirements
 - Activity Assignment (E7) Firestore collections, indexes, and rules requirements
 - Role-based access menus (E8) routing and access confirmation requirements
+- Manage Users for Company/Professional (E10) scoped creation and association rollout requirements
 
 ## Refactor impact note (Apr 12, 2026)
 
@@ -56,6 +57,14 @@ These files are the canonical definitions that must be promoted to production:
 - User Manage Wallet page: `src/modules/coaching-studio/ManageWalletPage.tsx`
 - User My activities page: `src/modules/coaching-studio/MyActivitiesPage.tsx`
 - Shared audit helper: `functions/src/audit/writeAuditLog.ts`
+- Scoped user-create API route: `src/app/api/users/create-scoped/route.ts`
+- Manage Users tenant page module: `src/modules/users/pages/ManageUsersPage.tsx`
+- Manage Users client service: `src/services/manage-users.service.ts`
+- Firebase Admin bootstrap for server routes: `src/lib/firebase-admin.ts`
+- Tenant manage-users routes:
+  - `src/app/coaching-studio/manage-users/page.tsx`
+  - `src/app/recruitment-studio/manage-users/page.tsx`
+  - `src/app/training-studio/manage-users/page.tsx`
 
 ## Currently exported production-relevant functions
 From `functions/src/index.ts`:
@@ -76,6 +85,16 @@ Wallet note:
 - There is currently no Firebase callable for wallet issuance.
 - Wallet issuance is currently implemented through client-side Firestore transaction logic in `src/services/wallet.service.ts`.
 - Production rules must therefore explicitly protect `wallets` and `walletTransactions` from unauthorized client writes.
+
+E10 Manage Users note:
+- Scoped user creation for Company/Professional runs via Next.js server route `src/app/api/users/create-scoped/route.ts`.
+- This route uses Firebase Admin SDK (`adminAuth`, `adminDb`) and validates caller ID token + creator role before creating users.
+- Creation path writes `users/{uid}` documents with association fields including:
+  - `associatedCompanyId`
+  - `associatedProfessionalId`
+  - `createdByUserId`
+  - `createdByRole`
+- Manage Users listing reads are client-side Firestore queries through `src/services/manage-users.service.ts` and therefore require production Firestore rules coverage for Company/Professional scoped reads.
 
 ## Current Firestore index set
 From `firestore.indexes.json`:
@@ -131,28 +150,91 @@ Before any prod deploy:
   - `NEXT_PUBLIC_FIREBASE_APP_ID`
 6. Ensure server-side AI environment is configured in the deployed app runtime:
   - `GROQ_API_KEY`
-7. Ensure Firebase Auth Authorized Domains includes the exact production hostname(s) used by the browser.
-8. Confirm `assessmentImageUrl`/`assessmentImagePath` fields are included in expected Firestore Assessment documents.
-9. Confirm canonical tenant slug values use hyphenated ids such as `coaching-studio` consistently across `tenants`, `users`, `programs`, `events`, and `assessments`.
-10. Confirm wallet collections are either intentionally empty or seeded as expected after any datastore reset.
-11. Confirm superadmin bootstrap path is ready:
+7. Ensure server-side Firebase Admin credentials are configured in deployed app runtime when not relying on platform ADC:
+  - `FIREBASE_ADMIN_PROJECT_ID`
+  - `FIREBASE_ADMIN_CLIENT_EMAIL`
+  - `FIREBASE_ADMIN_PRIVATE_KEY`
+8. Ensure Firebase Auth Authorized Domains includes the exact production hostname(s) used by the browser.
+9. Confirm E10 Manage Users scoped creation behavior and associations:
+  - Company can create `professional` and `individual` users only.
+  - Professional can create `individual` users only.
+  - Company-created users inherit creator tenant.
+  - Professional-created individual sets `associatedProfessionalId` to creator.
+  - Company-created individual optional coach assignment is restricted to same-company active professionals.
+10. Confirm Firestore rules allow scoped `users` reads required by manage-users listing flows:
+  - Company can read Professionals/Individuals within same tenant/company scope.
+  - Professional can read Individuals associated to that Professional.
+11. Confirm TypeScript production build passes with `npm run build` before deploy, including:
+  - `/api/users/create-scoped`
+  - `/<tenant>/manage-users` routes
+12. Confirm `assessmentImageUrl`/`assessmentImagePath` fields are included in expected Firestore Assessment documents.
+13. Confirm canonical tenant slug values use hyphenated ids such as `coaching-studio` consistently across `tenants`, `users`, `programs`, `events`, and `assessments`.
+14. Confirm wallet collections are either intentionally empty or seeded as expected after any datastore reset.
+15. Confirm superadmin bootstrap path is ready:
   - either master phone-based auto-seed flow is valid for the target environment,
   - or `seedInitialSuperadmin` can be executed with a configured `SUPERADMIN_SEED_KEY`.
-12. Confirm Event callable schema parity for admin form fields:
+16. Confirm Event callable schema parity for admin form fields:
   - `creditsRequired` and `cost` must be accepted by `functions/src/events/eventSchemas.ts`.
   - `eventSource` must be accepted by `functions/src/events/eventSchemas.ts` with allowed values `studioverse_manager` and `external`.
   - deploy Event callables (`createEvent`, `updateEvent`) before using new Event fields in production.
-13. Confirm Assessment schema parity for admin form fields:
+17. Confirm Assessment schema parity for admin form fields:
   - `creditsRequired` must be present in `assessments` documents written by admin flows.
   - review Firestore rules so assessment writes with `creditsRequired` are not blocked.
-14. Confirm legacy data defaults for newly introduced numeric fields:
+18. Confirm legacy data defaults for newly introduced numeric fields:
   - existing Event docs missing `creditsRequired`/`cost` should be treated as `0` in UI.
   - existing Assessment docs missing `creditsRequired` should be treated as `0` in UI.
-15. Confirm `assignments` collection exists and is covered by Firestore rules before enabling assignment flows in production.
-16. Confirm wallet debit behavior: assign-to-other debits the **assignor** wallet, not the assignee wallet. Validate this against implemented service logic before cutover.
-17. Confirm zero-credit self-assignment bypass is intentional: assignments where `creditsRequired === 0` skip all wallet validation and write the assignment record directly.
-18. Confirm auto-provisioning behavior for unknown assignees is acceptable: if an assignee is not found by phone/email search, the service creates a new `Individual` user record in `users` and initializes a zero-balance wallet before writing the assignment.
-19. Confirm TypeScript production build passes with `npm run build` before any Vercel deploy. Last known blocker was the `serverTimestamp()` / `Timestamp` type mismatch in `assignment.service.ts`; fixed April 12, 2026 using `WithFieldValue<Omit<AssignmentRecord, "id">>` for write payloads.
+19. Confirm `assignments` collection exists and is covered by Firestore rules before enabling assignment flows in production.
+20. Confirm wallet debit behavior: assign-to-other debits the **assignor** wallet, not the assignee wallet. Validate this against implemented service logic before cutover.
+21. Confirm zero-credit self-assignment bypass is intentional: assignments where `creditsRequired === 0` skip all wallet validation and write the assignment record directly.
+22. Confirm auto-provisioning behavior for unknown assignees is acceptable: if an assignee is not found by phone/email search, the service creates a new `Individual` user record in `users` and initializes a zero-balance wallet before writing the assignment.
+
+## Release-day quick execution checklist
+
+Use this condensed list during production cutover.
+
+1. Set active project to prod and verify account:
+  ```bash
+  npx -y firebase-tools@latest use studioverse-prod
+  npx -y firebase-tools@latest use
+  ```
+2. Build app and functions from release commit:
+  ```bash
+  npm run build
+  npm --prefix functions run build
+  ```
+3. Confirm runtime variables are present in deployed environment:
+  - Firebase public web vars
+  - `GROQ_API_KEY`
+  - `FIREBASE_ADMIN_PROJECT_ID`, `FIREBASE_ADMIN_CLIENT_EMAIL`, `FIREBASE_ADMIN_PRIVATE_KEY` (or verified platform ADC)
+4. Confirm Firebase Auth Authorized Domains include the exact production hostnames.
+5. Deploy Firestore indexes:
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:indexes
+  ```
+6. Deploy Firestore rules:
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules
+  ```
+7. Deploy Storage rules:
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only storage
+  ```
+8. Deploy required cloud functions (if changed in release):
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only functions
+  ```
+9. Smoke test E10 routes and API:
+  - `/<tenant>/manage-users`
+  - `/api/users/create-scoped`
+10. Validate E10 role scope behavior in prod:
+  - Company can create Professional + Individual only.
+  - Professional can create Individual only.
+  - Associations (`tenantId`, `associatedCompanyId`, `associatedProfessionalId`) are written correctly.
+11. Smoke test E4 assessment flows end-to-end:
+  - question generation route
+  - report generation/analyze route
+  - style-aware report rendering
+12. Confirm no P0/P1 issues in logs after first live transactions, then announce cutover complete.
 
 ## Production environment and platform configuration
 
@@ -173,6 +255,11 @@ These variables are required for server-side and function-backed operational flo
   - required by `src/app/api/assessments/generate-questions/route.ts`
 - `SUPERADMIN_SEED_KEY`
   - required by `seedInitialSuperadmin` in `functions/src/index.ts`
+- `FIREBASE_ADMIN_PROJECT_ID`
+- `FIREBASE_ADMIN_CLIENT_EMAIL`
+- `FIREBASE_ADMIN_PRIVATE_KEY`
+  - required by `src/lib/firebase-admin.ts` when platform default credentials are not available.
+  - ensure private key is stored with preserved line breaks (or escaped `\n`, converted server-side).
 
 ### 3) Firebase Auth authorized domains
 Phone OTP validation in deployed environments depends on exact host authorization.
@@ -190,6 +277,46 @@ Operational note:
 Confirm `.firebaserc` maps both aliases correctly before prod rollout:
 - `studioverse-test`
 - `studioverse-prod`
+
+## E10 Manage Users rollout deltas (must complete before prod cutover)
+
+### 1) App route and API availability
+Confirm these are deployed and reachable in production:
+
+- Tenant routes:
+  - `/<tenant>/manage-users`
+- Server route:
+  - `/api/users/create-scoped`
+
+### 2) Association and role-scope validation
+Validate with production-like test accounts:
+
+- Company user can create Professional.
+- Company user can create Individual.
+- Professional user can create Individual only.
+- Company-created users inherit creator tenant automatically.
+- Professional-created Individual gets `associatedProfessionalId = creator.id`.
+- Company-created Individual optional coach selection accepts only same-company active Professionals.
+
+### 3) Firestore security rule coverage for scoped listing
+Because Manage Users list/read paths use client Firestore queries (`src/services/manage-users.service.ts`), production rules must allow:
+
+- Company-scoped read access to Professionals and Individuals in same tenant/company scope.
+- Professional-scoped read access to Individuals associated to that Professional.
+
+Minimum deny behavior:
+- deny cross-tenant reads,
+- deny reads outside creator role scope,
+- deny direct client writes for privileged user creation paths.
+
+### 4) Server credential hardening
+If production app runtime is not using platform default credentials, ensure:
+
+- `FIREBASE_ADMIN_PROJECT_ID`
+- `FIREBASE_ADMIN_CLIENT_EMAIL`
+- `FIREBASE_ADMIN_PRIVATE_KEY`
+
+are configured for `src/lib/firebase-admin.ts` before enabling E10 flows.
 
 ## E4 Assessment Centre rollout deltas (must complete before prod cutover)
 

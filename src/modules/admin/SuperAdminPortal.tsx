@@ -748,6 +748,11 @@ export default function SuperAdminPortal() {
             </button>
             {menuOpen ? (
               <section className={styles.menuPanel}>
+                <div className={styles.menuUser}>
+                  <p className={styles.menuName}>{profile?.name ?? "Super Admin"}</p>
+                  <p className={styles.menuRole}>Super Admin</p>
+                </div>
+
                 {MENU_GROUPS.map((group) => (
                   <div key={group.key} className={styles.menuGroup}>
                     <p className={styles.menuGroupTitle}>{group.label}</p>
@@ -773,6 +778,7 @@ export default function SuperAdminPortal() {
                     })}
                   </div>
                 ))}
+                <hr className={styles.menuDivider} />
                 <button type="button" className={styles.menuItem} onClick={logout}>
                   Sign Out
                 </button>

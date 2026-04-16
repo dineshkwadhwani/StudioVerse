@@ -90,6 +90,33 @@
   gap: 20px;
 }
 
+.targetSwitch {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #d0e2ee;
+  border-radius: 999px;
+  background: #f4f9fd;
+  margin-bottom: 16px;
+}
+
+.switchButton {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #315972;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.switchButtonActive {
+  border-color: #7fb3d2;
+  background: #fff;
+  color: #133a56;
+}
+
 .formGroup {
   display: flex;
   flex-direction: column;

@@ -13,7 +13,8 @@ import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config
 import type { UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
-import type { StudioUserRole, StudioMenuItem } from "@/modules/activities/config/menuConfig";
+import { getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
+import type { StudioUserRole, StudioMenuItem, StudioMenuGroup } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import styles from "./DashboardPage.module.css";
@@ -155,7 +156,7 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
     }
   }, [basePath, router, tenantId]);
 
-  const menuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const menuGroups = useMemo<StudioMenuGroup[]>(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
 
   const userInitials = useMemo(() => getInitials(name), [name]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";
@@ -214,25 +215,29 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
                   })}</p>
                 </div>
 
-                <p className={styles.menuTitle}>Actions</p>
-                {menuItems.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
-                    disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
-                    onClick={() => {
-                      if (item.href !== `${basePath}/dashboard`) {
-                        setMenuOpen(false);
-                        router.push(item.href);
-                        return;
-                      }
-                      setActiveKey(item.key);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </button>
+                {menuGroups.map((group) => (
+                  <div key={group.key} className={styles.menuGroup}>
+                    <p className={styles.menuGroupTitle}>{group.label}</p>
+                    {group.items.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
+                        disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
+                        onClick={() => {
+                          if (item.href !== `${basePath}/dashboard`) {
+                            setMenuOpen(false);
+                            router.push(item.href);
+                            return;
+                          }
+                          setActiveKey(item.key);
+                          setMenuOpen(false);
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 ))}
 
                 <hr className={styles.menuDivider} />

@@ -12,7 +12,7 @@ import { getEvent } from "@/services/events.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "../config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "../config/menuConfig";
 import type { StudioUserRole } from "../config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -150,6 +150,7 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
 
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
   const detailUserType = role === "individual" ? "learner" : "coach";
@@ -273,11 +274,15 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
                   })}</p>
                 </div>
 
-                <p className={dashboardStyles.menuTitle}>Menu</p>
-                {roleMenuItems.map((item) => (
-                  <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                    {item.label}
-                  </Link>
+                {roleMenuGroups.map((group) => (
+                  <div key={group.key} className={dashboardStyles.menuGroup}>
+                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
+                    {group.items.map((item) => (
+                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
                 ))}
 
                 <hr className={dashboardStyles.menuDivider} />

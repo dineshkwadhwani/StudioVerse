@@ -3,9 +3,16 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
-## Refactor progress update (14 April 2026)
+## Refactor progress update (16 April 2026)
 
-Objective:
+**Recent addition (16 April 2026):**
+- Implemented style-aware assessment reporting system
+- 10 predefined report-style templates (Development, Diagnostic, Capability Scorecard, Leadership Readiness, Behavioral Pattern, 360 Influence, Growth Journey, Executive Coaching Premium, Action-Centric, Psychological Insight)
+- Report processing now returns style-specific sections instead of generic buckets
+- Report rendering dynamically displays sections based on selected style
+- Backward compatible with legacy reports using fixed four-bucket schema
+
+**Refactor objective (ongoing):**
 - move shared app-shell implementations out of `src/modules/coaching-studio/` into neutral shared module folders
 - keep tenant routes as thin wrappers
 - preserve one privacy policy page per tenant (left as-is by decision)

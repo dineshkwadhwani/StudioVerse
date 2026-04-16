@@ -11,7 +11,7 @@ import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./LandingPage.module.css";
@@ -535,6 +535,7 @@ export default function LandingPage({ config }: Props) {
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel, basePath), [basePath, toolsLabel]);
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
   const brandSubtitle = "StudioVerse Platform";
   const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn
@@ -632,16 +633,20 @@ export default function LandingPage({ config }: Props) {
                       })}</p>
                     </div>
 
-                    <p className={headerStyles.menuTitle}>Menu</p>
-                    {roleMenuItems.map((item) => (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        className={headerStyles.menuLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        {item.label}
-                      </Link>
+                    {roleMenuGroups.map((group) => (
+                      <div key={group.key} className={headerStyles.menuGroup}>
+                        <p className={headerStyles.menuGroupTitle}>{group.label}</p>
+                        {group.items.map((item) => (
+                          <Link
+                            key={item.key}
+                            href={item.href}
+                            className={headerStyles.menuLink}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
                     ))}
                     <hr className={headerStyles.menuDivider} />
                     <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>

@@ -21,11 +21,18 @@ export function useClickOutside<T extends HTMLElement>(
       }
     }
 
-    // Use pointerdown instead of mousedown - handles both mouse and touch events
-    // This works reliably on both desktop and mobile devices
+    // Some mobile browsers can be inconsistent with pointer events.
+    // Register fallback touch/mouse listeners so tapping outside always closes menus.
     document.addEventListener("pointerdown", handleClickOrTouchOutside as EventListener);
+    document.addEventListener("touchstart", handleClickOrTouchOutside as EventListener, {
+      passive: true,
+    });
+    document.addEventListener("mousedown", handleClickOrTouchOutside as EventListener);
+
     return () => {
       document.removeEventListener("pointerdown", handleClickOrTouchOutside as EventListener);
+      document.removeEventListener("touchstart", handleClickOrTouchOutside as EventListener);
+      document.removeEventListener("mousedown", handleClickOrTouchOutside as EventListener);
     };
   }, [ref, callback, isActive]);
 }

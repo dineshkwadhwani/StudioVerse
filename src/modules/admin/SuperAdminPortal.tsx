@@ -114,14 +114,32 @@ type DashboardStats = {
 const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "profile", label: "Update Profile" },
-  { key: "users", label: "Manage Users" },
-  { key: "tenants", label: "Manage Tenants" },
-  { key: "tools", label: "Manage Assessment" },
-  { key: "programs", label: "Manage Programs" },
-  { key: "events", label: "Manage Events" },
-  { key: "coins", label: "Manage Wallet" },
+  { key: "users", label: "Users" },
+  { key: "tenants", label: "Tenants" },
+  { key: "tools", label: "Assessment" },
+  { key: "programs", label: "Programs" },
+  { key: "events", label: "Events" },
+  { key: "coins", label: "Wallet" },
   { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
+];
+
+const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = [
+  {
+    key: "my-account",
+    label: "My Account",
+    itemKeys: ["dashboard", "profile"],
+  },
+  {
+    key: "manage",
+    label: "Manage",
+    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins"],
+  },
+  {
+    key: "actions",
+    label: "Actions",
+    itemKeys: ["assigned-activities", "assign-activity"],
+  },
 ];
 
 function formatAssignedAt(value: AssignmentRecord["createdAt"]): string {
@@ -730,19 +748,30 @@ export default function SuperAdminPortal() {
             </button>
             {menuOpen ? (
               <section className={styles.menuPanel}>
-                <p className={styles.menuTitle}>Admin Actions</p>
-                {MENU_ITEMS.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`${styles.menuItem} ${activeMenu === item.key ? styles.menuItemActive : ""}`}
-                    onClick={() => {
-                      setActiveMenu(item.key);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </button>
+                {MENU_GROUPS.map((group) => (
+                  <div key={group.key} className={styles.menuGroup}>
+                    <p className={styles.menuGroupTitle}>{group.label}</p>
+                    {group.itemKeys.map((itemKey) => {
+                      const item = MENU_ITEMS.find((entry) => entry.key === itemKey);
+                      if (!item) {
+                        return null;
+                      }
+
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={`${styles.menuItem} ${activeMenu === item.key ? styles.menuItemActive : ""}`}
+                          onClick={() => {
+                            setActiveMenu(item.key);
+                            setMenuOpen(false);
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ))}
                 <button type="button" className={styles.menuItem} onClick={logout}>
                   Sign Out

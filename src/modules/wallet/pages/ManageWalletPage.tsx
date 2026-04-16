@@ -11,7 +11,7 @@ import { getWalletForUserContext, listWalletTransactionsForUserContext } from "@
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -117,6 +117,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
 
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
 
@@ -158,11 +159,15 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                     individual: tenantConfig.roles.individual,
                   })}</p>
                 </div>
-                <p className={dashboardStyles.menuTitle}>Menu</p>
-                {roleMenuItems.map((item) => (
-                  <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                    {item.label}
-                  </Link>
+                {roleMenuGroups.map((group) => (
+                  <div key={group.key} className={dashboardStyles.menuGroup}>
+                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
+                    {group.items.map((item) => (
+                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
                 ))}
                 <hr className={dashboardStyles.menuDivider} />
                 <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>

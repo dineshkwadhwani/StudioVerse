@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -99,6 +99,7 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
   const individualLabel = config.roles.individual;
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
 
   const navClass = (page: ViewAllPage): string => {
     return `${landingStyles.navLink} ${currentPage === page ? landingStyles.navLinkActive : ""}`;
@@ -172,16 +173,20 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
                       })}</p>
                     </div>
 
-                    <p className={styles.menuTitle}>Menu</p>
-                    {roleMenuItems.map((item) => (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        className={styles.menuLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        {item.label}
-                      </Link>
+                    {roleMenuGroups.map((group) => (
+                      <div key={group.key} className={styles.menuGroup}>
+                        <p className={styles.menuGroupTitle}>{group.label}</p>
+                        {group.items.map((item) => (
+                          <Link
+                            key={item.key}
+                            href={item.href}
+                            className={styles.menuLink}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
                     ))}
                     <hr className={styles.menuDivider} />
                     <button type="button" className={styles.menuItem} onClick={handleSignOut}>

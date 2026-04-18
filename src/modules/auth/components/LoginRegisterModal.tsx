@@ -43,6 +43,7 @@ export default function LoginRegisterModal({
 }: LoginRegisterModalProps) {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const recaptchaContainerIdRef = useRef(`recaptcha-container-${Math.random().toString(36).slice(2)}`);
   const auth = getAuth(firebaseApp);
   const db = getFirestore(firebaseApp);
   const tenantId = tenantConfig.id;
@@ -122,8 +123,21 @@ export default function LoginRegisterModal({
   }
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const recaptchaContainerId = recaptchaContainerIdRef.current;
+    let container = document.getElementById(recaptchaContainerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = recaptchaContainerId;
+      container.style.display = 'none';
+      document.body.appendChild(container);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!isOpen) {
-      // Clear verifier when modal closes.
+      // Clear verifier when modal closes. Keep the container mounted to avoid reCAPTCHA null-style race conditions.
       if (recaptchaRef.current) {
         try { recaptchaRef.current.clear(); } catch {}
         recaptchaRef.current = null;
@@ -175,12 +189,16 @@ export default function LoginRegisterModal({
 
       // Keep one verifier instance for this modal session to avoid DOM churn noise.
       if (!recaptchaRef.current) {
-        const container = document.getElementById('recaptcha-container');
+        const recaptchaContainerId = recaptchaContainerIdRef.current;
+        let container = document.getElementById(recaptchaContainerId);
         if (!container) {
-          setError('Page not ready. Please refresh and try again.');
-          return;
+          container = document.createElement('div');
+          container.id = recaptchaContainerId;
+          container.style.display = 'none';
+          document.body.appendChild(container);
         }
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+
+        recaptchaRef.current = new RecaptchaVerifier(auth, recaptchaContainerId, {
           size: 'invisible',
         });
         await recaptchaRef.current.render();
@@ -401,9 +419,6 @@ export default function LoginRegisterModal({
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        {/* Keep container mounted while modal is open; RecaptchaVerifier requires a stable node */}
-        <div id="recaptcha-container" style={{ display: 'none' }} />
-
         {/* Close Button */}
         <button className={styles.closeBtn} onClick={onClose}>
           ✕

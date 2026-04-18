@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
@@ -13,6 +13,7 @@ import {
   listManagedUsersForCompany,
   listManagedUsersForProfessional,
   listProfessionalsForCoachDropdown,
+  lookupScopedIndividualByPhone,
   type ManagedUserRecord,
 } from "@/services/manage-users.service";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
@@ -56,12 +57,20 @@ function normalizePhone(input: string): string {
   return `+${digits}`;
 }
 
+function getRoleDisplayLabel(
+  role: "professional" | "individual",
+  tenantConfig: TenantConfig
+): string {
+  return role === "professional" ? tenantConfig.roles.professional : tenantConfig.roles.individual;
+}
+
 type ManageUsersPageProps = {
   tenantConfig?: TenantConfig;
 };
 
 export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }: ManageUsersPageProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
 
@@ -85,6 +94,9 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
   const [email, setEmail] = useState("");
   const [phoneE164, setPhoneE164] = useState("");
   const [coachProfessionalId, setCoachProfessionalId] = useState("");
+  const [searchingPhone, setSearchingPhone] = useState(false);
+  const [phoneLookupState, setPhoneLookupState] = useState<"idle" | "found" | "not-found">("idle");
+  const [phoneLookupMessage, setPhoneLookupMessage] = useState("");
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
@@ -192,9 +204,78 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
   const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
+  const isCoachingStudioRoute = pathname?.startsWith("/coaching-studio");
+  const professionalLabel = isCoachingStudioRoute ? "Coach" : tenantConfig.roles.professional;
+  const individualLabel = isCoachingStudioRoute ? "Coachee" : tenantConfig.roles.individual;
 
   const canCreateProfessional = creator?.role === "company";
   const showCoachDropdown = creator?.role === "company" && targetUserType === "individual";
+  const detailsEnabled = phoneLookupState === "not-found";
+  const isAssociationMode = phoneLookupState === "found";
+
+  useEffect(() => {
+    setPhoneLookupState("idle");
+    setPhoneLookupMessage("");
+  }, [phoneE164, targetUserType]);
+
+  useEffect(() => {
+    setPhoneLookupState("idle");
+    setPhoneLookupMessage("");
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPhoneE164("");
+  }, [targetUserType]);
+
+  async function handleSearchByPhone() {
+    setError("");
+    setSuccess("");
+
+    const normalizedPhone = normalizePhone(phoneE164);
+    if (!normalizedPhone) {
+      setError("Phone number is required.");
+      return;
+    }
+
+    setSearchingPhone(true);
+    try {
+      const result = await lookupScopedIndividualByPhone({
+        targetUserType,
+        phoneE164: normalizedPhone,
+        coachProfessionalId: showCoachDropdown ? coachProfessionalId || undefined : undefined,
+      });
+
+      if (result.found) {
+        const selectedLabel = targetUserType === "professional" ? professionalLabel : individualLabel;
+        const foundFirst = result.user?.firstName?.trim() || "";
+        const foundLast = result.user?.lastName?.trim() || "";
+        const fallbackName = (result.user?.fullName || "").trim();
+        const fallbackParts = fallbackName ? fallbackName.split(/\s+/) : [];
+        const nextFirst = foundFirst || (fallbackParts[0] || "");
+        const nextLast = foundLast || (fallbackParts.length > 1 ? fallbackParts.slice(1).join(" ") : "");
+
+        setFirstName(nextFirst);
+        setLastName(nextLast);
+        setEmail(result.user?.email || "");
+        setPhoneLookupState("found");
+        setPhoneLookupMessage(`Found existing ${selectedLabel}, association will be created.`);
+      } else {
+        setFirstName("");
+        setLastName("");
+        setEmail("");
+        setPhoneLookupState("not-found");
+        const selectedLabel = targetUserType === "professional" ? professionalLabel : individualLabel;
+        setPhoneLookupMessage(`${selectedLabel} not found, please enter the details.`);
+      }
+    } catch (lookupError) {
+      const message = lookupError instanceof Error ? lookupError.message : "Phone lookup failed.";
+      setError(message);
+      setPhoneLookupState("idle");
+      setPhoneLookupMessage("");
+    } finally {
+      setSearchingPhone(false);
+    }
+  }
 
   async function handleCreateUser() {
     if (!creator) return;
@@ -207,24 +288,36 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = normalizePhone(phoneE164);
 
-    if (!normalizedFirstName || !normalizedLastName || !normalizedEmail || !normalizedPhone) {
-      setError("First name, last name, phone number, and email are required.");
+    if (!normalizedPhone) {
+      setError("Phone number is required.");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (phoneLookupState === "idle") {
+      setError("Please click Search by Phone before creating this user.");
+      return;
+    }
+
+    if (phoneLookupState === "not-found") {
+      if (!normalizedFirstName || !normalizedLastName || !normalizedEmail) {
+        setError("First name, last name, and email are required when no existing user is found.");
+        return;
+      }
+    }
+
+    if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
 
     if (creator.role === "professional" && targetUserType !== "individual") {
-      setError("Professional can create only Individual users.");
+      setError(`${professionalLabel} can create only ${individualLabel} users.`);
       return;
     }
 
     setSaving(true);
     try {
-      await createScopedManagedUser({
+      const result = await createScopedManagedUser({
         targetUserType,
         firstName: normalizedFirstName,
         lastName: normalizedLastName,
@@ -238,7 +331,14 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
       setEmail("");
       setPhoneE164("");
       setCoachProfessionalId("");
-      setSuccess(`${targetUserType === "professional" ? "Professional" : "Individual"} created successfully.`);
+      setPhoneLookupState("idle");
+      setPhoneLookupMessage("");
+      const roleLabel = getRoleDisplayLabel(targetUserType, tenantConfig);
+      if (result.operation === "associated") {
+        setSuccess(`Existing ${roleLabel} found by phone and associated successfully.`);
+      } else {
+        setSuccess(`${roleLabel} created successfully.`);
+      }
 
       await loadManagedUsers(creator);
     } catch (createError) {
@@ -321,8 +421,8 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
             <h1 className={styles.title}>Manage Users</h1>
             <p className={styles.subtitle}>
               {creator?.role === "company"
-                ? "Create Professionals and Individuals in your Company scope."
-                : "Create Individuals associated with your Professional scope."}
+                ? `Create ${professionalLabel}s and ${individualLabel}s in your Company scope.`
+                : `Create ${individualLabel}s associated with your ${professionalLabel} scope.`}
             </p>
 
             <div className={styles.field}>
@@ -332,24 +432,39 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
                 value={targetUserType}
                 onChange={(event) => setTargetUserType(event.target.value as "professional" | "individual")}
               >
-                {canCreateProfessional ? <option value="professional">Professional</option> : null}
-                <option value="individual">Individual</option>
+                {canCreateProfessional ? <option value="professional">{professionalLabel}</option> : null}
+                <option value="individual">{individualLabel}</option>
               </select>
             </div>
 
             <div className={styles.field}>
+              <label className={styles.label}>Phone Number</label>
+              <input className={styles.input} value={phoneE164} onChange={(event) => setPhoneE164(event.target.value)} placeholder="+91..." />
+            </div>
+
+            <div className={styles.actions}>
+              <button type="button" className={styles.searchButton} onClick={handleSearchByPhone} disabled={searchingPhone || !phoneE164.trim()}>
+                {searchingPhone ? "Searching..." : "Search by Phone"}
+              </button>
+            </div>
+
+            {phoneLookupState !== "idle" && phoneLookupMessage ? (
+              <p className={phoneLookupState === "found" ? styles.lookupFound : styles.lookupInfo}>{phoneLookupMessage}</p>
+            ) : null}
+
+            <div className={styles.field}>
               <label className={styles.label}>First Name</label>
-              <input className={styles.input} value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+              <input className={styles.input} value={firstName} onChange={(event) => setFirstName(event.target.value)} disabled={!detailsEnabled} />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Last Name</label>
-              <input className={styles.input} value={lastName} onChange={(event) => setLastName(event.target.value)} />
+              <input className={styles.input} value={lastName} onChange={(event) => setLastName(event.target.value)} disabled={!detailsEnabled} />
             </div>
 
             {showCoachDropdown ? (
               <div className={styles.field}>
-                <label className={styles.label}>Coach (Optional)</label>
+                <label className={styles.label}>{`${professionalLabel} (Optional)`}</label>
                 <select
                   className={styles.select}
                   value={coachProfessionalId}
@@ -364,18 +479,13 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
             ) : null}
 
             <div className={styles.field}>
-              <label className={styles.label}>Phone Number</label>
-              <input className={styles.input} value={phoneE164} onChange={(event) => setPhoneE164(event.target.value)} placeholder="+91..." />
-            </div>
-
-            <div className={styles.field}>
               <label className={styles.label}>Email Address</label>
-              <input className={styles.input} value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
+              <input className={styles.input} value={email} onChange={(event) => setEmail(event.target.value)} type="email" disabled={!detailsEnabled} />
             </div>
 
             <div className={styles.actions}>
               <button type="button" className={styles.button} onClick={handleCreateUser} disabled={saving}>
-                {saving ? "Creating..." : "Create User"}
+                {saving ? "Creating..." : isAssociationMode ? "Create Association" : "Create User"}
               </button>
             </div>
 
@@ -387,8 +497,8 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
             <h2 className={styles.title}>Users In Scope</h2>
             <p className={styles.subtitle}>
               {creator?.role === "company"
-                ? "Showing Professionals and Individuals from your Company."
-                : "Showing Individuals associated with you."}
+                ? `Showing ${professionalLabel}s and ${individualLabel}s from your Company.`
+                : `Showing ${individualLabel}s associated with you.`}
             </p>
 
             {users.length === 0 ? (
@@ -398,12 +508,12 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
                 {users.map((user) => (
                   <article key={user.id} className={styles.userRow}>
                     <p className={styles.userName}>{user.fullName}</p>
-                    <p className={styles.userMeta}>Type: {user.userType}</p>
+                    <p className={styles.userMeta}>Type: {getRoleDisplayLabel(user.userType, tenantConfig)}</p>
                     <p className={styles.userMeta}>{user.email}</p>
                     <p className={styles.userMeta}>{user.phoneE164}</p>
                     {creator?.role === "company" && user.userType === "individual" ? (
                       <p className={styles.userMeta}>
-                        Coach: {coaches.find((coach) => coach.id === user.associatedProfessionalId)?.fullName || "Unassigned"}
+                        {`${professionalLabel}: ${coaches.find((coach) => coach.id === user.associatedProfessionalId)?.fullName || "Unassigned"}`}
                       </p>
                     ) : null}
                   </article>

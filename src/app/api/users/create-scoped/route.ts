@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 type AppUserType = "company" | "professional" | "individual";
 
 type CreateScopedUserBody = {
+  action?: "lookup" | "create";
   targetUserType: "professional" | "individual";
   firstName: string;
   lastName: string;
@@ -31,6 +32,13 @@ type UserDoc = {
   companyName?: string;
   associatedCompanyId?: string;
   associatedProfessionalId?: string | null;
+  createdByUserId?: string;
+  createdByRole?: AppUserType;
+  assignmentEligible?: boolean;
+  mandatoryProfileCompleted?: boolean;
+  profileCompletionPercent?: number;
+  createdAt?: FieldValue;
+  updatedAt?: FieldValue;
 };
 
 function normalize(value: string): string {
@@ -88,6 +96,13 @@ async function resolveCreator(authUid: string) {
   return null;
 }
 
+function mapUserForResponse(id: string, user: UserDoc) {
+  return {
+    id,
+    ...user,
+  };
+}
+
 export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
 
@@ -111,25 +126,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as CreateScopedUserBody;
-    const firstName = normalize(body.firstName);
-    const lastName = normalize(body.lastName);
-    const email = normalizeEmail(body.email);
-    const phoneE164 = normalizePhone(body.phoneE164);
+    const action = body.action ?? "create";
+    const firstName = normalize(body.firstName || "");
+    const lastName = normalize(body.lastName || "");
+    const email = normalizeEmail(body.email || "");
+    const phoneE164 = normalizePhone(body.phoneE164 || "");
     const targetUserType = body.targetUserType;
 
-    if (!firstName || !lastName || !email || !phoneE164) {
-      return NextResponse.json(
-        { error: "firstName, lastName, email, and phoneE164 are required.", requestId },
-        { status: 400 }
-      );
-    }
-
-    if (!isValidEmail(email)) {
-      return NextResponse.json({ error: "Invalid email format.", requestId }, { status: 400 });
+    if (action !== "lookup" && action !== "create") {
+      return NextResponse.json({ error: "Invalid action.", requestId }, { status: 400 });
     }
 
     if (targetUserType !== "professional" && targetUserType !== "individual") {
       return NextResponse.json({ error: "Invalid targetUserType.", requestId }, { status: 400 });
+    }
+
+    if (!phoneE164) {
+      return NextResponse.json({ error: "phoneE164 is required.", requestId }, { status: 400 });
     }
 
     if (creatorRole === "professional" && targetUserType !== "individual") {
@@ -145,22 +158,6 @@ export async function POST(request: NextRequest) {
       creatorRole === "company"
         ? creator.id
         : creator.associatedCompanyId || undefined;
-
-    const fullName = `${firstName} ${lastName}`.trim();
-
-    const duplicateByEmail = await adminDb.collection("users").where("email", "==", email).limit(1).get();
-    if (!duplicateByEmail.empty) {
-      return NextResponse.json({ error: "A user with this email already exists.", requestId }, { status: 409 });
-    }
-
-    const duplicateByPhone = await adminDb
-      .collection("users")
-      .where("phoneE164", "==", phoneE164)
-      .limit(1)
-      .get();
-    if (!duplicateByPhone.empty) {
-      return NextResponse.json({ error: "A user with this phone already exists.", requestId }, { status: 409 });
-    }
 
     let associatedProfessionalId: string | null = null;
 
@@ -187,6 +184,113 @@ export async function POST(request: NextRequest) {
     if (creatorRole === "professional" && targetUserType === "individual") {
       associatedProfessionalId = creator.id;
     }
+
+    const existingByPhone = await adminDb
+      .collection("users")
+      .where("phoneE164", "==", phoneE164)
+      .limit(1)
+      .get();
+
+    if (action === "lookup") {
+      if (existingByPhone.empty) {
+        return NextResponse.json({ requestId, found: false });
+      }
+
+      const existingRow = existingByPhone.docs[0];
+      const existing = existingRow.data() as UserDoc;
+      const existingRole = existing.userType ?? existing.profileType ?? existing.role;
+
+      if (existingRole !== targetUserType) {
+        return NextResponse.json(
+          { error: "The phone number belongs to a different user type.", requestId },
+          { status: 409 }
+        );
+      }
+
+      if (existing.tenantId && existing.tenantId !== tenantId) {
+        return NextResponse.json(
+          { error: "This Individual belongs to another tenant and cannot be associated here.", requestId },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({
+        requestId,
+        found: true,
+        operation: "lookup",
+        user: mapUserForResponse(existingRow.id, existing),
+      });
+    }
+
+    // Prefer linking an existing profile by phone before creating a new auth/user record.
+    if (!existingByPhone.empty) {
+      const existingRow = existingByPhone.docs[0];
+      const existing = existingRow.data() as UserDoc;
+      const existingRole = existing.userType ?? existing.profileType ?? existing.role;
+
+      if (existingRole !== targetUserType) {
+        return NextResponse.json(
+          { error: "The phone number belongs to a different user type.", requestId },
+          { status: 409 }
+        );
+      }
+
+      if (existing.tenantId && existing.tenantId !== tenantId) {
+        return NextResponse.json(
+          { error: "This Individual belongs to another tenant and cannot be associated here.", requestId },
+          { status: 409 }
+        );
+      }
+
+      const updatePayload: Partial<UserDoc> & { updatedAt: FieldValue } = {
+        tenantId,
+        associatedCompanyId,
+        companyName: creator.companyName ?? existing.companyName ?? "",
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      if (targetUserType === "individual") {
+        if (creatorRole === "professional") {
+          updatePayload.associatedProfessionalId = creator.id;
+        } else if (associatedProfessionalId) {
+          updatePayload.associatedProfessionalId = associatedProfessionalId;
+        }
+      }
+
+      if (targetUserType === "professional" && creatorRole !== "company") {
+        return NextResponse.json(
+          { error: "Only Company can associate Professional users.", requestId },
+          { status: 403 }
+        );
+      }
+
+      await existingRow.ref.set(updatePayload, { merge: true });
+      const refreshed = (await existingRow.ref.get()).data() as UserDoc;
+
+      return NextResponse.json({
+        requestId,
+        operation: "associated",
+        user: mapUserForResponse(existingRow.id, refreshed),
+      });
+    }
+
+    if (!firstName || !lastName || !email || !phoneE164) {
+      return NextResponse.json(
+        { error: "firstName, lastName, email, and phoneE164 are required when creating a new user.", requestId },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: "Invalid email format.", requestId }, { status: 400 });
+    }
+
+    const duplicateByEmail = await adminDb.collection("users").where("email", "==", email).limit(1).get();
+    if (!duplicateByEmail.empty) {
+      return NextResponse.json({ error: "A user with this email already exists.", requestId }, { status: 409 });
+    }
+
+    const fullName = `${firstName} ${lastName}`.trim();
 
     const authUser = await adminAuth.createUser({
       email,
@@ -240,6 +344,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       requestId,
+      operation: "created",
       user: {
         id: authUser.uid,
         ...payload,

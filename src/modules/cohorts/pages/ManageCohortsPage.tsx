@@ -162,7 +162,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
         });
 
         if (!profile || (profile.userType !== "company" && profile.userType !== "professional")) {
-          throw new Error("Cohort Management is available only for Company and Professional users.");
+          throw new Error(`Cohort Management is available only for ${tenantConfig.roles.company} and ${tenantConfig.roles.professional} users.`);
         }
 
         const creatorDoc = await getUserById(profile.userId);
@@ -325,12 +325,12 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
     const phoneE164 = normalizePhone(newPhone);
 
     if (!firstName || !lastName || !email || !phoneE164) {
-      setError("First name, last name, phone number, and email are required for new Individuals.");
+      setError(`First name, last name, phone number, and email are required for new ${individualLabel}s.`);
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email address for the new Individual.");
+      setError(`Please enter a valid email address for the new ${individualLabel}.`);
       return;
     }
 
@@ -343,7 +343,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
     );
 
     if (duplicateInPending || duplicateInSelected) {
-      setError("This Individual is already part of the cohort selection.");
+      setError(`This ${individualLabel} is already part of the cohort selection.`);
       return;
     }
 
@@ -380,7 +380,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
 
     const totalIndividuals = selectedIndividuals.length + pendingIndividuals.length;
     if (totalIndividuals < 2) {
-      setError("A cohort must include at least two Individuals.");
+      setError(`A cohort must include at least two ${individualLabel}s.`);
       return;
     }
 
@@ -423,6 +423,8 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
   const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
+  const professionalLabel = tenantConfig.roles.professional;
+  const individualLabel = tenantConfig.roles.individual;
 
   if (loading) {
     return (
@@ -489,7 +491,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
           <section className={styles.card}>
             <h1 className={styles.title}>{editingCohortId ? "Edit Cohort" : "Create Cohort"}</h1>
             <p className={styles.subtitle}>
-              A Cohort requires more than one Individual and becomes Active only when a Professional is assigned.
+              {`A Cohort requires more than one ${individualLabel} and becomes Active only when a ${professionalLabel} is assigned.`}
             </p>
 
             <div className={styles.field}>
@@ -499,7 +501,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
 
             {creator?.role === "company" ? (
               <div className={styles.field}>
-                <label className={styles.label}>Professional (Optional)</label>
+                <label className={styles.label}>{`${professionalLabel} (Optional)`}</label>
                 <select className={styles.select} value={professionalId} onChange={(event) => setProfessionalId(event.target.value)}>
                   <option value="">Unassigned (Cohort remains inactive)</option>
                   {professionals.map((entry) => (
@@ -508,11 +510,11 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
                 </select>
               </div>
             ) : (
-              <p className={styles.helper}>As a Professional, you are automatically assigned to the Cohort.</p>
+              <p className={styles.helper}>{`As a ${professionalLabel}, you are automatically assigned to the Cohort.`}</p>
             )}
 
             <div className={styles.field}>
-              <label className={styles.label}>Search Individual by Phone or Email</label>
+              <label className={styles.label}>{`Search ${individualLabel} by Phone or Email`}</label>
               <div className={styles.searchRow}>
                 <input className={styles.input} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Enter phone or email" />
                 <button type="button" className={styles.searchButton} onClick={handleSearchIndividuals} disabled={searching}>
@@ -539,10 +541,10 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
 
             {showAddNewPrompt ? (
               <div className={styles.inlineNewCard}>
-                <p className={styles.helper}>No Individual match found. Do you want to add a new Individual?</p>
+                <p className={styles.helper}>{`No ${individualLabel} match found. Do you want to add a new ${individualLabel}?`}</p>
                 <div className={styles.actions}>
                   <button type="button" className={styles.secondaryButton} onClick={() => setShowInlineNewForm(true)}>
-                    Yes, Add New Individual
+                    {`Yes, Add New ${individualLabel}`}
                   </button>
                 </div>
               </div>
@@ -550,7 +552,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
 
             {showInlineNewForm ? (
               <div className={styles.inlineNewCard}>
-                <p className={styles.sectionTitle}>New Individual Details</p>
+                <p className={styles.sectionTitle}>{`New ${individualLabel} Details`}</p>
                 <div className={styles.inlineGrid}>
                   <input className={styles.input} value={newFirstName} onChange={(event) => setNewFirstName(event.target.value)} placeholder="First Name" />
                   <input className={styles.input} value={newLastName} onChange={(event) => setNewLastName(event.target.value)} placeholder="Last Name" />
@@ -563,7 +565,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
               </div>
             ) : null}
 
-            <p className={styles.sectionTitle}>Selected Existing Individuals ({selectedIndividuals.length})</p>
+            <p className={styles.sectionTitle}>{`Selected Existing ${individualLabel}s (${selectedIndividuals.length})`}</p>
             <div className={styles.chips}>
               {selectedIndividuals.map((entry) => (
                 <span key={entry.id} className={styles.chip}>
@@ -575,7 +577,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
               ))}
             </div>
 
-            <p className={styles.sectionTitle}>Pending New Individuals ({pendingIndividuals.length})</p>
+            <p className={styles.sectionTitle}>{`Pending New ${individualLabel}s (${pendingIndividuals.length})`}</p>
             <div className={styles.chips}>
               {pendingIndividuals.map((entry) => (
                 <span key={`${entry.email}-${entry.phoneE164}`} className={styles.chip}>
@@ -609,7 +611,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
             <p className={styles.subtitle}>
               {creator?.role === "company"
                 ? "Showing Company cohorts."
-                : "Showing cohorts where you are the assigned Professional."}
+                : `Showing cohorts where you are the assigned ${professionalLabel}.`}
             </p>
 
             {cohorts.length === 0 ? (
@@ -623,7 +625,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
                       <span className={`${styles.status} ${styles[`status${entry.status}`]}`}>{entry.status}</span>
                     </div>
                     <p className={styles.meta}>Members: {entry.memberCount}</p>
-                    <p className={styles.meta}>Professional: {entry.professionalName || "Unassigned"}</p>
+                    <p className={styles.meta}>{`${professionalLabel}: ${entry.professionalName || "Unassigned"}`}</p>
                     <div className={styles.actions}>
                       <button type="button" className={styles.secondaryButton} onClick={() => void handleEditCohort(entry.id)}>
                         Edit Cohort

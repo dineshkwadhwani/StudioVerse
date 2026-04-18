@@ -77,6 +77,21 @@
   background: linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%);
 }
 
+.searchButton {
+  border: 1px solid #1f5c9c;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #1f5c9c;
+  background: #fff;
+}
+
+.searchButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -92,6 +107,28 @@
 .success {
   margin-top: 10px;
   color: #1b6c45;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.lookupFound {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #8fd4b2;
+  border-radius: 10px;
+  background: #e9f8ef;
+  color: #1f6a43;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.lookupInfo {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #bfd5e8;
+  border-radius: 10px;
+  background: #f1f8ff;
+  color: #2f5571;
   font-size: 0.88rem;
   font-weight: 600;
 }

@@ -39,6 +39,16 @@ export type CreateManagedUserInput = {
   coachProfessionalId?: string;
 };
 
+export type CreateScopedManagedUserResult = {
+  operation: "created" | "associated";
+  user: ManagedUserRecord;
+};
+
+export type ScopedPhoneLookupResult = {
+  found: boolean;
+  user?: ManagedUserRecord;
+};
+
 function toStringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -135,7 +145,7 @@ export async function listProfessionalsForCoachDropdown(args: {
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
 
-export async function createScopedManagedUser(input: CreateManagedUserInput): Promise<ManagedUserRecord> {
+export async function createScopedManagedUser(input: CreateManagedUserInput): Promise<CreateScopedManagedUserResult> {
   const currentUser = auth.currentUser;
   if (!currentUser) {
     throw new Error("You must be signed in.");
@@ -152,7 +162,12 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
   });
 
   const raw = await response.text();
-  let parsed: { error?: string; requestId?: string; user?: ManagedUserRecord } = {};
+  let parsed: {
+    error?: string;
+    requestId?: string;
+    operation?: "created" | "associated";
+    user?: ManagedUserRecord;
+  } = {};
   if (raw.trim()) {
     try {
       parsed = JSON.parse(raw) as typeof parsed;
@@ -168,5 +183,50 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     throw new Error(parsed.requestId ? `${message} (Request ID: ${parsed.requestId})` : message);
   }
 
-  return parsed.user;
+  return {
+    operation: parsed.operation ?? "created",
+    user: parsed.user,
+  };
+}
+
+export async function lookupScopedIndividualByPhone(input: {
+  targetUserType: "professional" | "individual";
+  phoneE164: string;
+  coachProfessionalId?: string;
+}): Promise<ScopedPhoneLookupResult> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error("You must be signed in.");
+  }
+
+  // Get the current user's profile to extract tenantId
+  const currentUserProfile = await getUserById(currentUser.uid);
+  if (!currentUserProfile) {
+    throw new Error("Your profile could not be resolved.");
+  }
+
+  // Query Firestore directly for a user with matching phone and tenant
+  const snap = await getDocs(
+    query(
+      collection(db, "users"),
+      where("phoneE164", "==", input.phoneE164),
+      where("tenantId", "==", currentUserProfile.tenantId)
+    )
+  );
+
+  if (snap.empty) {
+    return { found: false };
+  }
+
+  const foundUser = mapManagedUser(snap.docs[0].id, snap.docs[0].data() as Record<string, unknown>);
+
+  // Verify the found user has the requested type
+  if (foundUser.userType !== input.targetUserType) {
+    return { found: false };
+  }
+
+  return {
+    found: true,
+    user: foundUser,
+  };
 }

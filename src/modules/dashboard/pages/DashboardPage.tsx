@@ -257,6 +257,17 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
         <Link href={`${basePath}/events`}>Events</Link>
       </nav>
 
+      {/* Profile incomplete banner */}
+      {profileIncomplete && (
+        <div className={styles.profileIncompleteBanner}>
+          <span>⚠️ Your profile is incomplete.</span>
+          <span> Please complete your basic profile (email and city) to assign or perform activities.</span>
+          <Link href={`${basePath}/profile`} className={styles.profileIncompleteBannerLink}>
+            Complete Profile →
+          </Link>
+        </div>
+      )}
+
       {/* Content */}
       <div className={styles.shell}>
         <section className={styles.contentCard}>

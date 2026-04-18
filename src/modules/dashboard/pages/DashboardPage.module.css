@@ -144,6 +144,28 @@
   margin: 6px 0;
 }
 
+.profileIncompleteBanner {
+  width: 100%;
+  background: #fff7ed;
+  border-bottom: 2px solid #f97316;
+  color: #7c2d12;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.profileIncompleteBannerLink {
+  margin-left: auto;
+  color: #ea580c;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
 /* Content area */
 .shell {
   max-width: 1180px;

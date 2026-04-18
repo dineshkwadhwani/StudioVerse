@@ -35,42 +35,39 @@ export async function searchUsersByPhoneOrEmail(
   }
 
   const normalizedSearch = searchTerm.toLowerCase().trim();
-  
+  const normalizedPhone = normalizePhone(searchTerm);
+  const phoneCandidates = new Set(buildPhoneSearchCandidates(searchTerm));
+  if (normalizedPhone) {
+    phoneCandidates.add(normalizedPhone);
+  }
+
   try {
-    // Search in users collection by phone or email
-    const phoneQuery = query(
+    const tenantUsersQuery = query(
       collection(db, "users"),
-      where("tenantId", "==", tenantId),
-      where("phoneE164", "==", normalizedSearch)
+      where("tenantId", "==", tenantId)
     );
 
-    const emailQuery = query(
-      collection(db, "users"),
-      where("tenantId", "==", tenantId),
-      where("email", "==", normalizedSearch)
-    );
-
-    const [phoneSnap, emailSnap] = await Promise.all([
-      getDocs(phoneQuery),
-      getDocs(emailQuery),
-    ]);
-
+    const tenantUsersSnap = await getDocs(tenantUsersQuery);
     const resultsMap = new Map<string, UserSearchResult>();
 
-    // Add phone matches
-    phoneSnap.docs.forEach((doc) => {
+    tenantUsersSnap.docs.forEach((doc) => {
       const data = doc.data() as Record<string, unknown>;
       const profile = mapUserToSearchResult(doc.id, data);
-      if (profile) {
-        resultsMap.set(profile.id, profile);
+      if (!profile) {
+        return;
       }
-    });
 
-    // Add email matches (avoid duplicates)
-    emailSnap.docs.forEach((doc) => {
-      const data = doc.data() as Record<string, unknown>;
-      const profile = mapUserToSearchResult(doc.id, data);
-      if (profile && !resultsMap.has(profile.id)) {
+      const profileEmail = normalizeEmail(profile.email);
+      const profilePhoneCandidates = new Set(buildPhoneSearchCandidates(profile.phone));
+      const profileNormalizedPhone = normalizePhone(profile.phone);
+      if (profileNormalizedPhone) {
+        profilePhoneCandidates.add(profileNormalizedPhone);
+      }
+
+      const emailMatches = Boolean(profileEmail) && profileEmail === normalizedSearch;
+      const phoneMatches = Array.from(profilePhoneCandidates).some((candidate) => phoneCandidates.has(candidate));
+
+      if (emailMatches || phoneMatches) {
         resultsMap.set(profile.id, profile);
       }
     });
@@ -123,7 +120,58 @@ function normalizeEmail(value: string): string {
 }
 
 function normalizePhone(value: string): string {
-  return value.trim();
+  const raw = value.trim();
+  const digits = raw.replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  if (raw.startsWith("+")) {
+    return `+${digits}`;
+  }
+
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return `+91${digits.slice(1)}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+${digits}`;
+  }
+
+  return `+${digits}`;
+}
+
+function buildPhoneSearchCandidates(value: string): string[] {
+  const raw = value.trim();
+  if (!raw || raw.includes("@")) {
+    return [];
+  }
+
+  const digits = raw.replace(/\D/g, "");
+  const candidates = new Set<string>();
+
+  candidates.add(raw);
+
+  if (digits) {
+    candidates.add(digits);
+  }
+
+  const normalized = normalizePhone(raw);
+  if (normalized) {
+    candidates.add(normalized);
+  }
+
+  if (digits.length === 10) {
+    candidates.add(`0${digits}`);
+    candidates.add(`91${digits}`);
+  }
+
+  return Array.from(candidates).filter(Boolean);
 }
 
 async function provisionAssigneeIfNeeded(args: {

@@ -78,6 +78,7 @@ function validateAssessmentImageFile(file: File): string | null {
 
 const EMPTY_FORM: AssessmentFormValues = {
   tenantId: "",
+  tenantIds: [],
   name: "",
   shortDescription: "",
   longDescription: "",
@@ -104,6 +105,22 @@ function processQuestionPromptTemplate(prompt: string, count: number): string {
     /\[\s*(?:no\s*of\s*questions|no_of_questions)\s*\]|\bno_of_questions\b/gi,
     String(count)
   );
+}
+
+function matchesTenantScope(args: {
+  primaryTenantId: string;
+  tenantIds?: string[];
+  selectedTenantId: string;
+}): boolean {
+  if (args.primaryTenantId === args.selectedTenantId) {
+    return true;
+  }
+
+  if (!Array.isArray(args.tenantIds) || args.tenantIds.length === 0) {
+    return false;
+  }
+
+  return args.tenantIds.includes(args.selectedTenantId);
 }
 
 export default function AssessmentsSection({ tenants: propTenants }: AssessmentsSectionProps) {
@@ -163,20 +180,31 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   // Load assessments when tenant filter changes
   useEffect(() => {
     setLoading(true);
-    const q = selectedTenantId
-      ? query(collection(db, "assessments"), where("tenantId", "==", selectedTenantId), orderBy("createdAt", "desc"))
-      : query(collection(db, "assessments"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "assessments"), orderBy("createdAt", "desc"));
     getDocs(q)
       .then((snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AssessmentRecord, "id">) }));
-        setAssessments(rows);
+        const filtered = selectedTenantId
+          ? rows.filter((item) =>
+              matchesTenantScope({
+                primaryTenantId: item.tenantId,
+                tenantIds: item.tenantIds,
+                selectedTenantId,
+              })
+            )
+          : rows;
+        setAssessments(filtered);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [selectedTenantId]);
 
   function openCreate() {
-    setFormValues({ ...EMPTY_FORM, tenantId: selectedTenantId });
+    setFormValues({
+      ...EMPTY_FORM,
+      tenantId: selectedTenantId,
+      tenantIds: selectedTenantId ? [selectedTenantId] : [],
+    });
     setSelectedAssessmentImage(null);
     setGeneratedQuestions([]);
     setExistingQuestionCount(0);
@@ -187,9 +215,14 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   }
 
   function openEdit(assessment: AssessmentRecord) {
+    const tenantIds = Array.isArray(assessment.tenantIds) && assessment.tenantIds.length > 0
+      ? assessment.tenantIds
+      : [assessment.tenantId];
+
     setFormValues({
       id: assessment.id,
       tenantId: assessment.tenantId,
+      tenantIds,
       name: assessment.name,
       shortDescription: assessment.shortDescription,
       longDescription: assessment.longDescription,
@@ -349,7 +382,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   }
 
   async function saveAssessment() {
-    if (!formValues.tenantId) { setError("Please select a tenant."); return; }
+    if (!formValues.tenantId || formValues.tenantIds.length === 0) { setError("Please select at least one tenant."); return; }
     if (!formValues.name.trim()) { setError("Assessment name is required."); return; }
     if (generatedQuestions.length === 0) { setError("Please generate at least one question before saving."); return; }
 
@@ -382,6 +415,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
 
       const assessmentDoc: Record<string, unknown> = {
         tenantId: formValues.tenantId,
+        tenantIds: formValues.tenantIds,
         name: formValues.name.trim(),
         shortDescription: formValues.shortDescription.trim(),
         longDescription: formValues.longDescription.trim(),
@@ -475,11 +509,19 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       closeForm();
 
       // Refresh list
-      const q = selectedTenantId
-        ? query(collection(db, "assessments"), where("tenantId", "==", selectedTenantId), orderBy("createdAt", "desc"))
-        : query(collection(db, "assessments"), orderBy("createdAt", "desc"));
+      const q = query(collection(db, "assessments"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
-      setAssessments(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AssessmentRecord, "id">) })));
+      const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AssessmentRecord, "id">) }));
+      const filtered = selectedTenantId
+        ? rows.filter((item) =>
+            matchesTenantScope({
+              primaryTenantId: item.tenantId,
+              tenantIds: item.tenantIds,
+              selectedTenantId,
+            })
+          )
+        : rows;
+      setAssessments(filtered);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(`Save failed: ${msg}`);
@@ -552,7 +594,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                   <td>{a.questionsPerAttempt}</td>
                   <td><span className={styles.statusBadge}>{a.status}</span></td>
                   <td><span className={styles.statusBadge}>{a.publicationState}</span></td>
-                  <td>{a.tenantId}</td>
+                  <td>{Array.isArray(a.tenantIds) && a.tenantIds.length > 0 ? a.tenantIds.join(", ") : a.tenantId}</td>
                   <td>
                     <button type="button" className={styles.rowAction} onClick={() => openEdit(a)}>
                       Edit
@@ -580,13 +622,28 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
             <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
               <legend style={{ fontWeight: 700, padding: "0 6px" }}>Identity</legend>
 
-              <label className={styles.label} htmlFor="a-tenant">Tenant *</label>
-              <select id="a-tenant" className={styles.select} value={formValues.tenantId} onChange={(e) => setField("tenantId", e.target.value)}>
-                <option value="">— Select Tenant —</option>
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.tenantId}>{t.tenantName}</option>
-                ))}
-              </select>
+              <label className={styles.label} htmlFor="a-tenant">Tenants *</label>
+              <div id="a-tenant" className={styles.controlCard}>
+                {tenants.map((t) => {
+                  const checked = formValues.tenantIds.includes(t.tenantId);
+                  return (
+                    <label key={t.id} className={styles.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const nextTenantIds = checked
+                            ? formValues.tenantIds.filter((tenantId) => tenantId !== t.tenantId)
+                            : [...formValues.tenantIds, t.tenantId];
+                          setField("tenantIds", nextTenantIds);
+                          setField("tenantId", nextTenantIds[0] ?? "");
+                        }}
+                      />
+                      <span>{t.tenantName}</span>
+                    </label>
+                  );
+                })}
+              </div>
 
               <label className={styles.label} htmlFor="a-name">Assessment Name *</label>
               <input id="a-name" className={styles.input} value={formValues.name} onChange={(e) => setField("name", e.target.value)} placeholder="e.g. Leadership Self-Awareness Assessment" />

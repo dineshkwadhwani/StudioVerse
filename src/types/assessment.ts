@@ -38,6 +38,7 @@ export type AssessmentReportStyle =
 export type AssessmentRecord = {
   id: string;
   tenantId: string;
+  tenantIds?: string[];
   name: string;
   shortDescription: string;
   longDescription: string;
@@ -135,6 +136,7 @@ export type AssessmentReportRecord = {
 export type AssessmentFormValues = {
   id?: string;
   tenantId: string;
+  tenantIds: string[];
   name: string;
   shortDescription: string;
   longDescription: string;

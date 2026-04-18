@@ -47,11 +47,40 @@ export default function EventForm({
   onSave,
 }: EventFormProps) {
   const activeTenants = tenants.filter((t) => t.status === "active");
+  const primaryTenantId = value.tenantId;
+  const selectedTenantIds = Array.isArray(value.tenantIds)
+    ? value.tenantIds
+    : value.tenantId
+    ? [value.tenantId]
+    : [];
+  const selectedTenantIdsWithPrimary = primaryTenantId && !selectedTenantIds.includes(primaryTenantId)
+    ? [primaryTenantId, ...selectedTenantIds]
+    : selectedTenantIds;
 
   // ---- Auto-focus first field with an error ----
   const fieldRefs = useRef<
     Partial<Record<keyof EventFormValues, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>
   >({});
+
+  function toggleTenantSelection(tenantId: string): void {
+    const current = selectedTenantIdsWithPrimary;
+    const hasTenant = current.includes(tenantId);
+    const nextTenantIds = hasTenant
+      ? current.filter((id) => id !== tenantId)
+      : [...current, tenantId];
+
+    if (editing && primaryTenantId) {
+      if (!nextTenantIds.includes(primaryTenantId)) {
+        return;
+      }
+      onChange("tenantIds", nextTenantIds);
+      onChange("tenantId", primaryTenantId);
+      return;
+    }
+
+    onChange("tenantIds", nextTenantIds);
+    onChange("tenantId", nextTenantIds[0] ?? "");
+  }
 
   useEffect(() => {
     const focusOrder: Array<keyof EventFormValues> = [
@@ -101,20 +130,23 @@ export default function EventForm({
 
         <div style={{ overflowY: "auto", flex: 1 }}>
           {/* Tenant */}
-          <label className={styles.label} htmlFor="event-tenant">Tenant</label>
-          <select
+          <label className={styles.label} htmlFor="event-tenant">Tenants</label>
+          <div
             id="event-tenant"
-            ref={(el) => { fieldRefs.current.tenantId = el; }}
-            className={`${styles.select} ${errors.tenantId ? styles.inputError : ""}`}
-            value={value.tenantId}
-            onChange={(e) => onChange("tenantId", e.target.value)}
-            disabled={busy || editing}
+            className={`${styles.controlCard} ${errors.tenantId ? styles.inputError : ""}`}
           >
-            <option value="">Select a tenant</option>
             {activeTenants.map((t) => (
-              <option key={t.id} value={t.tenantId}>{t.tenantName}</option>
+              <label key={t.id} className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={selectedTenantIdsWithPrimary.includes(t.tenantId)}
+                  onChange={() => toggleTenantSelection(t.tenantId)}
+                  disabled={busy}
+                />
+                <span>{t.tenantName}</span>
+              </label>
             ))}
-          </select>
+          </div>
           {errors.tenantId ? <p className={styles.error}>{errors.tenantId}</p> : null}
 
           {/* Name */}

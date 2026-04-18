@@ -90,6 +90,20 @@ function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function isInTenantScope(
+  record: Pick<AssessmentRecord, "tenantId" | "tenantIds">,
+  tenantId: string,
+): boolean {
+  const target = normalizeTenantToken(tenantId);
+  if (normalizeTenantToken(record.tenantId) === target) {
+    return true;
+  }
+
+  return (record.tenantIds ?? []).some(
+    (value) => normalizeTenantToken(value) === target,
+  );
+}
+
 function getSectionMeta(toolsLabel: string, basePath: string): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
   return {
     tools: {
@@ -347,9 +361,8 @@ export default function LandingPage({ config }: Props) {
           ...(entry.data() as Omit<AssessmentRecord, "id">),
         }));
 
-        const targetTenant = normalizeTenantToken(config.id);
-        const tenantAssessments = allAssessments.filter(
-          (item) => normalizeTenantToken(item.tenantId) === targetTenant,
+        const tenantAssessments = allAssessments.filter((item) =>
+          isInTenantScope(item, config.id),
         );
 
         const promoted = tenantAssessments.filter((item) => Boolean((item as unknown as { promoted?: boolean }).promoted));

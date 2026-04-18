@@ -62,6 +62,7 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
   return {
     id,
     tenantId: data.tenantId,
+    tenantIds: Array.isArray(data.tenantIds) ? data.tenantIds : undefined,
     name: data.name,
     eventType: data.eventType ?? "webinar",
     eventSource: data.eventSource ?? "studioverse_manager",
@@ -102,6 +103,7 @@ function sanitizePayload(input: EventWriteInput): Record<string, unknown> {
   const nullToUndef = <T>(v: T | null): T | undefined => (v === null ? undefined : v);
   const payload: Record<string, unknown> = {
     tenantId: input.tenantId,
+    tenantIds: input.tenantIds,
     name: input.name,
     eventType: input.eventType,
     eventSource: input.eventSource,
@@ -140,15 +142,40 @@ function sanitizePayload(input: EventWriteInput): Record<string, unknown> {
 // Public read functions
 // ---------------------------------------------------------------------------
 
+function matchesTenantScope(args: {
+  primaryTenantId: string;
+  tenantIds?: string[];
+  selectedTenantId: string;
+}): boolean {
+  if (args.primaryTenantId === args.selectedTenantId) {
+    return true;
+  }
+
+  if (!Array.isArray(args.tenantIds) || args.tenantIds.length === 0) {
+    return false;
+  }
+
+  return args.tenantIds.includes(args.selectedTenantId);
+}
+
 export async function listEvents(tenantId?: string): Promise<EventRecord[]> {
   const constraints: QueryConstraint[] = [orderBy("updatedAt", "desc")];
-  if (tenantId) {
-    constraints.unshift(where("tenantId", "==", tenantId));
-  }
   const snapshot = await getDocs(
     query(collection(db, "events"), ...constraints),
   );
-  return snapshot.docs.map((item) => mapEvent(item.id, item.data()));
+  const rows = snapshot.docs.map((item) => mapEvent(item.id, item.data()));
+
+  if (!tenantId) {
+    return rows;
+  }
+
+  return rows.filter((item) =>
+    matchesTenantScope({
+      primaryTenantId: item.tenantId,
+      tenantIds: item.tenantIds,
+      selectedTenantId: tenantId,
+    })
+  );
 }
 
 export async function getEvent(eventId: string): Promise<EventRecord | null> {
@@ -244,14 +271,21 @@ export async function listLandingPageEvents(
   tenantId: string,
 ): Promise<EventRecord[]> {
   const constraints: QueryConstraint[] = [
-    where("tenantId", "==", tenantId),
     where("status", "==", "published"),
     where("publicationState", "==", "published"),
   ];
   const snapshot = await getDocs(
     query(collection(db, "events"), ...constraints),
   );
-  const all = snapshot.docs.map((d) => mapEvent(d.id, d.data()));
+  const all = snapshot.docs
+    .map((d) => mapEvent(d.id, d.data()))
+    .filter((item) =>
+      matchesTenantScope({
+        primaryTenantId: item.tenantId,
+        tenantIds: item.tenantIds,
+        selectedTenantId: tenantId,
+      })
+    );
 
   const now = new Date().toISOString();
 

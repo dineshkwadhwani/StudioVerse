@@ -32,6 +32,7 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export type EventRecord = {
   id: string;
   tenantId: string;
+  tenantIds?: string[];
   name: string;
   eventType: EventType;
   eventSource: EventSource;
@@ -72,6 +73,7 @@ export type EventRecord = {
 export type EventWriteInput = {
   id?: string;
   tenantId: string;
+  tenantIds?: string[];
   name: string;
   eventType: EventType;
   eventSource: EventSource;
@@ -100,6 +102,7 @@ export type EventWriteInput = {
 export type EventFormValues = {
   id?: string;
   tenantId: string;
+  tenantIds: string[];
   name: string;
   eventType: EventType;
   eventSource: EventSource;
@@ -129,6 +132,7 @@ export type EventSaveMode = "draft" | "publish";
 
 export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   tenantId: "",
+  tenantIds: [],
   name: "",
   eventType: "webinar",
   eventSource: "studioverse_manager",

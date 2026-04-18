@@ -48,9 +48,38 @@ export default function ProgramForm({
   onSave,
 }: ProgramFormProps) {
   const activeTenants = tenants.filter((tenant) => tenant.status === "active");
+  const primaryTenantId = value.tenantId;
+  const selectedTenantIds = Array.isArray(value.tenantIds)
+    ? value.tenantIds
+    : value.tenantId
+    ? [value.tenantId]
+    : [];
+  const selectedTenantIdsWithPrimary = primaryTenantId && !selectedTenantIds.includes(primaryTenantId)
+    ? [primaryTenantId, ...selectedTenantIds]
+    : selectedTenantIds;
   const fieldRefs = useRef<
     Partial<Record<keyof ProgramFormValues, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>
   >({});
+
+  function toggleTenantSelection(tenantId: string): void {
+    const current = selectedTenantIdsWithPrimary;
+    const hasTenant = current.includes(tenantId);
+    const nextTenantIds = hasTenant
+      ? current.filter((id) => id !== tenantId)
+      : [...current, tenantId];
+
+    if (editing && primaryTenantId) {
+      if (!nextTenantIds.includes(primaryTenantId)) {
+        return;
+      }
+      onChange("tenantIds", nextTenantIds);
+      onChange("tenantId", primaryTenantId);
+      return;
+    }
+
+    onChange("tenantIds", nextTenantIds);
+    onChange("tenantId", nextTenantIds[0] ?? "");
+  }
 
   useEffect(() => {
     const focusOrder: Array<keyof ProgramFormValues> = [
@@ -100,25 +129,29 @@ export default function ProgramForm({
 
         <div style={{ overflowY: "auto", flex: 1 }}>
         <label className={styles.label} htmlFor="program-tenant">
-          Tenant
+          Tenants
         </label>
-        <select
+        <div
           id="program-tenant"
-          ref={(element) => {
-            fieldRefs.current.tenantId = element;
-          }}
-          className={`${styles.select} ${errors.tenantId ? styles.inputError : ""}`}
-          value={value.tenantId}
-          onChange={(event) => onChange("tenantId", event.target.value)}
-          disabled={busy || editing}
+          className={`${styles.controlCard} ${errors.tenantId ? styles.inputError : ""}`}
         >
-          <option value="">Select a tenant</option>
-          {activeTenants.map((tenant) => (
-            <option key={tenant.id} value={tenant.tenantId}>
-              {tenant.tenantName}
-            </option>
-          ))}
-        </select>
+          {activeTenants.map((tenant) => {
+            const isPrimaryTenant = editing && primaryTenantId === tenant.tenantId;
+
+            return (
+              <label key={tenant.id} className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={selectedTenantIdsWithPrimary.includes(tenant.tenantId)}
+                  onChange={() => toggleTenantSelection(tenant.tenantId)}
+                  disabled={busy || isPrimaryTenant}
+                />
+                <span>{tenant.tenantName}</span>
+                {isPrimaryTenant ? <span className={styles.primaryLockBadge}>Primary (locked)</span> : null}
+              </label>
+            );
+          })}
+        </div>
         {errors.tenantId ? <p className={styles.error}>{errors.tenantId}</p> : null}
 
         <label className={styles.label} htmlFor="program-name">

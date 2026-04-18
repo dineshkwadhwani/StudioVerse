@@ -39,9 +39,14 @@ type EventsSectionProps = {
 };
 
 function mapEventToForm(event: EventRecord): EventFormValues {
+  const tenantIds = Array.isArray(event.tenantIds) && event.tenantIds.length > 0
+    ? event.tenantIds
+    : [event.tenantId];
+
   return createEventFormValues({
     id: event.id,
     tenantId: event.tenantId,
+    tenantIds,
     name: event.name,
     eventType: event.eventType,
     eventSource: event.eventSource,
@@ -127,7 +132,7 @@ export default function EventsSection({
       selectedTenantId ||
       tenants.find((t) => t.status === "active")?.tenantId ||
       "";
-    setFormValues(createEventFormValues({ tenantId: defaultTenantId }));
+    setFormValues(createEventFormValues({ tenantId: defaultTenantId, tenantIds: defaultTenantId ? [defaultTenantId] : [] }));
     setSelectedThumbnail(null);
     setFormErrors({});
     setMessage("");
@@ -199,7 +204,7 @@ export default function EventsSection({
       if (selectedThumbnail) {
         setUploadBusy(true);
         const uploadResult = await uploadEventThumbnail({
-          tenantId: formValues.tenantId,
+          tenantId: formValues.tenantIds[0] || formValues.tenantId,
           eventId: nextId,
           file: selectedThumbnail,
         });

@@ -19,6 +19,20 @@ function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function isInTenantScope(
+  record: Pick<AssessmentRecord, "tenantId" | "tenantIds">,
+  tenantId: string,
+): boolean {
+  const target = normalizeTenantToken(tenantId);
+  if (normalizeTenantToken(record.tenantId) === target) {
+    return true;
+  }
+
+  return (record.tenantIds ?? []).some(
+    (value) => normalizeTenantToken(value) === target,
+  );
+}
+
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
 }
@@ -107,9 +121,8 @@ export default function ToolsPage({ config }: ToolsPageProps) {
           ...(entry.data() as Omit<AssessmentRecord, "id">),
         }));
 
-        const targetTenant = normalizeTenantToken(config.id);
         const nextRows = rows
-          .filter((item) => normalizeTenantToken(item.tenantId) === targetTenant)
+          .filter((item) => isInTenantScope(item, config.id))
           .sort((a, b) => (b.updatedAt?.toDate().getTime() ?? 0) - (a.updatedAt?.toDate().getTime() ?? 0));
 
         if (active) {

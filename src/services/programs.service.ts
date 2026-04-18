@@ -6,7 +6,6 @@ import {
   getDocs,
   orderBy,
   query,
-  where,
   type DocumentData,
   type QueryConstraint,
 } from "firebase/firestore";
@@ -32,6 +31,7 @@ function sanitizePayload(input: ProgramWriteInput): Record<string, unknown> {
   const nullToUndef = <T>(v: T | null): T | undefined => (v === null ? undefined : v);
   const result: Record<string, unknown> = {
     tenantId: input.tenantId,
+    tenantIds: input.tenantIds,
     name: input.name,
     shortDescription: input.shortDescription,
     longDescription: input.longDescription,
@@ -84,6 +84,7 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
   return {
     id,
     tenantId: data.tenantId,
+    tenantIds: Array.isArray(data.tenantIds) ? data.tenantIds : undefined,
     name: data.name,
     shortDescription: data.shortDescription,
     longDescription: data.longDescription,
@@ -113,14 +114,39 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
   };
 }
 
-export async function listPrograms(tenantId?: string): Promise<ProgramRecord[]> {
-  const constraints: QueryConstraint[] = [orderBy("updatedAt", "desc")];
-  if (tenantId) {
-    constraints.unshift(where("tenantId", "==", tenantId));
+function matchesTenantScope(args: {
+  primaryTenantId: string;
+  tenantIds?: string[];
+  selectedTenantId: string;
+}): boolean {
+  if (args.primaryTenantId === args.selectedTenantId) {
+    return true;
   }
 
+  if (!Array.isArray(args.tenantIds) || args.tenantIds.length === 0) {
+    return false;
+  }
+
+  return args.tenantIds.includes(args.selectedTenantId);
+}
+
+export async function listPrograms(tenantId?: string): Promise<ProgramRecord[]> {
+  const constraints: QueryConstraint[] = [orderBy("updatedAt", "desc")];
+
   const snapshot = await getDocs(query(collection(db, "programs"), ...constraints));
-  return snapshot.docs.map((item) => mapProgram(item.id, item.data()));
+  const rows = snapshot.docs.map((item) => mapProgram(item.id, item.data()));
+
+  if (!tenantId) {
+    return rows;
+  }
+
+  return rows.filter((item) =>
+    matchesTenantScope({
+      primaryTenantId: item.tenantId,
+      tenantIds: item.tenantIds,
+      selectedTenantId: tenantId,
+    })
+  );
 }
 
 export async function getProgram(programId: string): Promise<ProgramRecord | null> {

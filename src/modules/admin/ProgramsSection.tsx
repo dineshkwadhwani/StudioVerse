@@ -38,9 +38,14 @@ type ProgramsSectionProps = {
 };
 
 function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
+  const tenantIds = Array.isArray(program.tenantIds) && program.tenantIds.length > 0
+    ? program.tenantIds
+    : [program.tenantId];
+
   return createProgramFormValues({
     id: program.id,
     tenantId: program.tenantId,
+    tenantIds,
     name: program.name,
     shortDescription: program.shortDescription,
     longDescription: program.longDescription,
@@ -120,7 +125,7 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
 
   function openCreate(): void {
     const defaultTenantId = selectedTenantId || tenants.find((tenant) => tenant.status === "active")?.tenantId || "";
-    setFormValues(createProgramFormValues({ tenantId: defaultTenantId }));
+    setFormValues(createProgramFormValues({ tenantId: defaultTenantId, tenantIds: defaultTenantId ? [defaultTenantId] : [] }));
     setSelectedThumbnail(null);
     setFormErrors({});
     setMessage("");
@@ -191,7 +196,7 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
       if (selectedThumbnail) {
         setUploadBusy(true);
         const uploadResult = await uploadProgramThumbnail({
-          tenantId: formValues.tenantId,
+          tenantId: formValues.tenantIds[0] || formValues.tenantId,
           programId: nextId,
           file: selectedThumbnail,
         });

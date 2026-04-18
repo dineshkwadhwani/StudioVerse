@@ -27,6 +27,15 @@ function normalizeTenantToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function isInTenantScope(record: Pick<EventRecord, "tenantId" | "tenantIds">, tenantId: string): boolean {
+  const target = normalizeTenantToken(tenantId);
+  if (normalizeTenantToken(record.tenantId) === target) {
+    return true;
+  }
+
+  return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
+}
+
 export default function EventsPage({ config }: Props) {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +59,8 @@ export default function EventsPage({ config }: Props) {
 
         if (nextEvents.length === 0) {
           const allEvents = await listEvents();
-          const targetTenant = normalizeTenantToken(config.id);
           nextEvents = allEvents
-            .filter((item) => normalizeTenantToken(item.tenantId) === targetTenant)
+            .filter((item) => isInTenantScope(item, config.id))
             .filter((item) => item.status === "published" && item.publicationState === "published")
             .sort((a, b) => {
               if (a.promoted !== b.promoted) {

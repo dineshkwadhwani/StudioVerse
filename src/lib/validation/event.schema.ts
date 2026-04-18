@@ -32,6 +32,7 @@ const optionalNullableUrl = z
 export const eventFormSchema = z.object({
   id: z.string().trim().optional(),
   tenantId: z.string().trim(),
+  tenantIds: z.array(z.string().trim()).default([]),
   name: optionalTrimmedString,
   eventType: z.enum(EVENT_TYPES),
   eventSource: z.enum(EVENT_SOURCES),
@@ -96,6 +97,7 @@ export function normalizeEventForm(
   return {
     id: parsed.id,
     tenantId: parsed.tenantId,
+    tenantIds: parsed.tenantIds,
     name: parsed.name,
     eventType: parsed.eventType,
     eventSource: parsed.eventSource,
@@ -133,6 +135,7 @@ export function validateEventForm(
   const errors: EventFormErrors = {};
 
   const tenantId = values.tenantId.trim();
+  const tenantIds = Array.isArray(values.tenantIds) ? values.tenantIds.filter((value) => value.trim()) : [];
   const name = values.name.trim();
   const shortDescription = values.shortDescription.trim();
   const longDescription = values.longDescription.trim();
@@ -141,7 +144,7 @@ export function validateEventForm(
   const creditsRequired = values.creditsRequired.trim();
   const cost = values.cost.trim();
 
-  if (!tenantId) {
+  if (!tenantId || tenantIds.length === 0) {
     errors.tenantId = "Select a tenant.";
   }
 

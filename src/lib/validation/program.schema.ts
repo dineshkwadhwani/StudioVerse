@@ -23,6 +23,7 @@ const optionalNullableUrl = z
 export const programFormSchema = z.object({
   id: z.string().trim().optional(),
   tenantId: z.string().trim(),
+  tenantIds: z.array(z.string().trim()).default([]),
   name: optionalTrimmedString,
   shortDescription: optionalTrimmedString,
   longDescription: optionalTrimmedString,
@@ -70,6 +71,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   return {
     id: parsed.id,
     tenantId: parsed.tenantId,
+    tenantIds: parsed.tenantIds,
     name: parsed.name,
     shortDescription: parsed.shortDescription,
     longDescription: parsed.longDescription,
@@ -105,10 +107,11 @@ export function validateProgramForm(
   const longDescription = values.longDescription.trim();
   const details = values.details.trim();
   const tenantId = values.tenantId.trim();
+  const tenantIds = Array.isArray(values.tenantIds) ? values.tenantIds.filter((value) => value.trim()) : [];
   const durationValue = values.durationValue.trim();
   const creditsRequired = values.creditsRequired.trim();
 
-  if (!tenantId) {
+  if (!tenantId || tenantIds.length === 0) {
     errors.tenantId = "Select a tenant.";
   }
 

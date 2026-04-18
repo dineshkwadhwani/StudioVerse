@@ -15,6 +15,7 @@ export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
 export type ProgramRecord = {
   id: string;
   tenantId: string;
+  tenantIds?: string[];
   name: string;
   shortDescription: string;
   longDescription: string;
@@ -46,6 +47,7 @@ export type ProgramRecord = {
 export type ProgramWriteInput = {
   id?: string;
   tenantId: string;
+  tenantIds?: string[];
   name: string;
   shortDescription: string;
   longDescription: string;
@@ -71,6 +73,7 @@ export type ProgramWriteInput = {
 export type ProgramFormValues = {
   id?: string;
   tenantId: string;
+  tenantIds: string[];
   name: string;
   shortDescription: string;
   longDescription: string;
@@ -98,6 +101,7 @@ export type ProgramSaveMode = "draft" | "publish";
 
 export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   tenantId: "",
+  tenantIds: [],
   name: "",
   shortDescription: "",
   longDescription: "",

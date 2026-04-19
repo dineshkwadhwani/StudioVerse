@@ -55,6 +55,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
+        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/events") },
         { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
@@ -89,6 +90,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
+        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/events") },
         { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
@@ -123,6 +125,7 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
+        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
       ],
     },
     {

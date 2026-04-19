@@ -43,9 +43,9 @@ export type TenantConfig = {
       tools: string;
       events: string;
     };
-    programs: LandingContentItem[];
-    tools: LandingContentItem[];
-    events: LandingContentItem[];
+    programs?: LandingContentItem[];
+    tools?: LandingContentItem[];
+    events?: LandingContentItem[];
   };
 };
 

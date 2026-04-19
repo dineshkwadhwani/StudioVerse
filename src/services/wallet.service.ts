@@ -7,6 +7,8 @@ import {
   serverTimestamp,
   query,
   where,
+  addDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type {
@@ -16,6 +18,10 @@ import type {
   WalletTransactionRecord,
   WalletUserType,
 } from "@/types/wallet";
+import type {
+  CoinRequest,
+  CoinRequestFormValues,
+} from "@/types/coinRequest";
 
 type AdminSelectableUser = {
   id: string;
@@ -325,6 +331,259 @@ export async function createWalletForUser(input: {
       updatedBy: input.createdBy,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+// ========== Coin Request Functions ==========
+
+function mapCoinRequestDoc(id: string, data: Record<string, unknown>): CoinRequest {
+  return {
+    id,
+    tenantId: String(data.tenantId ?? ""),
+    requesterProfessionalId: String(data.requesterProfessionalId ?? ""),
+    requesterName: String(data.requesterName ?? ""),
+    companyId: String(data.companyId ?? ""),
+    companyName: String(data.companyName ?? ""),
+    amount: toNumber(data.amount),
+    message: typeof data.message === "string" ? data.message : undefined,
+    status: (data.status as CoinRequest["status"]) ?? "pending",
+    approvalComment: typeof data.approvalComment === "string" ? data.approvalComment : undefined,
+    approvedBy: typeof data.approvedBy === "string" ? data.approvedBy : undefined,
+    approvedAt: data.approvedAt as CoinRequest["approvedAt"],
+    deniedBy: typeof data.deniedBy === "string" ? data.deniedBy : undefined,
+    deniedAt: data.deniedAt as CoinRequest["deniedAt"],
+    createdAt: data.createdAt as CoinRequest["createdAt"],
+    updatedAt: data.updatedAt as CoinRequest["updatedAt"],
+  };
+}
+
+export async function requestCoins(args: {
+  tenantId: string;
+  professionalId: string;
+  professionalName: string;
+  companyId: string;
+  companyName: string;
+  amount: number;
+  message?: string;
+}): Promise<string> {
+  if (args.amount <= 0) {
+    throw new Error("Coin amount must be greater than 0");
+  }
+
+  const coinRequestRef = collection(db, "coinRequests");
+  const docRef = await addDoc(coinRequestRef, {
+    tenantId: args.tenantId,
+    requesterProfessionalId: args.professionalId,
+    requesterName: args.professionalName,
+    companyId: args.companyId,
+    companyName: args.companyName,
+    amount: args.amount,
+    message: args.message || "",
+    status: "pending",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return docRef.id;
+}
+
+export async function getCoinRequestsForCompany(companyId: string): Promise<CoinRequest[]> {
+  if (!companyId) return [];
+
+  const q = query(
+    collection(db, "coinRequests"),
+    where("companyId", "==", companyId)
+  );
+
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((entry) => mapCoinRequestDoc(entry.id, entry.data() as Record<string, unknown>))
+    .sort((a, b) => {
+      // Sort pending first, then by date descending
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (a.status !== "pending" && b.status === "pending") return 1;
+      return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
+    });
+}
+
+export async function getCoinRequestsForProfessional(professionalId: string): Promise<CoinRequest[]> {
+  if (!professionalId) return [];
+
+  const q = query(
+    collection(db, "coinRequests"),
+    where("requesterProfessionalId", "==", professionalId)
+  );
+
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((entry) => mapCoinRequestDoc(entry.id, entry.data() as Record<string, unknown>))
+    .sort((a, b) => toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt));
+}
+
+export async function approveCoinRequest(args: {
+  requestId: string;
+  approvedBy: string;
+  comment?: string;
+}): Promise<void> {
+  const requestRef = doc(db, "coinRequests", args.requestId);
+  const requestSnap = await getDoc(requestRef);
+
+  if (!requestSnap.exists()) {
+    throw new Error("Coin request not found");
+  }
+
+  const requestData = requestSnap.data() as Record<string, unknown>;
+  const status = requestData.status as string;
+
+  if (status !== "pending") {
+    throw new Error(`Cannot approve request with status: ${status}`);
+  }
+
+  const companyId = String(requestData.companyId ?? "");
+  const professionalId = String(requestData.requesterProfessionalId ?? "");
+  const amount = toNumber(requestData.amount);
+
+  if (amount <= 0) {
+    throw new Error("Invalid coin amount");
+  }
+
+  // Transfer coins from company to professional
+  await transferCoins({
+    fromUserId: companyId,
+    toUserId: professionalId,
+    amount: amount,
+    reason: `Coin request approved: ${String(requestData.requesterName ?? "")}`,
+    transactionType: "transfer",
+    initiatedBy: args.approvedBy,
+  });
+
+  // Update request status
+  await updateDoc(requestRef, {
+    status: "approved",
+    approvedBy: args.approvedBy,
+    approvalComment: args.comment || "",
+    approvedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function denyCoinRequest(args: {
+  requestId: string;
+  deniedBy: string;
+  reason?: string;
+}): Promise<void> {
+  const requestRef = doc(db, "coinRequests", args.requestId);
+  const requestSnap = await getDoc(requestRef);
+
+  if (!requestSnap.exists()) {
+    throw new Error("Coin request not found");
+  }
+
+  const requestData = requestSnap.data() as Record<string, unknown>;
+  const status = requestData.status as string;
+
+  if (status !== "pending") {
+    throw new Error(`Cannot deny request with status: ${status}`);
+  }
+
+  await updateDoc(requestRef, {
+    status: "denied",
+    deniedBy: args.deniedBy,
+    approvalComment: args.reason || "Request denied",
+    deniedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+async function transferCoins(args: {
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  reason: string;
+  transactionType: "transfer";
+  initiatedBy: string;
+}): Promise<void> {
+  if (args.amount <= 0) {
+    throw new Error("Transfer amount must be greater than 0");
+  }
+
+  const fromWalletRef = doc(db, "wallets", args.fromUserId);
+  const toWalletRef = doc(db, "wallets", args.toUserId);
+
+  await runTransaction(db, async (transaction) => {
+    const fromSnap = await transaction.get(fromWalletRef);
+    const toSnap = await transaction.get(toWalletRef);
+
+    if (!fromSnap.exists()) {
+      throw new Error("Sender wallet not found");
+    }
+
+    if (!toSnap.exists()) {
+      throw new Error("Recipient wallet not found");
+    }
+
+    const fromData = fromSnap.data() as Record<string, unknown>;
+    const toData = toSnap.data() as Record<string, unknown>;
+
+    const fromAvailable = toNumber(fromData.availableCoins);
+    const toAvailable = toNumber(toData.availableCoins);
+
+    if (fromAvailable < args.amount) {
+      throw new Error("Insufficient coins for transfer");
+    }
+
+    // Update sender wallet
+    transaction.set(
+      fromWalletRef,
+      {
+        availableCoins: fromAvailable - args.amount,
+        utilizedCoins: toNumber(fromData.utilizedCoins) + args.amount,
+        updatedBy: args.initiatedBy,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Update recipient wallet
+    transaction.set(
+      toWalletRef,
+      {
+        availableCoins: toAvailable + args.amount,
+        updatedBy: args.initiatedBy,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Create sender transaction record (Sent)
+    const senderTxRef = doc(collection(db, "walletTransactions"));
+    transaction.set(senderTxRef, {
+      walletId: args.fromUserId,
+      userId: args.fromUserId,
+      tenantId: fromData.tenantId,
+      userType: fromData.userType,
+      userName: fromData.userName,
+      transactionType: "sent",
+      coins: args.amount,
+      reason: args.reason,
+      createdBy: args.initiatedBy,
+      createdAt: serverTimestamp(),
+    });
+
+    // Create recipient transaction record (Received)
+    const recipientTxRef = doc(collection(db, "walletTransactions"));
+    transaction.set(recipientTxRef, {
+      walletId: args.toUserId,
+      userId: args.toUserId,
+      tenantId: toData.tenantId,
+      userType: toData.userType,
+      userName: toData.userName,
+      transactionType: "received",
+      coins: args.amount,
+      reason: args.reason,
+      createdBy: args.initiatedBy,
+      createdAt: serverTimestamp(),
     });
   });
 }

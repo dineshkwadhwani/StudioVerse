@@ -7,7 +7,11 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
-import { getWalletForUserContext, listWalletTransactionsForUserContext } from "@/services/wallet.service";
+import {
+  getCoinRequestsForCompany,
+  getWalletForUserContext,
+  listWalletTransactionsForUserContext,
+} from "@/services/wallet.service";
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
@@ -17,6 +21,7 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ManageWalletPage.module.css";
+import CoinRequestsModal from "@/modules/wallet/components/CoinRequestsModal";
 
 type UserRole = StudioUserRole;
 
@@ -54,6 +59,9 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   const [transactions, setTransactions] = useState<WalletTransactionRecord[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [coinRequestsModalOpen, setCoinRequestsModalOpen] = useState(false);
+  const [pendingCoinRequestCount, setPendingCoinRequestCount] = useState(0);
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -91,13 +99,17 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           new Set([firebaseUser.uid, storedUid, storedProfileId, profile?.id, profile?.userId].filter(Boolean) as string[])
         );
 
-        const [resolvedWallet, resolvedTransactions] = await Promise.all([
+        setUserId(firebaseUser.uid);
+
+        const [resolvedWallet, resolvedTransactions, coinRequests] = await Promise.all([
           getWalletForUserContext(userIds),
           listWalletTransactionsForUserContext({ userIds, tenantId }),
+          storedRoleRaw === "company" ? getCoinRequestsForCompany(firebaseUser.uid) : Promise.resolve([]),
         ]);
 
         setWallet(resolvedWallet);
         setTransactions(resolvedTransactions);
+        setPendingCoinRequestCount(coinRequests.filter((request) => request.status === "pending").length);
 
         if (profile?.fullName) {
           setName(profile.fullName);
@@ -182,6 +194,27 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           <h1 className={styles.title}>Manage Wallet</h1>
           <p className={styles.subtitle}>See your current balance and every place where coins were spent or added.</p>
 
+          <div style={{ display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
+            <Link href={`${basePath}/buy-coins`} className={styles.button}>
+              💳 Buy Coins
+            </Link>
+            {role === "professional" && (
+              <Link href={`${basePath}/request-coins`} className={styles.button}>
+                📬 Request Coins
+              </Link>
+            )}
+            {role === "company" && (
+              <button
+                type="button"
+                className={styles.button}
+                onClick={() => setCoinRequestsModalOpen(true)}
+              >
+                👉 View Coin Requests
+                {pendingCoinRequestCount > 0 ? ` (${pendingCoinRequestCount})` : ""}
+              </button>
+            )}
+          </div>
+
           {busy ? <p className={styles.subtitle}>Loading wallet...</p> : null}
           {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -224,6 +257,15 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           ) : null}
         </section>
       </div>
+
+      {userId && (
+        <CoinRequestsModal
+          companyId={userId}
+          isOpen={coinRequestsModalOpen}
+          onClose={() => setCoinRequestsModalOpen(false)}
+          onPendingCountChange={(count) => setPendingCoinRequestCount(count)}
+        />
+      )}
     </main>
   );
 }

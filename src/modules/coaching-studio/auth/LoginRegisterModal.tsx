@@ -11,6 +11,7 @@ import { getFirestore, collection, query, where, getDocs, setDoc, doc } from 'fi
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
 import { createWalletForUser, ensureWalletExists } from '@/services/wallet.service';
+import { processReferralJoinForNewUser } from '@/services/referral.service';
 import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
 import type { WalletUserType } from '@/types/wallet';
 import type { TenantConfig } from '@/types/tenant';
@@ -352,6 +353,23 @@ export default function LoginRegisterModal({
         });
       } catch {
         // Wallet already exists or creation failed — non-fatal.
+      }
+
+      // Check for referral join reward (only on self-registration for Professionals/Individuals, non-fatal if fails)
+      if ((role === 'professional' || role === 'individual')) {
+        try {
+          const email = typeof userData.email === 'string' ? userData.email : '';
+          await processReferralJoinForNewUser({
+            userId,
+            fullName: name,
+            email,
+            phoneE164,
+            tenantId,
+            userType: role,
+          });
+        } catch {
+          // Referral processing failed — non-fatal, user registration still succeeds.
+        }
       }
 
       logFlow('register:success', { userId, role });

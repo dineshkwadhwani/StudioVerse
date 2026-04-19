@@ -35,9 +35,11 @@ import ProgramsSection from "./ProgramsSection";
 import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
 import ManageCoinsSection from "./ManageCoinsSection";
+import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
 import { listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
+import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/referral";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -49,6 +51,7 @@ type MenuKey =
   | "programs"
   | "events"
   | "coins"
+  | "referrals"
   | "assigned-activities"
   | "assign-activity";
 
@@ -76,6 +79,16 @@ type TenantRecord = {
   domainName: string;
   rootContext: string;
   status: Status;
+  landingConfig?: {
+    sections?: { programs: boolean; tools: boolean; events: boolean };
+    carouselItemLimits?: { programs: number; tools: number; events: number };
+    displayLabels?: { programs?: string; tools?: string; events?: string };
+    sectionIntros?: { programs?: string; tools?: string; events?: string };
+  };
+  walletConfig?: {
+    registrationFreeCoins?: number;
+    referralFreeCoins?: number;
+  };
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 };
@@ -91,12 +104,34 @@ type UserFormState = {
   companyName: string;
 };
 
+type TenantLandingFormState = {
+  sectionPrograms: boolean;
+  sectionTools: boolean;
+  sectionEvents: boolean;
+  carouselPrograms: number;
+  carouselTools: number;
+  carouselEvents: number;
+  labelPrograms: string;
+  labelTools: string;
+  labelEvents: string;
+  introPrograms: string;
+  introTools: string;
+  introEvents: string;
+};
+
+type TenantWalletFormState = {
+  registrationFreeCoins: number;
+  referralFreeCoins: number;
+};
+
 type TenantFormState = {
   tenantId: string;
   tenantName: string;
   domainName: string;
   rootContext: string;
   status: Status;
+  landingConfig: TenantLandingFormState;
+  walletConfig: TenantWalletFormState;
 };
 
 type DashboardStats = {
@@ -111,6 +146,10 @@ type DashboardStats = {
   individuals: number;
 };
 
+type ReferralRoleFilter = "all" | "company" | "professional" | "individual";
+type ReferralTypeFilter = "all" | ReferredType;
+type ReferralStatusFilter = "all" | ReferralStatus;
+
 const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "profile", label: "Update Profile" },
@@ -120,6 +159,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "programs", label: "Programs" },
   { key: "events", label: "Events" },
   { key: "coins", label: "Wallet" },
+  { key: "referrals", label: "References" },
   { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
 ];
@@ -133,7 +173,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "manage",
     label: "Manage",
-    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins"],
+    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins", "referrals"],
   },
   {
     key: "actions",
@@ -166,6 +206,24 @@ const EMPTY_TENANT_FORM: TenantFormState = {
   domainName: "",
   rootContext: "",
   status: "active",
+  landingConfig: {
+    sectionPrograms: true,
+    sectionTools: true,
+    sectionEvents: true,
+    carouselPrograms: 8,
+    carouselTools: 8,
+    carouselEvents: 8,
+    labelPrograms: "Programs",
+    labelTools: "Tools",
+    labelEvents: "Events",
+    introPrograms: "Each programme pairs a clear commercial use case with a polished learner experience.",
+    introTools: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+    introEvents: "From roundtables to showcases, each event is designed for practical outcomes.",
+  },
+  walletConfig: {
+    registrationFreeCoins: 10,
+    referralFreeCoins: 5,
+  },
 };
 
 const EMPTY_DASHBOARD_STATS: DashboardStats = {
@@ -272,6 +330,11 @@ export default function SuperAdminPortal() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [assignedActivities, setAssignedActivities] = useState<AssignmentRecord[]>([]);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
+  const [referralRoleFilter, setReferralRoleFilter] = useState<ReferralRoleFilter>("all");
+  const [referralTypeFilter, setReferralTypeFilter] = useState<ReferralTypeFilter>("all");
+  const [referralStatusFilter, setReferralStatusFilter] = useState<ReferralStatusFilter>("all");
+  const [selectedReferralIds, setSelectedReferralIds] = useState<string[]>([]);
 
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
@@ -400,6 +463,40 @@ export default function SuperAdminPortal() {
     })();
   }, [profile, activeMenu]);
 
+  useEffect(() => {
+    if (!profile || activeMenu !== "referrals") {
+      return;
+    }
+
+    void loadReferrals();
+  }, [profile, activeMenu, referralRoleFilter, referralStatusFilter, referralTypeFilter]);
+
+    useEffect(() => {
+      if (!userModalOpen && !tenantModalOpen) {
+        return;
+      }
+
+      function handleEscape(event: KeyboardEvent) {
+        if (event.key !== "Escape") {
+          return;
+        }
+
+        if (tenantModalOpen) {
+          setTenantModalOpen(false);
+          return;
+        }
+
+        if (userModalOpen) {
+          setUserModalOpen(false);
+        }
+      }
+
+      window.addEventListener("keydown", handleEscape);
+      return () => {
+        window.removeEventListener("keydown", handleEscape);
+      };
+    }, [tenantModalOpen, userModalOpen]);
+
   async function sendOtp() {
     if (!recaptchaRef.current) {
       setAuthError("OTP challenge is not ready. Reload this page once.");
@@ -526,6 +623,46 @@ export default function SuperAdminPortal() {
     }
   }
 
+  async function loadReferrals() {
+    try {
+      const rows = await listAllReferrals({
+        referrerRole: referralRoleFilter,
+        referredType: referralTypeFilter,
+        status: referralStatusFilter,
+      });
+      setReferrals(rows);
+      setSelectedReferralIds([]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load referrals.";
+      setAuthError(message);
+      setReferrals([]);
+    }
+  }
+
+  async function handleSuperAdminReminderSend() {
+    if (!profile || selectedReferralIds.length === 0) {
+      return;
+    }
+
+    setBusy(true);
+    setAuthError("");
+    setInfo("");
+
+    try {
+      const sentCount = await sendReferralReminders({
+        referralIds: selectedReferralIds,
+        actorUserId: profile.id,
+      });
+      setInfo(`Reminder placeholder sent for ${sentCount} referral${sentCount === 1 ? "" : "s"}.`);
+      await loadReferrals();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send referral reminders.";
+      setAuthError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function openAddUserModal() {
     setUserForm({ ...EMPTY_USER_FORM, userType: usersFilter });
     setUserModalOpen(true);
@@ -557,6 +694,30 @@ export default function SuperAdminPortal() {
       domainName: target.domainName,
       rootContext: target.rootContext,
       status: target.status,
+      landingConfig: {
+        sectionPrograms: target.landingConfig?.sections?.programs ?? true,
+        sectionTools: target.landingConfig?.sections?.tools ?? true,
+        sectionEvents: target.landingConfig?.sections?.events ?? true,
+        carouselPrograms: target.landingConfig?.carouselItemLimits?.programs ?? 8,
+        carouselTools: target.landingConfig?.carouselItemLimits?.tools ?? 8,
+        carouselEvents: target.landingConfig?.carouselItemLimits?.events ?? 8,
+        labelPrograms: target.landingConfig?.displayLabels?.programs ?? "Programs",
+        labelTools: target.landingConfig?.displayLabels?.tools ?? "Tools",
+        labelEvents: target.landingConfig?.displayLabels?.events ?? "Events",
+        introPrograms:
+          target.landingConfig?.sectionIntros?.programs ??
+          "Each programme pairs a clear commercial use case with a polished learner experience.",
+        introTools:
+          target.landingConfig?.sectionIntros?.tools ??
+          "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+        introEvents:
+          target.landingConfig?.sectionIntros?.events ??
+          "From roundtables to showcases, each event is designed for practical outcomes.",
+      },
+      walletConfig: {
+        registrationFreeCoins: target.walletConfig?.registrationFreeCoins ?? 10,
+        referralFreeCoins: target.walletConfig?.referralFreeCoins ?? 5,
+      },
     });
     setTenantModalOpen(true);
   }
@@ -645,6 +806,38 @@ export default function SuperAdminPortal() {
         domainName: tenantForm.domainName.trim(),
         rootContext: tenantForm.rootContext.trim(),
         status: tenantForm.status,
+        landingConfig: {
+          sections: {
+            programs: tenantForm.landingConfig.sectionPrograms,
+            tools: tenantForm.landingConfig.sectionTools,
+            events: tenantForm.landingConfig.sectionEvents,
+          },
+          carouselItemLimits: {
+            programs: tenantForm.landingConfig.carouselPrograms,
+            tools: tenantForm.landingConfig.carouselTools,
+            events: tenantForm.landingConfig.carouselEvents,
+          },
+          displayLabels: {
+            programs: tenantForm.landingConfig.labelPrograms.trim() || "Programs",
+            tools: tenantForm.landingConfig.labelTools.trim() || "Tools",
+            events: tenantForm.landingConfig.labelEvents.trim() || "Events",
+          },
+          sectionIntros: {
+            programs:
+              tenantForm.landingConfig.introPrograms.trim() ||
+              "Each programme pairs a clear commercial use case with a polished learner experience.",
+            tools:
+              tenantForm.landingConfig.introTools.trim() ||
+              "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+            events:
+              tenantForm.landingConfig.introEvents.trim() ||
+              "From roundtables to showcases, each event is designed for practical outcomes.",
+          },
+        },
+        walletConfig: {
+          registrationFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.registrationFreeCoins)),
+          referralFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.referralFreeCoins)),
+        },
         updatedAt: serverTimestamp(),
         updatedBy: profile.id,
       };
@@ -970,6 +1163,120 @@ export default function SuperAdminPortal() {
             <EventsSection tenants={tenants} />
           ) : null}
 
+          {activeMenu === "referrals" ? (
+            <article className={styles.card}>
+              <h2>Manage Referrals</h2>
+              <p className={styles.subtitle}>
+                View platform-wide referrals, filter by role/type/status, and send reminder placeholder mails.
+              </p>
+
+              <div className={styles.controlCard}>
+                <div className={styles.radioRow}>
+                  {(["all", "company", "professional", "individual"] as ReferralRoleFilter[]).map((value) => (
+                    <label key={value} className={styles.radioPill}>
+                      <input
+                        type="radio"
+                        name="referral-role-filter"
+                        checked={referralRoleFilter === value}
+                        onChange={() => setReferralRoleFilter(value)}
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </div>
+
+                <div className={styles.radioRow}>
+                  {(["all", "coach", "individual"] as ReferralTypeFilter[]).map((value) => (
+                    <label key={value} className={styles.radioPill}>
+                      <input
+                        type="radio"
+                        name="referral-type-filter"
+                        checked={referralTypeFilter === value}
+                        onChange={() => setReferralTypeFilter(value)}
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </div>
+
+                <div className={styles.radioRow}>
+                  {(["all", "referred", "reminded", "joined"] as ReferralStatusFilter[]).map((value) => (
+                    <label key={value} className={styles.radioPill}>
+                      <input
+                        type="radio"
+                        name="referral-status-filter"
+                        checked={referralStatusFilter === value}
+                        onChange={() => setReferralStatusFilter(value)}
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </div>
+
+                <div className={styles.actions}>
+                  <button
+                    type="button"
+                    className={styles.button}
+                    disabled={busy || selectedReferralIds.length === 0}
+                    onClick={handleSuperAdminReminderSend}
+                  >
+                    Send Reminder
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.ghostButton}
+                    onClick={() => setSelectedReferralIds(referrals.map((entry) => entry.id))}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.ghostButton}
+                    onClick={() => setSelectedReferralIds([])}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
+
+              {referrals.length === 0 ? (
+                <div className={styles.emptyCard}>No referrals found.</div>
+              ) : (
+                <div className={styles.userStack}>
+                  {referrals.map((item) => (
+                    <section key={item.id} className={styles.userItem}>
+                      <div>
+                        <p className={styles.userName}>{item.referredEmail || item.referredPhone}</p>
+                        <p className={styles.userMeta}>Referred Type: {item.referredType}</p>
+                        <p className={styles.userMeta}>Referrer: {item.referrerName} ({item.referrerRole})</p>
+                        <p className={styles.userMeta}>Phone: {item.referredPhone}</p>
+                      </div>
+
+                      <div className={styles.userActions}>
+                        <label className={styles.radioPill}>
+                          <input
+                            type="checkbox"
+                            checked={selectedReferralIds.includes(item.id)}
+                            disabled={item.status === "joined"}
+                            onChange={(event) => {
+                              if (event.target.checked) {
+                                setSelectedReferralIds((prev) => Array.from(new Set([...prev, item.id])));
+                                return;
+                              }
+                              setSelectedReferralIds((prev) => prev.filter((id) => id !== item.id));
+                            }}
+                          />
+                          Select
+                        </label>
+                        <span className={styles.statusBadge}>{item.status}</span>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </article>
+          ) : null}
+
           {activeMenu === "assign-activity" ? (
             <article className={styles.card}>
               <h2>Assign Activity</h2>
@@ -1018,9 +1325,28 @@ export default function SuperAdminPortal() {
       </div>
 
       {userModalOpen ? (
-        <div className={styles.modalOverlay}>
+        <div
+          className={styles.modalOverlay}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setUserModalOpen(false);
+            }
+          }}
+        >
           <section className={styles.modal}>
-            <h3>{userForm.id ? "Edit User" : "Add User"}</h3>
+            <div className={styles.modalHeader}>
+              <h3>{userForm.id ? "Edit User" : "Add User"}</h3>
+              <button
+                type="button"
+                className={styles.modalCloseButton}
+                onClick={() => setUserModalOpen(false)}
+                aria-label="Close user modal"
+              >
+                x
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
 
             <label className={styles.label} htmlFor="user-name">
               Name
@@ -1110,14 +1436,34 @@ export default function SuperAdminPortal() {
                 Cancel
               </button>
             </div>
+            </div>
           </section>
         </div>
       ) : null}
 
       {tenantModalOpen ? (
-        <div className={styles.modalOverlay}>
+        <div
+          className={styles.modalOverlay}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setTenantModalOpen(false);
+            }
+          }}
+        >
           <section className={styles.modal}>
-            <h3>Tenant</h3>
+            <div className={styles.modalHeader}>
+              <h3>Tenant</h3>
+              <button
+                type="button"
+                className={styles.modalCloseButton}
+                onClick={() => setTenantModalOpen(false)}
+                aria-label="Close tenant modal"
+              >
+                x
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
 
             <label className={styles.label} htmlFor="tenant-id">
               Tenant ID
@@ -1172,6 +1518,200 @@ export default function SuperAdminPortal() {
               <option value="inactive">Inactive</option>
             </select>
 
+            <section className={styles.tenantConfigBlock}>
+              <h4 className={styles.tenantConfigTitle}>Landing Page Configuration</h4>
+
+              <p className={styles.tenantSubLabel}>Visible Sections</p>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.landingConfig.sectionPrograms}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, sectionPrograms: event.target.checked } }))}
+                  />
+                  Programs
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.landingConfig.sectionTools}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, sectionTools: event.target.checked } }))}
+                  />
+                  Tools
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.landingConfig.sectionEvents}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, sectionEvents: event.target.checked } }))}
+                  />
+                  Events
+                </label>
+              </div>
+
+              <div className={styles.tenantConfigGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="carousel-programs">
+                    Programs Limit
+                  </label>
+                  <input
+                    id="carousel-programs"
+                    type="number"
+                    min={1}
+                    max={50}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.landingConfig.carouselPrograms}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, carouselPrograms: Number(event.target.value) } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="carousel-tools">
+                    Tools Limit
+                  </label>
+                  <input
+                    id="carousel-tools"
+                    type="number"
+                    min={1}
+                    max={50}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.landingConfig.carouselTools}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, carouselTools: Number(event.target.value) } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="carousel-events">
+                    Events Limit
+                  </label>
+                  <input
+                    id="carousel-events"
+                    type="number"
+                    min={1}
+                    max={50}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.landingConfig.carouselEvents}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, carouselEvents: Number(event.target.value) } }))}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.tenantConfigGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="label-programs">
+                    Programs Section Label
+                  </label>
+                  <input
+                    id="label-programs"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. Learning Journeys"
+                    value={tenantForm.landingConfig.labelPrograms}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, labelPrograms: event.target.value } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="label-tools">
+                    Tools Section Label
+                  </label>
+                  <input
+                    id="label-tools"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. Assessment Centre"
+                    value={tenantForm.landingConfig.labelTools}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, labelTools: event.target.value } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="label-events">
+                    Events Section Label
+                  </label>
+                  <input
+                    id="label-events"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. Live Sessions"
+                    value={tenantForm.landingConfig.labelEvents}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, labelEvents: event.target.value } }))}
+                  />
+                </div>
+              </div>
+
+              <p className={styles.tenantSubLabel}>Section Intro Copy</p>
+              <div className={styles.tenantConfigStack}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="intro-programs">
+                    Programs Intro
+                  </label>
+                  <textarea
+                    id="intro-programs"
+                    className={`${styles.input} ${styles.compactInput} ${styles.compactTextarea}`}
+                    value={tenantForm.landingConfig.introPrograms}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, introPrograms: event.target.value } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="intro-tools">
+                    Tools Intro
+                  </label>
+                  <textarea
+                    id="intro-tools"
+                    className={`${styles.input} ${styles.compactInput} ${styles.compactTextarea}`}
+                    value={tenantForm.landingConfig.introTools}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, introTools: event.target.value } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="intro-events">
+                    Events Intro
+                  </label>
+                  <textarea
+                    id="intro-events"
+                    className={`${styles.input} ${styles.compactInput} ${styles.compactTextarea}`}
+                    value={tenantForm.landingConfig.introEvents}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, landingConfig: { ...prev.landingConfig, introEvents: event.target.value } }))}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Wallet Configuration</p>
+              <div className={styles.tenantConfigGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="registration-coins">
+                    Registration Free Coins
+                  </label>
+                  <input
+                    id="registration-coins"
+                    type="number"
+                    min={0}
+                    max={1000}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.walletConfig.registrationFreeCoins}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, registrationFreeCoins: Number(event.target.value) } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="referral-coins">
+                    Referral Free Coins
+                  </label>
+                  <input
+                    id="referral-coins"
+                    type="number"
+                    min={0}
+                    max={1000}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.walletConfig.referralFreeCoins}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, referralFreeCoins: Number(event.target.value) } }))}
+                  />
+                </div>
+              </div>
+            </section>
+
             <div className={styles.actions}>
               <button type="button" className={styles.button} onClick={saveTenant} disabled={busy}>
                 Save Tenant
@@ -1179,6 +1719,7 @@ export default function SuperAdminPortal() {
               <button type="button" className={styles.ghostButton} onClick={() => setTenantModalOpen(false)}>
                 Cancel
               </button>
+            </div>
             </div>
           </section>
         </div>

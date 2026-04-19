@@ -14,6 +14,208 @@ Scope covered:
 - Activity Assignment (E7) Firestore collections, indexes, and rules requirements
 - Role-based access menus (E8) routing and access confirmation requirements
 - Manage Users for Company/Professional (E10) scoped creation and association rollout requirements
+- Multi-tenant content sharing (Apr 2026) — Programs/Events/Assessments published to multiple tenants
+
+## First-time production project bootstrap (when `studioverse-prod` does not exist yet)
+
+Use this section when production project creation is pending. Follow these steps in order so all production attributes, artifacts, and components are provisioned correctly the first time.
+
+### A) Create and bind the Firebase production project
+
+1. Create Firebase/GCP project in the Firebase Console with project id: `studioverse-prod` (or final approved equivalent).
+2. In local repo, add alias mapping:
+  ```bash
+  npx -y firebase-tools@latest use --add studioverse-prod
+  ```
+3. Verify alias resolution:
+  ```bash
+  npx -y firebase-tools@latest use
+  ```
+
+Expected state:
+- `prod` alias points to `studioverse-prod` in `.firebaserc`
+- Local deploy commands can target prod safely with `--project studioverse-prod`
+
+### B) Initialize mandatory Firebase services in prod
+
+Enable and initialize these services before deploying application artifacts:
+
+1. Firestore (Native mode) in intended production region.
+2. Cloud Storage bucket for `studioverse-prod`.
+3. Firebase Authentication (enable required sign-in methods used by app flows).
+4. Cloud Functions APIs (via first deploy or API enablement).
+
+Expected state:
+- Firestore database exists and accepts rules/index deployment.
+- Storage exists and accepts `storage.rules` deployment.
+- Auth is enabled and can accept authorized domains.
+
+### C) Configure production runtime attributes (before go-live)
+
+Configure these in production hosting/runtime platform (and any server runtime used by app routes):
+
+1. Public web Firebase vars:
+  - `NEXT_PUBLIC_FIREBASE_API_KEY`
+  - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+  - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+  - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+  - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+  - `NEXT_PUBLIC_FIREBASE_APP_ID`
+2. Server/runtime secrets:
+  - `GROQ_API_KEY`
+  - `FIREBASE_ADMIN_PROJECT_ID`
+  - `FIREBASE_ADMIN_CLIENT_EMAIL`
+  - `FIREBASE_ADMIN_PRIVATE_KEY`
+  - `SUPERADMIN_SEED_KEY` (if seed endpoint is used)
+3. Firebase Auth authorized domains:
+  - Add exact production hostnames (all tenant domains/subdomains that will host login).
+
+Expected state:
+- Web SDK points to prod Firebase project.
+- Server routes using Admin SDK are authenticated for prod.
+- OTP/auth flows are valid for production domains.
+
+### D) Deploy Firebase artifacts in strict order
+
+Run from release commit after successful local builds.
+
+1. Build verification:
+  ```bash
+  npm run build
+  npm --prefix functions run build
+  ```
+2. Deploy indexes:
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:indexes
+  ```
+3. Deploy Firestore rules:
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules
+  ```
+4. Deploy Storage rules:
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only storage
+  ```
+5. Deploy Functions (if release includes backend changes):
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only functions
+  ```
+
+Expected state:
+- Production has the same rules/index/function artifacts as the approved release.
+
+### E) Seed minimum production data components
+
+Before opening production traffic, ensure these core data components exist:
+
+1. Superadmin bootstrap path is usable (`seedInitialSuperadmin` or approved manual setup).
+2. Tenant records exist for all supported tenant ids:
+  - `coaching-studio`
+  - `training-studio`
+  - `recruitment-studio`
+3. Role-scoped users and associations are testable (company/professional/individual).
+4. Wallet baseline behavior is validated:
+  - new scoped users receive initial issuance (10 coins)
+  - wallet transaction ledger receives initial credit row
+
+Expected state:
+- Authenticated app shell routes have required tenant and role data.
+- Manage Users and Manage Wallet flows can execute in prod without data bootstrap gaps.
+
+### F) First-instance smoke tests (must pass before cutover)
+
+1. Tenant route reachability:
+  - `/<tenant>/dashboard`
+  - `/<tenant>/manage-users`
+  - `/<tenant>/manage-wallet`
+2. Scoped user creation (`/api/users/create-scoped`):
+  - company can create professional + individual
+  - professional can create individual only
+3. Wallet flow:
+  - initial 10-coin issuance appears for newly created scoped users
+  - request/approve/deny coin request flow works with expected role permissions
+4. Content visibility:
+  - programs/events/assessments reflect tenant scope (`tenantId` OR `tenantIds`)
+
+Do not announce production readiness until all items above pass in prod.
+
+### G) Day-1 provisioning command block (copy-paste)
+
+Use this block as an operator checklist when creating the first production instance.
+Replace placeholders before execution.
+
+```bash
+# --------- set once for this shell ---------
+export PROD_PROJECT_ID="studioverse-prod"
+export PROD_ALIAS="prod"
+export BILLING_ACCOUNT_ID="<REPLACE_BILLING_ACCOUNT_ID>"
+
+# --------- prereq checks ---------
+npx -y firebase-tools@latest --version
+npx -y firebase-tools@latest login
+
+# --------- create/attach Firebase project ---------
+# If project is already created in console, skip project create and only run use --add.
+npx -y firebase-tools@latest projects:create "$PROD_PROJECT_ID" --display-name "StudioVerse Prod"
+npx -y firebase-tools@latest use --add "$PROD_PROJECT_ID"
+npx -y firebase-tools@latest use "$PROD_PROJECT_ID"
+npx -y firebase-tools@latest use
+
+# --------- optional: link billing in GCP (if not already linked via console) ---------
+# gcloud beta billing projects link "$PROD_PROJECT_ID" --billing-account="$BILLING_ACCOUNT_ID"
+
+# --------- baseline artifact deployment ---------
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only firestore:indexes
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only firestore:rules
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only storage
+
+# --------- functions (only if release includes backend changes) ---------
+npm --prefix functions run build
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only functions
+
+# --------- final verification ---------
+npx -y firebase-tools@latest use
+npx -y firebase-tools@latest projects:list | rg "$PROD_PROJECT_ID"
+```
+
+Operational reminder:
+- Configure production runtime environment variables/secrets and Firebase Auth authorized domains before opening live traffic.
+- Run first-instance smoke tests in section F before declaring go-live.
+
+### H) Repeat release deploy block (project already exists)
+
+Use this block for normal production releases after the first instance is already provisioned.
+
+```bash
+# --------- set once for this shell ---------
+export PROD_PROJECT_ID="studioverse-prod"
+
+# --------- verify target project ---------
+npx -y firebase-tools@latest --version
+npx -y firebase-tools@latest login
+npx -y firebase-tools@latest use "$PROD_PROJECT_ID"
+npx -y firebase-tools@latest use
+
+# --------- build from approved release commit ---------
+npm run build
+npm --prefix functions run build
+
+# --------- deploy artifacts in order ---------
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only firestore:indexes
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only firestore:rules
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only storage
+
+# --------- deploy functions if backend changed ---------
+npx -y firebase-tools@latest deploy --project "$PROD_PROJECT_ID" --only functions
+
+# --------- post-deploy verification ---------
+npx -y firebase-tools@latest use
+npx -y firebase-tools@latest projects:list | rg "$PROD_PROJECT_ID"
+```
+
+Release reminder:
+- For frontend-only releases with no backend changes, skip functions deploy.
+- Execute the release-day smoke checks before announcing cutover completion.
 
 ## Refactor impact note (Apr 12, 2026)
 
@@ -33,6 +235,33 @@ Operational caveat:
   an under-construction/provisioning state depending on gate logic. This does not require function deploys,
   but may require tenant document seeding as an environment data operation.
 
+## Multi-tenant content sharing rollout note (Apr 19, 2026)
+
+Programs, Events, and Assessments can now be published to multiple tenants from superadmin portal.
+This feature introduces `tenantIds: string[]` field to content documents while retaining `tenantId` for backward compatibility.
+
+Backend impact for production rollout:
+
+- **Cloud Functions:** `createProgram`, `updateProgram`, `createEvent`, `updateEvent` schemas now accept `tenantIds` array
+  - existing `tenantId` immutability checks are preserved during updates
+  - `tenantIds` is written to Firestore payload alongside `tenantId`
+  - no new functions required; existing callables are schema-extended
+  - redeploy functions with updated schemas before enabling multi-tenant UI in production
+- **Firestore indexes:** no new composite indexes required; existing single-field index on `tenantId` is retained
+- **Firestore rules:** no rule changes required if current rules already grant write access for `tenantIds` alongside `tenantId`
+  - existing doc-write rules that permit `tenantId` updates should permit `tenantIds` updates
+  - test production rules against sample payloads containing both fields before cutover
+- **Data migration:** existing production documents without `tenantIds` field will continue to work
+  - tenant visibility logic: `item.tenantId === targetTenant || (item.tenantIds?.includes(targetTenant) ?? false)`
+  - no backfill required for existing single-tenant documents
+
+Operational checklist for rollout:
+- Confirm `createProgram.ts` and `updateProgram.ts` handle `tenantIds` correctly
+- Confirm `createEvent.ts` and `updateEvent.ts` handle `tenantIds` correctly
+- Deploy function updates before enabling multi-tenant selection UI in staging/prod
+- Test new multi-tenant admin flows against staging environment before prod cutover
+- Smoke test content visibility across all selected tenants in staging
+
 ## Source of truth files
 These files are the canonical definitions that must be promoted to production:
 
@@ -43,11 +272,22 @@ These files are the canonical definitions that must be promoted to production:
 - Storage security rules: `storage.rules`
 - Function exports: `functions/src/index.ts`
 - Program callable functions: `functions/src/programs/createProgram.ts`, `functions/src/programs/updateProgram.ts`
-- Program schema/business rules: `functions/src/programs/programSchemas.ts`
+- Program schema/business rules: `functions/src/programs/programSchemas.ts` (includes `tenantIds` array validation)
+- Program types/schema model: `src/types/program.ts` (includes `tenantIds: string[]` in form/record/write shapes)
+- Program validation schema: `src/lib/validation/program.schema.ts` (enforces ≥1 tenant selection)
+- Program service: `src/services/programs.service.ts` (tenant-scope matching for multi-tenant support)
+- Program admin forms: `src/modules/admin/ProgramForm.tsx` (multi-select checkbox UI with primary lock badge during edit)
+- Program admin section: `src/modules/admin/ProgramsSection.tsx` (defaults/hydration for tenantIds)
 - Event callable functions: `functions/src/events/createEvent.ts`, `functions/src/events/updateEvent.ts`
-- Event schema/business rules: `functions/src/events/eventSchemas.ts`
-- Assessment admin module: `src/modules/admin/AssessmentsSection.tsx`
-- Assessment types/schema model: `src/types/assessment.ts`
+- Event schema/business rules: `functions/src/events/eventSchemas.ts` (includes `tenantIds` array validation)
+- Event types/schema model: `src/types/event.ts` (includes `tenantIds: string[]` in form/record/write shapes)
+- Event validation schema: `src/lib/validation/event.schema.ts` (enforces ≥1 tenant selection)
+- Event service: `src/services/events.service.ts` (tenant-scope matching for multi-tenant support)
+- Event admin forms: `src/modules/admin/EventForm.tsx` (multi-select checkbox UI with primary lock badge during edit)
+- Event admin section: `src/modules/admin/EventsSection.tsx` (defaults/hydration for tenantIds)
+- Assessment admin module: `src/modules/admin/AssessmentsSection.tsx` (includes `tenantIds` multi-select support)
+- Assessment types/schema model: `src/types/assessment.ts` (includes `tenantIds: string[]` in form/record shapes)
+- Assessment service: `src/services/assessment.service.ts` (tenant-scope matching for multi-tenant support)
 - Assessment AI question generation route: `src/app/api/assessments/generate-questions/route.ts`
 - Wallet types/schema model: `src/types/wallet.ts`
 - Wallet client service / transaction logic: `src/services/wallet.service.ts`
@@ -65,6 +305,12 @@ These files are the canonical definitions that must be promoted to production:
   - `src/app/coaching-studio/manage-users/page.tsx`
   - `src/app/recruitment-studio/manage-users/page.tsx`
   - `src/app/training-studio/manage-users/page.tsx`
+- Tenant-facing content pages (multi-tenant visibility support):
+  - `src/modules/programs/pages/ProgramsPage.tsx` (uses tenant-scope helper)
+  - `src/modules/events/pages/EventsPage.tsx` (uses tenant-scope helper)
+  - `src/modules/tools/pages/ToolsPage.tsx` (uses tenant-scope helper)
+  - `src/modules/landing/pages/LandingPage.tsx` (uses tenant-scope helper)
+  - Coaching-specific versions: `CoachingProgramsPage.tsx`, `CoachingEventsPage.tsx`, `CoachingToolsPage.tsx`, `CoachingLandingPage.tsx` (all updated with tenant-scope helper)
 
 ## Currently exported production-relevant functions
 From `functions/src/index.ts`:
@@ -187,6 +433,14 @@ Before any prod deploy:
 20. Confirm wallet debit behavior: assign-to-other debits the **assignor** wallet, not the assignee wallet. Validate this against implemented service logic before cutover.
 21. Confirm zero-credit self-assignment bypass is intentional: assignments where `creditsRequired === 0` skip all wallet validation and write the assignment record directly.
 22. Confirm auto-provisioning behavior for unknown assignees is acceptable: if an assignee is not found by phone/email search, the service creates a new `Individual` user record in `users` and initializes a zero-balance wallet before writing the assignment.
+23. **Multi-tenant content sharing (Apr 2026):**
+   - Confirm `createProgram` and `createEvent` functions accept `tenantIds` array in payload.
+   - Confirm `updateProgram` and `updateEvent` functions preserve primary `tenantId` during immutability checks while allowing `tenantIds` updates.
+   - Confirm Firestore rules allow writes of documents containing both `tenantId` and `tenantIds` fields.
+   - Test multi-tenant admin flows: create Program/Event with multiple tenant selections, verify it appears in all selected tenant landing pages.
+   - Test multi-tenant edit flows: ensure primary tenant remains locked while secondary tenants remain editable.
+   - Deploy function updates before enabling multi-tenant UI in production.
+   - Verify tenant-scope visibility logic: content should appear in all tenant routes where either `item.tenantId === targetTenant` OR `item.tenantIds?.includes(targetTenant)`.
 
 ## Release-day quick execution checklist
 
@@ -676,6 +930,98 @@ Pre-prod checks:
 - Confirm `/coaching-studio/profile` route resolves and requires authentication gating.
 - Confirm SuperAdmin portal (`/admin`) shows Manage Wallet section and Assign Activity section.
 - Confirm dropdown menus in both dashboard and shared logged-in header show the correct role-specific items from the E8 access matrix.
+
+## Multi-tenant content sharing rollout deltas (Apr 19, 2026)
+
+Programs, Events, and Assessments can now be published to multiple tenants from superadmin portal. This feature enables one Program/Event/Assessment doc to appear across all selected tenant routes without duplication.
+
+### 1) Cloud Function updates
+- `createProgram` and `updateProgram` in `functions/src/programs/` must be redeployed with updated schemas accepting `tenantIds: string[]`
+- `createEvent` and `updateEvent` in `functions/src/events/` must be redeployed with updated schemas accepting `tenantIds: string[]`
+- Immutability checks preserve primary `tenantId` during updates; `tenantIds` remains editable
+- No new Functions required; existing callables are schema-extended
+
+Deploy updated functions before enabling multi-tenant UI in production:
+```bash
+npm --prefix functions run build
+npx -y firebase-tools@latest deploy \
+  --project studioverse-prod \
+  --only functions:createProgram,functions:updateProgram,functions:createEvent,functions:updateEvent
+```
+
+### 2) Firestore schema changes
+New optional field added to content documents:
+
+- `programs` collection:
+  - `tenantIds: string[]` (optional, alongside existing `tenantId`)
+  - existing single-tenant docs continue to work without migration
+  - new multi-tenant docs have both fields populated
+
+- `events` collection:
+  - `tenantIds: string[]` (optional, alongside existing `tenantId`)
+  - existing single-tenant docs continue to work without migration
+  - new multi-tenant docs have both fields populated
+
+- `assessments` collection:
+  - `tenantIds: string[]` (optional, alongside existing `tenantId`)
+  - existing single-tenant docs continue to work without migration
+  - new multi-tenant docs have both fields populated
+
+### 3) Firestore rules
+No rule changes required if existing rules already permit writes of document fields alongside `tenantId`.
+
+Pre-deploy validation:
+- Confirm Firestore rules allow creation/update of documents containing both `tenantId` and `tenantIds` fields
+- Test rule policy against sample payloads with both fields present before cutover
+- Example: if rules check `data.tenantId == request.auth.uid`, ensure no conflict occurs when `data.tenantIds` is also present
+
+### 4) Tenant visibility logic (client-side)
+All tenant-facing pages updated to use tenant-scope helper:
+
+**Visibility rule:** an item is shown if:
+```
+item.tenantId === selectedTenant || (item.tenantIds?.includes(selectedTenant) ?? false)
+```
+
+Updated pages:
+- Shared: `ProgramsPage.tsx`, `EventsPage.tsx`, `ToolsPage.tsx`, `LandingPage.tsx`
+- Coaching-specific: `CoachingProgramsPage.tsx`, `CoachingEventsPage.tsx`, `CoachingToolsPage.tsx`, `CoachingLandingPage.tsx`
+
+### 5) Admin portal multi-tenant UI
+- Program/Event tenant selector changed to checkbox multi-select in `ProgramForm.tsx` and `EventForm.tsx`
+- Assessment tenant selector supports multi-select in `AssessmentsSection.tsx`
+- During create: all tenants are selectable
+- During edit: primary tenant is disabled and shows `"Primary (locked)"` badge; secondary tenants remain editable
+- New CSS class `.primaryLockBadge` added to `SuperAdminPortal.module.css`
+
+### 6) Pre-prod validation checklist
+
+- [ ] Cloud Functions compiled and ready to deploy with multi-tenant schema support
+- [ ] `createProgram.ts` accepts `tenantIds` array and writes it to Firestore
+- [ ] `updateProgram.ts` preserves primary `tenantId`, allows `tenantIds` updates
+- [ ] `createEvent.ts` accepts `tenantIds` array and writes it to Firestore
+- [ ] `updateEvent.ts` preserves primary `tenantId`, allows `tenantIds` updates
+- [ ] Firestore rules validated against payloads containing both `tenantId` and `tenantIds`
+- [ ] Admin form UI shows multi-select checkboxes for tenant selection
+- [ ] Primary tenant in edit mode shows locked badge and is uncheckable
+- [ ] Test: create Program with 2 tenants, verify it appears on both tenant landing pages
+- [ ] Test: edit Program, deselect non-primary tenant, verify it disappears from that tenant route
+- [ ] Test: Assessment multi-select works bidirectionally (add/remove tenants)
+- [ ] No TypeScript errors: `npm run build` passes
+- [ ] No Function errors: `npm --prefix functions run build` passes
+
+### 7) Prod rollout smoke tests
+
+After deployment:
+
+1. Create a Program/Event/Assessment with multiple tenant selections from superadmin portal
+2. Verify the item appears on all selected tenant landing pages
+3. Edit the multi-tenant item and add/remove secondary tenants (keep primary locked)
+4. Verify visibility updates across tenant routes
+5. Create a single-tenant item (compatibility check)
+6. Verify single-tenant items continue to work as before
+7. Verify list counts and filtering in admin sections reflect multi-tenant assignments correctly
+8. Verify audit logs capture both `tenantId` and `tenantIds` in metadata where applicable
 
 ## Production deploy commands
 Use these commands from repository root.

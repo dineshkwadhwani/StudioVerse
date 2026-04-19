@@ -466,10 +466,11 @@
   place-items: center;
   z-index: 40;
   padding: 18px;
+  overflow-y: auto;
 }
 
 .modal {
-  width: min(560px, 100%);
+  width: min(640px, 100%);
   background: #fff;
   border-radius: 16px;
   border: 1px solid var(--line);
@@ -478,6 +479,7 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .modal h3 {
@@ -515,6 +517,71 @@
   flex-shrink: 0;
 }
 
+.modalBody {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  padding-right: 4px;
+  padding-bottom: 4px;
+}
+
+.tenantConfigBlock {
+  margin-top: 10px;
+  border: 1px solid #d7e8f3;
+  border-radius: 12px;
+  background: #f6fbff;
+  padding: 12px;
+}
+
+.tenantConfigTitle {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--ink-strong);
+}
+
+.tenantSubLabel {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: #2f5873;
+}
+
+.tenantConfigGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.tenantConfigStack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.compactField {
+  display: flex;
+  flex-direction: column;
+}
+
+.compactLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #2f5873;
+}
+
+.compactInput {
+  margin-bottom: 0;
+}
+
+.compactTextarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
 .modalCloseButton:hover:not(:disabled) {
   background: #f0f0f0;
 }
@@ -522,17 +589,6 @@
 .modalCloseButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.modal > div:not(.modalHeader) {
-  overflow-y: auto;
-  flex: 1;
-  overflow-x: hidden;
-}
-
-.modal > div:last-child {
-  overflow: visible;
-  flex-shrink: 0;
 }
 
 .placeholder {
@@ -559,6 +615,10 @@
 
   .card {
     padding: 14px;
+  }
+
+  .tenantConfigGrid {
+    grid-template-columns: 1fr;
   }
 
   .dashboardGrid {

@@ -22,7 +22,7 @@ export type WalletSummary = {
   totalUtilizedCoins: number;
 };
 
-export type WalletTransactionType = "credit" | "debit";
+export type WalletTransactionType = "credit" | "debit" | "sent" | "received";
 
 export type WalletTransactionRecord = {
   id: string;

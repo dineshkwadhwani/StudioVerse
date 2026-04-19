@@ -3,6 +3,70 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function currentUserType() {
+      return isSignedIn() ? currentUser().userType : null;
+    }
+
+    function currentTenantId() {
+      return isSignedIn() ? currentUser().tenantId : null;
+    }
+
+    function currentCompanyId() {
+      return isSignedIn() ? currentUser().associatedCompanyId : null;
+    }
+
+    function isCompanyUser() {
+      return isSignedIn() && currentUserType() == "company";
+    }
+
+    function isProfessionalUser() {
+      return isSignedIn() && currentUserType() == "professional";
+    }
+
+    match /coinRequests/{requestId} {
+      allow create: if isProfessionalUser()
+        && request.resource.data.requesterProfessionalId == request.auth.uid
+        && request.resource.data.tenantId == currentTenantId()
+        && request.resource.data.companyId == currentCompanyId()
+        && request.resource.data.status == "pending"
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
+
+      allow read: if isSignedIn()
+        && (
+          resource.data.requesterProfessionalId == request.auth.uid
+          || (
+            isCompanyUser()
+            && (
+              resource.data.companyId == request.auth.uid
+              || resource.data.companyId == currentCompanyId()
+            )
+          )
+        );
+
+      allow update: if isCompanyUser()
+        && (
+          resource.data.companyId == request.auth.uid
+          || resource.data.companyId == currentCompanyId()
+        )
+        && resource.data.status == "pending"
+        && request.resource.data.status in ["approved", "denied"]
+        && request.resource.data.requesterProfessionalId == resource.data.requesterProfessionalId
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.tenantId == resource.data.tenantId
+        && request.resource.data.amount == resource.data.amount;
+
+      allow delete: if false;
+    }
+
     // This rule allows anyone with your Firestore database reference to view, edit,
     // and delete all data in your Firestore database. It is useful for getting
     // started, but it is configured to expire after 30 days because it
@@ -12,8 +76,9 @@ service cloud.firestore {
     // Make sure to write security rules for your app before that time, or else
     // all client requests to your Firestore database will be denied until you Update
     // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 4, 29);
+    match /{collectionId}/{documentPath=**} {
+      allow read, write: if request.time < timestamp.date(2026, 4, 29)
+        && collectionId != "coinRequests";
     }
   }
 }

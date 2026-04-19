@@ -3,7 +3,59 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
-## Latest implementation progress (16 April 2026)
+## Latest implementation progress (19 April 2026) — Multi-Tenant Content Sharing
+
+**Major feature: Programs/Events/Assessments can now be published to multiple tenants from superadmin portal.**
+
+### Data Model Changes
+- Added `tenantIds: string[]` field to `ProgramRecord`, `EventRecord`, `AssessmentRecord` (alongside retained `tenantId` for backward compatibility)
+- `ProgramFormValues`, `EventFormValues`, `AssessmentFormValues` now include `tenantIds: string[]`
+- Validation schemas enforce at least one tenant selection
+- Tenant visibility determined by: `item.tenantId === targetTenant || item.tenantIds.includes(targetTenant)`
+
+### Admin Portal UI
+- Program/Event tenant selector changed from single `<select>` to **checkbox multi-select**
+- Assessment tenant management updated to interactive multi-select
+- During **create**: all tenant checkboxes are editable
+- During **edit**: 
+  - Primary tenant is disabled and shows **"Primary (locked)"** badge
+  - Other tenants remain editable (add/remove secondary tenants)
+  - Primary tenant preservation prevents backend immutable field violations
+- New CSS class: `.primaryLockBadge` in `SuperAdminPortal.module.css`
+
+### Backend Function Updates
+- `programSchemas.ts`, `eventSchemas.ts`: accept and validate `tenantIds`
+- `createProgram.ts`, `createEvent.ts`: write `tenantIds` to Firestore
+- `updateProgram.ts`, `updateEvent.ts`: immutable checks preserve primary tenant; allow secondary tenant updates
+- Audit logs capture tenant scope changes
+
+### Service Layer
+- `programs.service.ts`, `events.service.ts`, `assessment.service.ts`: 
+  - Send/read/filter by tenant scope using helper logic
+  - List filtering matches `tenantId` OR inclusion in `tenantIds`
+  - All assignments and admin operations use updated scope matching
+
+### Tenant-Facing Pages Updated
+- **Shared modules:** `ProgramsPage`, `EventsPage`, `ToolsPage` (in `src/modules/`)
+- **Coaching Studio:** `CoachingProgramsPage`, `CoachingEventsPage`, `CoachingToolsPage`
+- **Landing pages:** `LandingPage`, `CoachingLandingPage`
+- All use tenant-scope helper: `normalizeTenantToken(item.tenantId) === targetTenant || (item.tenantIds?.includes(targetTenant) ?? false)`
+
+### Bug Fixes & Stability (This Session)
+- Fixed assignment phone search regression: normalized E.164 format + tenant-scoped matching in `assignment.service.ts`
+- Restored dashboard profile-incomplete warning banner in `DashboardPage.tsx`
+- Removed tracked `firebase-debug.log` exposing Groq API key; unblocked push
+- Fixed auth modal reCAPTCHA null-style crash: persistent DOM node lifecycle in `LoginRegisterModal.tsx`
+- Fixed tenant role labels (Professional/Individual → Coach/Coachee for Coaching Studio)
+
+### Build Status
+✅ Full compile passes (`npm run build` 19 April 2026)  
+✅ Zero TypeScript errors  
+✅ All modified files validated
+
+---
+
+## Previous implementation progress (16 April 2026)
 
 - Epic E10 user-management scope is now expanded beyond SuperAdmin:
    - SuperAdmin: can create `company`, `professional`, and `individual` users (existing behavior retained).
@@ -71,6 +123,46 @@ Completed phases:
 - Phase 9: Dashboard
    - dashboard page is now in `src/modules/dashboard/pages/DashboardPage.tsx`
    - `src/modules/app-shell/DashboardPage.tsx` uses `@/modules/dashboard/pages/DashboardPage`
+
+### Epic E5 (Manage Wallet) — Coin Request Lifecycle (Completed 19 April 2026)
+
+**US-E5-08 — Professional Can Request Coins from Associated Company** ✅
+- Request Coins page accessible at `/<tenant>/request-coins` for all studios
+- Professional submits quantity-based coin requests scoped to their associated Company
+- Requests stored in Firestore with `requesterProfessionalId` + `companyId` for accurate routing
+- Implementation: `RequestCoinsPage.tsx` with form validation and Firestore write
+
+**US-E5-09 — Company Can Approve or Deny Coin Requests with Ruleset Enforcement** ✅
+- Manage Wallet page displays pending coin request count as live badge
+- Company users access coin requests modal to view, approve, or deny pending requests
+- Approve transitions status to "approved" and issues coins to Professional's wallet via ledger transaction
+- Deny transitions status to "denied" with optional reason persistence
+- Firestore rules restrict approve/deny to Company users only
+- Badge count refreshes in real-time after approval/denial actions
+- Implementation: `CoinRequestsModal.tsx` with approve/deny logic integrated into `ManageWalletPage.tsx`
+
+**Firestore Security Rules — Coin Request Lifecycle**
+- Helper functions: `isCompanyUser()`, `isProfessionalUser()` determine access rights
+- `match /coinRequests/{requestId}`:
+  - `allow create`: Professional users with `requesterProfessionalId == auth.uid` and `status == "pending"`
+  - `allow read`: Professionals see own requests; Companies see requests for their company
+  - `allow update`: Companies only; status transitions from "pending" to "approved"/"denied"
+  - `allow delete`: Disabled (soft-delete pattern only)
+
+### Epic E6 (Manage Profile) — Profile Dependencies on Wallet (19 April 2026)
+
+- Profile identity context now enables downstream Manage Wallet flows
+- Session persistence stores profile identifiers and association fields needed by wallet request routing
+- Scoped user creation now initializes wallet baseline during user creation (cross-epic dependency)
+
+### Epic E10 (Manage Users) — Scoped User Creation with Wallet Baseline (19 April 2026)
+
+**Wallet Baseline Initialization on Scoped User Creation** ✅
+- Scoped user creation (`src/app/api/users/create-scoped/route.ts`) now initializes wallet state atomically
+- All newly created Professional/Individual users receive 10 initial coins via `INITIAL_SIGNUP_COINS = 10`
+- Wallet doc + transaction ledger entry written in single Firestore transaction with user creation
+- Downstream wallet pages load balances immediately post-creation without manual seeding
+- Users can access `/<tenant>/manage-wallet` immediately after creation and see initialized balance
 
 Pending phases:
 - full regression testing after all phases complete

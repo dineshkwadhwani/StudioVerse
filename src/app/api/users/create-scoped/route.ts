@@ -336,7 +336,42 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      await adminDb.collection("users").doc(authUser.uid).set(payload);
+      // Fetch tenant wallet config to get registration coin amount
+      const tenantDocSnap = await adminDb.collection("tenants").doc(tenantId).get();
+      const registrationFreeCoins = Math.max(0, Math.floor(tenantDocSnap.data()?.walletConfig?.registrationFreeCoins ?? 10));
+
+      await adminDb.runTransaction(async (transaction) => {
+        const userRef = adminDb.collection("users").doc(authUser.uid);
+        const walletRef = adminDb.collection("wallets").doc(authUser.uid);
+        const walletTxRef = adminDb.collection("walletTransactions").doc();
+
+        transaction.set(userRef, payload);
+        transaction.set(walletRef, {
+          userId: authUser.uid,
+          tenantId,
+          userType: targetUserType,
+          userName: fullName,
+          totalIssuedCoins: registrationFreeCoins,
+          utilizedCoins: 0,
+          availableCoins: registrationFreeCoins,
+          createdBy: creator.id,
+          updatedBy: creator.id,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        transaction.set(walletTxRef, {
+          walletId: authUser.uid,
+          userId: authUser.uid,
+          tenantId,
+          userType: targetUserType,
+          userName: fullName,
+          transactionType: "credit",
+          coins: registrationFreeCoins,
+          reason: "Initial wallet issuance",
+          createdBy: creator.id,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      });
     } catch (firestoreError) {
       await adminAuth.deleteUser(authUser.uid);
       throw firestoreError;

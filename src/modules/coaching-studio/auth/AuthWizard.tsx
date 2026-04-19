@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfileByPhone, saveUserProfile } from "@/services/profile.service";
+import { processReferralJoinForNewUser } from "@/services/referral.service";
 import { ensureWalletExists } from "@/services/wallet.service";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { WalletUserType } from "@/types/wallet";
@@ -283,6 +284,17 @@ export default function AuthWizard({ tenantConfig = coachingTenantConfig, onClos
         primaryContactName: role === "company" ? trimmedName : undefined,
         status: "active",
       });
+
+      if (savedProfile.userType === "professional" || savedProfile.userType === "individual") {
+        await processReferralJoinForNewUser({
+          userId: savedProfile.userId,
+          fullName: savedProfile.fullName,
+          tenantId: savedProfile.tenantId,
+          userType: savedProfile.userType,
+          email: savedProfile.email,
+          phoneE164: savedProfile.phoneE164,
+        });
+      }
 
       persistSessionProfile(savedProfile);
 

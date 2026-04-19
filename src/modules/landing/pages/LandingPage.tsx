@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import type { TenantConfig } from "@/types/tenant";
 import type { EventType } from "@/types/event";
 import type { AssessmentRecord } from "@/types/assessment";
@@ -104,26 +104,36 @@ function isInTenantScope(
   );
 }
 
-function getSectionMeta(toolsLabel: string, basePath: string): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
+const DEFAULT_SECTION_INTROS = {
+  tools: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+  programs: "Each programme pairs a clear commercial use case with a polished learner experience.",
+  events: "From roundtables to showcases, each event is designed for practical outcomes.",
+};
+
+function getSectionMeta(
+  labels: { tools: string; programs: string; events: string },
+  intros: { tools: string; programs: string; events: string },
+  basePath: string,
+): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
   return {
     tools: {
-      title: `${toolsLabel} built to assess coachees, surface gaps, and accelerate growth.`,
-      intro: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
+      title: `${labels.tools} built to assess coachees, surface gaps, and accelerate growth.`,
+      intro: intros.tools,
       viewAllPath: `${basePath}/tools`,
-      navLabel: toolsLabel,
+      navLabel: labels.tools,
     },
     programs: {
-      title: "Signature programmes designed for leadership growth and transformation.",
-      intro: "Each programme pairs a clear commercial use case with a polished learner experience.",
+      title: `Signature ${labels.programs.toLowerCase()} designed for leadership growth and transformation.`,
+      intro: intros.programs,
       viewAllPath: `${basePath}/programs`,
       darkTile: true,
-      navLabel: "Programs",
+      navLabel: labels.programs,
     },
     events: {
-      title: "Curated events that connect leaders, coaches, and growth-focused teams.",
-      intro: "From roundtables to showcases, each event is designed for practical outcomes.",
+      title: `Curated ${labels.events.toLowerCase()} that connect leaders, coaches, and growth-focused teams.`,
+      intro: intros.events,
       viewAllPath: `${basePath}/events`,
-      navLabel: "Events",
+      navLabel: labels.events,
     },
   };
 }
@@ -273,7 +283,31 @@ export default function LandingPage({ config }: Props) {
   const [toolItemsFromDb, setToolItemsFromDb] = useState<CarouselItem[]>([]);
   const [eventItemsFromDb, setEventItemsFromDb] = useState<EventLandingItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [dbLandingConfig, setDbLandingConfig] = useState<{
+    sections?: { programs: boolean; tools: boolean; events: boolean };
+    carouselItemLimits?: { programs: number; tools: number; events: number };
+    displayLabels?: { programs?: string; tools?: string; events?: string };
+    sectionIntros?: { programs?: string; tools?: string; events?: string };
+  } | null>(null);
   const perView = useItemsPerView();
+
+  useEffect(() => {
+    async function fetchTenantLandingConfig() {
+      try {
+        const snap = await getDoc(doc(db, "tenants", config.id));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.landingConfig) {
+            setDbLandingConfig(data.landingConfig as typeof dbLandingConfig);
+          }
+        }
+      } catch {
+        // Silently fall back to static config if Firestore fetch fails
+      }
+    }
+    void fetchTenantLandingConfig();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.id]);
 
   const handleItemClick = (item: CarouselItem) => {
     const detailItem: DetailItem = {
@@ -524,9 +558,15 @@ export default function LandingPage({ config }: Props) {
   }, [config.id, config.landingContent?.heroImages?.events]);
 
   const landing = config.landingContent;
-  const programsLimit = landing?.carouselItemLimits?.programs;
-  const toolsLimit = landing?.carouselItemLimits?.tools;
-  const eventsLimit = landing?.carouselItemLimits?.events;
+  // Landing config: DB values take precedence; fall back to static config
+  const activeLandingConfig = dbLandingConfig ?? {};
+  const activeSections = activeLandingConfig.sections ?? landing?.sections;
+  const activeCarouselLimits = activeLandingConfig.carouselItemLimits ?? landing?.carouselItemLimits;
+  const activeDisplayLabels = activeLandingConfig.displayLabels ?? landing?.displayLabels;
+  const activeSectionIntros = activeLandingConfig.sectionIntros;
+  const programsLimit = activeCarouselLimits?.programs;
+  const toolsLimit = activeCarouselLimits?.tools;
+  const eventsLimit = activeCarouselLimits?.events;
 
   const programs = useMemo(() => {
     return repeatToCount(programItemsFromDb, programsLimit);
@@ -544,8 +584,17 @@ export default function LandingPage({ config }: Props) {
     return repeatToCount(eventSource, eventsLimit);
   }, [eventSource, eventsLimit]);
 
-  const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
-  const sectionMeta = useMemo(() => getSectionMeta(toolsLabel, basePath), [basePath, toolsLabel]);
+  const sectionLabels = useMemo(() => ({
+    tools: activeDisplayLabels?.tools ?? landing?.displayLabels?.tools ?? "Tools",
+    programs: activeDisplayLabels?.programs ?? landing?.displayLabels?.programs ?? "Programs",
+    events: activeDisplayLabels?.events ?? landing?.displayLabels?.events ?? "Events",
+  }), [activeDisplayLabels?.events, activeDisplayLabels?.programs, activeDisplayLabels?.tools, landing?.displayLabels?.events, landing?.displayLabels?.programs, landing?.displayLabels?.tools]);
+  const sectionIntros = useMemo(() => ({
+    tools: activeSectionIntros?.tools ?? DEFAULT_SECTION_INTROS.tools,
+    programs: activeSectionIntros?.programs ?? DEFAULT_SECTION_INTROS.programs,
+    events: activeSectionIntros?.events ?? DEFAULT_SECTION_INTROS.events,
+  }), [activeSectionIntros?.events, activeSectionIntros?.programs, activeSectionIntros?.tools]);
+  const sectionMeta = useMemo(() => getSectionMeta(sectionLabels, sectionIntros, basePath), [basePath, sectionIntros, sectionLabels]);
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
   const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
@@ -618,10 +667,10 @@ export default function LandingPage({ config }: Props) {
             {sectionMeta.tools.navLabel}
           </a>
           <a href="#programs" className={styles.navLink}>
-            Programs
+            {sectionMeta.programs.navLabel}
           </a>
           <a href="#events" className={styles.navLink}>
-            Events
+            {sectionMeta.events.navLabel}
           </a>
 
           {!isLoggedIn ? (
@@ -690,10 +739,10 @@ export default function LandingPage({ config }: Props) {
               {sectionMeta.tools.navLabel}
             </a>
             <a href="#programs" onClick={() => setIsMobileMenuOpen(false)}>
-              Programs
+              {sectionMeta.programs.navLabel}
             </a>
             <a href="#events" onClick={() => setIsMobileMenuOpen(false)}>
-              Events
+              {sectionMeta.events.navLabel}
             </a>
 
             {isLoggedIn ? (
@@ -762,7 +811,7 @@ export default function LandingPage({ config }: Props) {
 
       <AssessLearnTransformTimeline userType={userType} />
 
-      {landing?.sections?.tools !== false && tools.length > 0 && (
+      {activeSections?.tools !== false && tools.length > 0 && (
         <CarouselSection
           id="tools"
           items={tools}
@@ -775,7 +824,7 @@ export default function LandingPage({ config }: Props) {
         />
       )}
 
-      {landing?.sections?.programs !== false && programs.length > 0 && (
+      {activeSections?.programs !== false && programs.length > 0 && (
         <CarouselSection
           id="programs"
           items={programs}
@@ -788,7 +837,7 @@ export default function LandingPage({ config }: Props) {
         />
       )}
 
-      {landing?.sections?.events !== false && events.length > 0 && (
+      {activeSections?.events !== false && events.length > 0 && (
         <CarouselSection
           id="events"
           items={events}

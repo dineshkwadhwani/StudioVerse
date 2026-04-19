@@ -1171,6 +1171,7 @@ export default function SuperAdminPortal() {
               </p>
 
               <div className={styles.controlCard}>
+                <p className={styles.filterLabel}>Referrers</p>
                 <div className={styles.radioRow}>
                   {(["all", "company", "professional", "individual"] as ReferralRoleFilter[]).map((value) => (
                     <label key={value} className={styles.radioPill}>
@@ -1185,6 +1186,7 @@ export default function SuperAdminPortal() {
                   ))}
                 </div>
 
+                <p className={styles.filterLabel}>Referrals</p>
                 <div className={styles.radioRow}>
                   {(["all", "coach", "individual"] as ReferralTypeFilter[]).map((value) => (
                     <label key={value} className={styles.radioPill}>
@@ -1199,6 +1201,7 @@ export default function SuperAdminPortal() {
                   ))}
                 </div>
 
+                <p className={styles.filterLabel}>Status</p>
                 <div className={styles.radioRow}>
                   {(["all", "referred", "reminded", "joined"] as ReferralStatusFilter[]).map((value) => (
                     <label key={value} className={styles.radioPill}>

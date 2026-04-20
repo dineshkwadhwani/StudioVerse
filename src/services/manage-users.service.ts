@@ -1,9 +1,13 @@
 import { auth, db } from "@/services/firebase";
 import {
   collection,
+  doc,
   getDocs,
   limit,
   query,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
   where,
   type Timestamp,
 } from "firebase/firestore";
@@ -14,7 +18,7 @@ export type ManagedUserRecord = {
   id: string;
   userId: string;
   tenantId: string;
-  userType: "professional" | "individual";
+  userType: ManageUserRole;
   status: "active" | "inactive";
   firstName: string;
   lastName: string;
@@ -53,6 +57,29 @@ function toStringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function normalizePhone(value: string): string {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (trimmed.startsWith("+")) {
+    return `+${digits}`;
+  }
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+  if (digits.length > 10 && digits.startsWith("91")) {
+    return `+${digits}`;
+  }
+  return `+${digits}`;
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserRecord {
   const firstName = toStringValue(data.firstName);
   const lastName = toStringValue(data.lastName);
@@ -63,9 +90,11 @@ function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserR
     userId: toStringValue(data.userId || data.uid || id),
     tenantId: toStringValue(data.tenantId),
     userType:
-      toStringValue(data.userType || data.profileType || data.role) === "professional"
-        ? "professional"
-        : "individual",
+      toStringValue(data.userType || data.profileType || data.role) === "company"
+        ? "company"
+        : toStringValue(data.userType || data.profileType || data.role) === "professional"
+          ? "professional"
+          : "individual",
     status: toStringValue(data.status) === "inactive" ? "inactive" : "active",
     firstName,
     lastName,
@@ -151,41 +180,195 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     throw new Error("You must be signed in.");
   }
 
-  const token = await currentUser.getIdToken();
-  const response = await fetch("/api/users/create-scoped", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(input),
-  });
-
-  const raw = await response.text();
-  let parsed: {
-    error?: string;
-    requestId?: string;
-    operation?: "created" | "associated";
-    user?: ManagedUserRecord;
-  } = {};
-  if (raw.trim()) {
-    try {
-      parsed = JSON.parse(raw) as typeof parsed;
-    } catch {
-      // keep default
-    }
+  const creator = await getUserById(currentUser.uid);
+  if (!creator) {
+    throw new Error("Your profile could not be resolved.");
   }
 
-  if (!response.ok || !parsed.user) {
-    const message =
-      parsed.error ||
-      `Failed to create user (HTTP ${response.status}).`;
-    throw new Error(parsed.requestId ? `${message} (Request ID: ${parsed.requestId})` : message);
+  const creatorRole = creator.userType;
+  if (creatorRole !== "company" && creatorRole !== "professional") {
+    throw new Error("Only Company or Professional can create users.");
+  }
+
+  const targetUserType = input.targetUserType;
+  if (targetUserType !== "professional" && targetUserType !== "individual") {
+    throw new Error("Invalid target user type.");
+  }
+
+  if (creatorRole === "professional" && targetUserType !== "individual") {
+    throw new Error("Professional can create only Individual users.");
+  }
+
+  const tenantId = creator.tenantId;
+  if (!tenantId) {
+    throw new Error("Creator tenant is missing.");
+  }
+
+  const firstName = toStringValue(input.firstName);
+  const lastName = toStringValue(input.lastName);
+  const email = normalizeEmail(input.email);
+  const phoneE164 = normalizePhone(input.phoneE164);
+
+  const associatedCompanyId = creatorRole === "company" ? creator.id : creator.associatedCompanyId || null;
+
+  let associatedProfessionalId: string | null = null; // null is safe for Firestore (unlike undefined)
+  if (creatorRole === "company" && targetUserType === "individual" && input.coachProfessionalId?.trim()) {
+    const coachId = input.coachProfessionalId.trim();
+    const coach = await getUserById(coachId);
+    if (!coach) {
+      throw new Error("Selected coach not found.");
+    }
+    if (coach.userType !== "professional") {
+      throw new Error("Selected coach is not a Professional.");
+    }
+    if (coach.tenantId !== tenantId || coach.associatedCompanyId !== creator.id) {
+      throw new Error("Coach must belong to same Company.");
+    }
+    if (coach.status === "inactive") {
+      throw new Error("Selected coach is inactive.");
+    }
+    associatedProfessionalId = coachId;
+  }
+
+  if (creatorRole === "professional" && targetUserType === "individual") {
+    associatedProfessionalId = creator.id;
+  }
+
+  const existingByPhone = await getDocs(
+    query(collection(db, "users"), where("phoneE164", "==", phoneE164), limit(1))
+  );
+
+  if (!existingByPhone.empty) {
+    const existingRow = existingByPhone.docs[0];
+    const existing = mapManagedUser(existingRow.id, existingRow.data() as Record<string, unknown>);
+
+    if (existing.userType !== targetUserType) {
+      throw new Error("The phone number belongs to a different user type.");
+    }
+
+    if (existing.tenantId && existing.tenantId !== tenantId) {
+      throw new Error("This user belongs to another tenant and cannot be associated here.");
+    }
+
+    if (targetUserType === "professional" && creatorRole !== "company") {
+      throw new Error("Only Company can associate Professional users.");
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      tenantId,
+      ...(associatedCompanyId != null && { associatedCompanyId }),
+      companyName: creator.companyName ?? existing.companyName ?? "",
+      updatedAt: serverTimestamp(),
+    };
+
+    if (targetUserType === "individual") {
+      if (creatorRole === "professional") {
+        updatePayload.associatedProfessionalId = creator.id;
+      } else if (associatedProfessionalId) {
+        updatePayload.associatedProfessionalId = associatedProfessionalId;
+      }
+    }
+
+    await setDoc(doc(db, "users", existing.id), updatePayload, { merge: true });
+    const refreshed = await getUserById(existing.id);
+    if (!refreshed) {
+      throw new Error("Failed to refresh associated user.");
+    }
+
+    return {
+      operation: "associated",
+      user: refreshed,
+    };
+  }
+
+  if (!firstName || !lastName || !email || !phoneE164) {
+    throw new Error("firstName, lastName, email, and phoneE164 are required when creating a new user.");
+  }
+
+  if (!isValidEmail(email)) {
+    throw new Error("Invalid email format.");
+  }
+
+  const duplicateByEmail = await getDocs(
+    query(collection(db, "users"), where("email", "==", email), limit(1))
+  );
+  if (!duplicateByEmail.empty) {
+    throw new Error("A user with this email already exists.");
+  }
+
+  const tenantSnap = await getDocs(query(collection(db, "tenants"), where("tenantId", "==", tenantId), limit(1)));
+  const tenantData = tenantSnap.empty ? null : (tenantSnap.docs[0].data() as Record<string, unknown>);
+  const walletConfig = tenantData?.walletConfig as Record<string, unknown> | undefined;
+  const registrationFreeCoins = Math.max(0, Math.floor(Number(walletConfig?.registrationFreeCoins ?? 10)));
+
+  const fullName = `${firstName} ${lastName}`.trim();
+  const userRef = doc(collection(db, "users"));
+  const walletRef = doc(db, "wallets", userRef.id);
+  const walletTxRef = doc(collection(db, "walletTransactions"));
+
+  await runTransaction(db, async (transaction) => {
+    transaction.set(userRef, {
+      userId: userRef.id,
+      name: fullName,
+      fullName,
+      firstName,
+      lastName,
+      email,
+      phoneE164,
+      phone: phoneE164,
+      userType: targetUserType,
+      profileType: targetUserType,
+      role: targetUserType,
+      status: "active",
+      tenantId,
+      companyName: creator.companyName ?? "",
+      associatedCompanyId,
+      associatedProfessionalId,
+      createdByUserId: creator.id,
+      createdByRole: creatorRole,
+      assignmentEligible: false,
+      mandatoryProfileCompleted: false,
+      profileCompletionPercent: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    transaction.set(walletRef, {
+      userId: userRef.id,
+      tenantId,
+      userType: targetUserType,
+      userName: fullName,
+      totalIssuedCoins: registrationFreeCoins,
+      utilizedCoins: 0,
+      availableCoins: registrationFreeCoins,
+      createdBy: creator.id,
+      updatedBy: creator.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    transaction.set(walletTxRef, {
+      walletId: userRef.id,
+      userId: userRef.id,
+      tenantId,
+      userType: targetUserType,
+      userName: fullName,
+      transactionType: "credit",
+      coins: registrationFreeCoins,
+      reason: "Initial wallet issuance",
+      createdBy: creator.id,
+      createdAt: serverTimestamp(),
+    });
+  });
+
+  const created = await getUserById(userRef.id);
+  if (!created) {
+    throw new Error("Failed to create user.");
   }
 
   return {
-    operation: parsed.operation ?? "created",
-    user: parsed.user,
+    operation: "created",
+    user: created,
   };
 }
 

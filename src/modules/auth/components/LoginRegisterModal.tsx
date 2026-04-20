@@ -271,6 +271,17 @@ export default function LoginRegisterModal({
         const resolvedPhone = typeof userData.phoneE164 === 'string' ? userData.phoneE164 : phoneE164;
         logFlow('verify-otp:existing-user', { role: resolvedRole, name: resolvedName });
 
+        if (typeof userData.uid !== 'string' || userData.uid !== result.user.uid) {
+          await setDoc(
+            doc(db, 'users', userDoc.id),
+            {
+              uid: result.user.uid,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
+
         // Ensure pre-provisioned users (created by assignment flow) have a wallet.
         const resolvedUserId = typeof userData.userId === 'string' ? userData.userId : undefined;
         void ensureWalletExists({

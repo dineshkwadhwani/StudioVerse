@@ -158,7 +158,7 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
 
       setReferredEmail("");
       setReferredPhone("");
-      setSuccess("Referral created. Invite mail placeholder triggered and reward coins added.");
+      setSuccess("Referral created. Invite sent. Your reward coins will be added once they join.");
 
       const rows = await listReferralsForUser({
         referrerUserId: profileId,

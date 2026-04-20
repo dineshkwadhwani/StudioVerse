@@ -144,6 +144,8 @@ type DashboardStats = {
   companies: number;
   professionals: number;
   individuals: number;
+  referralsMade: number;
+  referralsJoined: number;
 };
 
 type ReferralRoleFilter = "all" | "company" | "professional" | "individual";
@@ -236,6 +238,8 @@ const EMPTY_DASHBOARD_STATS: DashboardStats = {
   companies: 0,
   professionals: 0,
   individuals: 0,
+  referralsMade: 0,
+  referralsJoined: 0,
 };
 
 async function ensureSuperadminProfile(firebaseUser: User): Promise<AppUser> {
@@ -578,9 +582,14 @@ export default function SuperAdminPortal() {
         getDocs(collection(db, "assessments")),
         getDocs(collection(db, "events")),
       ]);
-      const walletSummary = await listWalletSummary();
+      const [walletSummary, allReferrals] = await Promise.all([
+        listWalletSummary(),
+        listAllReferrals(),
+      ]);
 
       const users = usersSnap.docs.map((entry) => entry.data() as Omit<AppUser, "id">);
+      const referralsMade = allReferrals.length;
+      const referralsJoined = allReferrals.filter((r) => r.status === "joined").length;
 
       setDashboardStats({
         tenants: tenantsSnap.size,
@@ -592,6 +601,8 @@ export default function SuperAdminPortal() {
         companies: users.filter((entry) => entry.userType === "company").length,
         professionals: users.filter((entry) => entry.userType === "professional").length,
         individuals: users.filter((entry) => entry.userType === "individual").length,
+        referralsMade,
+        referralsJoined,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load dashboard stats.";
@@ -1018,6 +1029,10 @@ export default function SuperAdminPortal() {
                 <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("users", "individual")}>
                   <p className={styles.statLabel}>No of Individuals</p>
                   <p className={styles.statValue}>{dashboardStats.individuals}</p>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("referrals")}>
+                  <p className={styles.statLabel}>Referrals Joined / Made</p>
+                  <p className={styles.statValue}>{dashboardStats.referralsJoined}/{dashboardStats.referralsMade}</p>
                 </button>
               </div>
             </article>

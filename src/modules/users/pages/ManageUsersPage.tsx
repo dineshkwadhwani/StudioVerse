@@ -58,9 +58,12 @@ function normalizePhone(input: string): string {
 }
 
 function getRoleDisplayLabel(
-  role: "professional" | "individual",
+  role: "company" | "professional" | "individual",
   tenantConfig: TenantConfig
 ): string {
+  if (role === "company") {
+    return tenantConfig.roles.company;
+  }
   return role === "professional" ? tenantConfig.roles.professional : tenantConfig.roles.individual;
 }
 
@@ -88,6 +91,7 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
   const [users, setUsers] = useState<ManagedUserRecord[]>([]);
   const [coaches, setCoaches] = useState<ManagedUserRecord[]>([]);
 
+  const [scopeFilter, setScopeFilter] = useState<"all" | "professional" | "individual">("all");
   const [targetUserType, setTargetUserType] = useState<"professional" | "individual">("individual");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -202,6 +206,11 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
 
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
+  const filteredUsers = useMemo(() => {
+    if (scopeFilter === "all") return users;
+    return users.filter((u) => u.userType === scopeFilter);
+  }, [users, scopeFilter]);
+
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
   const isCoachingStudioRoute = pathname?.startsWith("/coaching-studio");
@@ -501,11 +510,29 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
                 : `Showing ${individualLabel}s associated with you.`}
             </p>
 
-            {users.length === 0 ? (
+            {creator?.role === "company" && (
+              <div className={styles.scopeFilterRow}>
+                {(["all", "professional", "individual"] as const).map((option) => (
+                  <label key={option} className={styles.scopeFilterLabel}>
+                    <input
+                      type="radio"
+                      name="scopeFilter"
+                      value={option}
+                      checked={scopeFilter === option}
+                      onChange={() => setScopeFilter(option)}
+                      className={styles.scopeFilterRadio}
+                    />
+                    {option === "all" ? "All" : option === "professional" ? `${professionalLabel}s` : `${individualLabel}s`}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {filteredUsers.length === 0 ? (
               <p className={styles.empty}>No users found in your scope yet.</p>
             ) : (
               <div className={styles.usersList}>
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <article key={user.id} className={styles.userRow}>
                     <p className={styles.userName}>{user.fullName}</p>
                     <p className={styles.userMeta}>Type: {getRoleDisplayLabel(user.userType, tenantConfig)}</p>

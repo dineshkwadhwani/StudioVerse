@@ -159,6 +159,30 @@
   font-size: 0.85rem;
 }
 
+.scopeFilterRow {
+  display: flex;
+  gap: 20px;
+  margin: 12px 0 4px;
+  flex-wrap: wrap;
+}
+
+.scopeFilterLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2f5571;
+  cursor: pointer;
+}
+
+.scopeFilterRadio {
+  accent-color: #1e6fa5;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
 .empty {
   margin-top: 12px;
   color: #4d6e86;

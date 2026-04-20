@@ -19,7 +19,6 @@ import type {
   ReferralStatus,
 } from "@/types/referral";
 
-const REFERRAL_CREATE_REWARD = 10;
 const DEFAULT_REFERRAL_JOIN_REWARD = 5;
 
 function normalizeEmail(value: string): string {
@@ -67,6 +66,14 @@ async function getTenantReferralJoinReward(tenantId: string): Promise<number> {
     Math.floor(
       Number(tenantSnap.data()?.walletConfig?.referralFreeCoins ?? DEFAULT_REFERRAL_JOIN_REWARD)
     )
+  );
+}
+
+async function getTenantRegistrationCoins(tenantId: string): Promise<number> {
+  const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
+  return Math.max(
+    0,
+    Math.floor(Number(tenantSnap.data()?.walletConfig?.registrationFreeCoins ?? 10))
   );
 }
 
@@ -189,23 +196,6 @@ export async function createReferral(args: {
       updatedAt: serverTimestamp(),
     });
   });
-
-  if (
-    args.referrerRole === "company"
-    || args.referrerRole === "professional"
-    || args.referrerRole === "individual"
-  ) {
-    await creditWallet({
-      userId: args.referrerUserId,
-      tenantId: args.tenantId,
-      userName: args.referrerName,
-      userType: args.referrerRole,
-      createdBy: args.referrerUserId,
-      coins: REFERRAL_CREATE_REWARD,
-      reason: "Referral created reward",
-      referralId: referralRef.id,
-    });
-  }
 
   await sendReferralInviteEmail({
     referredEmail,
@@ -331,37 +321,64 @@ export async function processReferralJoinForNewUser(args: {
   const email = normalizeEmail(args.email);
   const phone = normalizePhone(args.phoneE164);
 
-  const referralsQuery = query(
+  // Query only by phone + tenantId (two-field equality — no composite index required).
+  // Then filter referredType and status in code to avoid needing a multi-field index.
+  const byPhoneQuery = query(
     collection(db, "referrals"),
     where("tenantId", "==", args.tenantId),
-    where("referredType", "==", targetType),
-    where("status", "in", ["referred", "reminded"])
+    where("referredPhone", "==", phone)
   );
-  const referralsSnap = await getDocs(referralsQuery);
-  if (referralsSnap.empty) {
-    return;
-  }
+  const byPhoneSnap = await getDocs(byPhoneQuery);
 
-  const matches = referralsSnap.docs
+  let matches = byPhoneSnap.docs
     .map((entry) => toReferralRecord(entry.id, entry.data() as Record<string, unknown>))
-    .filter((entry) => entry.referredEmail === email || entry.referredPhone === phone)
-    .sort((a, b) => {
-      const first = a.createdAt && "toMillis" in a.createdAt ? a.createdAt.toMillis() : 0;
-      const second = b.createdAt && "toMillis" in b.createdAt ? b.createdAt.toMillis() : 0;
-      return first - second;
-    });
+    .filter((entry) =>
+      entry.referredType === targetType && (entry.status === "referred" || entry.status === "reminded")
+    );
+
+  // Also try matching by email if phone gave no results and email is present
+  if (matches.length === 0 && email) {
+    const byEmailQuery = query(
+      collection(db, "referrals"),
+      where("tenantId", "==", args.tenantId),
+      where("referredEmail", "==", email)
+    );
+    const byEmailSnap = await getDocs(byEmailQuery);
+    matches = byEmailSnap.docs
+      .map((entry) => toReferralRecord(entry.id, entry.data() as Record<string, unknown>))
+      .filter((entry) =>
+        entry.referredType === targetType && (entry.status === "referred" || entry.status === "reminded")
+      );
+  }
 
   if (matches.length === 0) {
     return;
   }
 
+  // Use the oldest matching referral
+  matches.sort((a, b) => {
+    const first = a.createdAt && "toMillis" in a.createdAt ? a.createdAt.toMillis() : 0;
+    const second = b.createdAt && "toMillis" in b.createdAt ? b.createdAt.toMillis() : 0;
+    return first - second;
+  });
+
   const matched = matches[0];
-  const joinReward = await getTenantReferralJoinReward(args.tenantId);
+  const [joinReward, registrationCoins] = await Promise.all([
+    getTenantReferralJoinReward(args.tenantId),
+    getTenantRegistrationCoins(args.tenantId),
+  ]);
+
   const referralRef = doc(db, "referrals", matched.id);
-  const walletRef = doc(db, "wallets", matched.referrerUserId);
+  const referrerWalletRef = doc(db, "wallets", matched.referrerUserId);
+  const newUserWalletRef = doc(db, "wallets", args.userId);
 
   await runTransaction(db, async (transaction) => {
-    const referralSnap = await transaction.get(referralRef);
+    const [referralSnap, referrerWalletSnap, newUserWalletSnap] = await Promise.all([
+      transaction.get(referralRef),
+      transaction.get(referrerWalletRef),
+      transaction.get(newUserWalletRef),
+    ]);
+
     if (!referralSnap.exists()) {
       return;
     }
@@ -371,6 +388,7 @@ export async function processReferralJoinForNewUser(args: {
       return;
     }
 
+    // Mark referral as joined
     transaction.update(referralRef, {
       status: "joined",
       joinedAt: serverTimestamp(),
@@ -379,40 +397,32 @@ export async function processReferralJoinForNewUser(args: {
       updatedBy: args.userId,
     });
 
-    const walletSnap = await transaction.get(walletRef);
-    const walletData = walletSnap.exists() ? (walletSnap.data() as Record<string, unknown>) : {};
-
     const referrerRole =
-      latest.referrerRole === "company"
-      || latest.referrerRole === "professional"
-      || latest.referrerRole === "individual"
+      latest.referrerRole === "company" || latest.referrerRole === "professional" || latest.referrerRole === "individual"
         ? latest.referrerRole
         : "individual";
 
-    const nextIssued = Number(walletData.totalIssuedCoins ?? 0) + joinReward;
-    const nextAvailable = Number(walletData.availableCoins ?? 0) + joinReward;
-    const utilized = Number(walletData.utilizedCoins ?? 0);
-
+    // Credit referrer with join reward (5 coins)
+    const referrerData = referrerWalletSnap.exists() ? (referrerWalletSnap.data() as Record<string, unknown>) : {};
     transaction.set(
-      walletRef,
+      referrerWalletRef,
       {
         userId: latest.referrerUserId,
         tenantId: latest.tenantId,
         userType: referrerRole,
         userName: latest.referrerName,
-        totalIssuedCoins: nextIssued,
-        utilizedCoins: utilized,
-        availableCoins: nextAvailable,
-        createdBy: walletData.createdBy ?? latest.referrerUserId,
+        totalIssuedCoins: Number(referrerData.totalIssuedCoins ?? 0) + joinReward,
+        utilizedCoins: Number(referrerData.utilizedCoins ?? 0),
+        availableCoins: Number(referrerData.availableCoins ?? 0) + joinReward,
+        createdBy: referrerData.createdBy ?? latest.referrerUserId,
         updatedBy: args.userId,
-        createdAt: walletData.createdAt ?? serverTimestamp(),
+        createdAt: referrerData.createdAt ?? serverTimestamp(),
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
-
-    const txRef = doc(collection(db, "walletTransactions"));
-    transaction.set(txRef, {
+    const referrerTxRef = doc(collection(db, "walletTransactions"));
+    transaction.set(referrerTxRef, {
       walletId: latest.referrerUserId,
       userId: latest.referrerUserId,
       tenantId: latest.tenantId,
@@ -428,6 +438,43 @@ export async function processReferralJoinForNewUser(args: {
       createdBy: args.userId,
       createdAt: serverTimestamp(),
     });
+
+    // Credit the new (referred) user with registration coins (10 coins)
+    if (registrationCoins > 0) {
+      const newUserData = newUserWalletSnap.exists() ? (newUserWalletSnap.data() as Record<string, unknown>) : {};
+      transaction.set(
+        newUserWalletRef,
+        {
+          userId: args.userId,
+          tenantId: args.tenantId,
+          userType: args.userType,
+          userName: args.fullName,
+          totalIssuedCoins: Number(newUserData.totalIssuedCoins ?? 0) + registrationCoins,
+          utilizedCoins: Number(newUserData.utilizedCoins ?? 0),
+          availableCoins: Number(newUserData.availableCoins ?? 0) + registrationCoins,
+          createdBy: newUserData.createdBy ?? "system",
+          updatedBy: "system",
+          createdAt: newUserData.createdAt ?? serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      const newUserTxRef = doc(collection(db, "walletTransactions"));
+      transaction.set(newUserTxRef, {
+        walletId: args.userId,
+        userId: args.userId,
+        tenantId: args.tenantId,
+        userType: args.userType,
+        userName: args.fullName,
+        transactionType: "credit",
+        coins: registrationCoins,
+        reason: "Welcome coins — referred user registration",
+        source: "referral",
+        referralId: latest.id,
+        createdBy: "system",
+        createdAt: serverTimestamp(),
+      });
+    }
   });
 }
 

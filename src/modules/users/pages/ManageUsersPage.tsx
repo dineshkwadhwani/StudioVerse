@@ -522,7 +522,7 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
                       onChange={() => setScopeFilter(option)}
                       className={styles.scopeFilterRadio}
                     />
-                    {option === "all" ? "All" : option === "professional" ? `${professionalLabel}s` : `${individualLabel}s`}
+                    {option === "all" ? "All" : option === "professional" ? `${professionalLabel}${professionalLabel.endsWith("ch") ? "es" : "s"}` : `${individualLabel}${individualLabel.endsWith("ch") ? "es" : "s"}`}
                   </label>
                 ))}
               </div>

@@ -24,6 +24,14 @@ export const config: TenantConfig = {
     primaryColor: "#01696f",
     logo: "/tenants/coaching-studio/logo.png",
   },
+  botConfig: {
+    visible: true,
+    studioBotEnabled: true,
+    professionalBotEnabled: true,
+    personaName: "Coach Dinesh",
+    personaAvatar: "/tenants/coaching-studio/bot.png",
+    messageCap: 5,
+  },
   landingContent: {
     sections: {
       programs: true,

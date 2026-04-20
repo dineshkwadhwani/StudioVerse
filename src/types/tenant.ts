@@ -18,6 +18,14 @@ export type TenantConfig = {
     events: boolean;
     aiCoach: boolean;
   };
+  botConfig?: {
+    visible: boolean;
+    studioBotEnabled: boolean;
+    professionalBotEnabled: boolean;
+    personaName: string;
+    personaAvatar?: string;
+    messageCap: number;
+  };
   theme: {
     primaryColor: string;
     logo: string;

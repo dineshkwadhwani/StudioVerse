@@ -89,6 +89,14 @@ type TenantRecord = {
     registrationFreeCoins?: number;
     referralFreeCoins?: number;
   };
+  botConfig?: {
+    visible?: boolean;
+    studioBotEnabled?: boolean;
+    professionalBotEnabled?: boolean;
+    personaName?: string;
+      personaAvatar?: string;
+    messageCap?: number;
+  };
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 };
@@ -124,6 +132,15 @@ type TenantWalletFormState = {
   referralFreeCoins: number;
 };
 
+type TenantBotFormState = {
+  visible: boolean;
+  studioBotEnabled: boolean;
+  professionalBotEnabled: boolean;
+  personaName: string;
+    personaAvatar: string;
+  messageCap: number;
+};
+
 type TenantFormState = {
   tenantId: string;
   tenantName: string;
@@ -132,6 +149,7 @@ type TenantFormState = {
   status: Status;
   landingConfig: TenantLandingFormState;
   walletConfig: TenantWalletFormState;
+  botConfig: TenantBotFormState;
 };
 
 type DashboardStats = {
@@ -225,6 +243,14 @@ const EMPTY_TENANT_FORM: TenantFormState = {
   walletConfig: {
     registrationFreeCoins: 10,
     referralFreeCoins: 5,
+  },
+  botConfig: {
+    visible: false,
+    studioBotEnabled: false,
+    professionalBotEnabled: false,
+    personaName: "",
+      personaAvatar: "",
+    messageCap: 5,
   },
 };
 
@@ -729,6 +755,14 @@ export default function SuperAdminPortal() {
         registrationFreeCoins: target.walletConfig?.registrationFreeCoins ?? 10,
         referralFreeCoins: target.walletConfig?.referralFreeCoins ?? 5,
       },
+      botConfig: {
+        visible: target.botConfig?.visible ?? false,
+        studioBotEnabled: target.botConfig?.studioBotEnabled ?? false,
+        professionalBotEnabled: target.botConfig?.professionalBotEnabled ?? false,
+        personaName: target.botConfig?.personaName ?? "",
+          personaAvatar: target.botConfig?.personaAvatar ?? "",
+        messageCap: target.botConfig?.messageCap ?? 5,
+      },
     });
     setTenantModalOpen(true);
   }
@@ -848,6 +882,14 @@ export default function SuperAdminPortal() {
         walletConfig: {
           registrationFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.registrationFreeCoins)),
           referralFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.referralFreeCoins)),
+        },
+        botConfig: {
+          visible: tenantForm.botConfig.visible,
+          studioBotEnabled: tenantForm.botConfig.studioBotEnabled,
+          professionalBotEnabled: tenantForm.botConfig.professionalBotEnabled,
+          personaName: tenantForm.botConfig.personaName.trim(),
+                    personaAvatar: tenantForm.botConfig.personaAvatar.trim(),
+          messageCap: Math.max(1, Math.min(20, tenantForm.botConfig.messageCap)),
         },
         updatedAt: serverTimestamp(),
         updatedBy: profile.id,
@@ -1725,6 +1767,58 @@ export default function SuperAdminPortal() {
                     className={`${styles.input} ${styles.compactInput}`}
                     value={tenantForm.walletConfig.referralFreeCoins}
                     onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, referralFreeCoins: Number(event.target.value) } }))}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Bot Configuration</p>
+              <div className={styles.tenantToggleRow}>
+                <label className={styles.tenantToggleLabel}>
+                  <input type="checkbox" checked={tenantForm.botConfig.visible} onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, visible: e.target.checked } }))} />
+                  Bot Visible
+                </label>
+                <label className={styles.tenantToggleLabel}>
+                  <input type="checkbox" checked={tenantForm.botConfig.studioBotEnabled} onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, studioBotEnabled: e.target.checked } }))} />
+                  Studio Bot
+                </label>
+                <label className={styles.tenantToggleLabel}>
+                  <input type="checkbox" checked={tenantForm.botConfig.professionalBotEnabled} onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, professionalBotEnabled: e.target.checked } }))} />
+                  Professional Bot
+                </label>
+              </div>
+              <div className={styles.tenantConfigGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="bot-persona-name">Persona Name</label>
+                  <input
+                    id="bot-persona-name"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. Coach Dinesh"
+                    value={tenantForm.botConfig.personaName}
+                    onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, personaName: e.target.value } }))}
+                  />
+                </div>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="bot-persona-avatar">Persona Avatar Path</label>
+                  <input
+                    id="bot-persona-avatar"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. /tenants/coaching-studio/bot.png"
+                    value={tenantForm.botConfig.personaAvatar}
+                    onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, personaAvatar: e.target.value } }))}
+                  />
+                </div>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="bot-message-cap">Message Cap</label>
+                  <input
+                    id="bot-message-cap"
+                    type="number"
+                    min={1}
+                    max={20}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.botConfig.messageCap}
+                    onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, messageCap: Number(e.target.value) } }))}
                   />
                 </div>
               </div>

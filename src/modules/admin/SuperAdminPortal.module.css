@@ -555,6 +555,23 @@
   color: #2f5873;
 }
 
+.tenantToggleRow {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
+}
+
+.tenantToggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2f5571;
+  cursor: pointer;
+}
+
 .tenantConfigGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

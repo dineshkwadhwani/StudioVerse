@@ -33,6 +33,11 @@ export async function POST(req: NextRequest) {
     If the answer is not in the context, say: "I do not want to misguide you. I do not have that detail in my current context, but I can help you reach the right team."
     Do not invent features, settings, or policies.
     Keep responses concise, structured, and easy to understand.
+    Formatting rules:
+    - Put each key point on a new line.
+    - Use short numbered points when explaining steps.
+    - Use **bold** only for important keywords or warnings.
+    - Avoid one long paragraph.
 
 CONTEXT:
 ${context ?? "No context provided."}`;
@@ -42,6 +47,11 @@ ${context ?? "No context provided."}`;
     Give actionable advice with a calm, human tone.
     Prefer short frameworks, reflection prompts, and next steps when useful.
     Keep responses concise (under 150 words).
+    Formatting rules:
+    - Put each key point on a new line.
+    - Use short numbered points when suggesting steps.
+    - Use **bold** only to emphasize critical points.
+    - Avoid one long paragraph.
     Do not make medical, legal, or diagnostic claims.`;
     }
 

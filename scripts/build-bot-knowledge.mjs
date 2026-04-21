@@ -1,5 +1,5 @@
 /**
- * Build bot knowledge base from functional epic docs (/docs/E0.md ... /docs/E11.md).
+ * Build bot knowledge base from functional epic docs plus core product context docs.
  * Produces public/bot-knowledge/coaching-studio.json
  * Run: node scripts/build-bot-knowledge.mjs
  */
@@ -14,6 +14,8 @@ const OUT_DIR = join(ROOT, "public", "bot-knowledge");
 const CHUNK_SIZE_CHARS = 1800;
 
 const EPIC_FILES = Array.from({ length: 12 }, (_, n) => `E${n}.md`);
+const CONTEXT_FILES = ["StudioVerse_Executive_Product_Document_v2.md"];
+const SOURCE_FILES = new Set([...EPIC_FILES, ...CONTEXT_FILES]);
 
 const SECTION_EXCLUDE_PATTERNS = [
   /^epic\s+e\d+/i,
@@ -66,6 +68,12 @@ function cleanChunkText(rawText) {
 function extractEpicTitle(content, fallback) {
   const match = content.match(/^##\s*EPIC\s+E\d+\s*[—-]\s*(.+)$/im);
   if (match?.[1]) return match[1].trim();
+  return fallback;
+}
+
+function extractDocumentTitle(content, fallback) {
+  const firstHeading = content.match(/^#\s+(.+)$/m);
+  if (firstHeading?.[1]) return firstHeading[1].trim();
   return fallback;
 }
 
@@ -143,8 +151,17 @@ function chunkSectionText(text) {
 }
 
 const mdFiles = readdirSync(DOCS_DIR)
-  .filter((f) => EPIC_FILES.includes(f))
-  .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")));
+  .filter((f) => SOURCE_FILES.has(f))
+  .sort((a, b) => {
+    const aEpic = /^E\d+\.md$/i.test(a);
+    const bEpic = /^E\d+\.md$/i.test(b);
+    if (aEpic && bEpic) {
+      return Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, ""));
+    }
+    if (aEpic && !bEpic) return -1;
+    if (!aEpic && bEpic) return 1;
+    return a.localeCompare(b);
+  });
 
 const allChunks = [];
 
@@ -153,8 +170,10 @@ let counter = 1;
 for (const file of mdFiles) {
   const content = readFileSync(join(DOCS_DIR, file), "utf-8");
   const epicIdMatch = file.match(/^E(\d+)\.md$/i);
-  const epicId = epicIdMatch ? `E${epicIdMatch[1]}` : file.replace(".md", "");
-  const epicTitle = extractEpicTitle(content, file.replace(".md", ""));
+  const epicId = epicIdMatch ? `E${epicIdMatch[1]}` : "EXEC";
+  const epicTitle = epicIdMatch
+    ? extractEpicTitle(content, file.replace(".md", ""))
+    : extractDocumentTitle(content, "StudioVerse Executive Product Document");
 
   const sections = splitIntoSections(content);
   for (const section of sections) {

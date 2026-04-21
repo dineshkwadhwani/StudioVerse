@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import {
   collection,
   doc,
@@ -97,6 +98,100 @@ function inferModeFromOpenEndedAnswer(
   return null;
 }
 
+function normalizeAssistantReply(raw: string): string {
+  return raw
+    .replace(/\r\n/g, "\n")
+    // Put numbered items on separate lines when model returns them inline.
+    .replace(/\s+(?=\d+\.\s)/g, "\n")
+    // Put bullet items on separate lines when returned inline.
+    .replace(/\s+(?=[-*]\s)/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function renderInlineBold(text: string, keyPrefix: string): ReactNode {
+  const chunks = text.split(/(\*\*[^*]+\*\*)/g);
+  return chunks.map((chunk, chunkIndex) => {
+    const isBold = chunk.startsWith("**") && chunk.endsWith("**") && chunk.length > 4;
+    if (!isBold) {
+      return <Fragment key={`${keyPrefix}-chunk-${chunkIndex}`}>{chunk}</Fragment>;
+    }
+
+    return <strong key={`${keyPrefix}-chunk-${chunkIndex}`}>{chunk.slice(2, -2)}</strong>;
+  });
+}
+
+type MessageBlock = {
+  type: "p" | "ul" | "ol";
+  lines: string[];
+};
+
+function renderFormattedMessage(content: string): ReactNode {
+  const lines = content.split("\n");
+  const blocks: MessageBlock[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+    const numberedMatch = line.match(/^\d+\.\s+(.+)$/);
+
+    if (bulletMatch) {
+      const last = blocks[blocks.length - 1];
+      if (last?.type === "ul") {
+        last.lines.push(bulletMatch[1]);
+      } else {
+        blocks.push({ type: "ul", lines: [bulletMatch[1]] });
+      }
+      continue;
+    }
+
+    if (numberedMatch) {
+      const last = blocks[blocks.length - 1];
+      if (last?.type === "ol") {
+        last.lines.push(numberedMatch[1]);
+      } else {
+        blocks.push({ type: "ol", lines: [numberedMatch[1]] });
+      }
+      continue;
+    }
+
+    blocks.push({ type: "p", lines: [line] });
+  }
+
+  return blocks.map((block, blockIndex) => {
+    if (block.type === "ul") {
+      return (
+        <ul key={`block-${blockIndex}`} className={styles.msgList}>
+          {block.lines.map((item, itemIndex) => (
+            <li key={`block-${blockIndex}-item-${itemIndex}`}>{renderInlineBold(item, `ul-${blockIndex}-${itemIndex}`)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (block.type === "ol") {
+      return (
+        <ol key={`block-${blockIndex}`} className={styles.msgListOrdered}>
+          {block.lines.map((item, itemIndex) => (
+            <li key={`block-${blockIndex}-item-${itemIndex}`}>{renderInlineBold(item, `ol-${blockIndex}-${itemIndex}`)}</li>
+          ))}
+        </ol>
+      );
+    }
+
+    const paragraph = block.lines[0];
+    if (!paragraph.trim()) {
+      return <div key={`block-${blockIndex}`} className={styles.msgSpacer} />;
+    }
+
+    return (
+      <p key={`block-${blockIndex}`} className={styles.msgParagraph}>
+        {renderInlineBold(paragraph, `p-${blockIndex}`)}
+      </p>
+    );
+  });
+}
+
 export default function BotWidget({ tenantConfig, currentUser }: Props) {
   const [runtimeBotCfg, setRuntimeBotCfg] = useState<BotConfigRuntime>({
     visible: tenantConfig.botConfig?.visible ?? false,
@@ -120,24 +215,41 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
         const botConfig = (data.botConfig ?? {}) as Record<string, unknown>;
         if (cancelled) return;
 
+        const loadedVisible = typeof botConfig.visible === "boolean" ? botConfig.visible : undefined;
+        const loadedStudioEnabled =
+          typeof botConfig.studioBotEnabled === "boolean" ? botConfig.studioBotEnabled : undefined;
+        const loadedProfessionalEnabled =
+          typeof botConfig.professionalBotEnabled === "boolean" ? botConfig.professionalBotEnabled : undefined;
+        const loadedPersonaName =
+          typeof botConfig.personaName === "string" ? botConfig.personaName.trim() : "";
+        const loadedPersonaAvatar =
+          typeof botConfig.personaAvatar === "string" ? botConfig.personaAvatar.trim() : "";
+        const loadedMessageCap =
+          typeof botConfig.messageCap === "number" && Number.isFinite(botConfig.messageCap)
+            ? Math.max(1, Math.min(20, Math.floor(botConfig.messageCap)))
+            : undefined;
+
+        // Some older tenant docs may carry a default empty botConfig payload.
+        // In that case, keep existing in-code defaults instead of turning the bot off after first render.
+        const looksUnconfigured =
+          loadedVisible === false &&
+          loadedStudioEnabled === false &&
+          loadedProfessionalEnabled === false &&
+          !loadedPersonaName &&
+          !loadedPersonaAvatar &&
+          loadedMessageCap === 5;
+
+        if (looksUnconfigured) {
+          return;
+        }
+
         setRuntimeBotCfg((prev) => ({
-          visible: typeof botConfig.visible === "boolean" ? botConfig.visible : prev.visible,
-          studioBotEnabled:
-            typeof botConfig.studioBotEnabled === "boolean" ? botConfig.studioBotEnabled : prev.studioBotEnabled,
-          professionalBotEnabled:
-            typeof botConfig.professionalBotEnabled === "boolean" ? botConfig.professionalBotEnabled : prev.professionalBotEnabled,
-          personaName:
-            typeof botConfig.personaName === "string" && botConfig.personaName.trim()
-              ? botConfig.personaName.trim()
-              : prev.personaName,
-          personaAvatar:
-            typeof botConfig.personaAvatar === "string" && botConfig.personaAvatar.trim()
-              ? botConfig.personaAvatar.trim()
-              : prev.personaAvatar,
-          messageCap:
-            typeof botConfig.messageCap === "number" && Number.isFinite(botConfig.messageCap)
-              ? Math.max(1, Math.min(20, Math.floor(botConfig.messageCap)))
-              : prev.messageCap,
+          visible: loadedVisible ?? prev.visible,
+          studioBotEnabled: loadedStudioEnabled ?? prev.studioBotEnabled,
+          professionalBotEnabled: loadedProfessionalEnabled ?? prev.professionalBotEnabled,
+          personaName: loadedPersonaName || prev.personaName,
+          personaAvatar: loadedPersonaAvatar || prev.personaAvatar,
+          messageCap: loadedMessageCap ?? prev.messageCap,
         }));
       } catch (err) {
         console.error("Failed to load tenant bot config:", err);
@@ -169,14 +281,8 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
   }, [tenantConfig.id, currentUser]);
 
   const botCfg = runtimeBotCfg;
-
-  if (!botCfg?.visible) return null;
-
   const hasStudio = botCfg.studioBotEnabled ?? false;
   const hasProfessional = botCfg.professionalBotEnabled ?? false;
-
-  // If neither mode enabled, hide
-  if (!hasStudio && !hasProfessional) return null;
 
   const personaName = botCfg.personaName || DEFAULT_PERSONA;
   const personaAvatar = botCfg.personaAvatar || tenantConfig.theme.logo || DEFAULT_AVATAR;
@@ -453,7 +559,7 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
         }),
       });
       const data = await res.json() as { reply?: string; error?: string };
-      const reply = data.reply ?? "I'm sorry, something went wrong.";
+      const reply = normalizeAssistantReply(data.reply ?? "I'm sorry, something went wrong.");
 
       const withReply: ChatMessage[] = [...newMessages, { role: "assistant", content: reply }];
 
@@ -502,6 +608,11 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
     placeholder = `Tell me if this is about ${tenantConfig.name} or if you need advice...`;
   }
 
+  // Keep hook order stable; visibility checks must run after hooks are initialized.
+  if (!botCfg?.visible || (!hasStudio && !hasProfessional)) {
+    return null;
+  }
+
   return (
     <>
       {/* Floating button */}
@@ -532,7 +643,11 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
             <div className={styles.messages}>
               {messages.map((msg, i) => (
                 <div key={i} className={msg.role === "user" ? styles.userMsg : styles.botMsg}>
-                  <p className={styles.msgText}>{msg.content}</p>
+                  {msg.role === "assistant" ? (
+                    <div className={styles.msgText}>{renderFormattedMessage(msg.content)}</div>
+                  ) : (
+                    <p className={styles.msgText}>{msg.content}</p>
+                  )}
                 </div>
               ))}
               {loading && (

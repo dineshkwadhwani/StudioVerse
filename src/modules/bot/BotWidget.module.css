@@ -173,6 +173,31 @@
   font-size: 0.88rem;
   line-height: 1.5;
   color: inherit;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.msgParagraph {
+  margin: 0;
+}
+
+.msgParagraph + .msgParagraph {
+  margin-top: 6px;
+}
+
+.msgList,
+.msgListOrdered {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.msgList li,
+.msgListOrdered li {
+  margin: 4px 0;
+}
+
+.msgSpacer {
+  height: 8px;
 }
 
 .botMsg .msgText {

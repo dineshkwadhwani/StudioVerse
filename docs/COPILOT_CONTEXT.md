@@ -3,6 +3,57 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest implementation progress (21 April 2026) — Wallet Completion + Coaching Bot Rollout
+
+### Epic E5 (Manage Wallet) — Current state aligned to implementation
+
+- SuperAdmin Manage Wallet UI now follows a two-panel layout (like Manage Users):
+   - left panel: assignment controls
+   - right panel: wallet list and filters
+- Wallet list filtering is active for `All`, `Company`, `Professional`, and `Individual`.
+- Manual "Add Wallet" action was removed from SuperAdmin Manage Wallet.
+- Wallets are now expected to be created automatically during onboarding/registration paths.
+- Runtime bug fixed in admin wallet module: removed stale state setter reference in `ManageCoinsSection`.
+
+### Registration wallet bonus fix (tenant-configured)
+
+- New user registration now applies tenant-configured `walletConfig.registrationFreeCoins` (default fallback: 10).
+- Registration wallet creation now writes both:
+   - initialized wallet balances (`totalIssuedCoins`, `availableCoins`)
+   - wallet ledger credit transaction with reason `Registration bonus`
+- Applied across active signup/profile onboarding paths to ensure behavior consistency.
+
+### Coin request lifecycle remains active and enforced
+
+- Professional request flow: `/<tenant>/request-coins`
+- Company approval/denial flow: Manage Wallet pending badge + modal
+- Firestore rules continue to enforce role-scoped transitions (`pending` -> `approved`/`denied`)
+
+### Coaching Studio Bot (E12) implementation delivered
+
+- Tenant-configurable bot added with dual operation modes:
+   - Studio Bot (tenant knowledge-grounded)
+   - Professional Bot (coach-style guidance)
+- Open-ended mode detection implemented in chat UX (no forced mode buttons).
+- Guest capture flow implemented (name + phone + email at cap), referral record creation integrated.
+- Message cap flow implemented (current limit: 5 messages).
+- Bot management controls added in tenant admin (`visible`, mode toggles, persona name, message cap).
+- Groq integration moved to shared utility path and active production model updated to `llama-3.3-70b-versatile`.
+- Bot UI refreshed with blue visual language and circular launcher ring style.
+
+### Bot knowledge base quality improvements
+
+- Knowledge build pipeline reworked to generate structured chunks directly from epic docs.
+- Source scope constrained to `docs/E0.md` through `docs/E11.md` only.
+- Current output generated successfully: 693 structured chunks.
+- Internal artifact references and noisy identifiers were stripped for cleaner retrieval context.
+- Retrieval service updated to score against `epicId`, `epicTitle`, `sectionTitle`, and body text.
+
+### Documentation updates completed
+
+- `docs/E12.md` created/expanded as implementation-grade bot epic spec with checklist tracking.
+- `docs/E5.md` updated to reflect actual shipped behavior (Manage Wallet naming, coin-request lifecycle, tenant registration bonus, and current DoD/QA expectations).
+
 ## Latest implementation progress (19 April 2026) — Multi-Tenant Content Sharing
 
 **Major feature: Programs/Events/Assessments can now be published to multiple tenants from superadmin portal.**

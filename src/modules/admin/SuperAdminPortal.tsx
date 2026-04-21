@@ -56,6 +56,7 @@ type MenuKey =
   | "assign-activity";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
+type UsersFilter = "all" | AppUserType;
 type Status = "active" | "inactive";
 
 type AppUser = {
@@ -210,6 +211,14 @@ function formatAssignedAt(value: AssignmentRecord["createdAt"]): string {
   return value.toDate().toLocaleString();
 }
 
+function getUsersFilterLabel(value: UsersFilter): string {
+  if (value === "all") return "All";
+  if (value === "superadmin") return "Super Admin";
+  if (value === "company") return "Company";
+  if (value === "professional") return "Professional";
+  return "Individual";
+}
+
 const EMPTY_USER_FORM: UserFormState = {
   name: "",
   email: "",
@@ -356,7 +365,7 @@ export default function SuperAdminPortal() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
 
-  const [usersFilter, setUsersFilter] = useState<AppUserType>("superadmin");
+  const [usersFilter, setUsersFilter] = useState<UsersFilter>("all");
   const [users, setUsers] = useState<AppUser[]>([]);
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [assignedActivities, setAssignedActivities] = useState<AssignmentRecord[]>([]);
@@ -393,6 +402,39 @@ export default function SuperAdminPortal() {
 
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   }, [profile?.name]);
+
+  const filteredUsers = useMemo(() => {
+    if (usersFilter === "all") {
+      return users;
+    }
+
+    return users.filter((entry) => entry.userType === usersFilter);
+  }, [users, usersFilter]);
+
+  const existingCompaniesForTenant = useMemo(() => {
+    if (!userForm.tenantId) {
+      return [];
+    }
+
+    const companyNames = users
+      .filter((entry) => entry.userType === "company" && entry.tenantId === userForm.tenantId)
+      .map((entry) => (entry.companyName || entry.name || "").trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(companyNames)).sort((a, b) => a.localeCompare(b));
+  }, [userForm.tenantId, users]);
+
+  const normalizedUserPhone = useMemo(() => normalizePhone(userForm.phoneE164), [userForm.phoneE164]);
+
+  const existingPhoneUser = useMemo(() => {
+    if (!normalizedUserPhone || normalizedUserPhone === "+") {
+      return null;
+    }
+
+    return (
+      users.find((entry) => entry.phoneE164 === normalizedUserPhone && entry.id !== userForm.id) ?? null
+    );
+  }, [normalizedUserPhone, userForm.id, users]);
 
   function openDashboardMenu(menuKey: MenuKey, nextUsersFilter?: AppUserType) {
     if (nextUsersFilter) {
@@ -461,8 +503,33 @@ export default function SuperAdminPortal() {
       return;
     }
 
-    void loadUsers(usersFilter);
-  }, [profile, activeMenu, usersFilter]);
+    void (async () => {
+      await Promise.all([loadUsers(), loadTenants()]);
+    })();
+  }, [profile, activeMenu]);
+
+  useEffect(() => {
+    if (userForm.userType === "superadmin") {
+      if (userForm.tenantId !== "platform" || userForm.companyName) {
+        setUserForm((prev) => ({ ...prev, tenantId: "platform", companyName: "" }));
+      }
+      return;
+    }
+
+    if (userForm.tenantId === "platform") {
+      setUserForm((prev) => ({ ...prev, tenantId: "", companyName: "" }));
+    }
+  }, [userForm.companyName, userForm.tenantId, userForm.userType]);
+
+  useEffect(() => {
+    if (userForm.userType === "company") {
+      return;
+    }
+
+    if (userForm.companyName && !existingCompaniesForTenant.includes(userForm.companyName)) {
+      setUserForm((prev) => ({ ...prev, companyName: "" }));
+    }
+  }, [existingCompaniesForTenant, userForm.companyName, userForm.userType]);
 
   useEffect(() => {
     if (!profile || (activeMenu !== "tenants" && activeMenu !== "coins")) {
@@ -575,7 +642,7 @@ export default function SuperAdminPortal() {
     }
   }
 
-  async function loadUsers(filterType: AppUserType) {
+  async function loadUsers() {
     try {
       const usersRef = collection(db, "users");
       const snap = await getDocs(usersRef);
@@ -588,7 +655,6 @@ export default function SuperAdminPortal() {
             ...data,
           };
         })
-        .filter((entry) => entry.userType === filterType)
         .sort((a, b) => a.name.localeCompare(b.name));
 
       setUsers(mapped);
@@ -701,7 +767,7 @@ export default function SuperAdminPortal() {
   }
 
   function openAddUserModal() {
-    setUserForm({ ...EMPTY_USER_FORM, userType: usersFilter });
+    setUserForm({ ...EMPTY_USER_FORM, userType: usersFilter === "all" ? "individual" : usersFilter });
     setUserModalOpen(true);
   }
 
@@ -801,14 +867,40 @@ export default function SuperAdminPortal() {
     setInfo("");
 
     try {
+      const trimmedName = userForm.name.trim();
+      const normalizedPhone = normalizePhone(userForm.phoneE164);
+      const normalizedEmail = userForm.email.trim();
+      const normalizedTenantId = userForm.userType === "superadmin" ? "platform" : userForm.tenantId.trim();
+      const normalizedCompanyName = userForm.companyName.trim();
+
+      if (!trimmedName) {
+        throw new Error("Name is required.");
+      }
+
+      if (!normalizedPhone || normalizedPhone === "+" || normalizedPhone.length < 10) {
+        throw new Error("Phone number is required and must be valid.");
+      }
+
+      if (existingPhoneUser) {
+        throw new Error("This phone number is already linked to another user.");
+      }
+
+      if (!normalizedTenantId) {
+        throw new Error("Tenant is required.");
+      }
+
+      if (userForm.userType === "company" && !normalizedCompanyName) {
+        throw new Error("Company name is required when user type is company.");
+      }
+
       const payload = {
-        name: userForm.name.trim(),
-        email: userForm.email.trim(),
-        phoneE164: normalizePhone(userForm.phoneE164),
+        name: trimmedName,
+        email: normalizedEmail,
+        phoneE164: normalizedPhone,
         userType: userForm.userType,
         status: userForm.status,
-        tenantId: userForm.tenantId.trim() || "",
-        companyName: userForm.companyName.trim() || "",
+        tenantId: normalizedTenantId,
+        companyName: normalizedCompanyName || "",
         createdBy: profile.id,
         updatedAt: serverTimestamp(),
       };
@@ -823,8 +915,13 @@ export default function SuperAdminPortal() {
       }
 
       setUserModalOpen(false);
+      // Reset form after successful save
+      setUserForm({
+        ...EMPTY_USER_FORM,
+        userType: usersFilter === "all" ? "individual" : usersFilter,
+      });
       setInfo("User saved.");
-      await loadUsers(usersFilter);
+      await loadUsers();
       await loadDashboardStats();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save user.";
@@ -1112,55 +1209,197 @@ export default function SuperAdminPortal() {
           ) : null}
 
           {activeMenu === "users" ? (
-            <article className={styles.card}>
-              <h2>Manage Users</h2>
-              <p className={styles.subtitle}>List, add, and edit superadmins, companies, professionals, and individuals.</p>
+            <div className={styles.usersGrid}>
+              {/* Left Card: Manage Users Form */}
+              <section className={styles.card}>
+                <h2 className={styles.title}>Manage Users</h2>
+                <p className={styles.subtitle}>Create or add users to the platform.</p>
 
-              <div className={styles.controlCard}>
-                <div className={styles.radioRow}>
-                  {(["superadmin", "company", "professional", "individual"] as AppUserType[]).map((value) => (
-                    <label key={value} className={styles.radioPill}>
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="create-user-type">
+                    Create User Type
+                  </label>
+                  <select
+                    id="create-user-type"
+                    className={styles.select}
+                    value={userForm.userType}
+                    onChange={(event) =>
+                      setUserForm((prev) => ({ ...prev, userType: event.target.value as AppUserType }))
+                    }
+                  >
+                    <option value="superadmin">Superadmin</option>
+                    <option value="company">Company</option>
+                    <option value="professional">Professional</option>
+                    <option value="individual">Individual</option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="user-tenant-id-input">
+                    Tenant
+                  </label>
+                  <select
+                    id="user-tenant-id-input"
+                    className={styles.select}
+                    value={userForm.userType === "superadmin" ? "platform" : userForm.tenantId}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, tenantId: event.target.value }))}
+                    disabled={userForm.userType === "superadmin"}
+                  >
+                    <option value="">Select tenant</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.tenantId}>
+                        {tenant.tenantName} ({tenant.tenantId})
+                      </option>
+                    ))}
+                    {userForm.userType === "superadmin" ? <option value="platform">Platform</option> : null}
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="user-company-name-input">
+                    Company
+                  </label>
+                  {userForm.userType === "company" ? (
+                    <input
+                      id="user-company-name-input"
+                      className={styles.input}
+                      placeholder="Company name"
+                      value={userForm.companyName}
+                      onChange={(event) => setUserForm((prev) => ({ ...prev, companyName: event.target.value }))}
+                    />
+                  ) : (
+                    <select
+                      id="user-company-name-input"
+                      className={styles.select}
+                      value={userForm.companyName}
+                      onChange={(event) => setUserForm((prev) => ({ ...prev, companyName: event.target.value }))}
+                      disabled={!userForm.tenantId || userForm.userType === "superadmin"}
+                    >
+                      <option value="">No company</option>
+                      {existingCompaniesForTenant.map((companyName) => (
+                        <option key={companyName} value={companyName}>
+                          {companyName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="user-name-input">
+                    Name
+                  </label>
+                  <input
+                    id="user-name-input"
+                    className={styles.input}
+                    placeholder="Full name"
+                    value={userForm.name}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, name: event.target.value }))}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="user-phone-input">
+                    Phone Number
+                  </label>
+                  <input
+                    id="user-phone-input"
+                    className={styles.input}
+                    placeholder="+91..."
+                    value={userForm.phoneE164}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, phoneE164: event.target.value }))}
+                  />
+                  {existingPhoneUser ? (
+                    <p className={styles.error}>Phone already exists for user: {existingPhoneUser.name}</p>
+                  ) : null}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="user-status-input">
+                    Status
+                  </label>
+                  <select
+                    id="user-status-input"
+                    className={styles.select}
+                    value={userForm.status}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, status: event.target.value as Status }))}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="user-email-input">
+                    Email Address
+                  </label>
+                  <input
+                    id="user-email-input"
+                    className={styles.input}
+                    type="email"
+                    placeholder="user@example.com (optional)"
+                    value={userForm.email}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+                  />
+                </div>
+
+                <div className={styles.actions}>
+                  <button type="button" className={styles.button} onClick={saveUser} disabled={busy}>
+                    {busy ? "Creating..." : "Create User"}
+                  </button>
+                </div>
+
+                {authError && <p className={styles.error}>{authError}</p>}
+                {info && <p className={styles.info}>{info}</p>}
+              </section>
+
+              {/* Right Card: Users List with Filter */}
+              <section className={styles.card}>
+                <h2 className={styles.title}>Users In Scope</h2>
+                <p className={styles.subtitle}>View and manage existing users by type.</p>
+
+                <div className={styles.filterRow}>
+                  {(["all", "superadmin", "company", "professional", "individual"] as UsersFilter[]).map((value) => (
+                    <label
+                      key={value}
+                      className={`${styles.filterPill} ${usersFilter === value ? styles.filterPillActive : ""}`}
+                    >
                       <input
                         type="radio"
                         name="users-filter"
                         checked={usersFilter === value}
                         onChange={() => setUsersFilter(value)}
+                        className={styles.filterRadio}
                       />
-                      {value}
+                      <span>{getUsersFilterLabel(value)}</span>
                     </label>
                   ))}
                 </div>
 
-                <div className={styles.actions}>
-                  <button type="button" className={styles.button} onClick={openAddUserModal}>
-                    Add User
-                  </button>
-                </div>
-              </div>
+                {filteredUsers.length === 0 ? (
+                  <div className={styles.emptyCard}>No records found.</div>
+                ) : (
+                  <div className={styles.userStack}>
+                    {filteredUsers.map((item) => (
+                      <section key={item.id} className={styles.userItem}>
+                        <div>
+                          <p className={styles.userName}>{item.name}</p>
+                          <p className={styles.userMeta}>{item.email}</p>
+                          <p className={styles.userMeta}>{item.phoneE164}</p>
+                        </div>
 
-              {users.length === 0 ? (
-                <div className={styles.emptyCard}>No records found.</div>
-              ) : (
-                <div className={styles.userStack}>
-                  {users.map((item) => (
-                    <section key={item.id} className={styles.userItem}>
-                      <div>
-                        <p className={styles.userName}>{item.name}</p>
-                        <p className={styles.userMeta}>{item.email}</p>
-                        <p className={styles.userMeta}>{item.phoneE164}</p>
-                      </div>
-
-                      <div className={styles.userActions}>
-                        <span className={styles.statusBadge}>{item.status}</span>
-                        <button type="button" className={styles.rowAction} onClick={() => openEditUserModal(item)}>
-                          Edit
-                        </button>
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
-            </article>
+                        <div className={styles.userActions}>
+                          <span className={styles.statusBadge}>{item.status}</span>
+                          <button type="button" className={styles.rowAction} onClick={() => openEditUserModal(item)}>
+                            Edit
+                          </button>
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
           ) : null}
 
           {activeMenu === "tenants" ? (

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import {
   assignCoins,
-  createWalletForUser,
   getWalletByUserId,
   listWallets,
   listUsersForCoinAssignment,
@@ -49,7 +48,6 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
-  const [walletExistsForSelectedUser, setWalletExistsForSelectedUser] = useState(false);
   const [walletSnapshot, setWalletSnapshot] = useState<{ issued: number; utilized: number; available: number } | null>(null);
 
   const filteredWallets = useMemo(() => {
@@ -122,19 +120,16 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   useEffect(() => {
     if (!selectedUserId) {
       setWalletSnapshot(null);
-      setWalletExistsForSelectedUser(false);
       return;
     }
 
     getWalletByUserId(selectedUserId)
       .then((wallet) => {
         if (!wallet) {
-          setWalletExistsForSelectedUser(false);
           setWalletSnapshot({ issued: 0, utilized: 0, available: 0 });
           return;
         }
 
-        setWalletExistsForSelectedUser(true);
         setWalletSnapshot({
           issued: wallet.totalIssuedCoins,
           utilized: wallet.utilizedCoins,
@@ -142,53 +137,9 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
         });
       })
       .catch(() => {
-        setWalletExistsForSelectedUser(false);
         setWalletSnapshot(null);
       });
   }, [selectedUserId]);
-
-  async function handleCreateWallet(): Promise<void> {
-    const user = users.find((item) => item.id === selectedUserId);
-
-    if (!selectedTenantId) {
-      setError("Please select a tenant.");
-      return;
-    }
-    if (!user) {
-      setError("Please select a user.");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setInfo("");
-
-    try {
-      await createWalletForUser({
-        userId: user.id,
-        tenantId: selectedTenantId,
-        userType: selectedUserType,
-        userName: user.name,
-        createdBy: adminUserId,
-      });
-
-      const updatedWallet = await getWalletByUserId(user.id);
-      setWalletExistsForSelectedUser(Boolean(updatedWallet));
-      setWalletSnapshot({
-        issued: updatedWallet?.totalIssuedCoins ?? 0,
-        utilized: updatedWallet?.utilizedCoins ?? 0,
-        available: updatedWallet?.availableCoins ?? 0,
-      });
-      await refreshWallets();
-      setInfo(`Wallet created for ${user.name}.`);
-      onCoinsAssigned?.();
-    } catch (createError) {
-      const message = createError instanceof Error ? createError.message : "Failed to create wallet.";
-      setError(message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function handleAssign(): Promise<void> {
     const user = users.find((item) => item.id === selectedUserId);
@@ -222,7 +173,6 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
       });
 
       const updatedWallet = await getWalletByUserId(user.id);
-      setWalletExistsForSelectedUser(Boolean(updatedWallet));
       setWalletSnapshot({
         issued: updatedWallet?.totalIssuedCoins ?? 0,
         utilized: updatedWallet?.utilizedCoins ?? 0,
@@ -244,121 +194,118 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
     <article className={styles.card}>
       <h2>Manage Wallet</h2>
 
-      <div className={styles.controlCard}>
-        <p className={styles.subtitle}>Existing wallets</p>
-        <div className={styles.radioRow}>
-          {(["all", "company", "professional", "individual"] as const).map((value) => (
-            <label key={value} className={styles.radioPill}>
-              <input
-                type="radio"
-                name="wallet-filter"
-                checked={walletFilterType === value}
-                onChange={() => setWalletFilterType(value)}
-              />
-              {value === "all" ? "All" : value}
-            </label>
-          ))}
+      <div className={styles.usersGrid}>
+        {/* Left panel — assign coins */}
+        <div className={styles.controlCard}>
+          <p className={styles.subtitle}>Assign coins to a user</p>
+
+          <label className={styles.label} htmlFor="coins-tenant">Tenant</label>
+          <select
+            id="coins-tenant"
+            className={styles.select}
+            value={selectedTenantId}
+            onChange={(event) => handleTenantChange(event.target.value)}
+          >
+            <option value="">Select tenant</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.tenantId}>{tenant.tenantName}</option>
+            ))}
+          </select>
+
+          <label className={styles.label} htmlFor="coins-user-type">User Type</label>
+          <select
+            id="coins-user-type"
+            className={styles.select}
+            value={selectedUserType}
+            onChange={(event) => handleUserTypeChange(event.target.value as WalletUserType)}
+          >
+            {USER_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+
+          <label className={styles.label} htmlFor="coins-user">User</label>
+          <select
+            id="coins-user"
+            className={styles.select}
+            value={selectedUserId}
+            onChange={(event) => setSelectedUserId(event.target.value)}
+          >
+            <option value="">Select user</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>{user.name}</option>
+            ))}
+          </select>
+
+          <label className={styles.label} htmlFor="coins-count">Coins to assign</label>
+          <input
+            id="coins-count"
+            className={styles.input}
+            type="number"
+            min={1}
+            value={coinsToAssign}
+            onChange={(event) => setCoinsToAssign(event.target.value)}
+          />
+
+          <div className={styles.actions}>
+            <button type="button" className={styles.button} onClick={handleAssign} disabled={busy || !selectedUserId}>
+              {busy ? "Working..." : "Assign Coins"}
+            </button>
+          </div>
+
+          {walletSnapshot ? (
+            <div className={styles.emptyCard} style={{ marginTop: "12px" }}>
+              <strong>Wallet Snapshot</strong>
+              <p style={{ margin: "8px 0 0" }}>Issued: {walletSnapshot.issued}</p>
+              <p style={{ margin: "4px 0 0" }}>Utilized: {walletSnapshot.utilized}</p>
+              <p style={{ margin: "4px 0 0" }}>Available: {walletSnapshot.available}</p>
+            </div>
+          ) : null}
+
+          {error ? <p className={styles.error}>{error}</p> : null}
+          {info ? <p className={styles.info}>{info}</p> : null}
         </div>
 
-        {filteredWallets.length === 0 ? (
-          <div className={styles.emptyCard}>No wallets found for the selected filter.</div>
-        ) : (
-          <div className={styles.userStack}>
-            {filteredWallets.map((wallet) => (
-              <section key={wallet.id} className={styles.userItem}>
-                <div>
-                  <p className={styles.userName}>{wallet.userName}</p>
-                  <p className={styles.userMeta}>User ID: {wallet.userId}</p>
-                  <p className={styles.userMeta}>Tenant: {wallet.tenantId || "-"}</p>
-                  <p className={styles.userMeta}>Type: {wallet.userType}</p>
-                </div>
-                <div className={styles.userActions}>
-                  <span className={styles.statusBadge}>Available {wallet.availableCoins}</span>
-                  <span className={styles.statusBadge}>Utilized {wallet.utilizedCoins}</span>
-                  <span className={styles.statusBadge}>Issued {wallet.totalIssuedCoins}</span>
-                </div>
-              </section>
+        {/* Right panel — wallet list with filter */}
+        <div className={styles.controlCard}>
+          <p className={styles.subtitle}>All wallets</p>
+          <div className={styles.radioRow}>
+            {(["all", "company", "professional", "individual"] as const).map((value) => (
+              <label key={value} className={styles.radioPill}>
+                <input
+                  type="radio"
+                  name="wallet-filter"
+                  checked={walletFilterType === value}
+                  onChange={() => setWalletFilterType(value)}
+                />
+                {value === "all" ? "All" : value.charAt(0).toUpperCase() + value.slice(1)}
+              </label>
             ))}
           </div>
-        )}
-      </div>
 
-      <div className={styles.controlCard}>
-        <p className={styles.subtitle}>Add wallet / assign coins</p>
-        <label className={styles.label} htmlFor="coins-tenant">Tenant</label>
-        <select
-          id="coins-tenant"
-          className={styles.select}
-          value={selectedTenantId}
-          onChange={(event) => handleTenantChange(event.target.value)}
-        >
-          <option value="">Select tenant</option>
-          {tenants.map((tenant) => (
-            <option key={tenant.id} value={tenant.tenantId}>{tenant.tenantName}</option>
-          ))}
-        </select>
-
-        <label className={styles.label} htmlFor="coins-user-type">User Type</label>
-        <select
-          id="coins-user-type"
-          className={styles.select}
-          value={selectedUserType}
-          onChange={(event) => handleUserTypeChange(event.target.value as WalletUserType)}
-        >
-          {USER_TYPES.map((type) => (
-            <option key={type.value} value={type.value}>{type.label}</option>
-          ))}
-        </select>
-
-        <label className={styles.label} htmlFor="coins-user">User</label>
-        <select
-          id="coins-user"
-          className={styles.select}
-          value={selectedUserId}
-          onChange={(event) => setSelectedUserId(event.target.value)}
-        >
-          <option value="">Select user</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>{user.name}</option>
-          ))}
-        </select>
-
-        <label className={styles.label} htmlFor="coins-count">Coins to assign</label>
-        <input
-          id="coins-count"
-          className={styles.input}
-          type="number"
-          min={1}
-          value={coinsToAssign}
-          onChange={(event) => setCoinsToAssign(event.target.value)}
-        />
-
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.button}
-            onClick={handleCreateWallet}
-            disabled={busy || !selectedUserId || walletExistsForSelectedUser}
-          >
-            {busy ? "Working..." : "Add Wallet"}
-          </button>
-          <button type="button" className={styles.button} onClick={handleAssign} disabled={busy || !selectedUserId}>
-            {busy ? "Working..." : "Assign Coins"}
-          </button>
+          {filteredWallets.length === 0 ? (
+            <div className={styles.emptyCard}>No wallets found for the selected filter.</div>
+          ) : (
+            <div className={styles.userStack}>
+              {filteredWallets.map((wallet) => (
+                <section key={wallet.id} className={styles.userItem}>
+                  <div>
+                    <p className={styles.userName}>{wallet.userName}</p>
+                    <p className={styles.userMeta}>User ID: {wallet.userId}</p>
+                    <p className={styles.userMeta}>Tenant: {wallet.tenantId || "-"}</p>
+                    <p className={styles.userMeta}>Type: {wallet.userType}</p>
+                  </div>
+                  <div className={styles.userActions}>
+                    <span className={styles.statusBadge}>Available {wallet.availableCoins}</span>
+                    <span className={styles.statusBadge}>Utilized {wallet.utilizedCoins}</span>
+                    <span className={styles.statusBadge}>Issued {wallet.totalIssuedCoins}</span>
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {walletSnapshot ? (
-        <div className={styles.emptyCard}>
-          <strong>Wallet Snapshot</strong>
-          <p style={{ margin: "8px 0 0" }}>Issued: {walletSnapshot.issued}</p>
-          <p style={{ margin: "4px 0 0" }}>Utilized: {walletSnapshot.utilized}</p>
-          <p style={{ margin: "4px 0 0" }}>Available: {walletSnapshot.available}</p>
-        </div>
-      ) : null}
-
-      {error ? <p className={styles.error}>{error}</p> : null}
-      {info ? <p className={styles.info}>{info}</p> : null}
     </article>
   );
 }

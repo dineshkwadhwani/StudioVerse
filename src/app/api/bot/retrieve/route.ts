@@ -3,7 +3,11 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 type KnowledgeChunk = {
+  id?: string;
   source: string;
+  epicId?: string;
+  epicTitle?: string;
+  sectionTitle?: string;
   text: string;
 };
 
@@ -17,6 +21,17 @@ function scoreChunk(chunk: string, query: string): number {
     score += count;
   }
   return score;
+}
+
+function buildSearchText(chunk: KnowledgeChunk): string {
+  return [
+    chunk.epicId ?? "",
+    chunk.epicTitle ?? "",
+    chunk.sectionTitle ?? "",
+    chunk.text,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 let cachedChunks: KnowledgeChunk[] | null = null;
@@ -44,12 +59,26 @@ export async function POST(req: NextRequest) {
 
     const chunks = loadChunks(tenantId);
     const scored = chunks
-      .map((chunk) => ({ ...chunk, score: scoreChunk(chunk.text, query) }))
+      .map((chunk) => {
+        const searchText = buildSearchText(chunk);
+        return { ...chunk, score: scoreChunk(searchText, query) };
+      })
       .filter((c) => c.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
 
-    const context = scored.map((c) => `[${c.source}]\n${c.text}`).join("\n\n---\n\n");
+    const context = scored
+      .map((c) => {
+        const header = [
+          c.source,
+          c.epicTitle ? `Epic: ${c.epicTitle}` : "",
+          c.sectionTitle ? `Section: ${c.sectionTitle}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | ");
+        return `[${header}]\n${c.text}`;
+      })
+      .join("\n\n---\n\n");
     return NextResponse.json({ context });
   } catch (err) {
     console.error("Bot retrieve error:", err);

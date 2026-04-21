@@ -88,6 +88,14 @@ export async function getWalletByUserId(userId: string): Promise<WalletRecord | 
   return mapWalletDoc(snap.id, snap.data() as Record<string, unknown>);
 }
 
+export async function getTenantRegistrationFreeCoins(tenantId: string): Promise<number> {
+  const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
+  return Math.max(
+    0,
+    Math.floor(Number(tenantSnap.data()?.walletConfig?.registrationFreeCoins ?? 10))
+  );
+}
+
 export async function getWalletForUserContext(userIds: string[]): Promise<WalletRecord | null> {
   for (const userId of userIds.map((item) => item.trim()).filter(Boolean)) {
     const wallet = await getWalletByUserId(userId);
@@ -310,8 +318,11 @@ export async function createWalletForUser(input: {
   userType: WalletUserType;
   userName: string;
   createdBy: string;
+  initialCoins?: number;
+  reason?: string;
 }): Promise<void> {
   const walletRef = doc(db, "wallets", input.userId);
+  const initialCoins = Math.max(0, Math.floor(Number(input.initialCoins ?? 0)));
 
   await runTransaction(db, async (transaction) => {
     const walletSnap = await transaction.get(walletRef);
@@ -324,14 +335,30 @@ export async function createWalletForUser(input: {
       tenantId: input.tenantId,
       userType: input.userType,
       userName: input.userName,
-      totalIssuedCoins: 0,
+      totalIssuedCoins: initialCoins,
       utilizedCoins: 0,
-      availableCoins: 0,
+      availableCoins: initialCoins,
       createdBy: input.createdBy,
       updatedBy: input.createdBy,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
+    if (initialCoins > 0) {
+      const txRef = doc(collection(db, "walletTransactions"));
+      transaction.set(txRef, {
+        walletId: input.userId,
+        userId: input.userId,
+        tenantId: input.tenantId,
+        userType: input.userType,
+        userName: input.userName,
+        transactionType: "credit",
+        reason: input.reason ?? "Registration bonus",
+        coins: initialCoins,
+        createdBy: input.createdBy,
+        createdAt: serverTimestamp(),
+      });
+    }
   });
 }
 

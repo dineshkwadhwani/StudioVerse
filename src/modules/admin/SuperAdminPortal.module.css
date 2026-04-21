@@ -257,12 +257,61 @@
   gap: 16px;
 }
 
+.usersGrid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+}
+
 .card {
   padding: 18px;
 }
 
 .card h2 {
   margin-top: 0;
+}
+
+.field {
+  margin-top: 12px;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+  transition: all 140ms ease;
+}
+
+.filterPill:hover {
+  border-color: var(--brand-accent);
+  background: #f1fbff;
+}
+
+.filterPillActive {
+  border-color: #1f5c9c;
+  background: linear-gradient(90deg, #d9ecff 0%, #c5e8f5 100%);
+  color: #0f3555;
+  box-shadow: 0 0 0 2px rgba(31, 92, 156, 0.18);
+}
+
+.filterRadio {
+  margin: 0;
+  cursor: pointer;
 }
 
 .dashboardGrid {
@@ -644,6 +693,10 @@
   }
 
   .tenantConfigGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .usersGrid {
     grid-template-columns: 1fr;
   }
 

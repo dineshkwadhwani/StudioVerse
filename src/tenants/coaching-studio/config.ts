@@ -20,6 +20,12 @@ export const config: TenantConfig = {
     events: true,
     aiCoach: true,
   },
+  mailTemplates: {
+    assignmentNotification: {
+      subject: "Coaching Studio : An activity has been assigned",
+      body: "Dear {{assigneeName}}\nAn activity has been assigned to you by {{assignerName}}. Please log in to Coaching Studio (www.coachingstudio.in) to complete the activity.\n\nCoaching Studio Team.",
+    },
+  },
   theme: {
     primaryColor: "#01696f",
     logo: "/tenants/coaching-studio/logo.png",

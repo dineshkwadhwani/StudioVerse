@@ -1,9 +1,12 @@
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
+import { getTenantConfigById } from "@/tenants";
 import type { ActivityType } from "@/types/assignment";
 
 type SendAssignmentEmailArgs = {
+  tenantId: string;
   mailConfig: TenantMailConfig;
+  assignerName: string;
   assigneeEmail: string;
   assigneeName: string;
   activityType: ActivityType;
@@ -61,6 +64,18 @@ const DEFAULT_MAIL_CONFIG: TenantMailConfig = {
   fromEmail: "",
   fromName: "",
 };
+
+const DEFAULT_ASSIGNMENT_SUBJECT = "Coaching Studio : An activity has been assigned";
+const DEFAULT_ASSIGNMENT_BODY = [
+  "Dear {{assigneeName}}",
+  "An activity has been assigned to you by {{assignerName}}. Please log in to Coaching Studio (www.coachingstudio.in) to complete the activity.",
+  "",
+  "Coaching Studio Team.",
+].join("\n");
+
+function renderMailTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => values[key] ?? "");
+}
 
 export async function getTenantMailConfig(tenantId: string): Promise<TenantMailConfig> {
   if (!tenantId.trim()) {
@@ -128,15 +143,25 @@ export async function sendTenantEmail(args: SendTenantEmailArgs): Promise<SendAs
 export async function sendAssignmentEmail(
   args: SendAssignmentEmailArgs
 ): Promise<SendAssignmentEmailResult> {
-  const subject = `New ${args.activityType === "tool" ? "assessment" : args.activityType} assigned: ${args.activityTitle}`;
-  const body = [
-    `Hi ${args.assigneeName},`,
-    "",
-    `A new ${args.activityType === "tool" ? "assessment" : args.activityType} has been assigned to you.",
-    `Title: ${args.activityTitle}`,
-    "",
-    "Please log in to your StudioVerse account to review details.",
-  ].join("\n");
+  const tenantConfig = getTenantConfigById(args.tenantId);
+  const template = tenantConfig?.mailTemplates?.assignmentNotification;
+
+  const subjectTemplate = template?.subject ?? DEFAULT_ASSIGNMENT_SUBJECT;
+  const bodyTemplate = template?.body ?? DEFAULT_ASSIGNMENT_BODY;
+
+  const subject = renderMailTemplate(subjectTemplate, {
+    assigneeName: args.assigneeName,
+    assignerName: args.assignerName,
+    activityTitle: args.activityTitle,
+    activityType: args.activityType,
+  });
+
+  const body = renderMailTemplate(bodyTemplate, {
+    assigneeName: args.assigneeName,
+    assignerName: args.assignerName,
+    activityTitle: args.activityTitle,
+    activityType: args.activityType,
+  });
 
   return sendTenantEmail({
     mailConfig: args.mailConfig,

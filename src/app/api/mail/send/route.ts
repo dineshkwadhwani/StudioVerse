@@ -73,5 +73,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Temporary debug log for mail send confirmation during testing.
+  console.info("[MAIL_DEBUG] Message sent", {
+    messageId: data.id ?? "unknown",
+    toEmail,
+    toName,
+    fromEmail,
+    fromName,
+    subject,
+  });
+
   return NextResponse.json({ ok: true, messageId: data.id });
 }

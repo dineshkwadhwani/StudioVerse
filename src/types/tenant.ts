@@ -31,6 +31,12 @@ export type TenantConfig = {
     fromEmail: string;
     fromName: string;
   };
+  mailTemplates?: {
+    assignmentNotification?: {
+      subject: string;
+      body: string;
+    };
+  };
   theme: {
     primaryColor: string;
     logo: string;

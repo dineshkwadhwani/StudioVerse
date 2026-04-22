@@ -268,7 +268,9 @@ export default function AssignmentModal({
 
           const mailConfig = await getTenantMailConfig(tenantId);
           const mailResult = await sendAssignmentEmail({
+            tenantId,
             mailConfig,
+            assignerName,
             assigneeEmail: selectedUser.email,
             assigneeName: selectedUser.fullName,
             activityType,
@@ -334,7 +336,9 @@ export default function AssignmentModal({
 
         const mailConfig = await getTenantMailConfig(tenantId);
         const mailResult = await sendAssignmentEmail({
+          tenantId,
           mailConfig,
+          assignerName,
           assigneeEmail: selectedUser.email,
           assigneeName: selectedUser.fullName,
           activityType,

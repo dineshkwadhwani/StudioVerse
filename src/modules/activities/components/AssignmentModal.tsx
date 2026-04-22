@@ -6,7 +6,6 @@ import type { UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
 import type { CohortListItem } from "@/types/cohort";
 import {
-  getTenantMailConfig,
   searchUsersByPhoneOrEmail,
   createAssignment,
   createCohortAssignment,
@@ -423,7 +422,9 @@ export default function AssignmentModal({
 
           const mailConfig = await getTenantMailConfig(tenantId);
           const mailResult = await sendAssignmentEmail({
+            tenantId,
             mailConfig,
+            assignerName,
             assigneeEmail: selectedUser.email,
             assigneeName: selectedUser.fullName,
             activityType,
@@ -485,7 +486,9 @@ export default function AssignmentModal({
 
         const mailConfig = await getTenantMailConfig(tenantId);
         const mailResult = await sendAssignmentEmail({
+          tenantId,
           mailConfig,
+          assignerName,
           assigneeEmail: selectedUser.email,
           assigneeName: selectedUser.fullName,
           activityType,

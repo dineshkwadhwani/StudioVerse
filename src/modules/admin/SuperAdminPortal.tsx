@@ -90,6 +90,11 @@ type TenantRecord = {
     registrationFreeCoins?: number;
     referralFreeCoins?: number;
   };
+  mailConfig?: {
+    enabled?: boolean;
+    fromEmail?: string;
+    fromName?: string;
+  };
   botConfig?: {
     visible?: boolean;
     studioBotEnabled?: boolean;
@@ -133,6 +138,12 @@ type TenantWalletFormState = {
   referralFreeCoins: number;
 };
 
+type TenantMailFormState = {
+  enabled: boolean;
+  fromEmail: string;
+  fromName: string;
+};
+
 type TenantBotFormState = {
   visible: boolean;
   studioBotEnabled: boolean;
@@ -150,6 +161,7 @@ type TenantFormState = {
   status: Status;
   landingConfig: TenantLandingFormState;
   walletConfig: TenantWalletFormState;
+  mailConfig: TenantMailFormState;
   botConfig: TenantBotFormState;
 };
 
@@ -252,6 +264,11 @@ const EMPTY_TENANT_FORM: TenantFormState = {
   walletConfig: {
     registrationFreeCoins: 10,
     referralFreeCoins: 5,
+  },
+  mailConfig: {
+    enabled: false,
+    fromEmail: "",
+    fromName: "",
   },
   botConfig: {
     visible: false,
@@ -821,6 +838,11 @@ export default function SuperAdminPortal() {
         registrationFreeCoins: target.walletConfig?.registrationFreeCoins ?? 10,
         referralFreeCoins: target.walletConfig?.referralFreeCoins ?? 5,
       },
+      mailConfig: {
+        enabled: target.mailConfig?.enabled ?? false,
+        fromEmail: target.mailConfig?.fromEmail ?? "",
+        fromName: target.mailConfig?.fromName ?? "",
+      },
       botConfig: {
         visible: target.botConfig?.visible ?? false,
         studioBotEnabled: target.botConfig?.studioBotEnabled ?? false,
@@ -979,6 +1001,11 @@ export default function SuperAdminPortal() {
         walletConfig: {
           registrationFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.registrationFreeCoins)),
           referralFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.referralFreeCoins)),
+        },
+        mailConfig: {
+          enabled: tenantForm.mailConfig.enabled,
+          fromEmail: tenantForm.mailConfig.fromEmail.trim().toLowerCase(),
+          fromName: tenantForm.mailConfig.fromName.trim(),
         },
         botConfig: {
           visible: tenantForm.botConfig.visible,
@@ -2006,6 +2033,64 @@ export default function SuperAdminPortal() {
                     className={`${styles.input} ${styles.compactInput}`}
                     value={tenantForm.walletConfig.referralFreeCoins}
                     onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, referralFreeCoins: Number(event.target.value) } }))}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Mail Configuration</p>
+              <div className={styles.tenantToggleRow}>
+                <label className={styles.tenantToggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.mailConfig.enabled}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        mailConfig: { ...prev.mailConfig, enabled: e.target.checked },
+                      }))
+                    }
+                  />
+                  Enable Mail Sending
+                </label>
+              </div>
+
+              <div className={styles.tenantConfigGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="mail-from-email">
+                    From Email
+                  </label>
+                  <input
+                    id="mail-from-email"
+                    type="email"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. contact@coachingstudio.in"
+                    value={tenantForm.mailConfig.fromEmail}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        mailConfig: { ...prev.mailConfig, fromEmail: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="mail-from-name">
+                    From Name
+                  </label>
+                  <input
+                    id="mail-from-name"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    placeholder="e.g. Coaching Studio"
+                    value={tenantForm.mailConfig.fromName}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        mailConfig: { ...prev.mailConfig, fromName: e.target.value },
+                      }))
+                    }
                   />
                 </div>
               </div>

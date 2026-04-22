@@ -26,6 +26,11 @@ export type TenantConfig = {
     personaAvatar?: string;
     messageCap: number;
   };
+  mailConfig?: {
+    enabled: boolean;
+    fromEmail: string;
+    fromName: string;
+  };
   theme: {
     primaryColor: string;
     logo: string;

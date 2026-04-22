@@ -11,7 +11,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
-import { sendReferralInviteEmail, sendReferralReminderEmail } from "@/services/mail.service";
+import { getTenantMailConfig, sendReferralInviteEmail, sendReferralReminderEmail } from "@/services/mail.service";
 import type {
   ReferredType,
   ReferralRecord,
@@ -197,7 +197,10 @@ export async function createReferral(args: {
     });
   });
 
+  const mailConfig = await getTenantMailConfig(args.tenantId);
+
   await sendReferralInviteEmail({
+    mailConfig,
     referredEmail,
     referredPhone,
     referredType: args.referredType,
@@ -294,16 +297,27 @@ export async function sendReferralReminders(args: {
   }
 
   await batch.commit();
+  const mailConfigByTenant = new Map<string, Promise<import("@/services/mail.service").TenantMailConfig>>();
+
   await Promise.all(
-    reminders.map((entry) =>
-      sendReferralReminderEmail({
+    reminders.map(async (entry) => {
+      let mailConfigPromise = mailConfigByTenant.get(entry.tenantId);
+      if (!mailConfigPromise) {
+        mailConfigPromise = getTenantMailConfig(entry.tenantId);
+        mailConfigByTenant.set(entry.tenantId, mailConfigPromise);
+      }
+
+      const mailConfig = await mailConfigPromise;
+
+      return sendReferralReminderEmail({
+        mailConfig,
         referralId: entry.id,
         referredEmail: entry.email,
         referredPhone: entry.phone,
         referredType: entry.type,
         tenantId: entry.tenantId,
-      })
-    )
+      });
+    })
   );
 
   return reminders.length;

@@ -8,7 +8,8 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext } from "@/services/wallet.service";
-import { getAssignmentsForAssigneeContext } from "@/services/assignment.service";
+import { getAssignmentsForAssigneeContext, getAssignmentsForAssignerContext } from "@/services/assignment.service";
+import { listProfessionalsForCoachDropdown } from "@/services/manage-users.service";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
@@ -70,6 +71,11 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
     recommended: 0,
     completed: 0,
   });
+  const [assignedBySummary, setAssignedBySummary] = useState<{
+    total: number;
+    pending: number;
+    completed: number;
+  } | null>(null);
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -127,6 +133,45 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
             setName(resolvedProfile.fullName || storedName || "User");
             sessionStorage.setItem("cs_profile_id", resolvedProfile.id);
             sessionStorage.setItem("cs_name", resolvedProfile.fullName);
+          }
+
+          if (storedRoleRaw === "company" || storedRoleRaw === "professional") {
+            void (async () => {
+              try {
+                let assignerIds: string[] = [];
+
+                if (storedRoleRaw === "company") {
+                  const companyId = resolvedProfile?.id || storedProfileId || storedUid;
+                  if (!companyId) {
+                    setAssignedBySummary({ total: 0, pending: 0, completed: 0 });
+                    return;
+                  }
+
+                  const coaches = await listProfessionalsForCoachDropdown({ tenantId, companyId });
+                  assignerIds = Array.from(
+                    new Set(coaches.flatMap((coach) => [coach.id, coach.userId]).filter(Boolean))
+                  );
+                } else {
+                  assignerIds = Array.from(
+                    new Set([storedUid, storedProfileId, resolvedProfile?.id, resolvedProfile?.userId].filter(Boolean) as string[])
+                  );
+                }
+
+                if (assignerIds.length === 0) {
+                  setAssignedBySummary({ total: 0, pending: 0, completed: 0 });
+                  return;
+                }
+
+                const rows = await getAssignmentsForAssignerContext({ tenantId, assignerIds });
+                setAssignedBySummary({
+                  total: rows.length,
+                  pending: rows.filter((r) => r.status === "assigned").length,
+                  completed: rows.filter((r) => r.status === "completed").length,
+                });
+              } catch {
+                setAssignedBySummary({ total: 0, pending: 0, completed: 0 });
+              }
+            })();
           }
 
           const assigneeIds = Array.from(
@@ -297,6 +342,20 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
                 Manage Wallet
               </Link>
             </article>
+
+            {assignedBySummary !== null && (role === "company" || role === "professional") && (
+              <article className={styles.summaryCard}>
+                <p className={styles.summaryTitle}>Assigned Activities</p>
+                <div className={styles.summaryStats}>
+                  <p>Total Assigned: <strong>{assignedBySummary.total}</strong></p>
+                  <p>Pending: <strong>{assignedBySummary.pending}</strong></p>
+                  <p>Completed: <strong>{assignedBySummary.completed}</strong></p>
+                </div>
+                <Link href={`${basePath}/assigned-activities`} className={styles.summaryAction}>
+                  View All
+                </Link>
+              </article>
+            )}
 
             <article className={styles.summaryCard}>
               <p className={styles.summaryTitle}>My activities</p>

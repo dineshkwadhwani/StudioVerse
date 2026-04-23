@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
+import { listProfessionalsForCoachDropdown } from "@/services/manage-users.service";
 import { getUserProfile } from "@/services/profile.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
@@ -67,6 +68,12 @@ function getStatusClassName(status: AssignmentStatus): string {
   return `${styles.status} ${styles.statusOther}`;
 }
 
+type CoachFilterOption = {
+  coachId: string;
+  coachName: string;
+  assignerIds: string[];
+};
+
 export default function AssignedActivitiesPage({ tenantConfig = coachingTenantConfig }: AssignedActivitiesPageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
@@ -80,6 +87,8 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [selectedType, setSelectedType] = useState<"all" | ActivityType>("all");
+  const [coachFilters, setCoachFilters] = useState<CoachFilterOption[]>([]);
+  const [selectedCoachId, setSelectedCoachId] = useState<string>("all");
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -100,6 +109,8 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
     setRole(storedRoleRaw);
     setBusy(true);
     setError("");
+    setCoachFilters([]);
+    setSelectedCoachId("all");
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -115,14 +126,35 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
           profileId: storedProfileId || undefined,
         });
 
-        const assignerIds = Array.from(
-          new Set([
-            firebaseUser.uid,
-            storedProfileId,
-            profile?.id,
-            profile?.userId,
-          ].filter(Boolean) as string[])
-        );
+        let assignerIds: string[] = [];
+
+        if (storedRoleRaw === "company") {
+          const companyId = profile?.id || storedProfileId || firebaseUser.uid;
+          if (!companyId) {
+            setAssignments([]);
+            setCoachFilters([]);
+            return;
+          }
+
+          const coaches = await listProfessionalsForCoachDropdown({ tenantId, companyId });
+          const coachOptions: CoachFilterOption[] = coaches.map((coach) => ({
+            coachId: coach.id,
+            coachName: coach.fullName || coach.firstName || coach.email || "Coach",
+            assignerIds: Array.from(new Set([coach.id, coach.userId].filter(Boolean))),
+          }));
+
+          setCoachFilters(coachOptions);
+          assignerIds = Array.from(new Set(coachOptions.flatMap((coach) => coach.assignerIds)));
+        } else {
+          assignerIds = Array.from(
+            new Set([
+              firebaseUser.uid,
+              storedProfileId,
+              profile?.id,
+              profile?.userId,
+            ].filter(Boolean) as string[])
+          );
+        }
 
         const rows = await getAssignmentsForAssignerContext({ tenantId, assignerIds });
         setAssignments(rows);
@@ -145,12 +177,29 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
 
+  const coachNameByAssignerId = useMemo(() => {
+    const mapping = new Map<string, string>();
+    coachFilters.forEach((coach) => {
+      coach.assignerIds.forEach((assignerId) => {
+        mapping.set(assignerId, coach.coachName);
+      });
+    });
+    return mapping;
+  }, [coachFilters]);
+
   const filteredAssignments = useMemo(() => {
-    if (selectedType === "all") {
-      return assignments;
-    }
-    return assignments.filter((item) => item.activityType === selectedType);
-  }, [assignments, selectedType]);
+    const selectedCoach = coachFilters.find((coach) => coach.coachId === selectedCoachId);
+
+    return assignments.filter((item) => {
+      const typeMatches = selectedType === "all" || item.activityType === selectedType;
+      const coachMatches =
+        role !== "company" ||
+        selectedCoachId === "all" ||
+        (selectedCoach ? selectedCoach.assignerIds.includes(item.assignerId) : false);
+
+      return typeMatches && coachMatches;
+    });
+  }, [assignments, coachFilters, role, selectedCoachId, selectedType]);
 
   async function handleLogout() {
     await signOut(auth);
@@ -248,6 +297,27 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
             ))}
           </div>
 
+          {role === "company" && coachFilters.length > 0 ? (
+            <div className={styles.coachFilterRow}>
+              <label htmlFor="assigned-coach-filter" className={styles.coachFilterLabel}>
+                Coach
+              </label>
+              <select
+                id="assigned-coach-filter"
+                className={styles.coachFilterSelect}
+                value={selectedCoachId}
+                onChange={(event) => setSelectedCoachId(event.target.value)}
+              >
+                <option value="all">All Coaches</option>
+                {coachFilters.map((coach) => (
+                  <option key={coach.coachId} value={coach.coachId}>
+                    {coach.coachName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
           <p className={styles.summary}>
             {selectedType !== "all"
               ? `Showing ${filteredAssignments.length} ${formatTypeLabel(selectedType).toLowerCase()} assignment(s).`
@@ -267,6 +337,9 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
                 <article key={item.id} className={styles.item}>
                   <h2 className={styles.itemTitle}>{item.activityTitle}</h2>
                   <p className={styles.itemMeta}>Type: {formatTypeLabel(item.activityType)}</p>
+                  <p className={styles.itemMeta}>
+                    Assigned by: {coachNameByAssignerId.get(item.assignerId) || item.assignerName || "-"}
+                  </p>
                   <p className={styles.itemMeta}>Assigned to: {item.assigneeFullName || "-"}</p>
                   <p className={styles.itemMeta}>Assignee email: {item.assigneeEmail || "-"}</p>
                   <p className={styles.itemMeta}>Credits: {item.creditsRequired}</p>

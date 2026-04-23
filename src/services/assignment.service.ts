@@ -14,7 +14,7 @@ import type { WithFieldValue } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
-import { getWalletForUserContext } from "@/services/wallet.service";
+import { createWalletForUser, getTenantRegistrationFreeCoins, getWalletForUserContext } from "@/services/wallet.service";
 import { getCohortAssignmentPayload } from "@/services/cohorts.service";
 import type { CohortCreatorRole } from "@/types/cohort";
 
@@ -220,23 +220,16 @@ async function provisionAssigneeIfNeeded(args: {
     { merge: true }
   );
 
-  await setDoc(
-    doc(db, "wallets", newAssigneeId),
-    {
-      userId: newAssigneeId,
-      tenantId: args.tenantId,
-      userType: "individual",
-      userName: assigneeFullName,
-      totalIssuedCoins: 0,
-      utilizedCoins: 0,
-      availableCoins: 0,
-      createdBy: args.assignerId,
-      updatedBy: args.assignerId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const registrationCoins = await getTenantRegistrationFreeCoins(args.tenantId);
+  await createWalletForUser({
+    userId: newAssigneeId,
+    tenantId: args.tenantId,
+    userType: "individual",
+    userName: assigneeFullName,
+    createdBy: args.assignerId,
+    initialCoins: registrationCoins,
+    reason: "Registration bonus",
+  });
 
   return {
     assigneeId: newAssigneeId,

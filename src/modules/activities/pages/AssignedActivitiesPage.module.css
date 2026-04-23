@@ -35,6 +35,29 @@
   margin: 14px 0 8px;
 }
 
+.coachFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.coachFilterLabel {
+  color: #35526d;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.coachFilterSelect {
+  border: 1px solid #c8ddee;
+  border-radius: 10px;
+  background: #fff;
+  color: #1b2b3a;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  min-width: 220px;
+}
+
 .filterPill {
   display: inline-flex;
   align-items: center;

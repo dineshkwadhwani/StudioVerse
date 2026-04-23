@@ -300,11 +300,12 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
   const tenantData = tenantSnap.empty ? null : (tenantSnap.docs[0].data() as Record<string, unknown>);
   const walletConfig = tenantData?.walletConfig as Record<string, unknown> | undefined;
   const registrationFreeCoins = Math.max(0, Math.floor(Number(walletConfig?.registrationFreeCoins ?? 10)));
+  const initialWalletCoins =
+    creatorRole === "company" && targetUserType === "professional" ? 0 : registrationFreeCoins;
 
   const fullName = `${firstName} ${lastName}`.trim();
   const userRef = doc(collection(db, "users"));
   const walletRef = doc(db, "wallets", userRef.id);
-  const walletTxRef = doc(collection(db, "walletTransactions"));
 
   await runTransaction(db, async (transaction) => {
     transaction.set(userRef, {
@@ -338,27 +339,30 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
       tenantId,
       userType: targetUserType,
       userName: fullName,
-      totalIssuedCoins: registrationFreeCoins,
+      totalIssuedCoins: initialWalletCoins,
       utilizedCoins: 0,
-      availableCoins: registrationFreeCoins,
+      availableCoins: initialWalletCoins,
       createdBy: creator.id,
       updatedBy: creator.id,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
-    transaction.set(walletTxRef, {
-      walletId: userRef.id,
-      userId: userRef.id,
-      tenantId,
-      userType: targetUserType,
-      userName: fullName,
-      transactionType: "credit",
-      coins: registrationFreeCoins,
-      reason: "Initial wallet issuance",
-      createdBy: creator.id,
-      createdAt: serverTimestamp(),
-    });
+    if (initialWalletCoins > 0) {
+      const walletTxRef = doc(collection(db, "walletTransactions"));
+      transaction.set(walletTxRef, {
+        walletId: userRef.id,
+        userId: userRef.id,
+        tenantId,
+        userType: targetUserType,
+        userName: fullName,
+        transactionType: "credit",
+        coins: initialWalletCoins,
+        reason: "Initial wallet issuance",
+        createdBy: creator.id,
+        createdAt: serverTimestamp(),
+      });
+    }
   });
 
   const created = await getUserById(userRef.id);

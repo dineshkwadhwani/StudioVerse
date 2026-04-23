@@ -69,14 +69,6 @@ async function getTenantReferralJoinReward(tenantId: string): Promise<number> {
   );
 }
 
-async function getTenantRegistrationCoins(tenantId: string): Promise<number> {
-  const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
-  return Math.max(
-    0,
-    Math.floor(Number(tenantSnap.data()?.walletConfig?.registrationFreeCoins ?? 10))
-  );
-}
-
 type CreditWalletArgs = {
   userId: string;
   tenantId: string;
@@ -377,20 +369,15 @@ export async function processReferralJoinForNewUser(args: {
   });
 
   const matched = matches[0];
-  const [joinReward, registrationCoins] = await Promise.all([
-    getTenantReferralJoinReward(args.tenantId),
-    getTenantRegistrationCoins(args.tenantId),
-  ]);
+  const joinReward = await getTenantReferralJoinReward(args.tenantId);
 
   const referralRef = doc(db, "referrals", matched.id);
   const referrerWalletRef = doc(db, "wallets", matched.referrerUserId);
-  const newUserWalletRef = doc(db, "wallets", args.userId);
 
   await runTransaction(db, async (transaction) => {
-    const [referralSnap, referrerWalletSnap, newUserWalletSnap] = await Promise.all([
+    const [referralSnap, referrerWalletSnap] = await Promise.all([
       transaction.get(referralRef),
       transaction.get(referrerWalletRef),
-      transaction.get(newUserWalletRef),
     ]);
 
     if (!referralSnap.exists()) {
@@ -452,43 +439,6 @@ export async function processReferralJoinForNewUser(args: {
       createdBy: args.userId,
       createdAt: serverTimestamp(),
     });
-
-    // Credit the new (referred) user with registration coins (10 coins)
-    if (registrationCoins > 0) {
-      const newUserData = newUserWalletSnap.exists() ? (newUserWalletSnap.data() as Record<string, unknown>) : {};
-      transaction.set(
-        newUserWalletRef,
-        {
-          userId: args.userId,
-          tenantId: args.tenantId,
-          userType: args.userType,
-          userName: args.fullName,
-          totalIssuedCoins: Number(newUserData.totalIssuedCoins ?? 0) + registrationCoins,
-          utilizedCoins: Number(newUserData.utilizedCoins ?? 0),
-          availableCoins: Number(newUserData.availableCoins ?? 0) + registrationCoins,
-          createdBy: newUserData.createdBy ?? "system",
-          updatedBy: "system",
-          createdAt: newUserData.createdAt ?? serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      const newUserTxRef = doc(collection(db, "walletTransactions"));
-      transaction.set(newUserTxRef, {
-        walletId: args.userId,
-        userId: args.userId,
-        tenantId: args.tenantId,
-        userType: args.userType,
-        userName: args.fullName,
-        transactionType: "credit",
-        coins: registrationCoins,
-        reason: "Welcome coins — referred user registration",
-        source: "referral",
-        referralId: latest.id,
-        createdBy: "system",
-        createdAt: serverTimestamp(),
-      });
-    }
   });
 }
 

@@ -3,6 +3,40 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest implementation progress (23 April 2026) — Referral Join Coin Deduplication
+
+- Fixed referral-join reward logic to prevent double onboarding credits for referred users.
+- `processReferralJoinForNewUser` now:
+   - marks referral status as `joined`
+   - credits only the referrer with `referralFreeCoins`
+   - no longer credits an additional "referred user registration" transaction
+- Rationale:
+   - onboarding/registration coins are already granted in the registration flow
+   - referral join should not duplicate that issuance for the same registration event
+
+## Latest implementation progress (23 April 2026) — Company-Created Coach Wallet Rule
+
+- Updated scoped user creation logic so when a Company creates a Coach (`targetUserType=professional`):
+   - coach wallet is created
+   - initial wallet coins are set to `0`
+   - no initial wallet credit transaction is written
+- Other user-creation paths retain tenant-configured onboarding credits.
+
+## Latest implementation progress (23 April 2026) — Assignment Provisioned User Wallet Bonus
+
+- Updated assignment-time "not found" assignee provisioning flow:
+   - when a new Individual is auto-created from assignment/recommendation flow, wallet creation now uses tenant onboarding bonus (`walletConfig.registrationFreeCoins`)
+   - onboarding credit transaction is written via shared `createWalletForUser` logic
+- This replaces the previous zero-balance wallet initialization for assignment-provisioned users.
+
+## Latest implementation progress (23 April 2026) — SuperAdmin User Creation Wallet Issuance
+
+- Updated SuperAdmin user-creation flow so new `company`, `professional`, and `individual` users now:
+   - get a wallet document created at user creation time
+   - receive tenant onboarding coins (`walletConfig.registrationFreeCoins`)
+   - receive an initial wallet credit transaction (`Initial wallet issuance`)
+- `superadmin` user type remains non-wallet-bearing.
+
 ## Latest implementation progress (21 April 2026) — Wallet Completion + Coaching Bot Rollout
 
 ### Epic E5 (Manage Wallet) — Current state aligned to implementation

@@ -20,6 +20,7 @@ import {
   getDocs,
   limit,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -36,10 +37,11 @@ import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
 import ManageCoinsSection from "./ManageCoinsSection";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
-import { listWalletSummary } from "@/services/wallet.service";
+import { getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
 import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/referral";
+import type { WalletUserType } from "@/types/wallet";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -930,10 +932,60 @@ export default function SuperAdminPortal() {
       if (userForm.id) {
         await updateDoc(doc(db, "users", userForm.id), payload);
       } else {
-        await addDoc(collection(db, "users"), {
+        const userRef = doc(collection(db, "users"));
+
+        await setDoc(userRef, {
           ...payload,
           createdAt: serverTimestamp(),
         });
+
+        const isWalletEligible =
+          userForm.userType === "company"
+          || userForm.userType === "professional"
+          || userForm.userType === "individual";
+
+        if (isWalletEligible) {
+          const registrationCoins = await getTenantRegistrationFreeCoins(normalizedTenantId);
+          const userType = userForm.userType as WalletUserType;
+          const walletRef = doc(db, "wallets", userRef.id);
+
+          await runTransaction(db, async (transaction) => {
+            const walletSnap = await transaction.get(walletRef);
+            if (walletSnap.exists()) {
+              return;
+            }
+
+            transaction.set(walletRef, {
+              userId: userRef.id,
+              tenantId: normalizedTenantId,
+              userType,
+              userName: trimmedName,
+              totalIssuedCoins: registrationCoins,
+              utilizedCoins: 0,
+              availableCoins: registrationCoins,
+              createdBy: profile.id,
+              updatedBy: profile.id,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+
+            if (registrationCoins > 0) {
+              const walletTxRef = doc(collection(db, "walletTransactions"));
+              transaction.set(walletTxRef, {
+                walletId: userRef.id,
+                userId: userRef.id,
+                tenantId: normalizedTenantId,
+                userType,
+                userName: trimmedName,
+                transactionType: "credit",
+                coins: registrationCoins,
+                reason: "Initial wallet issuance",
+                createdBy: profile.id,
+                createdAt: serverTimestamp(),
+              });
+            }
+          });
+        }
       }
 
       setUserModalOpen(false);

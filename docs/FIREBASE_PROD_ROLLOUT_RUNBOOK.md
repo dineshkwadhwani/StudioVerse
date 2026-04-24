@@ -262,6 +262,24 @@ Operational checklist for rollout:
 - Test new multi-tenant admin flows against staging environment before prod cutover
 - Smoke test content visibility across all selected tenants in staging
 
+## Coin request auth-UID alignment note (Apr 24, 2026)
+
+Company coin-request approval now assumes the canonical company identifier is the Firebase Auth UID.
+
+Required production expectations:
+
+- company user documents must be addressable at `users/{auth.uid}` for authenticated company users
+- coin request documents in `coinRequests` must store `companyId = companyAuthUid`
+- company approval/read rules in `firestore.rules` now allow direct auth UID matching for `companyId`
+- professional request flow must resolve any legacy `associatedCompanyId` value back to the company auth UID before writing a coin request
+
+Operational checklist:
+
+- deploy updated `firestore.rules` before testing company Manage Wallet coin-request flows
+- verify a professional-created coin request stores company auth UID in `coinRequests.companyId`
+- verify company user can open Manage Wallet and view pending requests without permission errors
+- verify approve/deny still updates status and coin transfer correctly after rules deploy
+
 ## Source of truth files
 These files are the canonical definitions that must be promoted to production:
 

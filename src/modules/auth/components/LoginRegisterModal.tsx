@@ -57,6 +57,7 @@ export default function LoginRegisterModal({
   const [otp, setOtp] = useState('');
   const [role, setRole] = useState<UserRole | null>(null);
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [position, setPosition] = useState('');
   const [busy, setBusy] = useState(false);
@@ -328,13 +329,14 @@ export default function LoginRegisterModal({
       return;
     }
 
-    if (role === 'company' && !companyName.trim()) {
-      setError('Please enter your company name.');
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address.');
       return;
     }
 
-    if (role === 'company' && !position.trim()) {
-      setError('Please enter your position.');
+    if (role === 'company' && !companyName.trim()) {
+      setError('Please enter your company name.');
       return;
     }
 
@@ -356,6 +358,7 @@ export default function LoginRegisterModal({
         uid: userId,
         phoneE164,
         name,
+        email: trimmedEmail,
         role,
         userType: role,
         tenantId,
@@ -390,11 +393,10 @@ export default function LoginRegisterModal({
       // Check for referral join reward (only on self-registration for Professionals/Individuals, non-fatal if fails)
       if ((role === 'professional' || role === 'individual')) {
         try {
-          const email = typeof userData.email === 'string' ? userData.email : '';
           await processReferralJoinForNewUser({
             userId,
             fullName: name,
-            email,
+            email: trimmedEmail,
             phoneE164,
             tenantId,
             userType: role,
@@ -413,7 +415,7 @@ export default function LoginRegisterModal({
       sessionStorage.setItem('cs_profile_id', userDocRef.id);
       sessionStorage.setItem('cs_role', role);
       sessionStorage.setItem('cs_name', name);
-      sessionStorage.setItem('cs_email', typeof userData.email === 'string' ? userData.email : '');
+      sessionStorage.setItem('cs_email', trimmedEmail);
       sessionStorage.setItem('cs_phone', phoneE164);
 
       // Redirect to dashboard
@@ -434,6 +436,7 @@ export default function LoginRegisterModal({
     setOtp('');
     setRole(null);
     setName('');
+    setEmail('');
     setCompanyName('');
     setPosition('');
     setError('');
@@ -617,16 +620,6 @@ export default function LoginRegisterModal({
             <h2 className={styles.title}>Complete Your Profile</h2>
             <p className={styles.subtitle}>A few more details and you are ready to go.</p>
 
-            <label className={styles.label}>Your Name</label>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={busy}
-            />
-
             {role === 'company' && (
               <>
                 <label className={styles.label}>Company Name</label>
@@ -638,12 +631,36 @@ export default function LoginRegisterModal({
                   onChange={(e) => setCompanyName(e.target.value)}
                   disabled={busy}
                 />
+              </>
+            )}
 
-                <label className={styles.label}>Position</label>
+            <label className={styles.label}>Your Full Name</label>
+            <input
+              type="text"
+              className={styles.input}
+              placeholder="John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+            />
+
+            <label className={styles.label}>Email Address</label>
+            <input
+              type="email"
+              className={styles.input}
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+            />
+
+            {role === 'company' && (
+              <>
+                <label className={styles.label}>Your Position</label>
                 <input
                   type="text"
                   className={styles.input}
-                  placeholder="HR Manager"
+                  placeholder="e.g. Owner, HR Manager"
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}
                   disabled={busy}

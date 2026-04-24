@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
+import { getUserById } from "@/services/manage-users.service";
 import { getUserProfile } from "@/services/profile.service";
 import { requestCoins } from "@/services/wallet.service";
 import type { TenantConfig } from "@/types/tenant";
@@ -60,9 +61,27 @@ export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }
           throw new Error("Not associated with a company");
         }
 
-        setCompanyId(String(userData.associatedCompanyId));
-        setCompanyName(typeof userData.associatedCompanyName === "string" ? userData.associatedCompanyName : "Your Company");
+        const associatedCompanyId = String(userData.associatedCompanyId);
+        const companyRecord = await getUserById(associatedCompanyId);
+
+        if (!companyRecord) {
+          throw new Error("Associated company could not be resolved");
+        }
+
+        setCompanyId(companyRecord.uid || companyRecord.userId || companyRecord.id);
+        setCompanyName(companyRecord.companyName || companyRecord.fullName || "Your Company");
         setError("");
+        
+        // DEBUG
+        console.log("[RequestCoinsPage] Resolved company:", {
+          associatedCompanyId,
+          companyRecord: {
+            id: companyRecord.id,
+            uid: companyRecord.uid,
+            userId: companyRecord.userId,
+          },
+          extracted: companyRecord.uid || companyRecord.userId || companyRecord.id,
+        });
       } catch (loadError) {
         const messageText = loadError instanceof Error ? loadError.message : "Failed to load profile";
         setError(messageText);

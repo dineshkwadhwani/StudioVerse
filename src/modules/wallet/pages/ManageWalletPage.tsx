@@ -8,7 +8,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import {
-  getCoinRequestsForCompany,
+  getCoinRequestsForCompanyContext,
   getWalletForUserContext,
   listWalletTransactionsForUserContext,
 } from "@/services/wallet.service";
@@ -59,7 +59,9 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   const [transactions, setTransactions] = useState<WalletTransactionRecord[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [coinRequestsError, setCoinRequestsError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [companyRequestIds, setCompanyRequestIds] = useState<string[]>([]);
   const [coinRequestsModalOpen, setCoinRequestsModalOpen] = useState(false);
   const [pendingCoinRequestCount, setPendingCoinRequestCount] = useState(0);
 
@@ -101,21 +103,59 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
 
         setUserId(firebaseUser.uid);
 
-        const [resolvedWallet, resolvedTransactions, coinRequests] = await Promise.all([
+        const companyIds = Array.from(
+          new Set([firebaseUser.uid, profile?.userId].filter(Boolean) as string[])
+        );
+
+        // DEBUG
+        console.log("[ManageWalletPage] Company context:", {
+          firebaseUser_uid: firebaseUser.uid,
+          profile_userId: profile?.userId,
+          companyIds,
+        });
+        const results = await Promise.allSettled([
           getWalletForUserContext(userIds),
           listWalletTransactionsForUserContext({ userIds, tenantId }),
-          storedRoleRaw === "company" ? getCoinRequestsForCompany(firebaseUser.uid) : Promise.resolve([]),
+          storedRoleRaw === "company" ? getCoinRequestsForCompanyContext(companyIds) : Promise.resolve([]),
         ]);
 
-        setWallet(resolvedWallet);
-        setTransactions(resolvedTransactions);
-        setPendingCoinRequestCount(coinRequests.filter((request) => request.status === "pending").length);
+        const walletResult = results[0];
+        const transactionsResult = results[1];
+        const coinRequestsResult = results[2];
+
+        if (walletResult.status === "fulfilled") {
+          setWallet(walletResult.value);
+        }
+
+        if (transactionsResult.status === "fulfilled") {
+          setTransactions(transactionsResult.value);
+        }
+
+        if (coinRequestsResult.status === "fulfilled") {
+          const coinRequests = coinRequestsResult.value;
+          setCompanyRequestIds(companyIds);
+          setPendingCoinRequestCount(coinRequests.filter((request) => request.status === "pending").length);
+          setCoinRequestsError("");
+        } else if (coinRequestsResult.status === "rejected") {
+          const err = coinRequestsResult.reason;
+          const coinRequestsErrorMsg = err instanceof Error ? err.message : String(err);
+          console.warn("Failed to load coin requests:", coinRequestsErrorMsg);
+          setCoinRequestsError(coinRequestsErrorMsg);
+        }
 
         if (profile?.fullName) {
           setName(profile.fullName);
         }
+
+        if (walletResult.status === "rejected" || transactionsResult.status === "rejected") {
+          const walletErr = walletResult.status === "rejected" ? walletResult.reason : null;
+          const transErr = transactionsResult.status === "rejected" ? transactionsResult.reason : null;
+          const failedError = walletErr || transErr;
+          const message = failedError instanceof Error ? failedError.message : "Failed to load wallet.";
+          setError(message);
+        }
       } catch (loadError) {
-        const message = loadError instanceof Error ? loadError.message : "Failed to load wallet.";
+        const message = loadError instanceof Error ? loadError.message : "Failed to load profile.";
         setError(message);
       } finally {
         setBusy(false);
@@ -260,7 +300,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
 
       {userId && (
         <CoinRequestsModal
-          companyId={userId}
+          companyIds={companyRequestIds.length > 0 ? companyRequestIds : [userId]}
           isOpen={coinRequestsModalOpen}
           onClose={() => setCoinRequestsModalOpen(false)}
           onPendingCountChange={(count) => setPendingCoinRequestCount(count)}

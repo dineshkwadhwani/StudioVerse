@@ -229,11 +229,13 @@ export async function listAllReferrals(args?: {
   referrerRole?: ReferrerRole | "all";
   referredType?: ReferredType | "all";
   status?: ReferralStatus | "all";
+  tenantId?: string;
 }): Promise<ReferralRecord[]> {
   const snap = await getDocs(collection(db, "referrals"));
 
   return snap.docs
     .map((entry) => toReferralRecord(entry.id, entry.data() as Record<string, unknown>))
+    .filter((entry) => (args?.tenantId ? entry.tenantId === args.tenantId : true))
     .filter((entry) => (args?.referrerRole && args.referrerRole !== "all" ? entry.referrerRole === args.referrerRole : true))
     .filter((entry) => (args?.referredType && args.referredType !== "all" ? entry.referredType === args.referredType : true))
     .filter((entry) => (args?.status && args.status !== "all" ? entry.status === args.status : true))

@@ -392,6 +392,7 @@ export default function SuperAdminPortal() {
   const [referralRoleFilter, setReferralRoleFilter] = useState<ReferralRoleFilter>("all");
   const [referralTypeFilter, setReferralTypeFilter] = useState<ReferralTypeFilter>("all");
   const [referralStatusFilter, setReferralStatusFilter] = useState<ReferralStatusFilter>("all");
+  const [referralTenantFilter, setReferralTenantFilter] = useState<string>("all");
   const [selectedReferralIds, setSelectedReferralIds] = useState<string[]>([]);
 
   const [userModalOpen, setUserModalOpen] = useState(false);
@@ -551,7 +552,7 @@ export default function SuperAdminPortal() {
   }, [existingCompaniesForTenant, userForm.companyName, userForm.userType]);
 
   useEffect(() => {
-    if (!profile || (activeMenu !== "tenants" && activeMenu !== "coins")) {
+    if (!profile || (activeMenu !== "tenants" && activeMenu !== "coins" && activeMenu !== "referrals")) {
       return;
     }
 
@@ -585,7 +586,7 @@ export default function SuperAdminPortal() {
     }
 
     void loadReferrals();
-  }, [profile, activeMenu, referralRoleFilter, referralStatusFilter, referralTypeFilter]);
+  }, [profile, activeMenu, referralRoleFilter, referralStatusFilter, referralTypeFilter, referralTenantFilter]);
 
     useEffect(() => {
       if (!userModalOpen && !tenantModalOpen) {
@@ -751,6 +752,7 @@ export default function SuperAdminPortal() {
         referrerRole: referralRoleFilter,
         referredType: referralTypeFilter,
         status: referralStatusFilter,
+        tenantId: referralTenantFilter !== "all" ? referralTenantFilter : undefined,
       });
       setReferrals(rows);
       setSelectedReferralIds([]);
@@ -1546,6 +1548,18 @@ export default function SuperAdminPortal() {
               </p>
 
               <div className={styles.controlCard}>
+                <p className={styles.filterLabel}>Tenant</p>
+                <select
+                  className={styles.select}
+                  value={referralTenantFilter}
+                  onChange={(event) => setReferralTenantFilter(event.target.value)}
+                >
+                  <option value="all">All</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>{tenant.tenantName}</option>
+                  ))}
+                </select>
+
                 <p className={styles.filterLabel}>Referrers</p>
                 <div className={styles.radioRow}>
                   {(["all", "company", "professional", "individual"] as ReferralRoleFilter[]).map((value) => (

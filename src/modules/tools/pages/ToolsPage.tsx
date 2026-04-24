@@ -123,6 +123,9 @@ export default function ToolsPage({ config }: ToolsPageProps) {
 
         const nextRows = rows
           .filter((item) => isInTenantScope(item, config.id))
+          .filter(
+            (item) => item.status === "active" && item.publicationState === "published",
+          )
           .sort((a, b) => (b.updatedAt?.toDate().getTime() ?? 0) - (a.updatedAt?.toDate().getTime() ?? 0));
 
         if (active) {

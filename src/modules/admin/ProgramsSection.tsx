@@ -83,6 +83,8 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
   const [formOpen, setFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<ProgramFormValues>(createProgramFormValues());
   const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
+  const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
+  const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
 
   async function loadTenants(): Promise<void> {
     try {
@@ -291,26 +293,78 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
       ) : programs.length === 0 ? (
         <div className={styles.emptyCard}>No Programs found for the selected tenant filter.</div>
       ) : (
-        <div className={styles.userStack}>
-          {programs.map((program) => (
-            <section key={program.id} className={styles.userItem}>
-              <div>
-                <p className={styles.userName}>{program.name}</p>
-                <p className={styles.userMeta}>Tenant: {program.tenantId}</p>
-                <p className={styles.userMeta}>Delivery: {program.deliveryType} • Duration: {program.durationValue} {program.durationUnit}</p>
-                <p className={styles.userMeta}>Publication: {program.publicationState}</p>
-                <p className={styles.userMeta}>Promoted: {program.promoted ? "Yes" : "No"}</p>
-              </div>
+        <>
+          <div className={styles.filterPillGroup}>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "all" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("all")}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "published" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("published")}
+            >
+              Published
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "draft" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("draft")}
+            >
+              Draft
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPromoted === "true" ? styles.active : ""}`}
+              onClick={() => setSelectedPromoted("true")}
+            >
+              Promoted
+            </button>
+          </div>
 
-              <div className={styles.userActions}>
-                <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[program.status]}</span>
-                <button type="button" className={styles.rowAction} onClick={() => openEdit(program)}>
-                  Edit
-                </button>
-              </div>
-            </section>
-          ))}
-        </div>
+          <div className={styles.programGrid}>
+            {programs
+              .filter((program) => {
+                if (selectedPublicationState !== "all" && program.publicationState !== selectedPublicationState) {
+                  return false;
+                }
+                if (selectedPromoted === "true" && !program.promoted) {
+                  return false;
+                }
+                return true;
+              })
+              .map((program) => (
+                <article key={program.id} className={styles.programTile}>
+                  <div className={styles.programImageWrap}>
+                    <img
+                      className={styles.programImage}
+                      src={program.thumbnailUrl || "/tenants/coaching-studio/hero1.png"}
+                      alt={program.name}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className={styles.programContent}>
+                    <p className={styles.programTitle}>{program.name}</p>
+                    {program.shortDescription ? (
+                      <p className={styles.programDescription}>{program.shortDescription}</p>
+                    ) : null}
+                    <p className={styles.programMeta}>Delivery: {program.deliveryType}</p>
+                    <p className={styles.programMeta}>Duration: {program.durationValue} {program.durationUnit}</p>
+                  </div>
+
+                  <div className={styles.programActions}>
+                    <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[program.status]}</span>
+                    <button type="button" className={styles.rowAction} onClick={() => openEdit(program)}>
+                      Edit
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
+        </>
       )}
 
       {formOpen ? (

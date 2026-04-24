@@ -398,6 +398,8 @@ export async function requestCoins(args: {
     throw new Error("Coin amount must be greater than 0");
   }
 
+  console.log("[wallet.requestCoins] Writing coin request with companyId:", args.companyId);
+
   const coinRequestRef = collection(db, "coinRequests");
   const docRef = await addDoc(coinRequestRef, {
     tenantId: args.tenantId,
@@ -412,6 +414,7 @@ export async function requestCoins(args: {
     updatedAt: serverTimestamp(),
   });
 
+  console.log("[wallet.requestCoins] Created request with ID:", docRef.id);
   return docRef.id;
 }
 
@@ -432,6 +435,40 @@ export async function getCoinRequestsForCompany(companyId: string): Promise<Coin
       if (a.status !== "pending" && b.status === "pending") return 1;
       return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
     });
+}
+
+export async function getCoinRequestsForCompanyContext(companyIds: string[]): Promise<CoinRequest[]> {
+  const normalizedIds = Array.from(new Set(companyIds.map((id) => id.trim()).filter(Boolean)));
+  
+  console.log("[getCoinRequestsForCompanyContext] Querying with companyIds:", normalizedIds);
+  
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const snapshots = await Promise.all(
+    normalizedIds.map((companyId) =>
+      getDocs(query(collection(db, "coinRequests"), where("companyId", "==", companyId)))
+    )
+  );
+
+  const results = snapshots
+    .flatMap((snap) => snap.docs.map((entry) => mapCoinRequestDoc(entry.id, entry.data() as Record<string, unknown>)))
+    .reduce<CoinRequest[]>((acc, item) => {
+      if (!acc.some((existing) => existing.id === item.id)) {
+        acc.push(item);
+      }
+      return acc;
+    }, [])
+    .sort((a, b) => {
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (a.status !== "pending" && b.status === "pending") return 1;
+      return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
+    });
+
+  console.log("[getCoinRequestsForCompanyContext] Found", results.length, "requests:", results.map((r) => ({ id: r.id, companyId: r.companyId, status: r.status })));
+  
+  return results;
 }
 
 export async function getCoinRequestsForProfessional(professionalId: string): Promise<CoinRequest[]> {

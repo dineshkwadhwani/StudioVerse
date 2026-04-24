@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCoinRequestsForCompany, approveCoinRequest, denyCoinRequest } from "@/services/wallet.service";
+import { getCoinRequestsForCompanyContext, approveCoinRequest, denyCoinRequest } from "@/services/wallet.service";
 import type { CoinRequest } from "@/types/coinRequest";
 import styles from "../pages/ManageWalletPage.module.css";
 
 type CoinRequestsModalProps = {
-  companyId: string;
+  companyIds: string[];
   isOpen: boolean;
   onClose: () => void;
   onPendingCountChange?: (count: number) => void;
 };
 
 export default function CoinRequestsModal({
-  companyId,
+  companyIds,
   isOpen,
   onClose,
   onPendingCountChange,
@@ -31,19 +31,22 @@ export default function CoinRequestsModal({
       setError("");
 
       try {
-        const fetchedRequests = await getCoinRequestsForCompany(companyId);
+        console.log("[CoinRequestsModal] Opening with companyIds:", companyIds);
+        const fetchedRequests = await getCoinRequestsForCompanyContext(companyIds);
+        console.log("[CoinRequestsModal] Loaded requests:", fetchedRequests.length);
         setRequests(fetchedRequests);
         onPendingCountChange?.(fetchedRequests.filter((request) => request.status === "pending").length);
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : "Failed to load requests";
+        console.error("[CoinRequestsModal] Error loading requests:", message);
         setError(message);
       } finally {
         setBusy(false);
       }
     }
 
-    loadRequests();
-  }, [isOpen, companyId]);
+    void loadRequests();
+  }, [isOpen, companyIds, onPendingCountChange]);
 
   async function handleApprove(requestId: string) {
     setProcessingId(requestId);

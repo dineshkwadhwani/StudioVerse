@@ -87,6 +87,8 @@ export default function EventsSection({
   const [formOpen, setFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<EventFormValues>(createEventFormValues());
   const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
+  const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
+  const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
 
   async function loadTenants(): Promise<void> {
     try {
@@ -299,43 +301,94 @@ export default function EventsSection({
           No Events found for the selected tenant filter.
         </div>
       ) : (
-        <div className={styles.userStack}>
-          {events.map((event) => (
-            <section key={event.id} className={styles.userItem}>
-              <div>
-                <p className={styles.userName}>{event.name}</p>
-                <p className={styles.userMeta}>Tenant: {event.tenantId}</p>
-                <p className={styles.userMeta}>Type: {EVENT_TYPE_LABELS[event.eventType]}</p>
-                <p className={styles.userMeta}>Source: {EVENT_SOURCE_LABELS[event.eventSource]}</p>
-                <p className={styles.userMeta}>
-                  {event.eventDate ?? "—"} {event.eventTime ? `at ${event.eventTime}` : ""}
-                  {event.locationCity ? ` · ${event.locationCity}` : ""}
-                  {event.locationAddress ? ` · ${event.locationAddress}` : ""}
-                </p>
-                <p className={styles.userMeta}>
-                  Publication: {event.publicationState} · Promoted:{" "}
-                  {event.promoted ? "Yes" : "No"}
-                </p>
-                <p className={styles.userMeta}>
-                  Credits: {event.creditsRequired} · Cost: {event.cost}
-                </p>
-              </div>
+        <>
+          <div className={styles.filterPillGroup}>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "all" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("all")}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "published" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("published")}
+            >
+              Published
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "draft" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("draft")}
+            >
+              Draft
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPromoted === "true" ? styles.active : ""}`}
+              onClick={() => setSelectedPromoted("true")}
+            >
+              Promoted
+            </button>
+          </div>
 
-              <div className={styles.userActions}>
-                <span className={styles.statusBadge}>
-                  {EVENT_STATUS_LABELS[event.status]}
-                </span>
-                <button
-                  type="button"
-                  className={styles.rowAction}
-                  onClick={() => openEdit(event)}
-                >
-                  Edit
-                </button>
-              </div>
-            </section>
-          ))}
-        </div>
+          <div className={styles.eventGrid}>
+            {events
+              .filter((event) => {
+                if (selectedPublicationState !== "all" && event.publicationState !== selectedPublicationState) {
+                  return false;
+                }
+                if (selectedPromoted === "true" && !event.promoted) {
+                  return false;
+                }
+                return true;
+              })
+              .map((event) => (
+                <article key={event.id} className={styles.eventTile}>
+                  <div className={styles.eventImageWrap}>
+                    <img
+                      className={styles.eventImage}
+                      src={event.thumbnailUrl || "/tenants/coaching-studio/hero1.png"}
+                      alt={event.name}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className={styles.eventContent}>
+                    <p className={styles.eventTitle}>{event.name}</p>
+                    {event.shortDescription ? (
+                      <p className={styles.eventDescription}>{event.shortDescription}</p>
+                    ) : null}
+                    <p className={styles.eventMeta}>Type: {EVENT_TYPE_LABELS[event.eventType]}</p>
+                    <p className={styles.eventMeta}>Source: {EVENT_SOURCE_LABELS[event.eventSource]}</p>
+                    {event.eventDate ? (
+                      <p className={styles.eventMeta}>
+                        {event.eventDate} {event.eventTime ? `at ${event.eventTime}` : ""}
+                      </p>
+                    ) : null}
+                    {event.locationCity || event.locationAddress ? (
+                      <p className={styles.eventMeta}>
+                        {event.locationCity} {event.locationAddress}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className={styles.eventActions}>
+                    <span className={styles.statusBadge}>
+                      {EVENT_STATUS_LABELS[event.status]}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.rowAction}
+                      onClick={() => openEdit(event)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
+        </>
       )}
 
       {formOpen ? (

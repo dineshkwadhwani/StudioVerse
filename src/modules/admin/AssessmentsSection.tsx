@@ -140,6 +140,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
 
   const processedPromptPreview = useMemo(() => {
     const count = parseInt(formValues.questionBankCount, 10);
@@ -567,44 +568,69 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       ) : assessments.length === 0 ? (
         <div className={styles.emptyCard}>No assessments found. Create the first one.</div>
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Render Style</th>
-                <th>Credits</th>
-                <th>Questions (Bank)</th>
-                <th>Per Attempt</th>
-                <th>Status</th>
-                <th>Published</th>
-                <th>Tenant</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assessments.map((a) => (
-                <tr key={a.id}>
-                  <td style={{ fontWeight: 700 }}>{a.name}</td>
-                  <td>{ASSESSMENT_TYPE_LABELS[a.assessmentType] ?? a.assessmentType}</td>
-                  <td>{RENDER_STYLE_LABELS[a.renderStyle] ?? a.renderStyle}</td>
-                  <td>{a.creditsRequired ?? 0}</td>
-                  <td>{a.questionBankCount}</td>
-                  <td>{a.questionsPerAttempt}</td>
-                  <td><span className={styles.statusBadge}>{a.status}</span></td>
-                  <td><span className={styles.statusBadge}>{a.publicationState}</span></td>
-                  <td>{Array.isArray(a.tenantIds) && a.tenantIds.length > 0 ? a.tenantIds.join(", ") : a.tenantId}</td>
-                  <td>
+        <>
+          <div className={styles.filterPillGroup}>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "all" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("all")}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "published" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("published")}
+            >
+              Published
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPublicationState === "draft" ? styles.active : ""}`}
+              onClick={() => setSelectedPublicationState("draft")}
+            >
+              Draft
+            </button>
+          </div>
+
+          <div className={styles.assessmentGrid}>
+            {assessments
+              .filter((a) => {
+                if (selectedPublicationState !== "all" && a.publicationState !== selectedPublicationState) {
+                  return false;
+                }
+                return true;
+              })
+              .map((a) => (
+                <article key={a.id} className={styles.assessmentTile}>
+                  <div className={styles.assessmentImageWrap}>
+                    <img
+                      className={styles.assessmentImage}
+                      src={a.assessmentImageUrl || "/tenants/coaching-studio/hero1.png"}
+                      alt={a.name}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className={styles.assessmentContent}>
+                    <p className={styles.assessmentTitle}>{a.name}</p>
+                    {a.shortDescription ? (
+                      <p className={styles.assessmentDescription}>{a.shortDescription}</p>
+                    ) : null}
+                    <p className={styles.assessmentMeta}>Type: {ASSESSMENT_TYPE_LABELS[a.assessmentType] ?? a.assessmentType}</p>
+                    <p className={styles.assessmentMeta}>Render: {RENDER_STYLE_LABELS[a.renderStyle] ?? a.renderStyle}</p>
+                    <p className={styles.assessmentMeta}>Credits: {a.creditsRequired ?? 0} • {a.questionBankCount} Questions ({a.questionsPerAttempt}/attempt)</p>
+                  </div>
+
+                  <div className={styles.assessmentActions}>
+                    <span className={styles.statusBadge}>{a.status}</span>
                     <button type="button" className={styles.rowAction} onClick={() => openEdit(a)}>
                       Edit
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </article>
               ))}
-            </tbody>
-          </table>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Create / Edit Modal */}

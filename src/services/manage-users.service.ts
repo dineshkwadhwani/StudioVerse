@@ -1,6 +1,7 @@
 import { auth, db } from "@/services/firebase";
 import {
   collection,
+  getDoc,
   doc,
   getDocs,
   limit,
@@ -17,6 +18,7 @@ export type ManageUserRole = "company" | "professional" | "individual";
 export type ManagedUserRecord = {
   id: string;
   userId: string;
+  uid?: string;
   tenantId: string;
   userType: ManageUserRole;
   status: "active" | "inactive";
@@ -88,6 +90,7 @@ function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserR
   return {
     id,
     userId: toStringValue(data.userId || data.uid || id),
+    uid: toStringValue(data.uid) || undefined,
     tenantId: toStringValue(data.tenantId),
     userType:
       toStringValue(data.userType || data.profileType || data.role) === "company"
@@ -112,6 +115,11 @@ function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserR
 }
 
 export async function getUserById(userId: string): Promise<ManagedUserRecord | null> {
+  const directDocSnap = await getDoc(doc(db, "users", userId));
+  if (directDocSnap.exists()) {
+    return mapManagedUser(directDocSnap.id, directDocSnap.data() as Record<string, unknown>);
+  }
+
   const directSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId), limit(1)));
   if (!directSnap.empty) {
     const row = directSnap.docs[0];

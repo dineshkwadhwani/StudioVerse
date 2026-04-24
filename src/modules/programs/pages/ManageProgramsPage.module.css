@@ -86,11 +86,21 @@
   padding: 1rem 1.25rem 1.5rem;
 }
 
-.topFilterRow {
+/* Top Controls Row - for manage pages with filters and add button */
+.topControlsRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.titleAndFilters {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex: 1;
   flex-wrap: wrap;
 }
 
@@ -117,6 +127,42 @@
   background: #ffffff;
   color: var(--ink);
   padding: 0.4rem 0.7rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.addButton {
+  background: #175f89;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.addButton:hover {
+  background: #0d3f5c;
+}
+
+.addButton:active {
+  transform: scale(0.98);
+}
+
+.error {
+  color: #c41e3a;
+  background: #ffe6f0;
+  border: 1px solid #ff99c4;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.95rem;
 }
 
 .helper {
@@ -151,9 +197,78 @@
   color: #3f5f78;
 }
 
+.buttonGroup {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.primaryButton {
+  background: #175f89;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+  min-width: 120px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.primaryButton:hover {
+  background: #0d3f5c;
+}
+
+.primaryButton:active {
+  transform: scale(0.98);
+}
+
+.secondaryButton {
+  background: #ffffff;
+  color: #175f89;
+  border: 1px solid #175f89;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+  min-width: 100px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+}
+
+.secondaryButton:hover {
+  background: #f0f5f9;
+}
+
+.secondaryButton:active {
+  transform: scale(0.98);
+}
+
 @media (max-width: 1024px) {
   .heroSection {
     grid-template-columns: 1fr;
+  }
+
+  .topControlsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .titleAndFilters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .addButton {
+    width: 100%;
   }
 
   .grid {
@@ -164,13 +279,23 @@
 @media (max-width: 700px) {
   .filterGroup {
     justify-content: space-between;
+    width: 100%;
   }
 
-  .topFilterRow {
+  .topControlsRow {
     align-items: stretch;
   }
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .buttonGroup {
+    width: 100%;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
   }
 }

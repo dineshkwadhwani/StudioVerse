@@ -15,6 +15,14 @@ service cloud.firestore {
       return isSignedIn() ? currentUser().userType : null;
     }
 
+    function currentUserIdValue() {
+      return isSignedIn() ? currentUser().userId : null;
+    }
+
+    function currentUserUidValue() {
+      return isSignedIn() ? currentUser().uid : null;
+    }
+
     function currentTenantId() {
       return isSignedIn() ? currentUser().tenantId : null;
     }
@@ -44,18 +52,24 @@ service cloud.firestore {
         && (
           resource.data.requesterProfessionalId == request.auth.uid
           || (
-            isCompanyUser()
-            && (
-              resource.data.companyId == request.auth.uid
-              || resource.data.companyId == currentCompanyId()
+            resource.data.companyId == request.auth.uid
+            || resource.data.companyId == currentUserIdValue()
+            || resource.data.companyId == currentUserUidValue()
+            || (
+              isCompanyUser()
+              && resource.data.companyId == currentCompanyId()
             )
           )
         );
 
-      allow update: if isCompanyUser()
-        && (
+      allow update: if (
           resource.data.companyId == request.auth.uid
-          || resource.data.companyId == currentCompanyId()
+          || resource.data.companyId == currentUserIdValue()
+          || resource.data.companyId == currentUserUidValue()
+          || (
+            isCompanyUser()
+            && resource.data.companyId == currentCompanyId()
+          )
         )
         && resource.data.status == "pending"
         && request.resource.data.status in ["approved", "denied"]

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Hook to handle click/touch outside a ref element
@@ -12,27 +12,44 @@ export function useClickOutside<T extends HTMLElement>(
   callback: () => void,
   isActive: boolean = true
 ): void {
+  const callbackRef = useRef(callback);
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
   useEffect(() => {
     if (!isActive) return;
 
     function handleClickOrTouchOutside(e: PointerEvent | MouseEvent | TouchEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        callback();
+      const target = e.target;
+      if (ref.current && target instanceof Node && !ref.current.contains(target)) {
+        callbackRef.current();
+      }
+    }
+
+    function handleEscapeKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        callbackRef.current();
       }
     }
 
     // Some mobile browsers can be inconsistent with pointer events.
     // Register fallback touch/mouse listeners so tapping outside always closes menus.
-    document.addEventListener("pointerdown", handleClickOrTouchOutside as EventListener);
+    // Use capture phase so outside clicks still close menus even when descendants stop propagation.
+    document.addEventListener("pointerdown", handleClickOrTouchOutside as EventListener, true);
     document.addEventListener("touchstart", handleClickOrTouchOutside as EventListener, {
+      capture: true,
       passive: true,
     });
-    document.addEventListener("mousedown", handleClickOrTouchOutside as EventListener);
+    document.addEventListener("mousedown", handleClickOrTouchOutside as EventListener, true);
+    document.addEventListener("keydown", handleEscapeKey);
 
     return () => {
-      document.removeEventListener("pointerdown", handleClickOrTouchOutside as EventListener);
-      document.removeEventListener("touchstart", handleClickOrTouchOutside as EventListener);
-      document.removeEventListener("mousedown", handleClickOrTouchOutside as EventListener);
+      document.removeEventListener("pointerdown", handleClickOrTouchOutside as EventListener, true);
+      document.removeEventListener("touchstart", handleClickOrTouchOutside as EventListener, true);
+      document.removeEventListener("mousedown", handleClickOrTouchOutside as EventListener, true);
+      document.removeEventListener("keydown", handleEscapeKey);
     };
-  }, [ref, callback, isActive]);
+  }, [ref, isActive]);
 }

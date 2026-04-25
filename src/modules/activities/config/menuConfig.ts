@@ -47,7 +47,9 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       label: "My Account",
       items: [
         { key: "dashboard", label: "Dashboard", href: buildPath(basePath, "/dashboard") },
-        { key: "update-profile", label: "Update Profile", href: buildPath(basePath, "/profile") },
+        { key: "update-profile", label: "Profile", href: buildPath(basePath, "/profile") },
+        { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
+        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
       ],
     },
     {
@@ -55,13 +57,9 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
-        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/manage-programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/manage-events") },
-        { key: "manage-assessments", label: "Assessments", href: buildPath(basePath, "/manage-assessments") },
-        { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/manage-cohorts") },
-        { key: "manage-individual", label: "Individual", href: buildPath(basePath, "/manage-users") },
       ],
     },
     {
@@ -83,7 +81,9 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       label: "My Account",
       items: [
         { key: "dashboard", label: "Dashboard", href: buildPath(basePath, "/dashboard") },
-        { key: "update-profile", label: "Update Profile", href: buildPath(basePath, "/profile") },
+        { key: "update-profile", label: "Profile", href: buildPath(basePath, "/profile") },
+        { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
+        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
       ],
     },
     {
@@ -91,13 +91,9 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
-        { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/manage-programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/manage-events") },
-        { key: "manage-assessments", label: "Assessments", href: buildPath(basePath, "/manage-assessments") },
-        { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/manage-cohorts") },
-        { key: "manage-individual", label: "Individual", href: buildPath(basePath, "/manage-users") },
       ],
     },
     {
@@ -119,13 +115,7 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       label: "My Account",
       items: [
         { key: "dashboard", label: "Dashboard", href: buildPath(basePath, "/dashboard") },
-        { key: "update-profile", label: "Update Profile", href: buildPath(basePath, "/profile") },
-      ],
-    },
-    {
-      key: "manage",
-      label: "Manage",
-      items: [
+        { key: "update-profile", label: "Profile", href: buildPath(basePath, "/profile") },
         { key: "manage-wallet", label: "Wallet", href: buildPath(basePath, "/manage-wallet") },
         { key: "manage-referrals", label: "References", href: buildPath(basePath, "/manage-referrals") },
       ],
@@ -134,7 +124,6 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       key: "actions",
       label: "Actions",
       items: [
-        { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/dashboard") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
       ],
     },

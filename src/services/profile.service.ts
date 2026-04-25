@@ -449,6 +449,19 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
   const current = existingSnapshot
     ? mapUserProfile(existingSnapshot.id, existingSnapshot.data() as ProfileDocData)
     : undefined;
+  const resolvedUserType = input.userType ?? current?.userType ?? "individual";
+  const resolvedEmail = normalizeString(input.email ?? current?.email).toLowerCase();
+
+  if (resolvedUserType === "company") {
+    if (!resolvedEmail) {
+      throw new Error("Email address is required for company registration.");
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedEmail)) {
+      throw new Error("Please enter a valid email address.");
+    }
+  }
+
   const targetRef: DocumentReference = existingSnapshot
     ? doc(db, "users", existingSnapshot.id)
     : doc(db, "users", input.userId);

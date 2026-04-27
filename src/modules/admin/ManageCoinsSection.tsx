@@ -197,7 +197,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
       <div className={styles.usersGrid}>
         {/* Left panel — assign coins */}
         <div className={styles.controlCard}>
-          <p className={styles.subtitle}>Assign coins to a user</p>
+          <p className={styles.subtitle}>Assign credits to a user</p>
 
           <label className={styles.label} htmlFor="coins-tenant">Tenant</label>
           <select
@@ -249,7 +249,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
 
           <div className={styles.actions}>
             <button type="button" className={styles.button} onClick={handleAssign} disabled={busy || !selectedUserId}>
-              {busy ? "Working..." : "Assign Coins"}
+              {busy ? "Working..." : "Assign Credits"}
             </button>
           </div>
 

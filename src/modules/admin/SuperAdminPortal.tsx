@@ -36,6 +36,8 @@ import ProgramsSection from "./ProgramsSection";
 import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
 import ManageCoinsSection from "./ManageCoinsSection";
+import PackagesSection from "./PackagesSection";
+import ManageOrdersSection from "./ManageOrdersSection";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
 import { getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
@@ -56,7 +58,9 @@ type MenuKey =
   | "coins"
   | "referrals"
   | "assigned-activities"
-  | "assign-activity";
+  | "assign-activity"
+  | "packages"
+  | "orders";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
 type UsersFilter = "all" | AppUserType;
@@ -195,6 +199,8 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "programs", label: "Programs" },
   { key: "events", label: "Events" },
   { key: "coins", label: "Wallet" },
+  { key: "packages", label: "Packages" },
+  { key: "orders", label: "Orders" },
   { key: "referrals", label: "References" },
   { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
@@ -209,7 +215,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "manage",
     label: "Manage",
-    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins", "referrals"],
+    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins", "packages", "orders", "referrals"],
   },
   {
     key: "actions",
@@ -1537,6 +1543,10 @@ export default function SuperAdminPortal() {
               }}
             />
           ) : null}
+
+          {activeMenu === "packages" ? <PackagesSection operatorId={profile.id} /> : null}
+
+          {activeMenu === "orders" ? <ManageOrdersSection /> : null}
 
           {activeMenu === "programs" ? <ProgramsSection tenants={tenants} /> : null}
 

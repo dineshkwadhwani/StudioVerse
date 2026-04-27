@@ -3,7 +3,7 @@ import { TenantConfig } from "@/types/tenant";
 export const config: TenantConfig = {
   id: "coaching-studio",
   name: "Coaching Studio",
-  domain: "coaching-studio.com",
+  domain: "coachingstudio.in",
   roles: {
     superAdmin: "Super Admin",
     company: "Coaching Company",

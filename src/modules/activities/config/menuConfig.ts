@@ -60,6 +60,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/manage-programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/manage-events") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/manage-cohorts") },
+        { key: "manage-assessments", label: "Assessments", href: buildPath(basePath, "/manage-assessments") },
       ],
     },
     {
@@ -94,6 +95,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
         { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/manage-programs") },
         { key: "manage-events", label: "Events", href: buildPath(basePath, "/manage-events") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/manage-cohorts") },
+        { key: "manage-assessments", label: "Assessments", href: buildPath(basePath, "/manage-assessments") },
       ],
     },
     {

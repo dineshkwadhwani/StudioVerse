@@ -232,15 +232,15 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
       <div className={styles.shell}>
         <section className={styles.card}>
           <h1 className={styles.title}>Manage Wallet</h1>
-          <p className={styles.subtitle}>See your current balance and every place where coins were spent or added.</p>
+          <p className={styles.subtitle}>See your current balance and every place where credits were spent or added.</p>
 
-          <div style={{ display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
+          <div className={styles.actionRow}>
             <Link href={`${basePath}/buy-coins`} className={styles.button}>
-              💳 Buy Coins
+              Buy Credits
             </Link>
             {role === "professional" && (
               <Link href={`${basePath}/request-coins`} className={styles.button}>
-                📬 Request Coins
+                Request Credits
               </Link>
             )}
             {role === "company" && (
@@ -249,7 +249,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                 className={styles.button}
                 onClick={() => setCoinRequestsModalOpen(true)}
               >
-                👉 View Coin Requests
+                View Credit Requests
                 {pendingCoinRequestCount > 0 ? ` (${pendingCoinRequestCount})` : ""}
               </button>
             )}
@@ -288,7 +288,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                     {item.activityType ? <span className={styles.badge}>{String(item.activityType).toUpperCase()}</span> : null}
                   </div>
                   <h2 className={styles.itemTitle}>{item.reason || "Wallet transaction"}</h2>
-                  <p className={styles.itemMeta}>Coins: {item.coins}</p>
+                  <p className={styles.itemMeta}>Credits: {item.coins}</p>
                   <p className={styles.itemMeta}>User: {item.userName}</p>
                   <p className={styles.itemMeta}>Created on: {formatDate(item.createdAt)}</p>
                 </article>

@@ -1,0 +1,198 @@
+.packagesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.packageCard {
+  border: 2px solid #d6e6f5;
+  border-radius: 16px;
+  padding: 24px 16px;
+  background: #f8fcff;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+
+.packageCard:hover {
+  border-color: #01696f;
+  box-shadow: 0 6px 20px rgba(1, 105, 111, 0.12);
+  transform: translateY(-2px);
+}
+
+.packageName {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #133a56;
+}
+
+.packageDesc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4d6e86;
+}
+
+.packageCredits {
+  margin: 8px 0 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #01696f;
+}
+
+.packagePrice {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1b2b3a;
+}
+
+.selectBtn {
+  display: inline-block;
+  margin-top: 12px;
+  background: #01696f;
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.backLink {
+  background: none;
+  border: none;
+  color: #01696f;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0;
+  font-family: inherit;
+}
+
+.summaryCard {
+  border: 1px solid #d6e6f5;
+  border-radius: 16px;
+  background: #f8fcff;
+  padding: 20px;
+  margin-top: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #edf3fb;
+  padding-bottom: 10px;
+}
+
+.summaryRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.summaryLabel {
+  color: #4d6e86;
+  font-size: 0.95rem;
+}
+
+.summaryValue {
+  font-weight: 700;
+  color: #133a56;
+  font-size: 0.95rem;
+}
+
+.razorpayNotice {
+  margin-top: 16px;
+  background: #fff8e6;
+  border: 1px solid #f4d87a;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: #7a5c00;
+}
+
+.razorpayNotice p {
+  margin: 0;
+}
+
+.summaryActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.primaryButton {
+  background: #01696f;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 28px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.15s;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #015b60;
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: #fff;
+  color: #01696f;
+  border: 2px solid #01696f;
+  border-radius: 24px;
+  padding: 10px 24px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 24px;
+  color: #4d6e86;
+  border: 2px dashed #d6e6f5;
+  border-radius: 16px;
+  margin-top: 24px;
+}
+
+.successBox {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.successIcon {
+  font-size: 3rem;
+  margin: 0 0 12px 0;
+}
+
+.successTitle {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #133a56;
+  margin: 0 0 12px 0;
+}
+
+.successBody {
+  color: #4d6e86;
+  margin: 0 0 28px 0;
+  font-size: 1rem;
+}

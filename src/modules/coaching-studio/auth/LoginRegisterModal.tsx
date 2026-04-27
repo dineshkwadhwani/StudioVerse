@@ -15,6 +15,7 @@ import { processReferralJoinForNewUser } from '@/services/referral.service';
 import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
 import type { WalletUserType } from '@/types/wallet';
 import type { TenantConfig } from '@/types/tenant';
+import { persistAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type Phase = 'login-phone' | 'login-otp' | 'register-role' | 'register-details' | 'success';
 type UserRole = 'company' | 'professional' | 'individual';
@@ -282,6 +283,7 @@ export default function LoginRegisterModal({
         sessionStorage.setItem('cs_name', resolvedName);
         sessionStorage.setItem('cs_email', resolvedEmail);
         sessionStorage.setItem('cs_phone', resolvedPhone);
+        persistAuthSessionCookies({ uid: result.user.uid, role: resolvedRole });
 
         // Redirect to dashboard
         setPhase('success');
@@ -399,6 +401,7 @@ export default function LoginRegisterModal({
       sessionStorage.setItem('cs_name', name);
       sessionStorage.setItem('cs_email', trimmedEmail);
       sessionStorage.setItem('cs_phone', phoneE164);
+      persistAuthSessionCookies({ uid: userId, role });
 
       // Redirect to dashboard
       setTimeout(() => {

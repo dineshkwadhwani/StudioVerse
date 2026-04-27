@@ -799,6 +799,7 @@ export default function CoachingLandingPage({ config }: Props) {
         <p className={styles.footerLine}>
           <span>&copy; {new Date().getFullYear()} {config.name}. All rights reserved.</span>
           <Link href={`${basePath}/privacy-policy`}>Privacy Policy</Link>
+          <Link href={`${basePath}/terms-of-service`}>Terms of Service</Link>
           <a href="tel:+919604188725">+91 9604188725</a>
           <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
         </p>

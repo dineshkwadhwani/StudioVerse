@@ -690,9 +690,42 @@
   align-self: flex-start;
 }
 
-.contactSubmit:hover {
+.contactSubmit:hover:not(:disabled) {
   opacity: 0.88;
   transform: translateY(-1px);
+}
+
+.contactSubmit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.contactError {
+  font-size: 0.875rem;
+  color: #f87171;
+  margin: 0;
+}
+
+.contactSuccess {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.contactSuccessTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--sv-text-1);
+  margin: 0;
+}
+
+.contactSuccessBody {
+  font-size: 1rem;
+  color: var(--sv-text-2);
+  margin: 0;
 }
 
 /* ─────────────────────────────────────────────

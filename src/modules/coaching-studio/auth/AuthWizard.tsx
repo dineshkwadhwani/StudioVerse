@@ -18,6 +18,7 @@ import type { WalletUserType } from "@/types/wallet";
 import type { ProfileUserType, UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
 import styles from "./AuthWizard.module.css";
+import { persistAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type UserRole = ProfileUserType;
 type CompanyPosition = "owner" | "coach";
@@ -50,6 +51,7 @@ function persistSessionProfile(profile: UserProfileRecord) {
   sessionStorage.setItem("cs_name", profile.fullName);
   sessionStorage.setItem("cs_email", profile.email);
   sessionStorage.setItem("cs_phone", profile.phoneE164);
+  persistAuthSessionCookies({ uid: profile.userId, role: profile.userType });
 }
 
 function getAuthErrorMessage(error: unknown): string {

@@ -15,11 +15,12 @@ import {
   saveCohort,
   searchIndividualsForCohort,
 } from "@/services/cohorts.service";
-import type {
-  CohortCreatorRole,
-  CohortDetail,
-  CohortListItem,
-  NewCohortIndividualInput,
+import {
+  MIN_COHORT_MEMBER_COUNT,
+  type CohortCreatorRole,
+  type CohortDetail,
+  type CohortListItem,
+  type NewCohortIndividualInput,
 } from "@/types/cohort";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
@@ -379,8 +380,8 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
     }
 
     const totalIndividuals = selectedIndividuals.length + pendingIndividuals.length;
-    if (totalIndividuals < 2) {
-      setError(`A cohort must include at least two ${individualLabel}s.`);
+    if (totalIndividuals < MIN_COHORT_MEMBER_COUNT) {
+      setError(`A cohort must include at least ${MIN_COHORT_MEMBER_COUNT} ${individualLabel}s.`);
       return;
     }
 

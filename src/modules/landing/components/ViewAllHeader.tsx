@@ -11,6 +11,7 @@ import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import styles from "./ViewAllHeader.module.css";
+import { clearAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type ViewAllPage = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
@@ -110,6 +111,7 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
     sessionStorage.removeItem("cs_uid");
     sessionStorage.removeItem("cs_role");
     sessionStorage.removeItem("cs_name");
+    clearAuthSessionCookies();
     setMenuOpen(false);
     setIsMobileMenuOpen(false);
   }

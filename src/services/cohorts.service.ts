@@ -12,22 +12,24 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import {
+  getUserById,
   listManagedUsersForCompany,
   listManagedUsersForProfessional,
   listProfessionalsForCoachDropdown,
   type ManagedUserRecord,
 } from "@/services/manage-users.service";
-import type {
-  CohortAssignmentPayload,
-  CohortCreatorRole,
-  CohortDetail,
-  CohortListItem,
-  CohortMemberRecord,
-  CohortMemberUser,
-  CohortRecord,
-  CohortStatus,
-  NewCohortIndividualInput,
-  SaveCohortInput,
+import {
+  MIN_COHORT_MEMBER_COUNT,
+  type CohortAssignmentPayload,
+  type CohortCreatorRole,
+  type CohortDetail,
+  type CohortListItem,
+  type CohortMemberRecord,
+  type CohortMemberUser,
+  type CohortRecord,
+  type CohortStatus,
+  type NewCohortIndividualInput,
+  type SaveCohortInput,
 } from "@/types/cohort";
 
 type UserDocData = Record<string, unknown>;
@@ -259,6 +261,7 @@ export async function searchIndividualsForCohort(args: {
   searchTerm: string;
 }): Promise<ManagedUserRecord[]> {
   const normalized = args.searchTerm.trim().toLowerCase();
+  const normalizedPhone = normalizePhone(normalized);
 
   if (!normalized) {
     return [];
@@ -266,9 +269,23 @@ export async function searchIndividualsForCohort(args: {
 
   const scopeUsers = await listIndividualsForCohortScope(args);
 
-  return scopeUsers.filter(
-    (user) => user.email === normalized || user.phoneE164 === normalizePhone(normalized)
+  const scopedMatches = scopeUsers.filter(
+    (user) => user.email === normalized || normalizePhone(user.phoneE164) === normalizedPhone
   );
+
+  if (scopedMatches.length > 0 || args.role !== "professional") {
+    return scopedMatches;
+  }
+
+  // Fallback for professional search: include active tenant individuals in same company scope
+  // so existing users remain discoverable even before explicit professional back-association.
+  const tenantUsers = await listUsersByTenant(args.tenantId);
+  const fallbackMatches = tenantUsers
+    .filter((user) => user.userType === "individual" && user.status === "active")
+    .filter((user) => !args.companyId || user.associatedCompanyId === args.companyId)
+    .filter((user) => user.email === normalized || normalizePhone(user.phoneE164) === normalizedPhone);
+
+  return fallbackMatches;
 }
 
 export async function listProfessionalsForCohortScope(args: {
@@ -374,10 +391,37 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
     throw new Error("Unable to resolve company scope for cohort.");
   }
 
-  const resolvedProfessionalId =
+  const requestedProfessionalId =
     args.creatorRole === "professional"
       ? args.creatorUserId
       : (args.professionalId?.trim() || null);
+
+  let resolvedProfessionalId: string | null = null;
+  if (requestedProfessionalId) {
+    const professional = await getUserById(requestedProfessionalId);
+    if (!professional) {
+      throw new Error("Selected Professional could not be resolved.");
+    }
+
+    if (professional.userType !== "professional") {
+      throw new Error("Selected user is not a Professional.");
+    }
+
+    if (professional.status !== "active") {
+      throw new Error("Selected Professional is inactive.");
+    }
+
+    if (professional.tenantId !== args.tenantId) {
+      throw new Error("Selected Professional belongs to a different tenant.");
+    }
+
+    if (args.creatorRole === "company" && professional.associatedCompanyId !== companyId) {
+      throw new Error("Selected Professional does not belong to your company scope.");
+    }
+
+    // Use canonical user document id for cohort association storage.
+    resolvedProfessionalId = professional.id;
+  }
 
   const normalizedExistingIds = dedupeStrings(args.existingIndividualIds);
 
@@ -396,8 +440,8 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
     ...pending.toCreate.map((entry) => entry.id),
   ]);
 
-  if (allMemberIds.length < 2) {
-    throw new Error("A cohort must include at least two Individuals.");
+  if (allMemberIds.length < MIN_COHORT_MEMBER_COUNT) {
+    throw new Error(`A cohort must include at least ${MIN_COHORT_MEMBER_COUNT} Individuals.`);
   }
 
   const status = computeStatus(allMemberIds.length, resolvedProfessionalId);
@@ -515,8 +559,8 @@ export async function getCohortAssignmentPayload(args: {
     throw new Error("Only active cohorts can be assigned activities.");
   }
 
-  if (detail.members.length < 2) {
-    throw new Error("A cohort must include at least two Individuals.");
+  if (detail.members.length < MIN_COHORT_MEMBER_COUNT) {
+    throw new Error(`A cohort must include at least ${MIN_COHORT_MEMBER_COUNT} Individuals.`);
   }
 
   return {

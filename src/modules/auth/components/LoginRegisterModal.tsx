@@ -7,14 +7,16 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
 } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
-import { createWalletForUser, ensureWalletExists, getTenantRegistrationFreeCoins } from '@/services/wallet.service';
+import { ensureWalletExists } from '@/services/wallet.service';
+import { saveUserProfile } from '@/services/profile.service';
 import { processReferralJoinForNewUser } from '@/services/referral.service';
 import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
 import type { WalletUserType } from '@/types/wallet';
 import type { TenantConfig } from '@/types/tenant';
+import { persistAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type Phase = 'login-phone' | 'login-otp' | 'register-role' | 'register-details' | 'success';
 type UserRole = 'company' | 'professional' | 'individual';
@@ -273,14 +275,10 @@ export default function LoginRegisterModal({
         logFlow('verify-otp:existing-user', { role: resolvedRole, name: resolvedName });
 
         if (typeof userData.uid !== 'string' || userData.uid !== result.user.uid) {
-          await setDoc(
-            doc(db, 'users', userDoc.id),
-            {
-              uid: result.user.uid,
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
+          await updateDoc(doc(db, 'users', userDoc.id), {
+            uid: result.user.uid,
+            updatedAt: new Date().toISOString(),
+          });
         }
 
         // Ensure pre-provisioned users (created by assignment flow) have a wallet.
@@ -300,6 +298,7 @@ export default function LoginRegisterModal({
         sessionStorage.setItem('cs_name', resolvedName);
         sessionStorage.setItem('cs_email', resolvedEmail);
         sessionStorage.setItem('cs_phone', resolvedPhone);
+        persistAuthSessionCookies({ uid: result.user.uid, role: resolvedRole });
 
         // Redirect to dashboard
         setPhase('success');
@@ -353,52 +352,28 @@ export default function LoginRegisterModal({
       const phoneE164 = currentUser.phoneNumber || normalizePhone(phone);
       const userId = currentUser.uid;
 
-      // Prepare user data
-      const userData: Record<string, unknown> = {
-        uid: userId,
-        phoneE164,
-        name,
-        email: trimmedEmail,
-        role,
-        userType: role,
+      // Use saveUserProfile which handles profile completion, wallet, and referral processing
+      const savedProfile = await saveUserProfile({
+        userId: currentUser.uid,
         tenantId,
-        createdAt: new Date().toISOString(),
-      };
+        userType: role,
+        fullName: name,
+        email: trimmedEmail,
+        phoneE164,
+        companyName: role === 'company' ? companyName : undefined,
+        companyPosition: position || undefined,
+        status: 'active',
+      });
 
-      if (role === 'company') {
-        userData.companyName = companyName;
-        userData.position = position;
-      }
-
-      // Save to Firestore users collection
-      const userDocRef = doc(db, 'users', userId);
-      await setDoc(userDocRef, userData, { merge: true });
-
-      // Auto-create the wallet with the tenant's configured signup bonus.
-      try {
-        const registrationCoins = await getTenantRegistrationFreeCoins(tenantId);
-        await createWalletForUser({
-          userId,
-          tenantId,
-          userType: role as WalletUserType,
-          userName: name,
-          createdBy: 'system',
-          initialCoins: registrationCoins,
-          reason: 'Registration bonus',
-        });
-      } catch {
-        // Wallet already exists or creation failed — non-fatal.
-      }
-
-      // Check for referral join reward (only on self-registration for Professionals/Individuals, non-fatal if fails)
+      // Process referral join (only for professionals and individuals, non-fatal if fails)
       if ((role === 'professional' || role === 'individual')) {
         try {
           await processReferralJoinForNewUser({
-            userId,
-            fullName: name,
-            email: trimmedEmail,
-            phoneE164,
-            tenantId,
+            userId: savedProfile.userId,
+            fullName: savedProfile.fullName,
+            email: savedProfile.email,
+            phoneE164: savedProfile.phoneE164,
+            tenantId: savedProfile.tenantId,
             userType: role,
           });
         } catch {
@@ -406,17 +381,18 @@ export default function LoginRegisterModal({
         }
       }
 
-      logFlow('register:success', { userId, role });
+      logFlow('register:success', { userId: savedProfile.userId, role });
       setPhase('success');
       setInfo('Registration successful! You are now logged in.');
 
       // Set session storage
-      sessionStorage.setItem('cs_uid', userId);
-      sessionStorage.setItem('cs_profile_id', userDocRef.id);
+      sessionStorage.setItem('cs_uid', savedProfile.userId);
+      sessionStorage.setItem('cs_profile_id', savedProfile.userId);
       sessionStorage.setItem('cs_role', role);
       sessionStorage.setItem('cs_name', name);
       sessionStorage.setItem('cs_email', trimmedEmail);
       sessionStorage.setItem('cs_phone', phoneE164);
+      persistAuthSessionCookies({ uid: savedProfile.userId, role });
 
       // Redirect to dashboard
       setTimeout(() => {

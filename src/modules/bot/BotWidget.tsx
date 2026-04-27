@@ -411,7 +411,7 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
         referredPhone: phone,
         referredName: name,
         status: "referred",
-        source: "bot",
+        source: "BOT",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

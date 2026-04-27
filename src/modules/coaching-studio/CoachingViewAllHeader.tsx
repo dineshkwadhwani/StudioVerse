@@ -11,6 +11,7 @@ import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
 import styles from "./CoachingViewAllHeader.module.css";
+import { clearAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type ViewAllPage = "tools" | "programs" | "events";
 type UserType = "coach" | "learner";
@@ -109,6 +110,7 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
     sessionStorage.removeItem("cs_uid");
     sessionStorage.removeItem("cs_role");
     sessionStorage.removeItem("cs_name");
+    clearAuthSessionCookies();
     setMenuOpen(false);
     setIsMobileMenuOpen(false);
   }

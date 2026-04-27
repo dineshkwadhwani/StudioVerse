@@ -153,15 +153,39 @@ export async function listManagedUsersForCompany(args: {
 export async function listManagedUsersForProfessional(args: {
   professionalId: string;
 }): Promise<ManagedUserRecord[]> {
-  const snap = await getDocs(
-    query(
-      collection(db, "users"),
-      where("associatedProfessionalId", "==", args.professionalId)
+  const idCandidates = new Set<string>([toStringValue(args.professionalId)]);
+  const professional = await getUserById(args.professionalId);
+
+  if (professional) {
+    idCandidates.add(toStringValue(professional.id));
+    idCandidates.add(toStringValue(professional.userId));
+    if (professional.uid) {
+      idCandidates.add(toStringValue(professional.uid));
+    }
+  }
+
+  const normalizedIds = Array.from(idCandidates).filter(Boolean);
+
+  const snaps = await Promise.all(
+    normalizedIds.map((professionalId) =>
+      getDocs(
+        query(
+          collection(db, "users"),
+          where("associatedProfessionalId", "==", professionalId)
+        )
+      )
     )
   );
 
-  return snap.docs
-    .map((row) => mapManagedUser(row.id, row.data() as Record<string, unknown>))
+  const merged = new Map<string, ManagedUserRecord>();
+  for (const snap of snaps) {
+    snap.docs.forEach((row) => {
+      const mapped = mapManagedUser(row.id, row.data() as Record<string, unknown>);
+      merged.set(mapped.id, mapped);
+    });
+  }
+
+  return Array.from(merged.values())
     .filter((row) => row.userType === "individual")
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 }

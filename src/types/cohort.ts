@@ -1,5 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 
+export const MIN_COHORT_MEMBER_COUNT = 2;
+
 export type CohortStatus = "draft" | "inactive" | "active";
 export type CohortCreatorRole = "company" | "professional";
 

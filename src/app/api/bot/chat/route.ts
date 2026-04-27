@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requestGroqChatCompletion } from "@/lib/ai/groq";
 import type { GroqMessage } from "@/lib/ai/groq";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const MAX_HISTORY_TURNS = 6;
@@ -14,12 +15,30 @@ export async function POST(req: NextRequest) {
       personaName: string;
       tenantName: string;
       professionalRole: string; // e.g. "Coach", "Trainer"
+      sessionId?: string;
     };
 
-    const { mode, messages, context, personaName, tenantName, professionalRole } = body;
+    const { mode, messages, context, personaName, tenantName, professionalRole, sessionId } = body;
+
+    const rateLimit = consumeRateLimit({
+      req,
+      routeKey: "bot-chat",
+      limit: 20,
+      windowMs: 60_000,
+      sessionHint: sessionId,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Too many chat requests. Please retry in ${rateLimit.retryAfterSec}s.`,
+        },
+        { status: 429, headers: rateLimit.headers }
+      );
+    }
 
     if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ error: "AI service not configured." }, { status: 503 });
+      return NextResponse.json({ error: "AI service not configured." }, { status: 503, headers: rateLimit.headers });
     }
 
     // Cap history to last MAX_HISTORY_TURNS turns
@@ -67,7 +86,7 @@ ${context ?? "No context provided."}`;
     });
 
     const reply = completion.choices?.[0]?.message?.content ?? "I'm sorry, I couldn't generate a response.";
-    return NextResponse.json({ reply });
+    return NextResponse.json({ reply }, { headers: rateLimit.headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error.";
     console.error("Bot chat error:", message);

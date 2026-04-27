@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 type KnowledgeChunk = {
   id?: string;
@@ -34,15 +35,20 @@ function buildSearchText(chunk: KnowledgeChunk): string {
     .join("\n");
 }
 
-let cachedChunks: KnowledgeChunk[] | null = null;
+const chunkCacheByTenant = new Map<string, KnowledgeChunk[]>();
 
 function loadChunks(tenantId: string): KnowledgeChunk[] {
-  if (cachedChunks) return cachedChunks;
+  const tenantCache = chunkCacheByTenant.get(tenantId);
+  if (tenantCache) {
+    return tenantCache;
+  }
+
   try {
     const filePath = join(process.cwd(), "public", "bot-knowledge", `${tenantId}.json`);
     const raw = readFileSync(filePath, "utf-8");
-    cachedChunks = JSON.parse(raw) as KnowledgeChunk[];
-    return cachedChunks;
+    const parsed = JSON.parse(raw) as KnowledgeChunk[];
+    chunkCacheByTenant.set(tenantId, parsed);
+    return parsed;
   } catch {
     return [];
   }
@@ -50,11 +56,26 @@ function loadChunks(tenantId: string): KnowledgeChunk[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { query: string; tenantId: string; topK?: number };
-    const { query, tenantId, topK = 5 } = body;
+    const body = await req.json() as { query: string; tenantId: string; topK?: number; sessionId?: string };
+    const { query, tenantId, topK = 5, sessionId } = body;
+
+    const rateLimit = consumeRateLimit({
+      req,
+      routeKey: "bot-retrieve",
+      limit: 40,
+      windowMs: 60_000,
+      sessionHint: sessionId,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Too many retrieve requests. Please retry in ${rateLimit.retryAfterSec}s.` },
+        { status: 429, headers: rateLimit.headers }
+      );
+    }
 
     if (!query || !tenantId) {
-      return NextResponse.json({ chunks: [] });
+      return NextResponse.json({ chunks: [] }, { headers: rateLimit.headers });
     }
 
     const chunks = loadChunks(tenantId);
@@ -79,7 +100,7 @@ export async function POST(req: NextRequest) {
         return `[${header}]\n${c.text}`;
       })
       .join("\n\n---\n\n");
-    return NextResponse.json({ context });
+    return NextResponse.json({ context }, { headers: rateLimit.headers });
   } catch (err) {
     console.error("Bot retrieve error:", err);
     return NextResponse.json({ context: "" });

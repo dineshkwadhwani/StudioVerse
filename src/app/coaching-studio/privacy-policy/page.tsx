@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Coaching Studio",
-  description: "Privacy Policy for Coaching Studio by StudioVerse India Private Limited.",
+  description: "Privacy Policy for Coaching Studio by coachingstudio.in.",
 };
 
 const effectiveDate = "1 April 2026";
@@ -36,17 +36,16 @@ export default function CoachingStudioPrivacyPolicyPage() {
 
       <h2 style={pointTitleStyle}><strong>1. Who We Are</strong></h2>
       <p>
-        Coaching Studio is a tenant experience within the StudioVerse platform and is operated by
-        <strong> StudioVerse India Private Limited</strong> (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;).
+        Coaching Studio is operated by <strong>coachingstudio.in</strong> (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;).
       </p>
       <p>
-        Legal entity: StudioVerse India Private Limited
+        Website: coachingstudio.in
         <br />
         Business address: A 1002, Sai Ambience, Pimple Saudagar, Pune, India 411027
         <br />
-        Support email: <a href="mailto:contact@studioverse.com">contact@studioverse.com</a>
+        Support email: <a href="mailto:contact@coachingstudio.in">contact@coachingstudio.in</a>
         <br />
-        Privacy contact email: <a href="mailto:contact@studioverse.com">contact@studioverse.com</a>
+        Privacy contact email: <a href="mailto:contact@coachingstudio.in">contact@coachingstudio.in</a>
       </p>
 
       <h2 style={pointTitleStyle}><strong>2. Scope of This Policy</strong></h2>
@@ -58,7 +57,7 @@ export default function CoachingStudioPrivacyPolicyPage() {
       <h2 style={pointTitleStyle}><strong>3. Role of the Platform in a Multi-Tenant Environment</strong></h2>
       <p>
         Coaching Studio is a multi-tenant platform used by companies, professionals (including coaches),
-        and individual participants. In some cases, StudioVerse India Private Limited acts as the service
+        and individual participants. In some cases, coachingstudio.in acts as the service
         provider and controller for platform operations (for example, account administration, security,
         platform analytics, and service communications). In other cases, a tenant organization or coach may
         act as controller for participant data they enter, assign, review, or export within their tenant setup.
@@ -213,9 +212,9 @@ export default function CoachingStudioPrivacyPolicyPage() {
       <p>
         For privacy requests, complaints, or questions, contact us at:
         <br />
-        Support email: <a href="mailto:contact@studioverse.com">contact@studioverse.com</a>
+        Support email: <a href="mailto:contact@coachingstudio.in">contact@coachingstudio.in</a>
         <br />
-        Privacy contact email: <a href="mailto:contact@studioverse.com">contact@studioverse.com</a>
+        Privacy contact email: <a href="mailto:contact@coachingstudio.in">contact@coachingstudio.in</a>
       </p>
 
       <h2 style={pointTitleStyle}><strong>18. Policy Updates</strong></h2>

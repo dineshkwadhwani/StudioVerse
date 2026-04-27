@@ -1,8 +1,40 @@
 @import "tailwindcss";
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* StudioVerse index palette */
+  --sv-bg: #08080D;
+  --sv-surface: #0F0F18;
+  --sv-card: rgba(255, 255, 255, 0.03);
+  --sv-card-hover: rgba(255, 255, 255, 0.055);
+  --sv-border: rgba(255, 255, 255, 0.08);
+  --sv-border-hover: rgba(255, 255, 255, 0.18);
+  --sv-text-1: #F1F1F3;
+  --sv-text-2: #A0A0AE;
+  --sv-text-3: #606070;
+  --sv-indigo: #6366F1;
+  --sv-violet: #8B5CF6;
+  --sv-cyan: #22D3EE;
+  --sv-gradient: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #22D3EE 100%);
+  --sv-gradient-text: linear-gradient(135deg, #ffffff 0%, #c7d2fe 40%, #a5b4fc 70%, #67e8f9 100%);
+  --sv-live: #10B981;
+  --sv-coming: #404050;
+  --sv-radius: 16px;
+  --sv-radius-sm: 10px;
 }
 
 @theme inline {

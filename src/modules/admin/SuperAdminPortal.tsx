@@ -42,6 +42,7 @@ import { getAssignmentsForAssignerContext } from "@/services/assignment.service"
 import type { AssignmentRecord } from "@/types/assignment";
 import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/referral";
 import type { WalletUserType } from "@/types/wallet";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./SuperAdminPortal.module.css";
 
 type MenuKey =
@@ -401,6 +402,9 @@ export default function SuperAdminPortal() {
   const [tenantForm, setTenantForm] = useState<TenantFormState>(EMPTY_TENANT_FORM);
 
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const userInitials = useMemo(() => {
     if (!profile?.name) {
@@ -1165,7 +1169,7 @@ export default function SuperAdminPortal() {
             />
           </div>
 
-          <div className={styles.profileArea}>
+          <div className={styles.profileArea} ref={menuRef}>
             <button type="button" className={styles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
               <span className={styles.profileInitials}>{userInitials}</span>
               <span aria-hidden="true"> ▾</span>

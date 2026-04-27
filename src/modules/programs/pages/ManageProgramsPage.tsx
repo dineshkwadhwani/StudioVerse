@@ -93,14 +93,17 @@ export default function ManageProgramsPage({ config }: Props) {
       return;
     }
 
+    const resolvedUserId = currentUserId;
+    const resolvedRole = userRole;
+
     async function loadScopedPrograms() {
       setIsLoading(true);
       setError("");
 
       try {
         const scopeContext: UserScopeContext = {
-          userId: currentUserId,
-          role: userRole,
+          userId: resolvedUserId,
+          role: resolvedRole,
           tenantId,
         };
 

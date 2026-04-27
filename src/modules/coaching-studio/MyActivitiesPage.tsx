@@ -9,6 +9,7 @@ import { auth } from "@/services/firebase";
 import { getAssignmentsForAssigneeContext, updateAssignmentStatus } from "@/services/assignment.service";
 import { getUserProfile } from "@/services/profile.service";
 import { getEvent } from "@/services/events.service";
+import { getProgram } from "@/services/programs.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
@@ -62,6 +63,103 @@ function formatStatusLabel(status: AssignmentStatus): string {
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";
   return "Assigned";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function resolveProgramVideoSource(rawUrl: string): { url: string; mode: "iframe" | "video" } {
+  const normalized = rawUrl.trim();
+
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const videoId = parsed.searchParams.get("v");
+      if (videoId) {
+        return { url: `https://www.youtube.com/embed/${videoId}?autoplay=1`, mode: "iframe" };
+      }
+    }
+
+    if (host === "youtu.be") {
+      const videoId = parsed.pathname.split("/").filter(Boolean)[0];
+      if (videoId) {
+        return { url: `https://www.youtube.com/embed/${videoId}?autoplay=1`, mode: "iframe" };
+      }
+    }
+
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const videoId = parsed.pathname.split("/").filter(Boolean)[0];
+      if (videoId) {
+        return { url: `https://player.vimeo.com/video/${videoId}?autoplay=1`, mode: "iframe" };
+      }
+    }
+
+    if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(parsed.pathname)) {
+      return { url: normalized, mode: "video" };
+    }
+
+    return { url: normalized, mode: "iframe" };
+  } catch {
+    return { url: normalized, mode: "iframe" };
+  }
+}
+
+function openProgramVideoPopup(videoUrl: string, activityTitle: string): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const popup = window.open(
+    "",
+    "program-video-launch",
+    "popup=yes,width=1080,height=720,toolbar=no,menubar=no,location=no,status=no,scrollbars=no,resizable=yes"
+  );
+
+  if (!popup) {
+    return false;
+  }
+
+  const source = resolveProgramVideoSource(videoUrl);
+  const safeTitle = escapeHtml(activityTitle || "Program Video");
+  const safeUrl = escapeHtml(source.url);
+  const mediaMarkup = source.mode === "video"
+    ? `<video src="${safeUrl}" controls autoplay playsinline style="width:100%;height:100%;background:#000"></video>`
+    : `<iframe src="${safeUrl}" title="${safeTitle}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="no-referrer-when-downgrade" style="width:100%;height:100%;border:0;background:#000"></iframe>`;
+
+  popup.document.open();
+  popup.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${safeTitle}</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b1220; color: #fff; font-family: Arial, sans-serif; }
+      .bar { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+      .title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .close { border: 0; background: #ffffff; color: #0b1220; width: 30px; height: 30px; border-radius: 999px; font-weight: 700; cursor: pointer; }
+      .frame { height: calc(100% - 52px); }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <div class="title">${safeTitle}</div>
+      <button class="close" type="button" onclick="window.close()">x</button>
+    </div>
+    <div class="frame">${mediaMarkup}</div>
+  </body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  return true;
 }
 
 type MyActivitiesPageProps = {
@@ -189,6 +287,34 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
   async function handleLaunchAssessment(item: AssignmentRecord): Promise<void> {
     await handleUpdateStatus(item, "in_progress");
     router.push(`${basePath}/my-activities/assessment-launch/${item.id}`);
+  }
+
+  async function handleLaunchProgram(item: AssignmentRecord): Promise<void> {
+    setActionBusyId(item.id);
+    setError("");
+
+    try {
+      await updateAssignmentStatus({ assignmentId: item.id, status: "in_progress" });
+      setAssignmentStatusLocal(item.id, "in_progress");
+
+      const program = await getProgram(item.activityId);
+      const videoUrl = program?.videoUrl?.trim();
+
+      if (!videoUrl) {
+        setError("Program video link is not configured for this activity.");
+        return;
+      }
+
+      const opened = openProgramVideoPopup(videoUrl, item.activityTitle);
+      if (!opened) {
+        setError("Popup was blocked by the browser. Please allow popups for this site.");
+      }
+    } catch (launchError) {
+      const message = launchError instanceof Error ? launchError.message : "Failed to launch program.";
+      setError(message);
+    } finally {
+      setActionBusyId(null);
+    }
   }
 
   async function handleOpenEventDetails(item: AssignmentRecord): Promise<void> {
@@ -345,19 +471,21 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
                         <button
                           type="button"
                           className={styles.actionButton}
-                          onClick={() => void handleUpdateStatus(item, "in_progress")}
+                          onClick={() => void handleLaunchProgram(item)}
                           disabled={actionBusyId === item.id}
                         >
                           Launch the program
                         </button>
-                        <button
-                          type="button"
-                          className={styles.actionButton}
-                          onClick={() => void handleUpdateStatus(item, "completed")}
-                          disabled={actionBusyId === item.id}
-                        >
-                          Mark Complete
-                        </button>
+                        {item.status !== "completed" ? (
+                          <button
+                            type="button"
+                            className={styles.actionButton}
+                            onClick={() => void handleUpdateStatus(item, "completed")}
+                            disabled={actionBusyId === item.id}
+                          >
+                            Mark Complete
+                          </button>
+                        ) : null}
                       </>
                     ) : null}
 

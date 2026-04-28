@@ -7,6 +7,7 @@ import {
   EVENT_SOURCES,
   EVENT_STATUSES,
   EVENT_TYPES,
+  EVENT_VISIBILITIES,
   type EventFormValues,
   type EventSaveMode,
   type EventWriteInput,
@@ -49,6 +50,7 @@ export const eventFormSchema = z.object({
   status: z.enum(EVENT_STATUSES),
   promoted: z.boolean(),
   published: z.boolean(),
+  visibility: z.enum(EVENT_VISIBILITIES),
   ownershipScope: z.enum(EVENT_OWNERSHIP_SCOPES),
   ownerEntityId: z.string().trim(),
   catalogVisibility: z.enum(EVENT_CATALOG_VISIBILITY),
@@ -89,6 +91,7 @@ export function normalizeEventForm(
   // Published checkbox drives both status and publicationState
   const publicationState = parsed.published ? "published" : "draft";
   const status = parsed.published ? "published" : "draft";
+  const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
 
   const eventDate = parsed.eventDate || null;
   const eventTime = parsed.eventTime || null;
@@ -116,9 +119,10 @@ export function normalizeEventForm(
     cost,
     status,
     promoted: parsed.promoted,
+    visibility: parsed.visibility,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
-    catalogVisibility: parsed.catalogVisibility,
+    catalogVisibility,
     publicationState,
   };
 }
@@ -224,8 +228,8 @@ export function validateEventForm(
     errors.ownershipScope = "Only platform-owned Events are supported in this epic.";
   }
 
-  if (values.catalogVisibility !== "tenant_wide") {
-    errors.catalogVisibility = "Only tenant-wide visibility is supported in this epic.";
+  if (!["public", "private"].includes(values.visibility)) {
+    errors.visibility = "Visibility must be public or private.";
   }
 
   // Archived/cancelled events cannot be published

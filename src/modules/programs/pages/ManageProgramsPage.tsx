@@ -7,7 +7,11 @@ import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { getScopedPrograms, canUserEditProgram, type UserScopeContext } from "@/services/programs-scoped.service";
 import type { ProgramRecord } from "@/types/program";
-import { PROGRAM_DELIVERY_TYPE_LABELS, type ProgramDeliveryType } from "@/types/program";
+import {
+  PROGRAM_DELIVERY_TYPE_LABELS,
+  PROGRAM_VISIBILITY_LABELS,
+  type ProgramDeliveryType,
+} from "@/types/program";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -261,6 +265,7 @@ export default function ManageProgramsPage({ config }: Props) {
                       Duration: {item.durationValue} {item.durationUnit}
                     </p>
                     <p className={styles.meta}>Status: {item.status}</p>
+                    <p className={styles.meta}>Visibility: {PROGRAM_VISIBILITY_LABELS[item.visibility]}</p>
                     <div className={styles.buttonGroup}>
                       {userRole === "superadmin" ? (
                         <button

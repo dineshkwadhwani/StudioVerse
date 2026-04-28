@@ -14,7 +14,6 @@ import styles from "./ViewAllHeader.module.css";
 import { clearAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type ViewAllPage = "tools" | "programs" | "events";
-type UserType = "coach" | "learner";
 type UserRole = StudioUserRole;
 
 type Props = {
@@ -33,16 +32,7 @@ function getInitials(name: string): string {
 export default function ViewAllHeader({ config, currentPage, onSignInRegister }: Props) {
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
-  const userTypeStorageKey = `${tenantId}:userType`;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userType, setUserType] = useState<UserType>(() => {
-    if (typeof window === "undefined") {
-      return "coach";
-    }
-
-    const stored = localStorage.getItem(userTypeStorageKey);
-    return stored === "learner" ? "learner" : "coach";
-  });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -52,10 +42,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem(userTypeStorageKey, userType);
-  }, [userType, userTypeStorageKey]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -96,8 +82,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
 
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
   const brandSubtitle = "StudioVerse Platform";
-  const professionalLabel = config.roles.professional;
-  const individualLabel = config.roles.individual;
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
   const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
@@ -127,24 +111,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
           </div>
         </Link>
 
-        {!isLoggedIn ? (
-          <div className={landingStyles.userToggle}>
-            <button
-              type="button"
-              className={`${landingStyles.toggleBtn} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
-              onClick={() => setUserType("coach")}
-            >
-              I am a {professionalLabel}
-            </button>
-            <button
-              type="button"
-              className={`${landingStyles.toggleBtn} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
-              onClick={() => setUserType("learner")}
-            >
-              I am a {individualLabel}
-            </button>
-          </div>
-        ) : null}
 
         <nav className={landingStyles.desktopNav}>
           <Link href={`${basePath}/tools`} className={navClass("tools")}>
@@ -215,24 +181,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
         <>
           <div className={landingStyles.mobileMenuBackdrop} ref={mobileMenuRef} onClick={() => setIsMobileMenuOpen(false)} />
           <div className={landingStyles.mobileMenu}>
-            {!isLoggedIn ? (
-              <div className={landingStyles.mobileUserToggle}>
-                <button
-                  type="button"
-                  className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "coach" ? landingStyles.toggleActive : ""}`}
-                  onClick={() => setUserType("coach")}
-                >
-                  I am a {professionalLabel}
-                </button>
-                <button
-                  type="button"
-                  className={`${landingStyles.toggleBtn} ${landingStyles.toggleSmall} ${userType === "learner" ? landingStyles.toggleActive : ""}`}
-                  onClick={() => setUserType("learner")}
-                >
-                  I am a {individualLabel}
-                </button>
-              </div>
-            ) : null}
 
             <Link href={`${basePath}/tools`} onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
             <Link href={`${basePath}/programs`} onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>

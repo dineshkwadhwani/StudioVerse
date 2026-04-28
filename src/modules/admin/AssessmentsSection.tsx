@@ -31,6 +31,7 @@ import {
   type AssessmentRenderStyle,
   type AssessmentStatus,
   type AssessmentType,
+  type AssessmentVisibility,
   type GeneratedQuestion,
 } from "@/types/assessment";
 
@@ -96,9 +97,25 @@ const EMPTY_FORM: AssessmentFormValues = {
   questionGenerationPrompt: "",
   status: "draft",
   publicationState: "unpublished",
+  visibility: "public",
   ownershipScope: "tenant",
   ownerEntityId: "",
 };
+
+const ASSESSMENT_VISIBILITY_LABELS: Record<AssessmentVisibility, string> = {
+  public: "Public",
+  private: "Private",
+};
+
+function normalizeAssessmentStatus(value: string): AssessmentStatus {
+  if (value === "published") {
+    return "published";
+  }
+  if (value === "archived") {
+    return "archived";
+  }
+  return "draft";
+}
 
 function processQuestionPromptTemplate(prompt: string, count: number): string {
   return prompt.replace(
@@ -239,8 +256,9 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       questionsPerAttempt: String(assessment.questionsPerAttempt),
       analysisPrompt: assessment.analysisPrompt,
       questionGenerationPrompt: assessment.questionGenerationPrompt,
-      status: assessment.status,
-      publicationState: assessment.publicationState,
+      status: normalizeAssessmentStatus(assessment.status),
+      publicationState: assessment.publicationState === "published" ? "published" : "unpublished",
+      visibility: assessment.visibility === "private" ? "private" : "public",
       ownershipScope: assessment.ownershipScope,
       ownerEntityId: assessment.ownerEntityId,
     });
@@ -401,6 +419,9 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       const isExisting = Boolean(formValues.id);
       const assessmentId = formValues.id ?? buildAssessmentId(formValues.tenantId, formValues.name);
       const assessmentRef = doc(db, "assessments", assessmentId);
+      const normalizedStatus = normalizeAssessmentStatus(formValues.status);
+      const publicationState: AssessmentPublicationState =
+        normalizedStatus === "published" ? "published" : "unpublished";
 
       let assessmentImageUrl = formValues.assessmentImageUrl;
       let assessmentImagePath = formValues.assessmentImagePath;
@@ -432,15 +453,16 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         questionsPerAttempt: parseInt(formValues.questionsPerAttempt, 10) || generatedQuestions.length,
         analysisPrompt: formValues.analysisPrompt.trim(),
         questionGenerationPrompt: formValues.questionGenerationPrompt.trim(),
-        status: formValues.status,
-        publicationState: formValues.publicationState,
+        status: normalizedStatus,
+        publicationState,
+        visibility: formValues.visibility,
         ownershipScope: formValues.ownershipScope,
         ownerEntityId: formValues.ownerEntityId.trim(),
         createdBy: isExisting ? formValues.createdBy || "superadmin" : "superadmin",
         updatedBy: "superadmin",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        publishedAt: null,
+        publishedAt: normalizedStatus === "published" ? serverTimestamp() : null,
       };
 
       if (isExisting) {
@@ -596,7 +618,16 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
           <div className={styles.assessmentGrid}>
             {assessments
               .filter((a) => {
-                if (selectedPublicationState !== "all" && a.publicationState !== selectedPublicationState) {
+                if (
+                  selectedPublicationState === "published" &&
+                  a.publicationState !== "published"
+                ) {
+                  return false;
+                }
+                if (
+                  selectedPublicationState === "draft" &&
+                  a.publicationState !== "unpublished"
+                ) {
                   return false;
                 }
                 return true;
@@ -619,10 +650,11 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                     <p className={styles.assessmentMeta}>Type: {ASSESSMENT_TYPE_LABELS[a.assessmentType] ?? a.assessmentType}</p>
                     <p className={styles.assessmentMeta}>Render: {RENDER_STYLE_LABELS[a.renderStyle] ?? a.renderStyle}</p>
                     <p className={styles.assessmentMeta}>Credits: {a.creditsRequired ?? 0} • {a.questionBankCount} Questions ({a.questionsPerAttempt}/attempt)</p>
+                    <p className={styles.assessmentMeta}>Visibility: {ASSESSMENT_VISIBILITY_LABELS[a.visibility === "private" ? "private" : "public"]}</p>
                   </div>
 
                   <div className={styles.assessmentActions}>
-                    <span className={styles.statusBadge}>{a.status}</span>
+                    <span className={styles.statusBadge}>{normalizeAssessmentStatus(a.status)}</span>
                     <button type="button" className={styles.rowAction} onClick={() => openEdit(a)}>
                       Edit
                     </button>
@@ -758,16 +790,22 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                   <label className={styles.label} htmlFor="a-status">Status</label>
                   <select id="a-status" className={styles.select} value={formValues.status} onChange={(e) => setField("status", e.target.value as AssessmentStatus)}>
                     <option value="draft">Draft</option>
-                    <option value="active">Active</option>
+                    <option value="published">Published</option>
                     <option value="archived">Archived</option>
                   </select>
                 </div>
                 <div>
-                  <label className={styles.label} htmlFor="a-pub">Publication State</label>
-                  <select id="a-pub" className={styles.select} value={formValues.publicationState} onChange={(e) => setField("publicationState", e.target.value as AssessmentPublicationState)}>
+                  <label className={styles.label} htmlFor="a-pub">Publication State (auto)</label>
+                  <select id="a-pub" className={styles.select} value={formValues.status === "published" ? "published" : "unpublished"} disabled>
                     <option value="unpublished">Unpublished</option>
                     <option value="published">Published</option>
-                    <option value="scheduled">Scheduled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={styles.label} htmlFor="a-visibility">Visibility</label>
+                  <select id="a-visibility" className={styles.select} value={formValues.visibility} onChange={(e) => setField("visibility", e.target.value as AssessmentVisibility)}>
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
                   </select>
                 </div>
                 <div>

@@ -224,7 +224,7 @@ function AssessLearnTransformTimeline({ userType }: { userType: UserType }) {
         <div className={styles.timelineStep}>
           <div className={styles.timelineNumber}>2</div>
           <div className={styles.timelineContent}>
-            <h3>Learn</h3>
+            <h3>{isCoach ? "Coach" : "Learn"}</h3>
             <p>
               {isCoach
                 ? "Leverage best-in-class programmes and deliver your own curated content — using diagnostic tools to deepen coaching impact and drive measurable outcomes."
@@ -365,9 +365,12 @@ export default function CoachingLandingPage({ config }: Props) {
           isInTenantScope(item, config.id),
         );
 
-        const promoted = tenantAssessments.filter((item) => Boolean((item as unknown as { promoted?: boolean }).promoted));
+        const publicAssessments = tenantAssessments.filter((item) => item.visibility !== "private");
+        const promoted = publicAssessments.filter((item) => Boolean((item as unknown as { promoted?: boolean }).promoted));
         const published = tenantAssessments.filter(
-          (item) => item.publicationState === "published" || item.status === "active",
+          (item) =>
+            item.visibility !== "private" &&
+            (item.publicationState === "published" || item.status === "published"),
         );
         const source = promoted.length > 0 ? promoted : published;
 
@@ -404,7 +407,7 @@ export default function CoachingLandingPage({ config }: Props) {
 
         const tenantPrograms = allPrograms.filter((program) => {
           const currentTenant = normalizeTenantToken(program.tenantId);
-          return currentTenant === targetTenant;
+          return currentTenant === targetTenant && program.visibility !== "private";
         });
 
         // If at least one promoted program exists, show promoted only; otherwise
@@ -463,6 +466,7 @@ export default function CoachingLandingPage({ config }: Props) {
           const targetTenant = normalizeTenantToken(config.id);
           events = allEvents
             .filter((event) => normalizeTenantToken(event.tenantId) === targetTenant)
+            .filter((event) => event.visibility !== "private")
             .filter((event) => event.status === "published" && event.publicationState === "published")
             .sort((a, b) => {
               if (a.promoted !== b.promoted) {

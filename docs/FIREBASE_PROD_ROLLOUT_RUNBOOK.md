@@ -3,6 +3,25 @@
 ## Purpose
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Deferred production deployment note (Apr 28, 2026)
+
+Production deployment is intentionally deferred because the Firebase production project instance does not exist yet.
+
+Current state:
+- Target project `studioverse-prod` is not provisioned yet.
+- Backend changes are deployed and validated in `studioverse-test`.
+- Do not run production deploy commands until section "First-time production project bootstrap" is completed.
+
+Queued for prod rollout once project exists:
+- Program private/public visibility support in callable schemas and persistence.
+- Program create/update callable updates (`createProgram`, `updateProgram`) including audit metadata for `visibility`.
+- Program client payload/schema alignment required by callable functions.
+
+Go-live handoff instruction:
+- After `studioverse-prod` is created, execute sections A through F in order.
+- Include a functions deploy in section D (`--only functions`) so Program visibility backend logic is moved to prod.
+- Verify Program visibility behavior in smoke tests before enabling production tenant traffic.
+
 Scope covered:
 - Cloud Functions
 - Firestore indexes

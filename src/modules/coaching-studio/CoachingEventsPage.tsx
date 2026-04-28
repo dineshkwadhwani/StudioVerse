@@ -36,6 +36,18 @@ function isInTenantScope(record: Pick<EventRecord, "tenantId" | "tenantIds">, te
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
+function canViewVisibility(args: {
+  visibility: EventRecord["visibility"];
+  isLoggedIn: boolean;
+  role: UserRole | null;
+}): boolean {
+  if (args.visibility !== "private") {
+    return true;
+  }
+
+  return args.isLoggedIn && (args.role === "professional" || args.role === "individual");
+}
+
 export default function CoachingEventsPage({ config }: Props) {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -167,12 +179,18 @@ export default function CoachingEventsPage({ config }: Props) {
   }, [events]);
 
   const visibleEvents = useMemo(() => {
+    const visibilityFiltered = events.filter((item) =>
+      canViewVisibility({ visibility: item.visibility, isLoggedIn, role }),
+    );
+
     if (selectedCity === "all") {
-      return events;
+      return visibilityFiltered;
     }
 
-    return events.filter((item) => item.locationCity.trim().toLowerCase() === selectedCity.toLowerCase());
-  }, [events, selectedCity]);
+    return visibilityFiltered.filter(
+      (item) => item.locationCity.trim().toLowerCase() === selectedCity.toLowerCase(),
+    );
+  }, [events, isLoggedIn, role, selectedCity]);
 
   const heroImage =
     config.landingContent?.heroImages?.events ||

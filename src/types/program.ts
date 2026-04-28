@@ -1,6 +1,7 @@
 export const PROGRAM_DELIVERY_TYPES = ["course", "workshop", "cohort", "webinar", "masterclass", "self_learning"] as const;
 export const PROGRAM_DURATION_UNITS = ["minutes", "hours", "days", "weeks", "months"] as const;
 export const PROGRAM_OWNERSHIP_SCOPES = ["platform", "company", "professional"] as const;
+export const PROGRAM_VISIBILITIES = ["public", "private"] as const;
 export const PROGRAM_CATALOG_VISIBILITY = ["tenant_wide", "company_only", "professional_only"] as const;
 export const PROGRAM_PUBLICATION_STATES = ["draft", "published", "pending_publication_review", "rejected_publication"] as const;
 export const PROGRAM_STATUSES = ["draft", "published", "inactive", "archived"] as const;
@@ -8,6 +9,7 @@ export const PROGRAM_STATUSES = ["draft", "published", "inactive", "archived"] a
 export type ProgramDeliveryType = (typeof PROGRAM_DELIVERY_TYPES)[number];
 export type ProgramDurationUnit = (typeof PROGRAM_DURATION_UNITS)[number];
 export type ProgramOwnershipScope = (typeof PROGRAM_OWNERSHIP_SCOPES)[number];
+export type ProgramVisibility = (typeof PROGRAM_VISIBILITIES)[number];
 export type ProgramCatalogVisibility = (typeof PROGRAM_CATALOG_VISIBILITY)[number];
 export type ProgramPublicationState = (typeof PROGRAM_PUBLICATION_STATES)[number];
 export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
@@ -32,6 +34,7 @@ export type ProgramRecord = {
   status: ProgramStatus;
   facilitatorName: string | null;
   promoted: boolean;
+  visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string | null;
   catalogVisibility: ProgramCatalogVisibility;
@@ -64,6 +67,7 @@ export type ProgramWriteInput = {
   status: ProgramStatus;
   facilitatorName: string | null;
   promoted: boolean;
+  visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string | null;
   catalogVisibility: ProgramCatalogVisibility;
@@ -89,6 +93,7 @@ export type ProgramFormValues = {
   facilitatorName: string;
   promoted: boolean;
   published: boolean;
+  visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string;
   catalogVisibility: ProgramCatalogVisibility;
@@ -117,6 +122,7 @@ export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   facilitatorName: "",
   promoted: false,
   published: false,
+  visibility: "public",
   ownershipScope: "platform",
   ownerEntityId: "",
   catalogVisibility: "tenant_wide",
@@ -140,6 +146,11 @@ export const PROGRAM_DURATION_UNIT_LABELS: Record<ProgramDurationUnit, string> =
   days: "Days",
   weeks: "Weeks",
   months: "Months",
+};
+
+export const PROGRAM_VISIBILITY_LABELS: Record<ProgramVisibility, string> = {
+  public: "Public",
+  private: "Private",
 };
 
 export const PROGRAM_STATUS_LABELS: Record<ProgramStatus, string> = {

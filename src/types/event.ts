@@ -8,6 +8,7 @@
 // ============================================================
 
 export const EVENT_OWNERSHIP_SCOPES = ["platform", "company", "professional"] as const;
+export const EVENT_VISIBILITIES = ["public", "private"] as const;
 export const EVENT_CATALOG_VISIBILITY = ["tenant_wide", "company_only", "professional_only"] as const;
 export const EVENT_TYPES = ["classroom_session", "casual_meeting", "webinar", "workshop"] as const;
 export const EVENT_SOURCES = ["studioverse_manager", "external"] as const;
@@ -22,6 +23,7 @@ export const EVENT_PUBLICATION_STATES = [
 export const EVENT_STATUSES = ["draft", "published", "inactive", "archived", "cancelled"] as const;
 
 export type EventOwnershipScope = (typeof EVENT_OWNERSHIP_SCOPES)[number];
+export type EventVisibility = (typeof EVENT_VISIBILITIES)[number];
 export type EventCatalogVisibility = (typeof EVENT_CATALOG_VISIBILITY)[number];
 export type EventType = (typeof EVENT_TYPES)[number];
 export type EventSource = (typeof EVENT_SOURCES)[number];
@@ -55,6 +57,7 @@ export type EventRecord = {
   status: EventStatus;
   /** Promoted flag — eligible for landing-page elevation only when event is also published */
   promoted: boolean;
+  visibility: EventVisibility;
   // Future extension: platform | company | professional
   ownershipScope: EventOwnershipScope;
   ownerEntityId: string | null;
@@ -92,6 +95,7 @@ export type EventWriteInput = {
   cost: number;
   status: EventStatus;
   promoted: boolean;
+  visibility: EventVisibility;
   ownershipScope: EventOwnershipScope;
   ownerEntityId: string | null;
   catalogVisibility: EventCatalogVisibility;
@@ -120,6 +124,7 @@ export type EventFormValues = {
   promoted: boolean;
   /** Convenience boolean: true → publicationState="published" / status="published" */
   published: boolean;
+  visibility: EventVisibility;
   ownershipScope: EventOwnershipScope;
   ownerEntityId: string;
   catalogVisibility: EventCatalogVisibility;
@@ -149,6 +154,7 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   status: "draft",
   promoted: false,
   published: false,
+  visibility: "public",
   ownershipScope: "platform",
   ownerEntityId: "",
   catalogVisibility: "tenant_wide",
@@ -175,4 +181,9 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
 export const EVENT_SOURCE_LABELS: Record<EventSource, string> = {
   studioverse_manager: "StudioVerse Manager",
   external: "External",
+};
+
+export const EVENT_VISIBILITY_LABELS: Record<EventVisibility, string> = {
+  public: "Public",
+  private: "Private",
 };

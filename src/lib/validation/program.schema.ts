@@ -7,6 +7,7 @@ import {
   PROGRAM_OWNERSHIP_SCOPES,
   PROGRAM_PUBLICATION_STATES,
   PROGRAM_STATUSES,
+  PROGRAM_VISIBILITIES,
   type ProgramFormValues,
   type ProgramSaveMode,
   type ProgramWriteInput,
@@ -39,6 +40,7 @@ export const programFormSchema = z.object({
   facilitatorName: optionalTrimmedString,
   promoted: z.boolean(),
   published: z.boolean(),
+  visibility: z.enum(PROGRAM_VISIBILITIES),
   ownershipScope: z.enum(PROGRAM_OWNERSHIP_SCOPES),
   ownerEntityId: z.string().trim(),
   catalogVisibility: z.enum(PROGRAM_CATALOG_VISIBILITY),
@@ -67,6 +69,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   // Determine publication state based on the published checkbox
   const publicationState = parsed.published ? "published" : "draft";
   const status = parsed.published ? "published" : "draft";
+  const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
 
   return {
     id: parsed.id,
@@ -88,9 +91,10 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     status,
     facilitatorName: parsed.facilitatorName || null,
     promoted: parsed.promoted,
+    visibility: parsed.visibility,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
-    catalogVisibility: parsed.catalogVisibility,
+    catalogVisibility,
     publicationState,
   };
 }
@@ -176,8 +180,8 @@ export function validateProgramForm(
     errors.ownershipScope = "Only platform-owned Programs are supported in this epic.";
   }
 
-  if (values.catalogVisibility !== "tenant_wide") {
-    errors.catalogVisibility = "Only tenant-wide visibility is supported in this epic.";
+  if (!["public", "private"].includes(values.visibility)) {
+    errors.visibility = "Visibility must be public or private.";
   }
 
   if (mode === "publish") {

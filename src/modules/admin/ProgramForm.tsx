@@ -8,6 +8,7 @@ import {
   PROGRAM_DURATION_UNITS,
   PROGRAM_DURATION_UNIT_LABELS,
   PROGRAM_STATUS_LABELS,
+  PROGRAM_VISIBILITY_LABELS,
   type ProgramFormValues,
   type ProgramFormValues as ProgramValues,
 } from "@/types/program";
@@ -97,6 +98,7 @@ export default function ProgramForm({
       "thumbnailUrl",
       "promoted",
       "published",
+      "visibility",
     ];
 
     const firstFieldWithError = focusOrder.find((field) => Boolean(errors[field]));
@@ -413,9 +415,27 @@ export default function ProgramForm({
           <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[value.status]}</span>
         </div>
 
+        <label className={styles.label} htmlFor="program-visibility">
+          Visibility
+        </label>
+        <select
+          id="program-visibility"
+          ref={(element) => {
+            fieldRefs.current.visibility = element;
+          }}
+          className={styles.select}
+          value={value.visibility}
+          onChange={(event) => onChange("visibility", event.target.value as ProgramFormValues["visibility"])}
+          disabled={busy}
+        >
+          <option value="public">{PROGRAM_VISIBILITY_LABELS.public}</option>
+          <option value="private">{PROGRAM_VISIBILITY_LABELS.private}</option>
+        </select>
+        {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
+
         <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
           <p className={styles.userMeta}>Ownership Scope: platform</p>
-          <p className={styles.userMeta}>Catalog Visibility: tenant_wide</p>
+          <p className={styles.userMeta}>Visibility: {PROGRAM_VISIBILITY_LABELS[value.visibility]}</p>
           <p className={styles.userMeta}>Publication workflow is draft or published only in this epic.</p>
         </div>
 

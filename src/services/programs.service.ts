@@ -42,6 +42,7 @@ function sanitizePayload(input: ProgramWriteInput): Record<string, unknown> {
     creditsRequired: input.creditsRequired,
     status: input.status,
     promoted: input.promoted,
+    visibility: input.visibility,
     ownershipScope: input.ownershipScope,
     catalogVisibility: input.catalogVisibility,
     publicationState: input.publicationState,
@@ -81,6 +82,9 @@ function toDate(value: unknown): Date | null {
 }
 
 function mapProgram(id: string, data: DocumentData): ProgramRecord {
+  const visibility = data.visibility === "private" || data.catalogVisibility === "professional_only"
+    ? "private"
+    : "public";
   return {
     id,
     tenantId: data.tenantId,
@@ -101,6 +105,7 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
     status: data.status,
     facilitatorName: data.facilitatorName ?? null,
     promoted: Boolean(data.promoted),
+    visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,
     catalogVisibility: data.catalogVisibility,

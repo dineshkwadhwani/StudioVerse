@@ -8,6 +8,7 @@ import {
   EVENT_TYPES,
   EVENT_TYPE_LABELS,
   EVENT_STATUS_LABELS,
+  EVENT_VISIBILITY_LABELS,
   type EventFormValues,
 } from "@/types/event";
 import type { EventFormErrors } from "@/lib/validation/event.schema";
@@ -101,6 +102,7 @@ export default function EventForm({
       "thumbnailUrl",
       "promoted",
       "published",
+      "visibility",
     ];
     const first = focusOrder.find((field) => Boolean(errors[field]));
     if (!first) return;
@@ -391,8 +393,24 @@ export default function EventForm({
               <strong>Promote</strong> elevates a <em>published</em> event to the tenant landing page.
               Promotion does not replace publication — both must be true for landing-page placement.
             </p>
-            <p className={styles.userMeta}>Ownership Scope: platform · Visibility: tenant_wide</p>
+            <p className={styles.userMeta}>Ownership Scope: platform</p>
           </div>
+
+          <label className={styles.label} htmlFor="event-visibility">Visibility</label>
+          <select
+            id="event-visibility"
+            ref={(el) => {
+              fieldRefs.current.visibility = el;
+            }}
+            className={styles.select}
+            value={value.visibility}
+            onChange={(e) => onChange("visibility", e.target.value as EventFormValues["visibility"])}
+            disabled={busy}
+          >
+            <option value="public">{EVENT_VISIBILITY_LABELS.public}</option>
+            <option value="private">{EVENT_VISIBILITY_LABELS.private}</option>
+          </select>
+          {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
 
           {errors.form ? <p className={styles.error}>{errors.form}</p> : null}
         </div>

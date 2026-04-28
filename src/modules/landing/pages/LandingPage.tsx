@@ -399,9 +399,12 @@ export default function LandingPage({ config }: Props) {
           isInTenantScope(item, config.id),
         );
 
-        const promoted = tenantAssessments.filter((item) => Boolean((item as unknown as { promoted?: boolean }).promoted));
+        const publicAssessments = tenantAssessments.filter((item) => item.visibility !== "private");
+        const promoted = publicAssessments.filter((item) => Boolean((item as unknown as { promoted?: boolean }).promoted));
         const published = tenantAssessments.filter(
-          (item) => item.publicationState === "published" || item.status === "active",
+          (item) =>
+            item.visibility !== "private" &&
+            (item.publicationState === "published" || item.status === "published"),
         );
         const source = promoted.length > 0 ? promoted : published;
 
@@ -438,7 +441,7 @@ export default function LandingPage({ config }: Props) {
 
         const tenantPrograms = allPrograms.filter((program) => {
           const currentTenant = normalizeTenantToken(program.tenantId);
-          return currentTenant === targetTenant;
+          return currentTenant === targetTenant && program.visibility !== "private";
         });
 
         // If at least one promoted program exists, show promoted only; otherwise
@@ -497,6 +500,7 @@ export default function LandingPage({ config }: Props) {
           const targetTenant = normalizeTenantToken(config.id);
           events = allEvents
             .filter((event) => normalizeTenantToken(event.tenantId) === targetTenant)
+            .filter((event) => event.visibility !== "private")
             .filter((event) => event.status === "published" && event.publicationState === "published")
             .sort((a, b) => {
               if (a.promoted !== b.promoted) {

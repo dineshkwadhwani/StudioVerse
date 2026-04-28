@@ -40,6 +40,18 @@ function isInTenantScope(record: Pick<ProgramRecord, "tenantId" | "tenantIds">, 
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
+function canViewVisibility(args: {
+  visibility: ProgramRecord["visibility"];
+  isLoggedIn: boolean;
+  role: UserRole | null;
+}): boolean {
+  if (args.visibility !== "private") {
+    return true;
+  }
+
+  return args.isLoggedIn && (args.role === "professional" || args.role === "individual");
+}
+
 export default function ProgramsPage({ config }: Props) {
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,12 +168,16 @@ export default function ProgramsPage({ config }: Props) {
   }, [programs]);
 
   const visiblePrograms = useMemo(() => {
+    const visibilityFiltered = programs.filter((item) =>
+      canViewVisibility({ visibility: item.visibility, isLoggedIn, role }),
+    );
+
     if (selectedDeliveryType === "all") {
-      return programs;
+      return visibilityFiltered;
     }
 
-    return programs.filter((item) => item.deliveryType === selectedDeliveryType);
-  }, [programs, selectedDeliveryType]);
+    return visibilityFiltered.filter((item) => item.deliveryType === selectedDeliveryType);
+  }, [isLoggedIn, programs, role, selectedDeliveryType]);
 
   const heroImage =
     config.landingContent?.heroImages?.programs ||

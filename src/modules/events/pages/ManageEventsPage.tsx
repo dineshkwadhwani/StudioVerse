@@ -7,7 +7,11 @@ import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { getScopedEvents, canUserEditEvent, type UserScopeContext } from "@/services/events-scoped.service";
 import type { EventRecord } from "@/types/event";
-import { EVENT_TYPE_LABELS, type EventType } from "@/types/event";
+import {
+  EVENT_TYPE_LABELS,
+  EVENT_VISIBILITY_LABELS,
+  type EventType,
+} from "@/types/event";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -258,6 +262,7 @@ export default function ManageEventsPage({ config }: Props) {
                       Date: {item.eventDate || "TBD"}
                     </p>
                     <p className={styles.meta}>Status: {item.status}</p>
+                    <p className={styles.meta}>Visibility: {EVENT_VISIBILITY_LABELS[item.visibility]}</p>
                     <div className={styles.buttonGroup}>
                       {userRole === "superadmin" ? (
                         <button

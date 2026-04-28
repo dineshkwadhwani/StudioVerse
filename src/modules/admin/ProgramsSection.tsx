@@ -20,6 +20,7 @@ import {
 } from "@/services/programs.service";
 import {
   PROGRAM_STATUS_LABELS,
+  PROGRAM_VISIBILITY_LABELS,
   toDateInputValue,
   type ProgramFormValues,
   type ProgramRecord,
@@ -61,6 +62,7 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
     facilitatorName: program.facilitatorName ?? "",
     promoted: program.promoted,
     published: program.publicationState === "published",
+    visibility: program.visibility === "private" ? "private" : "public",
     ownershipScope: program.ownershipScope,
     ownerEntityId: program.ownerEntityId ?? "",
     catalogVisibility: program.catalogVisibility,
@@ -353,6 +355,7 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
                     ) : null}
                     <p className={styles.programMeta}>Delivery: {program.deliveryType}</p>
                     <p className={styles.programMeta}>Duration: {program.durationValue} {program.durationUnit}</p>
+                    <p className={styles.programMeta}>Visibility: {PROGRAM_VISIBILITY_LABELS[program.visibility]}</p>
                   </div>
 
                   <div className={styles.programActions}>

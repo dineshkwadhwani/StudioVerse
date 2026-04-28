@@ -37,6 +37,18 @@ function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
 }
 
+function canViewVisibility(args: {
+  visibility: AssessmentRecord["visibility"] | undefined;
+  isLoggedIn: boolean;
+  role: UserRole | null;
+}): boolean {
+  if (args.visibility !== "private") {
+    return true;
+  }
+
+  return args.isLoggedIn && (args.role === "professional" || args.role === "individual");
+}
+
 type ToolsPageProps = {
   config: TenantConfig;
 };
@@ -124,7 +136,7 @@ export default function ToolsPage({ config }: ToolsPageProps) {
         const nextRows = rows
           .filter((item) => isInTenantScope(item, config.id))
           .filter(
-            (item) => item.status === "active" && item.publicationState === "published",
+            (item) => item.status === "published" && item.publicationState === "published",
           )
           .sort((a, b) => (b.updatedAt?.toDate().getTime() ?? 0) - (a.updatedAt?.toDate().getTime() ?? 0));
 
@@ -158,6 +170,12 @@ export default function ToolsPage({ config }: ToolsPageProps) {
     );
   }, [config.id, config.landingContent?.heroImages?.events, config.landingContent?.heroImages?.programs, config.landingContent?.heroImages?.tools]);
 
+  const visibleAssessments = useMemo(() => {
+    return assessments.filter((item) =>
+      canViewVisibility({ visibility: item.visibility, isLoggedIn, role }),
+    );
+  }, [assessments, isLoggedIn, role]);
+
   return (
     <main className={styles.page}>
       <TenantViewAllHeader
@@ -186,13 +204,13 @@ export default function ToolsPage({ config }: ToolsPageProps) {
         </div>
 
         {isLoading ? <p className={styles.helper}>Loading assessments...</p> : null}
-        {!isLoading && assessments.length === 0 ? (
+        {!isLoading && visibleAssessments.length === 0 ? (
           <p className={styles.helper}>No assessments are currently available.</p>
         ) : null}
 
-        {!isLoading && assessments.length > 0 ? (
+        {!isLoading && visibleAssessments.length > 0 ? (
           <div className={styles.grid}>
-            {assessments.map((item) => (
+            {visibleAssessments.map((item) => (
               <article key={item.id} className={landingStyles.tile}>
                 <div className={styles.cardImageWrap}>
                   <img

@@ -202,6 +202,7 @@ export default function ManageAssessmentsPage({ config }: Props) {
                     <p className={landingStyles.tileCopy}>{item.shortDescription}</p>
                     <p className={styles.meta}>Type: {item.assessmentType}</p>
                     <p className={styles.meta}>Status: {item.status}</p>
+                    <p className={styles.meta}>Visibility: {item.visibility === "private" ? "Private" : "Public"}</p>
                     <p className={styles.meta}>Created By: {item.createdBy}</p>
                     <div className={styles.buttonGroup}>
                       {userRole === "superadmin" ? (

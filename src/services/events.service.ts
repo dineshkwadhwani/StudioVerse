@@ -58,6 +58,9 @@ function toDateTimeString(value: unknown): string | null {
 // ---------------------------------------------------------------------------
 function mapEvent(id: string, data: DocumentData): EventRecord {
   const fallbackLocation = typeof data.location === "string" ? data.location : "";
+  const visibility = data.visibility === "private" || data.catalogVisibility === "professional_only"
+    ? "private"
+    : "public";
 
   return {
     id,
@@ -81,6 +84,7 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     cost: data.cost ?? 0,
     status: data.status,
     promoted: Boolean(data.promoted),
+    visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,
     catalogVisibility: data.catalogVisibility,
@@ -122,6 +126,7 @@ function sanitizePayload(input: EventWriteInput): Record<string, unknown> {
     cost: input.cost,
     status: input.status,
     promoted: input.promoted,
+    visibility: input.visibility,
     ownershipScope: input.ownershipScope,
     ownerEntityId: nullToUndef(input.ownerEntityId),
     catalogVisibility: input.catalogVisibility,
@@ -279,6 +284,7 @@ export async function listLandingPageEvents(
   );
   const all = snapshot.docs
     .map((d) => mapEvent(d.id, d.data()))
+    .filter((item) => item.visibility === "public")
     .filter((item) =>
       matchesTenantScope({
         primaryTenantId: item.tenantId,

@@ -20,9 +20,10 @@ export type AssessmentType =
   | "behaviour"
   | "custom";
 
-export type AssessmentStatus = "draft" | "active" | "archived";
+export type AssessmentStatus = "draft" | "published" | "archived";
 export type AssessmentPublicationState = "unpublished" | "published" | "scheduled";
 export type AssessmentOwnershipScope = "platform" | "tenant" | "professional";
+export type AssessmentVisibility = "public" | "private";
 export type AssessmentReportStyle =
   | "development-template"
   | "diagnostic-template"
@@ -56,6 +57,7 @@ export type AssessmentRecord = {
   questionGenerationPrompt: string;
   status: AssessmentStatus;
   publicationState: AssessmentPublicationState;
+  visibility: AssessmentVisibility;
   ownershipScope: AssessmentOwnershipScope;
   ownerEntityId: string;
   createdBy: string;
@@ -154,6 +156,7 @@ export type AssessmentFormValues = {
   questionGenerationPrompt: string;
   status: AssessmentStatus;
   publicationState: AssessmentPublicationState;
+  visibility: AssessmentVisibility;
   ownershipScope: AssessmentOwnershipScope;
   ownerEntityId: string;
 };

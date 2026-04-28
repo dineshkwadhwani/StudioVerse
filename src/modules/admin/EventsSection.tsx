@@ -22,6 +22,7 @@ import {
   EVENT_SOURCE_LABELS,
   EVENT_STATUS_LABELS,
   EVENT_TYPE_LABELS,
+  EVENT_VISIBILITY_LABELS,
   type EventFormValues,
   type EventRecord,
   type EventSaveMode,
@@ -63,6 +64,7 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     status: event.status,
     promoted: event.promoted,
     published: event.publicationState === "published",
+    visibility: event.visibility === "private" ? "private" : "public",
     ownershipScope: event.ownershipScope,
     ownerEntityId: event.ownerEntityId ?? "",
     catalogVisibility: event.catalogVisibility,
@@ -371,6 +373,7 @@ export default function EventsSection({
                         {event.locationCity} {event.locationAddress}
                       </p>
                     ) : null}
+                    <p className={styles.eventMeta}>Visibility: {EVENT_VISIBILITY_LABELS[event.visibility]}</p>
                   </div>
 
                   <div className={styles.eventActions}>

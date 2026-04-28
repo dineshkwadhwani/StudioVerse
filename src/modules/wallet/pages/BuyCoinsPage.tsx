@@ -198,7 +198,7 @@ export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsP
         amount: createOrder.amountPaise,
         currency: createOrder.currency,
         name: "StudioVerse",
-        description: `Purchase ${createOrder.credits} credits`,
+        description: `Purchase ${selected.credits} credits`,
         order_id: createOrder.razorpayOrderId,
         prefill: {
           name: userCtx.name,

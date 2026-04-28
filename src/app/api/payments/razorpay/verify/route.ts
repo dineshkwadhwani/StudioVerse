@@ -31,11 +31,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (!isSignatureValid) {
-      await orderRef.update({
-        status: "failed",
-        paymentFailureReason: "Invalid Razorpay signature",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
       return NextResponse.json({ error: "Invalid payment signature." }, { status: 400 });
     }
 

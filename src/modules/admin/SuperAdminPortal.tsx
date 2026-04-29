@@ -209,6 +209,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "referrals", label: "References" },
   { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
+  { key: "promotion-requests", label: "Promotion Requests" },
 ];
 
 const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = [
@@ -220,12 +221,23 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "manage",
     label: "Manage",
-    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins", "credit-packages", "promotion-packages", "orders", "referrals"],
+    itemKeys: [
+      "users",
+      "tenants",
+      "tools",
+      "programs",
+      "events",
+      "coins",
+      "credit-packages",
+      "promotion-packages",
+      "orders",
+      "referrals"
+    ],
   },
   {
     key: "actions",
     label: "Actions",
-    itemKeys: ["assigned-activities", "assign-activity"],
+    itemKeys: ["assigned-activities", "assign-activity", "promotion-requests"],
   },
 ];
 
@@ -1201,7 +1213,6 @@ export default function SuperAdminPortal() {
                       if (!item) {
                         return null;
                       }
-
                       return (
                         <button
                           key={item.key}
@@ -1272,6 +1283,10 @@ export default function SuperAdminPortal() {
                 </button>
               </div>
             </article>
+          ) : null}
+
+          {activeMenu === "promotion-requests" ? (
+            <PromotionRequestsSection operatorId={profile.id} />
           ) : null}
 
           {activeMenu === "profile" ? (

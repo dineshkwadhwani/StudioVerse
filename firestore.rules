@@ -3,24 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow authenticated users to read their own user profile
-    match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if false;
-    }
-
-    // Allow public read access to assessments for landing page
-    match /assessments/{assessmentId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Allow public read access to tenants collection for bot config and branding
-    match /tenants/{tenantId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
+    // ── Helpers ────────────────────────────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
@@ -49,6 +32,10 @@ service cloud.firestore {
       return isSignedIn() ? currentUser().associatedCompanyId : null;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && currentUserType() == "superadmin";
+    }
+
     function isCompanyUser() {
       return isSignedIn() && currentUserType() == "company";
     }
@@ -57,6 +44,163 @@ service cloud.firestore {
       return isSignedIn() && currentUserType() == "professional";
     }
 
+    // ── Users ──────────────────────────────────────────────────────────────
+    // Login queries users by phoneE164+tenantId so collection reads must be
+    // open to any authenticated user. Writes are scoped to own document.
+    // Company/professional can also update profiles of users they manage
+    // (createScopedManagedUser, saveCohort run from the client and write
+    //  managed user docs directly).
+    match /users/{userId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && (
+                         request.auth.uid == userId ||
+                         request.auth.uid == resource.data.uid
+                       ))
+                    || (isCompanyUser() &&
+                         resource.data.associatedCompanyId == currentCompanyId())
+                    || (isProfessionalUser() &&
+                         resource.data.associatedProfessionalId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // ── Tenants ────────────────────────────────────────────────────────────
+    match /tenants/{tenantId} {
+      allow read:  if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Wallets ────────────────────────────────────────────────────────────
+    // Company users need to update the recipient wallet when approving coin
+    // requests (transferCoins updates both fromUserId and toUserId wallets
+    // in one transaction from the client).
+    match /wallets/{walletId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && (
+                         request.auth.uid == walletId ||
+                         request.auth.uid == resource.data.userId
+                       ));
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && (
+                         request.auth.uid == walletId ||
+                         request.auth.uid == resource.data.userId
+                       ))
+                    || (isCompanyUser() &&
+                         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentCompanyId());
+      allow delete: if false;
+    }
+
+    // ── Wallet Transactions ────────────────────────────────────────────────
+    match /walletTransactions/{txId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && (
+                         resource.data.userId   == request.auth.uid ||
+                         resource.data.walletId == request.auth.uid ||
+                         resource.data.createdBy == request.auth.uid
+                       ));
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    // ── Assessments ────────────────────────────────────────────────────────
+    match /assessments/{assessmentId} {
+      allow read:  if true;
+      allow write: if isSuperAdmin() || isSignedIn();
+    }
+
+    // ── Assessment Questions ───────────────────────────────────────────────
+    match /assessmentQuestions/{questionId} {
+      allow read:   if isSignedIn();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Assessment Attempts ────────────────────────────────────────────────
+    match /assessmentAttempts/{attemptId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // ── Assessment Reports ─────────────────────────────────────────────────
+    match /assessmentReports/{reportId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    // ── Programs ──────────────────────────────────────────────────────────
+    match /programs/{programId} {
+      allow read:  if true;
+      allow write: if isSuperAdmin() || isSignedIn();
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────
+    match /events/{eventId} {
+      allow read:  if true;
+      allow write: if isSuperAdmin() || isSignedIn();
+    }
+
+    // ── Assignments ────────────────────────────────────────────────────────
+    match /assignments/{assignmentId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && (
+                         resource.data.assignedTo  == request.auth.uid ||
+                         resource.data.assignedBy  == request.auth.uid ||
+                         resource.data.assignerId  == request.auth.uid ||
+                         resource.data.assigneeId  == request.auth.uid
+                       ));
+      allow delete: if false;
+    }
+
+    // ── Cohorts ────────────────────────────────────────────────────────────
+    match /cohorts/{cohortId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Cohort Members ─────────────────────────────────────────────────────
+    // saveCohort deletes and re-creates members from the client so the cohort
+    // owner (company or professional) needs delete permission on their own cohort.
+    match /cohortMembers/{memberId} {
+      allow read:   if isSignedIn();
+      allow create: if isSuperAdmin() || isCompanyUser() || isProfessionalUser();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin()
+                    || (isCompanyUser() && resource.data.companyId == currentCompanyId())
+                    || (isProfessionalUser() && resource.data.professionalId == request.auth.uid);
+    }
+
+    // ── Cohort Assignments ─────────────────────────────────────────────────
+    match /cohortAssignments/{cohortAssignmentId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Referrals ──────────────────────────────────────────────────────────
+    match /referrals/{referralId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Coin Requests ──────────────────────────────────────────────────────
     match /coinRequests/{requestId} {
       allow create: if isProfessionalUser()
         && request.resource.data.requesterProfessionalId == request.auth.uid
@@ -66,57 +210,82 @@ service cloud.firestore {
         && request.resource.data.amount is number
         && request.resource.data.amount > 0;
 
-      allow read: if isSignedIn()
-        && (
-          resource.data.requesterProfessionalId == request.auth.uid
-          || (
-            resource.data.companyId == request.auth.uid
-            || resource.data.companyId == currentUserIdValue()
-            || resource.data.companyId == currentUserUidValue()
-            || (
-              isCompanyUser()
-              && resource.data.companyId == currentCompanyId()
-            )
-          )
-        );
+      allow read: if isSuperAdmin()
+        || (isSignedIn() && (
+              resource.data.requesterProfessionalId == request.auth.uid
+              || resource.data.companyId == request.auth.uid
+              || resource.data.companyId == currentUserIdValue()
+              || resource.data.companyId == currentUserUidValue()
+              || (isCompanyUser() && resource.data.companyId == currentCompanyId())
+           ));
 
-      allow update: if (
-          resource.data.companyId == request.auth.uid
-          || resource.data.companyId == currentUserIdValue()
-          || resource.data.companyId == currentUserUidValue()
-          || (
-            isCompanyUser()
-            && resource.data.companyId == currentCompanyId()
-          )
-        )
-        && resource.data.status == "pending"
-        && request.resource.data.status in ["approved", "denied"]
-        && request.resource.data.requesterProfessionalId == resource.data.requesterProfessionalId
-        && request.resource.data.companyId == resource.data.companyId
-        && request.resource.data.tenantId == resource.data.tenantId
-        && request.resource.data.amount == resource.data.amount;
+      allow update: if isSuperAdmin()
+        || ((
+              resource.data.companyId == request.auth.uid
+              || resource.data.companyId == currentUserIdValue()
+              || resource.data.companyId == currentUserUidValue()
+              || (isCompanyUser() && resource.data.companyId == currentCompanyId())
+            )
+            && resource.data.status == "pending"
+            && request.resource.data.status in ["approved", "denied"]
+            && request.resource.data.requesterProfessionalId == resource.data.requesterProfessionalId
+            && request.resource.data.companyId == resource.data.companyId
+            && request.resource.data.tenantId == resource.data.tenantId
+            && request.resource.data.amount == resource.data.amount);
 
       allow delete: if false;
     }
 
-    // Allow public read access to events for landing page and admin
-    match /events/{eventId} {
-      allow read: if true;
+    // ── Coin Packages ──────────────────────────────────────────────────────
+    match /coinPackages/{packageId} {
+      allow read:   if true;
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Coin Orders ────────────────────────────────────────────────────────
+    match /coinOrders/{orderId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && (
+                         resource.data.userId    == request.auth.uid ||
+                         resource.data.createdBy == request.auth.uid
+                       ));
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // ── Promotion Packages ─────────────────────────────────────────────────
+    match /promotionPackages/{packageId} {
+      allow read:   if isSignedIn();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Program Promotion Requests ─────────────────────────────────────────
+    match /programPromotionRequests/{requestId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Bot Knowledge ──────────────────────────────────────────────────────
+    match /bot-knowledge/{docId} {
+      allow read:  if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Audit Logs ─────────────────────────────────────────────────────────
+    // Written by Firebase Functions (admin SDK, bypasses rules).
+    // Superadmin can read; no client writes permitted.
+    match /auditLogs/{logId} {
+      allow read:  if isSuperAdmin();
       allow write: if false;
     }
 
-    // Allow public read access to programs for landing page and admin
-    match /programs/{programId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Allow public read access to bot-knowledge configs
-    match /bot-knowledge/{tenantId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Add other collection rules here as needed
   }
 }

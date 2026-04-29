@@ -1,6 +1,6 @@
 import { Timestamp } from "firebase/firestore";
 
-export type WalletUserType = "company" | "professional" | "individual";
+export type WalletUserType = "superadmin" | "company" | "professional" | "individual";
 
 export type WalletRecord = {
   id: string;

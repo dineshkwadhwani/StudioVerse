@@ -309,10 +309,13 @@ export async function createAssignment(args: {
     }
 
     // Get assignor wallet. The assignor spends coins when assigning to another user.
-    const wallet = await getWalletForUserContext([
-      ...(args.assignerLookupIds ?? []),
-      args.assignerId,
-    ]);
+    const wallet = await getWalletForUserContext(
+      [
+        ...(args.assignerLookupIds ?? []),
+        args.assignerId,
+      ],
+      args.tenantId,
+    );
     
     if (!wallet) {
       return {
@@ -437,10 +440,13 @@ export async function createCohortAssignment(args: {
     const perMemberCost = Math.max(0, args.creditsRequired);
     const totalCost = perMemberCost * payload.members.length;
 
-    const wallet = await getWalletForUserContext([
-      ...(args.assignerLookupIds ?? []),
-      args.assignerId,
-    ]);
+    const wallet = await getWalletForUserContext(
+      [
+        ...(args.assignerLookupIds ?? []),
+        args.assignerId,
+      ],
+      args.tenantId,
+    );
 
     if (!wallet) {
       return {

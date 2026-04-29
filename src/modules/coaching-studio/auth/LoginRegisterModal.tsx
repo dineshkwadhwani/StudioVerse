@@ -10,7 +10,7 @@ import {
 import { getFirestore, collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
-import { createWalletForUser, ensureWalletExists, getTenantRegistrationFreeCoins } from '@/services/wallet.service';
+import { ensureWalletExists, issueRegistrationBonusForUser } from '@/services/wallet.service';
 import { processReferralJoinForNewUser } from '@/services/referral.service';
 import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
 import type { WalletUserType } from '@/types/wallet';
@@ -358,20 +358,14 @@ export default function LoginRegisterModal({
       const userDocRef = doc(db, 'users', userId);
       await setDoc(userDocRef, userData, { merge: true });
 
-      // Auto-create the wallet with the tenant's configured signup bonus.
+      // Apply onboarding registration bonus via trusted backend callable.
       try {
-        const registrationCoins = await getTenantRegistrationFreeCoins(tenantId);
-        await createWalletForUser({
+        await issueRegistrationBonusForUser({
           userId,
           tenantId,
-          userType: role as WalletUserType,
-          userName: name,
-          createdBy: 'system',
-          initialCoins: registrationCoins,
-          reason: 'Registration bonus',
         });
       } catch {
-        // Wallet already exists or creation failed — non-fatal.
+        // Bonus issuance failed — non-fatal for registration.
       }
 
       // Check for referral join reward (only on self-registration for Professionals/Individuals, non-fatal if fails)

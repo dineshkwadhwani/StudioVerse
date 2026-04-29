@@ -114,7 +114,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           companyIds,
         });
         const results = await Promise.allSettled([
-          getWalletForUserContext(userIds),
+          getWalletForUserContext(userIds, tenantId),
           listWalletTransactionsForUserContext({ userIds, tenantId }),
           storedRoleRaw === "company" ? getCoinRequestsForCompanyContext(companyIds) : Promise.resolve([]),
         ]);

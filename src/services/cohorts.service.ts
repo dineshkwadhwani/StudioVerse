@@ -11,6 +11,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
+import { buildWalletId } from "@/services/wallet.service";
 import {
   getUserById,
   listManagedUsersForCompany,
@@ -485,7 +486,7 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
     const userRef = doc(db, "users", entry.id);
     batch.set(userRef, entry.payload);
 
-    const walletRef = doc(db, "wallets", entry.id);
+    const walletRef = doc(db, "wallets", buildWalletId(entry.id, args.tenantId));
     batch.set(walletRef, {
       userId: entry.id,
       tenantId: args.tenantId,

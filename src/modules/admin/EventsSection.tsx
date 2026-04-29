@@ -19,7 +19,7 @@ import {
   validateEventThumbnailFile,
 } from "@/services/events.service";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
-import { getWalletByUserId } from "@/services/wallet.service";
+import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
   EVENT_PROMOTION_STATUS_LABELS,
   EVENT_SOURCE_LABELS,
@@ -228,7 +228,7 @@ export default function EventsSection({
       return "Unable to verify wallet. Please sign in again.";
     }
 
-    const wallet = await getWalletByUserId(uid);
+    const wallet = await getWalletByUserAndTenant({ userId: uid, tenantId: values.tenantId });
     const availableCoins = wallet?.availableCoins ?? 0;
 
     let selectedPackage = promotionPackages.find((pkg) => pkg.id === values.promotionPackageId);

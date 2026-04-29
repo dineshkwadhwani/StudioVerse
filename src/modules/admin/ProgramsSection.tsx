@@ -19,7 +19,7 @@ import {
   validateThumbnailFile,
 } from "@/services/programs.service";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
-import { getWalletByUserId } from "@/services/wallet.service";
+import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
   PROGRAM_STATUS_LABELS,
   PROGRAM_VISIBILITY_LABELS,
@@ -219,7 +219,7 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
       return "Unable to verify wallet. Please sign in again.";
     }
 
-    const wallet = await getWalletByUserId(uid);
+    const wallet = await getWalletByUserAndTenant({ userId: uid, tenantId: values.tenantId });
     const availableCoins = wallet?.availableCoins ?? 0;
 
     let selectedPackage = promotionPackages.find((pkg) => pkg.id === values.promotionPackageId);

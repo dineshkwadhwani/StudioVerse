@@ -14,8 +14,7 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db } from "@/services/firebase";
 import { storage } from "@/services/firebase";
-import { createWalletForUser, getTenantRegistrationFreeCoins } from "@/services/wallet.service";
-import type { WalletUserType } from "@/types/wallet";
+import { issueRegistrationBonusForUser } from "@/services/wallet.service";
 import type {
   ProfileUserType,
   UserProfileRecord,
@@ -483,18 +482,12 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
   // Auto-create the wallet for brand-new registrations with the tenant's configured signup bonus.
   // Only runs when current is undefined (first save, not a profile update).
   // Superadmin role is excluded — superadmins do not hold coaching wallets.
-  const walletEligibleTypes: WalletUserType[] = ["company", "professional", "individual"];
-  if (!current && (walletEligibleTypes as string[]).includes(savedProfile.userType)) {
+  const walletEligibleTypes = ["company", "professional", "individual"] as const;
+  if (!current && walletEligibleTypes.includes(savedProfile.userType)) {
     try {
-      const registrationCoins = await getTenantRegistrationFreeCoins(savedProfile.tenantId);
-      await createWalletForUser({
+      await issueRegistrationBonusForUser({
         userId: savedProfile.userId,
         tenantId: savedProfile.tenantId,
-        userType: savedProfile.userType as WalletUserType,
-        userName: savedProfile.fullName,
-        createdBy: "system",
-        initialCoins: registrationCoins,
-        reason: "Registration bonus",
       });
     } catch {
       // Wallet already exists or creation failed — non-fatal, profile save still succeeds.

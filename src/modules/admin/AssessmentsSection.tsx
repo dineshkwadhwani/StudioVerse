@@ -11,7 +11,7 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "@/services/firebase";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
-import { getWalletByUserId } from "@/services/wallet.service";
+import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import { saveAssessmentDefinition } from "@/services/assessments.service";
 import {
   DEFAULT_REPORT_STYLE,
@@ -459,7 +459,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
           return;
         }
 
-        const wallet = await getWalletByUserId(uid);
+        const wallet = await getWalletByUserAndTenant({ userId: uid, tenantId: formValues.tenantId });
         const availableCoins = wallet?.availableCoins ?? 0;
         const selectedPackage = promotionPackages.find((pkg) => pkg.id === formValues.promotionPackageId);
         if (!selectedPackage) {

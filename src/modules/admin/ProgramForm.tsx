@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import { auth } from "@/services/firebase";
-import { getWalletByUserId } from "@/services/wallet.service";
+import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
   PROGRAM_DELIVERY_TYPES,
   PROGRAM_DELIVERY_TYPE_LABELS,
@@ -144,7 +144,7 @@ export default function ProgramForm({
       return "Unable to verify wallet. Please sign in again.";
     }
 
-    const wallet = await getWalletByUserId(uid);
+    const wallet = await getWalletByUserAndTenant({ userId: uid, tenantId: value.tenantId });
     const availableCoins = wallet?.availableCoins ?? 0;
     if (availableCoins < selectedPackage.costCredits) {
       return `Not enough credits. Required: ${selectedPackage.costCredits}, Available: ${availableCoins}.`;

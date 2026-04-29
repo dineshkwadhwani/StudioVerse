@@ -96,7 +96,7 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
     });
 
     if (storedUid) {
-      getWalletForUserContext([storedUid, storedProfileId ?? ""])
+      getWalletForUserContext([storedUid, storedProfileId ?? ""], tenantId)
         .then((walletData) => {
           if (!walletData) {
             setWallet({ issued: 0, utilized: 0, available: 0 });

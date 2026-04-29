@@ -10,7 +10,9 @@ import {
   addDoc,
   updateDoc,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
+import { functions } from "@/services/firebase";
 import type {
   AssignCoinsInput,
   WalletRecord,
@@ -30,6 +32,17 @@ type AdminSelectableUser = {
   status: "active" | "inactive";
   tenantId?: string;
 };
+
+const issueRegistrationBonusCallable = httpsCallable<
+  { userId: string; tenantId: string },
+  { status: string; reason?: string }
+>(functions, "issueRegistrationBonus");
+
+const WALLET_ID_SEPARATOR = "::";
+
+export function buildWalletId(userId: string, tenantId: string): string {
+  return `${String(tenantId).trim()}${WALLET_ID_SEPARATOR}${String(userId).trim()}`;
+}
 
 function normalizeString(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
@@ -84,8 +97,55 @@ function mapWalletTransactionDoc(id: string, data: Record<string, unknown>): Wal
 export async function getWalletByUserId(userId: string): Promise<WalletRecord | null> {
   if (!userId) return null;
   const snap = await getDoc(doc(db, "wallets", userId));
-  if (!snap.exists()) return null;
-  return mapWalletDoc(snap.id, snap.data() as Record<string, unknown>);
+  if (snap.exists()) {
+    return mapWalletDoc(snap.id, snap.data() as Record<string, unknown>);
+  }
+
+  const byUserSnap = await getDocs(query(collection(db, "wallets"), where("userId", "==", userId)));
+  if (byUserSnap.empty) return null;
+
+  const first = byUserSnap.docs[0];
+  return mapWalletDoc(first.id, first.data() as Record<string, unknown>);
+}
+
+export async function issueRegistrationBonusForUser(args: {
+  userId: string;
+  tenantId: string;
+}): Promise<void> {
+  await issueRegistrationBonusCallable({
+    userId: args.userId,
+    tenantId: args.tenantId,
+  });
+}
+
+export async function getWalletByUserAndTenant(args: {
+  userId: string;
+  tenantId: string;
+}): Promise<WalletRecord | null> {
+  const userId = args.userId.trim();
+  const tenantId = args.tenantId.trim();
+  if (!userId || !tenantId) return null;
+
+  const scopedWalletId = buildWalletId(userId, tenantId);
+  const scopedSnap = await getDoc(doc(db, "wallets", scopedWalletId));
+  if (scopedSnap.exists()) {
+    return mapWalletDoc(scopedSnap.id, scopedSnap.data() as Record<string, unknown>);
+  }
+
+  const legacySnap = await getDoc(doc(db, "wallets", userId));
+  if (legacySnap.exists()) {
+    const legacyWallet = mapWalletDoc(legacySnap.id, legacySnap.data() as Record<string, unknown>);
+    if (legacyWallet.tenantId === tenantId) {
+      return legacyWallet;
+    }
+  }
+
+  const byUserSnap = await getDocs(query(collection(db, "wallets"), where("userId", "==", userId)));
+  const tenantWallet = byUserSnap.docs
+    .map((entry) => mapWalletDoc(entry.id, entry.data() as Record<string, unknown>))
+    .find((wallet) => wallet.tenantId === tenantId);
+
+  return tenantWallet ?? null;
 }
 
 export async function getTenantRegistrationFreeCoins(tenantId: string): Promise<number> {
@@ -96,9 +156,11 @@ export async function getTenantRegistrationFreeCoins(tenantId: string): Promise<
   );
 }
 
-export async function getWalletForUserContext(userIds: string[]): Promise<WalletRecord | null> {
+export async function getWalletForUserContext(userIds: string[], tenantId?: string): Promise<WalletRecord | null> {
   for (const userId of userIds.map((item) => item.trim()).filter(Boolean)) {
-    const wallet = await getWalletByUserId(userId);
+    const wallet = tenantId
+      ? await getWalletByUserAndTenant({ userId, tenantId })
+      : await getWalletByUserId(userId);
     if (wallet) {
       return wallet;
     }
@@ -121,7 +183,7 @@ export async function ensureWalletExists(args: {
   const existing = await getWalletForUserContext([
     args.userId,
     ...(args.lookupUserIds ?? []),
-  ]);
+  ], args.tenantId);
   if (existing) return;
   try {
     await createWalletForUser({
@@ -159,11 +221,26 @@ export async function listWalletTransactionsForUserContext(args: {
 
   try {
     const snapshots = await Promise.all(
-      normalizedIds.flatMap((userId) => [
-        getDocs(query(collection(db, "walletTransactions"), where("userId", "==", userId))),
-        getDocs(query(collection(db, "walletTransactions"), where("createdBy", "==", userId))),
-        getDocs(query(collection(db, "walletTransactions"), where("walletId", "==", userId))),
-      ])
+      normalizedIds.flatMap((userId) => {
+        const queries = [
+          getDocs(query(collection(db, "walletTransactions"), where("userId", "==", userId))),
+          getDocs(query(collection(db, "walletTransactions"), where("createdBy", "==", userId))),
+          getDocs(query(collection(db, "walletTransactions"), where("walletId", "==", userId))),
+        ];
+
+        if (args.tenantId) {
+          queries.push(
+            getDocs(
+              query(
+                collection(db, "walletTransactions"),
+                where("walletId", "==", buildWalletId(userId, args.tenantId))
+              )
+            )
+          );
+        }
+
+        return queries;
+      })
     );
 
     const allMatched = snapshots
@@ -266,11 +343,23 @@ export async function assignCoins(input: AssignCoinsInput): Promise<void> {
     throw new Error("Coins to assign must be greater than 0.");
   }
 
-  const walletRef = doc(db, "wallets", input.userId);
+  const scopedWalletId = buildWalletId(input.userId, input.tenantId);
+  const scopedWalletRef = doc(db, "wallets", scopedWalletId);
+  const legacyWalletRef = doc(db, "wallets", input.userId);
 
   await runTransaction(db, async (transaction) => {
-    const walletSnap = await transaction.get(walletRef);
-    const current = walletSnap.exists() ? (walletSnap.data() as Record<string, unknown>) : null;
+    const [scopedSnap, legacySnap] = await Promise.all([
+      transaction.get(scopedWalletRef),
+      transaction.get(legacyWalletRef),
+    ]);
+
+    const scopedCurrent = scopedSnap.exists() ? (scopedSnap.data() as Record<string, unknown>) : null;
+    const legacyCurrent = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+    const legacyTenantId = String(legacyCurrent?.tenantId ?? "");
+    const useLegacy = !scopedCurrent && legacyCurrent && legacyTenantId === input.tenantId;
+    const current = scopedCurrent ?? (useLegacy ? legacyCurrent : null);
+    const targetWalletRef = useLegacy ? legacyWalletRef : scopedWalletRef;
+    const targetWalletId = useLegacy ? input.userId : scopedWalletId;
 
     const existingIssued = current ? toNumber(current.totalIssuedCoins) : 0;
     const existingUtilized = current ? toNumber(current.utilizedCoins) : 0;
@@ -280,7 +369,7 @@ export async function assignCoins(input: AssignCoinsInput): Promise<void> {
     const nextAvailable = existingAvailable + input.coinsToAssign;
 
     transaction.set(
-      walletRef,
+      targetWalletRef,
       {
         userId: input.userId,
         tenantId: input.tenantId,
@@ -299,7 +388,7 @@ export async function assignCoins(input: AssignCoinsInput): Promise<void> {
 
     const txRef = doc(collection(db, "walletTransactions"));
     transaction.set(txRef, {
-      walletId: input.userId,
+      walletId: targetWalletId,
       userId: input.userId,
       tenantId: input.tenantId,
       userType: input.userType,
@@ -321,16 +410,24 @@ export async function createWalletForUser(input: {
   initialCoins?: number;
   reason?: string;
 }): Promise<void> {
-  const walletRef = doc(db, "wallets", input.userId);
+  const scopedWalletId = buildWalletId(input.userId, input.tenantId);
+  const scopedWalletRef = doc(db, "wallets", scopedWalletId);
+  const legacyWalletRef = doc(db, "wallets", input.userId);
   const initialCoins = Math.max(0, Math.floor(Number(input.initialCoins ?? 0)));
 
   await runTransaction(db, async (transaction) => {
-    const walletSnap = await transaction.get(walletRef);
-    if (walletSnap.exists()) {
+    const [scopedSnap, legacySnap] = await Promise.all([
+      transaction.get(scopedWalletRef),
+      transaction.get(legacyWalletRef),
+    ]);
+    const legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+    const sameTenantLegacyExists = Boolean(legacyData && String(legacyData.tenantId ?? "") === input.tenantId);
+
+    if (scopedSnap.exists() || sameTenantLegacyExists) {
       throw new Error("Wallet already exists for this user.");
     }
 
-    transaction.set(walletRef, {
+    transaction.set(scopedWalletRef, {
       userId: input.userId,
       tenantId: input.tenantId,
       userType: input.userType,
@@ -347,7 +444,7 @@ export async function createWalletForUser(input: {
     if (initialCoins > 0) {
       const txRef = doc(collection(db, "walletTransactions"));
       transaction.set(txRef, {
-        walletId: input.userId,
+        walletId: scopedWalletId,
         userId: input.userId,
         tenantId: input.tenantId,
         userType: input.userType,
@@ -516,6 +613,7 @@ export async function approveCoinRequest(args: {
   await transferCoins({
     fromUserId: companyId,
     toUserId: professionalId,
+    tenantId: String(requestData.tenantId ?? ""),
     amount: amount,
     reason: `Coin request approved: ${String(requestData.requesterName ?? "")}`,
     transactionType: "transfer",
@@ -563,6 +661,7 @@ export async function denyCoinRequest(args: {
 async function transferCoins(args: {
   fromUserId: string;
   toUserId: string;
+  tenantId: string;
   amount: number;
   reason: string;
   transactionType: "transfer";
@@ -572,23 +671,45 @@ async function transferCoins(args: {
     throw new Error("Transfer amount must be greater than 0");
   }
 
-  const fromWalletRef = doc(db, "wallets", args.fromUserId);
-  const toWalletRef = doc(db, "wallets", args.toUserId);
+  const fromScopedId = buildWalletId(args.fromUserId, args.tenantId);
+  const toScopedId = buildWalletId(args.toUserId, args.tenantId);
+  const fromWalletRef = doc(db, "wallets", fromScopedId);
+  const toWalletRef = doc(db, "wallets", toScopedId);
+  const fromLegacyWalletRef = doc(db, "wallets", args.fromUserId);
+  const toLegacyWalletRef = doc(db, "wallets", args.toUserId);
 
   await runTransaction(db, async (transaction) => {
-    const fromSnap = await transaction.get(fromWalletRef);
-    const toSnap = await transaction.get(toWalletRef);
+    const [fromScopedSnap, toScopedSnap, fromLegacySnap, toLegacySnap] = await Promise.all([
+      transaction.get(fromWalletRef),
+      transaction.get(toWalletRef),
+      transaction.get(fromLegacyWalletRef),
+      transaction.get(toLegacyWalletRef),
+    ]);
 
-    if (!fromSnap.exists()) {
+    const fromScopedData = fromScopedSnap.exists() ? (fromScopedSnap.data() as Record<string, unknown>) : null;
+    const toScopedData = toScopedSnap.exists() ? (toScopedSnap.data() as Record<string, unknown>) : null;
+    const fromLegacyData = fromLegacySnap.exists() ? (fromLegacySnap.data() as Record<string, unknown>) : null;
+    const toLegacyData = toLegacySnap.exists() ? (toLegacySnap.data() as Record<string, unknown>) : null;
+
+    const fromData = fromScopedData
+      ?? (fromLegacyData && String(fromLegacyData.tenantId ?? "") === args.tenantId ? fromLegacyData : null);
+    const toData = toScopedData
+      ?? (toLegacyData && String(toLegacyData.tenantId ?? "") === args.tenantId ? toLegacyData : null);
+
+    if (!fromData) {
       throw new Error("Sender wallet not found");
     }
 
-    if (!toSnap.exists()) {
+    if (!toData) {
       throw new Error("Recipient wallet not found");
     }
 
-    const fromData = fromSnap.data() as Record<string, unknown>;
-    const toData = toSnap.data() as Record<string, unknown>;
+    const useLegacyFrom = !fromScopedData && Boolean(fromLegacyData && String(fromLegacyData.tenantId ?? "") === args.tenantId);
+    const useLegacyTo = !toScopedData && Boolean(toLegacyData && String(toLegacyData.tenantId ?? "") === args.tenantId);
+    const fromTargetRef = useLegacyFrom ? fromLegacyWalletRef : fromWalletRef;
+    const toTargetRef = useLegacyTo ? toLegacyWalletRef : toWalletRef;
+    const fromWalletId = useLegacyFrom ? args.fromUserId : fromScopedId;
+    const toWalletId = useLegacyTo ? args.toUserId : toScopedId;
 
     const fromAvailable = toNumber(fromData.availableCoins);
     const toAvailable = toNumber(toData.availableCoins);
@@ -599,7 +720,7 @@ async function transferCoins(args: {
 
     // Update sender wallet
     transaction.set(
-      fromWalletRef,
+      fromTargetRef,
       {
         availableCoins: fromAvailable - args.amount,
         utilizedCoins: toNumber(fromData.utilizedCoins) + args.amount,
@@ -611,7 +732,7 @@ async function transferCoins(args: {
 
     // Update recipient wallet
     transaction.set(
-      toWalletRef,
+      toTargetRef,
       {
         availableCoins: toAvailable + args.amount,
         updatedBy: args.initiatedBy,
@@ -623,7 +744,7 @@ async function transferCoins(args: {
     // Create sender transaction record (Sent)
     const senderTxRef = doc(collection(db, "walletTransactions"));
     transaction.set(senderTxRef, {
-      walletId: args.fromUserId,
+      walletId: fromWalletId,
       userId: args.fromUserId,
       tenantId: fromData.tenantId,
       userType: fromData.userType,
@@ -638,7 +759,7 @@ async function transferCoins(args: {
     // Create recipient transaction record (Received)
     const recipientTxRef = doc(collection(db, "walletTransactions"));
     transaction.set(recipientTxRef, {
-      walletId: args.toUserId,
+      walletId: toWalletId,
       userId: args.toUserId,
       tenantId: toData.tenantId,
       userType: toData.userType,

@@ -12,6 +12,7 @@ import {
   where,
   type Timestamp,
 } from "firebase/firestore";
+import { buildWalletId } from "@/services/wallet.service";
 
 export type ManageUserRole = "company" | "professional" | "individual";
 
@@ -337,7 +338,8 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
 
   const fullName = `${firstName} ${lastName}`.trim();
   const userRef = doc(collection(db, "users"));
-  const walletRef = doc(db, "wallets", userRef.id);
+  const walletId = buildWalletId(userRef.id, tenantId);
+  const walletRef = doc(db, "wallets", walletId);
 
   await runTransaction(db, async (transaction) => {
     transaction.set(userRef, {
@@ -383,7 +385,7 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     if (initialWalletCoins > 0) {
       const walletTxRef = doc(collection(db, "walletTransactions"));
       transaction.set(walletTxRef, {
-        walletId: userRef.id,
+        walletId,
         userId: userRef.id,
         tenantId,
         userType: targetUserType,

@@ -92,7 +92,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
         );
 
         const [resolvedWallet, resolvedTransactions] = await Promise.all([
-          getWalletForUserContext(userIds),
+          getWalletForUserContext(userIds, tenantId),
           listWalletTransactionsForUserContext({ userIds, tenantId }),
         ]);
 

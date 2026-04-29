@@ -41,7 +41,7 @@ import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
-import { getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
+import { buildWalletId, createWalletForUser, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
 import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/referral";
@@ -98,6 +98,7 @@ type TenantRecord = {
     sectionIntros?: { programs?: string; tools?: string; events?: string };
   };
   walletConfig?: {
+    superAdminOpeningCoins?: number;
     registrationFreeCoins?: number;
     referralFreeCoins?: number;
   };
@@ -145,6 +146,7 @@ type TenantLandingFormState = {
 };
 
 type TenantWalletFormState = {
+  superAdminOpeningCoins: number;
   registrationFreeCoins: number;
   referralFreeCoins: number;
 };
@@ -288,6 +290,7 @@ const EMPTY_TENANT_FORM: TenantFormState = {
     introEvents: "From roundtables to showcases, each event is designed for practical outcomes.",
   },
   walletConfig: {
+    superAdminOpeningCoins: 100000,
     registrationFreeCoins: 10,
     referralFreeCoins: 5,
   },
@@ -867,6 +870,7 @@ export default function SuperAdminPortal() {
           "From roundtables to showcases, each event is designed for practical outcomes.",
       },
       walletConfig: {
+        superAdminOpeningCoins: target.walletConfig?.superAdminOpeningCoins ?? 100000,
         registrationFreeCoins: target.walletConfig?.registrationFreeCoins ?? 10,
         referralFreeCoins: target.walletConfig?.referralFreeCoins ?? 5,
       },
@@ -977,7 +981,8 @@ export default function SuperAdminPortal() {
         if (isWalletEligible) {
           const registrationCoins = await getTenantRegistrationFreeCoins(normalizedTenantId);
           const userType = userForm.userType as WalletUserType;
-          const walletRef = doc(db, "wallets", userRef.id);
+          const walletId = buildWalletId(userRef.id, normalizedTenantId);
+          const walletRef = doc(db, "wallets", walletId);
 
           await runTransaction(db, async (transaction) => {
             const walletSnap = await transaction.get(walletRef);
@@ -1002,7 +1007,7 @@ export default function SuperAdminPortal() {
             if (registrationCoins > 0) {
               const walletTxRef = doc(collection(db, "walletTransactions"));
               transaction.set(walletTxRef, {
-                walletId: userRef.id,
+                walletId,
                 userId: userRef.id,
                 tenantId: normalizedTenantId,
                 userType,
@@ -1081,6 +1086,7 @@ export default function SuperAdminPortal() {
           },
         },
         walletConfig: {
+          superAdminOpeningCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
           registrationFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.registrationFreeCoins)),
           referralFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.referralFreeCoins)),
         },
@@ -1110,6 +1116,16 @@ export default function SuperAdminPortal() {
         },
         { merge: true }
       );
+
+      await createWalletForUser({
+        userId: profile.id,
+        tenantId,
+        userType: "superadmin",
+        userName: profile.name,
+        createdBy: profile.id,
+        initialCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
+        reason: "Tenant opening balance",
+      }).catch(() => undefined);
 
       setTenantModalOpen(false);
       setInfo("Tenant saved.");
@@ -1286,7 +1302,10 @@ export default function SuperAdminPortal() {
           ) : null}
 
           {activeMenu === "promotion-requests" ? (
-            <PromotionRequestsSection operatorId={profile.id} />
+            <PromotionRequestsSection
+              operatorId={profile.id}
+              onBack={() => setActiveMenu("promotion-packages")}
+            />
           ) : null}
 
           {activeMenu === "profile" ? (
@@ -2123,6 +2142,21 @@ export default function SuperAdminPortal() {
             <section className={styles.tenantConfigBlock}>
               <p className={styles.tenantSubLabel}>Wallet Configuration</p>
               <div className={styles.tenantConfigGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="superadmin-opening-coins">
+                    Super Admin Opening Coins
+                  </label>
+                  <input
+                    id="superadmin-opening-coins"
+                    type="number"
+                    min={0}
+                    max={100000000}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.walletConfig.superAdminOpeningCoins}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, superAdminOpeningCoins: Number(event.target.value) } }))}
+                  />
+                </div>
+
                 <div className={styles.compactField}>
                   <label className={styles.compactLabel} htmlFor="registration-coins">
                     Registration Free Coins

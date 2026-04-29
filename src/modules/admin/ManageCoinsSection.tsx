@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import {
   assignCoins,
-  getWalletByUserId,
+  getWalletByUserAndTenant,
   listWallets,
   listUsersForCoinAssignment,
 } from "@/services/wallet.service";
@@ -123,7 +123,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
       return;
     }
 
-    getWalletByUserId(selectedUserId)
+    getWalletByUserAndTenant({ userId: selectedUserId, tenantId: selectedTenantId })
       .then((wallet) => {
         if (!wallet) {
           setWalletSnapshot({ issued: 0, utilized: 0, available: 0 });
@@ -172,7 +172,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
         assignedBy: adminUserId,
       });
 
-      const updatedWallet = await getWalletByUserId(user.id);
+      const updatedWallet = await getWalletByUserAndTenant({ userId: user.id, tenantId: selectedTenantId });
       setWalletSnapshot({
         issued: updatedWallet?.totalIssuedCoins ?? 0,
         utilized: updatedWallet?.utilizedCoins ?? 0,

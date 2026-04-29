@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { type AssessmentPromotionStatus, type AssessmentRecord } from "@/types/assessment";
 import { db } from "@/services/firebase";
+import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import { type EventPromotionStatus, type EventRecord } from "@/types/event";
 import { type ProgramPromotionStatus, type ProgramRecord } from "@/types/program";
 
@@ -330,7 +331,13 @@ export async function approveProgramPromotionRequest(args: {
       throw new Error("Could not determine requester wallet for this promotion.");
     }
 
-    const walletRef = doc(db, "wallets", requesterId);
+    const tenantId = String(programData.tenantId ?? "");
+    const requesterWallet = await getWalletByUserAndTenant({ userId: requesterId, tenantId });
+    if (!requesterWallet) {
+      throw new Error("Requester wallet not found.");
+    }
+
+    const walletRef = doc(db, "wallets", requesterWallet.id);
     const walletSnap = await transaction.get(walletRef);
     if (!walletSnap.exists()) {
       throw new Error("Requester wallet not found.");
@@ -360,7 +367,7 @@ export async function approveProgramPromotionRequest(args: {
     transaction.set(walletTransactionRef, {
       walletId: requesterId,
       userId: requesterId,
-      tenantId: String(programData.tenantId ?? ""),
+      tenantId,
       userType: String(walletData.userType ?? "professional"),
       userName: String(walletData.userName ?? "User"),
       transactionType: "debit",
@@ -460,7 +467,13 @@ export async function approveEventPromotionRequest(args: {
       throw new Error("Could not determine requester wallet for this promotion.");
     }
 
-    const walletRef = doc(db, "wallets", requesterId);
+    const tenantId = String(eventData.tenantId ?? "");
+    const requesterWallet = await getWalletByUserAndTenant({ userId: requesterId, tenantId });
+    if (!requesterWallet) {
+      throw new Error("Requester wallet not found.");
+    }
+
+    const walletRef = doc(db, "wallets", requesterWallet.id);
     const walletSnap = await transaction.get(walletRef);
     if (!walletSnap.exists()) {
       throw new Error("Requester wallet not found.");
@@ -488,9 +501,9 @@ export async function approveEventPromotionRequest(args: {
 
     const walletTransactionRef = doc(collection(db, "walletTransactions"));
     transaction.set(walletTransactionRef, {
-      walletId: requesterId,
+      walletId: requesterWallet.id,
       userId: requesterId,
-      tenantId: String(eventData.tenantId ?? ""),
+      tenantId,
       userType: String(walletData.userType ?? "professional"),
       userName: String(walletData.userName ?? "User"),
       transactionType: "debit",
@@ -590,7 +603,13 @@ export async function approveAssessmentPromotionRequest(args: {
       throw new Error("Could not determine requester wallet for this promotion.");
     }
 
-    const walletRef = doc(db, "wallets", requesterId);
+    const tenantId = String(assessmentData.tenantId ?? "");
+    const requesterWallet = await getWalletByUserAndTenant({ userId: requesterId, tenantId });
+    if (!requesterWallet) {
+      throw new Error("Requester wallet not found.");
+    }
+
+    const walletRef = doc(db, "wallets", requesterWallet.id);
     const walletSnap = await transaction.get(walletRef);
     if (!walletSnap.exists()) {
       throw new Error("Requester wallet not found.");
@@ -618,9 +637,9 @@ export async function approveAssessmentPromotionRequest(args: {
 
     const walletTransactionRef = doc(collection(db, "walletTransactions"));
     transaction.set(walletTransactionRef, {
-      walletId: requesterId,
+      walletId: requesterWallet.id,
       userId: requesterId,
-      tenantId: String(assessmentData.tenantId ?? ""),
+      tenantId,
       userType: String(walletData.userType ?? "professional"),
       userName: String(walletData.userName ?? "User"),
       transactionType: "debit",

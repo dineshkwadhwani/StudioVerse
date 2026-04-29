@@ -17,6 +17,19 @@ No open critical blockers.
 
 No open high priority items.
 
+### E14 — Revenue Models and Monetization
+- Implement Super Admin monetization settings for listing fee, promotion fee, marketplace commission percentage, and lead unlock fee.
+- Allow creator-owned Programs and Events by removing platform-only validation constraints and wiring creator ownership rules.
+- Implement listing fee charge flow when creator content is published as public.
+- Implement marketplace purchase flow that applies commission only for non-owner purchases of creator-owned public content.
+- Implement creator earnings wallet balances for earned, available-for-cashout, and pending-settlement credits.
+- Implement creator earnings ledger entries for every eligible monetized transaction.
+- Implement lead unlock monetization flow with paid unlock actions and transaction records.
+- Implement creator self-assignment exemption logic so no commission is charged for creator-owned private/self delivery.
+- Implement Super Admin monetization reporting for listing revenue, promotion revenue, commission revenue, lead unlock revenue, and liabilities.
+- Implement cash-out readiness data model and payout request lifecycle for future Razorpay payout integration.
+- Add end-to-end audit fields and transaction traceability across all monetization paths.
+
 ---
 
 ## Medium Priority

@@ -4,7 +4,7 @@ import { useEffect, useState, startTransition } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import ProgramForm from "./ProgramForm";
 import styles from "./SuperAdminPortal.module.css";
-import { db } from "@/services/firebase";
+import { auth, db } from "@/services/firebase";
 import {
   createProgramFormValues,
   normalizeProgramForm,
@@ -18,6 +18,8 @@ import {
   uploadProgramThumbnail,
   validateThumbnailFile,
 } from "@/services/programs.service";
+import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
+import { getWalletByUserId } from "@/services/wallet.service";
 import {
   PROGRAM_STATUS_LABELS,
   PROGRAM_VISIBILITY_LABELS,
@@ -26,6 +28,7 @@ import {
   type ProgramRecord,
   type ProgramSaveMode,
 } from "@/types/program";
+import type { PromotionPackageRecord } from "@/types/promotionPackage";
 
 type TenantOption = {
   id: string;
@@ -60,7 +63,9 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
     expiresAt: toDateInputValue(program.expiresAt),
     status: program.status,
     facilitatorName: program.facilitatorName ?? "",
-    promoted: program.promoted,
+    promoted: program.promotionStatus === "requested" || program.promotionStatus === "promoted",
+    promotionPackageId: program.promotionPackageId ?? "",
+    promotionStatus: program.promotionStatus,
     published: program.publicationState === "published",
     visibility: program.visibility === "private" ? "private" : "public",
     ownershipScope: program.ownershipScope,
@@ -85,6 +90,8 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
   const [formOpen, setFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<ProgramFormValues>(createProgramFormValues());
   const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
+  const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
+  const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
 
@@ -126,6 +133,29 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
   useEffect(() => {
     void refreshPrograms(selectedTenantId || undefined);
   }, [selectedTenantId]);
+
+  useEffect(() => {
+    async function loadPromotionPackagesForForm(): Promise<void> {
+      if (!formOpen || !formValues.tenantId) {
+        setPromotionPackages([]);
+        setPromotionPackagesLoading(false);
+        return;
+      }
+
+      setPromotionPackagesLoading(true);
+      try {
+        const loaded = await listActivePromotionPackagesForTenant(formValues.tenantId);
+        setPromotionPackages(loaded.filter((pkg) => pkg.resourceType === "program"));
+      } catch (loadError) {
+        console.error("Failed to load promotion packages for Program form:", loadError);
+        setPromotionPackages([]);
+      } finally {
+        setPromotionPackagesLoading(false);
+      }
+    }
+
+    void loadPromotionPackagesForForm();
+  }, [formOpen, formValues.tenantId]);
 
   function openCreate(): void {
     const defaultTenantId = selectedTenantId || tenants.find((tenant) => tenant.status === "active")?.tenantId || "";
@@ -173,6 +203,42 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
     setSelectedThumbnail(file);
   }
 
+  async function validatePromotionCreditsForRequester(values: ProgramFormValues): Promise<string | null> {
+    if (!values.promoted || !values.promotionPackageId) {
+      return null;
+    }
+
+    const role = typeof window !== "undefined" ? sessionStorage.getItem("cs_role") : null;
+    const requiresCreditCheck = role === "company" || role === "professional";
+    if (!requiresCreditCheck) {
+      return null;
+    }
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      return "Unable to verify wallet. Please sign in again.";
+    }
+
+    const wallet = await getWalletByUserId(uid);
+    const availableCoins = wallet?.availableCoins ?? 0;
+
+    let selectedPackage = promotionPackages.find((pkg) => pkg.id === values.promotionPackageId);
+    if (!selectedPackage && values.tenantId) {
+      const loaded = await listActivePromotionPackagesForTenant(values.tenantId);
+      selectedPackage = loaded.find((pkg) => pkg.resourceType === "program" && pkg.id === values.promotionPackageId);
+    }
+
+    if (!selectedPackage) {
+      return "Selected promotion package is unavailable.";
+    }
+
+    if (availableCoins < selectedPackage.costCredits) {
+      return `Not enough credits. Required: ${selectedPackage.costCredits}, Available: ${availableCoins}.`;
+    }
+
+    return null;
+  }
+
   async function submit(): Promise<void> {
     setBusy(true);
     setError("");
@@ -187,6 +253,17 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
       });
       if (Object.keys(preliminaryErrors).length > 0) {
         setFormErrors(preliminaryErrors);
+        return;
+      }
+
+      const creditValidationError = await validatePromotionCreditsForRequester(formValues);
+      if (creditValidationError) {
+        setFormErrors((previous) => ({ ...previous, promotionPackageId: creditValidationError }));
+        setFormValues((previous) => ({
+          ...previous,
+          promoted: false,
+          promotionStatus: "none",
+        }));
         return;
       }
 
@@ -379,6 +456,8 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
           uploadBusy={uploadBusy}
           editing={Boolean(formValues.id)}
           thumbnailName={selectedThumbnail?.name ?? null}
+          promotionPackages={promotionPackages}
+          promotionPackagesLoading={promotionPackagesLoading}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onCancel={closeForm}

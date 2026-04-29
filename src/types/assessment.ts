@@ -24,6 +24,7 @@ export type AssessmentStatus = "draft" | "published" | "archived";
 export type AssessmentPublicationState = "unpublished" | "published" | "scheduled";
 export type AssessmentOwnershipScope = "platform" | "tenant" | "professional";
 export type AssessmentVisibility = "public" | "private";
+export type AssessmentPromotionStatus = "none" | "requested" | "promoted";
 export type AssessmentReportStyle =
   | "development-template"
   | "diagnostic-template"
@@ -56,6 +57,9 @@ export type AssessmentRecord = {
   analysisPrompt: string;
   questionGenerationPrompt: string;
   status: AssessmentStatus;
+  promoted: boolean;
+  promotionPackageId: string | null;
+  promotionStatus: AssessmentPromotionStatus;
   publicationState: AssessmentPublicationState;
   visibility: AssessmentVisibility;
   ownershipScope: AssessmentOwnershipScope;
@@ -155,6 +159,9 @@ export type AssessmentFormValues = {
   analysisPrompt: string;
   questionGenerationPrompt: string;
   status: AssessmentStatus;
+  promoted: boolean;
+  promotionPackageId: string;
+  promotionStatus: AssessmentPromotionStatus;
   publicationState: AssessmentPublicationState;
   visibility: AssessmentVisibility;
   ownershipScope: AssessmentOwnershipScope;
@@ -181,6 +188,12 @@ export const ASSESSMENT_TYPE_LABELS: Record<AssessmentType, string> = {
   preferences: "Preferences",
   behaviour: "Behaviour",
   custom: "Custom",
+};
+
+export const ASSESSMENT_PROMOTION_STATUS_LABELS: Record<AssessmentPromotionStatus, string> = {
+  none: "Not Promoted",
+  requested: "Promotion Requested",
+  promoted: "Promoted",
 };
 
 export type GeneratedQuestion = {

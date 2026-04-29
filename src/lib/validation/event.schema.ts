@@ -49,6 +49,8 @@ export const eventFormSchema = z.object({
   cost: z.string().trim(),
   status: z.enum(EVENT_STATUSES),
   promoted: z.boolean(),
+  promotionPackageId: z.string().trim(),
+  promotionStatus: z.enum(["none", "requested", "promoted"]),
   published: z.boolean(),
   visibility: z.enum(EVENT_VISIBILITIES),
   ownershipScope: z.enum(EVENT_OWNERSHIP_SCOPES),
@@ -92,6 +94,8 @@ export function normalizeEventForm(
   const publicationState = parsed.published ? "published" : "draft";
   const status = parsed.published ? "published" : "draft";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
+  const hasPromotionRequest = parsed.promoted && Boolean(parsed.promotionPackageId);
+  const promotionStatus = hasPromotionRequest ? "requested" : "none";
 
   const eventDate = parsed.eventDate || null;
   const eventTime = parsed.eventTime || null;
@@ -118,7 +122,9 @@ export function normalizeEventForm(
     creditsRequired,
     cost,
     status,
-    promoted: parsed.promoted,
+    promoted: false,
+    promotionPackageId: hasPromotionRequest ? parsed.promotionPackageId : null,
+    promotionStatus,
     visibility: parsed.visibility,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
@@ -230,6 +236,10 @@ export function validateEventForm(
 
   if (!["public", "private"].includes(values.visibility)) {
     errors.visibility = "Visibility must be public or private.";
+  }
+
+  if (values.promoted && !values.promotionPackageId.trim()) {
+    errors.promotionPackageId = "Select a promotion package for promoted Events.";
   }
 
   // Archived/cancelled events cannot be published

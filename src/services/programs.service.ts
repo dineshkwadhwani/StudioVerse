@@ -13,6 +13,7 @@ import {getDownloadURL, ref, uploadBytes} from "firebase/storage";
 import {httpsCallable} from "firebase/functions";
 import {db, functions, storage} from "@/services/firebase";
 import {
+  type ProgramPromotionStatus,
   type ProgramRecord,
   type ProgramSaveMode,
   type ProgramWriteInput,
@@ -42,6 +43,8 @@ function sanitizePayload(input: ProgramWriteInput): Record<string, unknown> {
     creditsRequired: input.creditsRequired,
     status: input.status,
     promoted: input.promoted,
+    promotionPackageId: nullToUndef(input.promotionPackageId),
+    promotionStatus: input.promotionStatus,
     visibility: input.visibility,
     ownershipScope: input.ownershipScope,
     catalogVisibility: input.catalogVisibility,
@@ -81,10 +84,21 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
+function toPromotionStatus(value: unknown, promoted: unknown, promotionPackageId: unknown): ProgramPromotionStatus {
+  if (value === "requested" || value === "promoted" || value === "none") {
+    return value;
+  }
+  if (typeof promotionPackageId === "string" && promotionPackageId.trim().length > 0 && !Boolean(promoted)) {
+    return "requested";
+  }
+  return Boolean(promoted) ? "promoted" : "none";
+}
+
 function mapProgram(id: string, data: DocumentData): ProgramRecord {
   const visibility = data.visibility === "private" || data.catalogVisibility === "professional_only"
     ? "private"
     : "public";
+  const promotionStatus = toPromotionStatus(data.promotionStatus, data.promoted, data.promotionPackageId);
   return {
     id,
     tenantId: data.tenantId,
@@ -105,6 +119,8 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
     status: data.status,
     facilitatorName: data.facilitatorName ?? null,
     promoted: Boolean(data.promoted),
+    promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
+    promotionStatus,
     visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,

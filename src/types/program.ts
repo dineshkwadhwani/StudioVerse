@@ -5,6 +5,7 @@ export const PROGRAM_VISIBILITIES = ["public", "private"] as const;
 export const PROGRAM_CATALOG_VISIBILITY = ["tenant_wide", "company_only", "professional_only"] as const;
 export const PROGRAM_PUBLICATION_STATES = ["draft", "published", "pending_publication_review", "rejected_publication"] as const;
 export const PROGRAM_STATUSES = ["draft", "published", "inactive", "archived"] as const;
+export const PROGRAM_PROMOTION_STATUSES = ["none", "requested", "promoted"] as const;
 
 export type ProgramDeliveryType = (typeof PROGRAM_DELIVERY_TYPES)[number];
 export type ProgramDurationUnit = (typeof PROGRAM_DURATION_UNITS)[number];
@@ -13,6 +14,7 @@ export type ProgramVisibility = (typeof PROGRAM_VISIBILITIES)[number];
 export type ProgramCatalogVisibility = (typeof PROGRAM_CATALOG_VISIBILITY)[number];
 export type ProgramPublicationState = (typeof PROGRAM_PUBLICATION_STATES)[number];
 export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
+export type ProgramPromotionStatus = (typeof PROGRAM_PROMOTION_STATUSES)[number];
 
 export type ProgramRecord = {
   id: string;
@@ -34,6 +36,8 @@ export type ProgramRecord = {
   status: ProgramStatus;
   facilitatorName: string | null;
   promoted: boolean;
+  promotionPackageId: string | null;
+  promotionStatus: ProgramPromotionStatus;
   visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string | null;
@@ -67,6 +71,8 @@ export type ProgramWriteInput = {
   status: ProgramStatus;
   facilitatorName: string | null;
   promoted: boolean;
+  promotionPackageId: string | null;
+  promotionStatus: ProgramPromotionStatus;
   visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string | null;
@@ -92,6 +98,8 @@ export type ProgramFormValues = {
   status: ProgramStatus;
   facilitatorName: string;
   promoted: boolean;
+  promotionPackageId: string;
+  promotionStatus: ProgramPromotionStatus;
   published: boolean;
   visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
@@ -121,6 +129,8 @@ export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   status: "draft",
   facilitatorName: "",
   promoted: false,
+  promotionPackageId: "",
+  promotionStatus: "none",
   published: false,
   visibility: "public",
   ownershipScope: "platform",
@@ -158,6 +168,12 @@ export const PROGRAM_STATUS_LABELS: Record<ProgramStatus, string> = {
   published: "Published",
   inactive: "Inactive",
   archived: "Archived",
+};
+
+export const PROGRAM_PROMOTION_STATUS_LABELS: Record<ProgramPromotionStatus, string> = {
+  none: "Not Promoted",
+  requested: "Promotion Requested",
+  promoted: "Promoted",
 };
 
 export function toDateInputValue(value: Date | null): string {

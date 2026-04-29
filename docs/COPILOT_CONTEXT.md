@@ -5,6 +5,70 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest implementation progress (29 April 2026) — Program/Event/Assessment Publish + Promotion Standardization
+
+### Cross-entity publishing model cleanup
+
+- Program, Event, and Assessment admin flows were aligned to use explicit `visibility: public|private` behavior.
+- Legacy semantic overlap between `Publish` and `Active` was cleaned up in admin handling and save normalization.
+- Publish now controls catalog availability behavior consistently; promotion remains a separate lifecycle.
+
+### Credit Packages and Promotion Packages admin UX alignment
+
+- SuperAdmin package terminology and flows were aligned to `Credit Packages` / `Promotion Packages` where applicable.
+- Add-package interactions were normalized to modal-based behavior consistent with other admin create forms.
+- Promotion package create flow regression was fixed:
+  - root cause: newly generated IDs with image upload were incorrectly treated as update operations.
+  - fix: package save now checks Firestore document existence before deciding create vs update.
+
+### Promotion workflow implementation (Program -> Event -> Assessment)
+
+- Introduced/standardized promotion request fields:
+  - `promotionPackageId`
+  - `promotionStatus` (`none | requested | promoted`)
+  - request/approval metadata and applied package details persisted on approval.
+- Program promotion lifecycle implemented first end-to-end:
+  - request from resource form
+  - superadmin queue visibility
+  - approval workflow
+  - wallet debit transaction on approval
+  - promotion start/end date stamping.
+- Event promotion lifecycle implemented with parity to Program:
+  - same request + queue + approval + wallet deduction model.
+- Assessment promotion lifecycle then implemented with parity:
+  - request controls in Manage Assessments
+  - package selection and wallet precheck
+  - queue visibility and approval support.
+
+### Promotion Requests queue consolidation
+
+- SuperAdmin Promotion Requests now supports mixed resource queues:
+  - Program
+  - Event
+  - Assessment
+- Queue cards show package name and resource type labels (not raw IDs).
+- Approval handlers route by resource type while applying identical wallet + promotion bookkeeping rules.
+
+### Backend standardization: Assessments moved to callable Functions
+
+- Assessments previously used direct client-side Firestore writes from admin UI.
+- Assessments now follow the same architecture as Program/Event via callable Functions:
+  - new function schema + validation: `functions/src/assessments/assessmentSchemas.ts`
+  - new callable create: `functions/src/assessments/createAssessment.ts`
+  - new callable update: `functions/src/assessments/updateAssessment.ts`
+  - exported in `functions/src/index.ts`.
+- Frontend now uses service wrapper + callables for assessment definition saves:
+  - `src/services/assessments.service.ts`
+  - `src/modules/admin/AssessmentsSection.tsx` migrated off direct `updateDoc`/`writeBatch` metadata writes.
+- App and functions builds validated successfully after migration.
+
+### Test-project deployment status
+
+- Program callable updates deployed to `studioverse-test` during rollout.
+- Event callable updates deployed to `studioverse-test` during rollout.
+- New Assessment callables (`createAssessment`, `updateAssessment`) deployed to `studioverse-test`.
+- Production deploy intentionally deferred.
+
 ## Latest implementation progress (23 April 2026) — Referral Join Coin Deduplication
 
 - Fixed referral-join reward logic to prevent double onboarding credits for referred users.

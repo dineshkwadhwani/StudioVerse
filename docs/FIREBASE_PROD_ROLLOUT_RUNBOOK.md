@@ -16,6 +16,9 @@ Queued for prod rollout once project exists:
 - Program private/public visibility support in callable schemas and persistence.
 - Program create/update callable updates (`createProgram`, `updateProgram`) including audit metadata for `visibility`.
 - Program client payload/schema alignment required by callable functions.
+- Event promotion and visibility callable updates (`createEvent`, `updateEvent`) including promotion metadata parity.
+- Assessment callable standardization rollout (`createAssessment`, `updateAssessment`) replacing direct admin metadata writes.
+- Promotion request lifecycle rollout for Program/Event/Assessment including package-based approval and wallet debit behavior.
 
 Go-live handoff instruction:
 - After `studioverse-prod` is created, execute sections A through F in order.
@@ -34,6 +37,7 @@ Scope covered:
 - Role-based access menus (E8) routing and access confirmation requirements
 - Manage Users for Company/Professional (E10) scoped creation and association rollout requirements
 - Multi-tenant content sharing (Apr 2026) — Programs/Events/Assessments published to multiple tenants
+  - Promotion Packages + Promotion Requests rollout (Apr 2026) across Program/Event/Assessment
 
 ## First-time production project bootstrap (when `studioverse-prod` does not exist yet)
 
@@ -59,7 +63,7 @@ Expected state:
 
 Enable and initialize these services before deploying application artifacts:
 
-1. Firestore (Native mode) in intended production region.
+1. Firestore (Native mode) in `asia-south1` to match `firebase.json` location.
 2. Cloud Storage bucket for `studioverse-prod`.
 3. Firebase Authentication (enable required sign-in methods used by app flows).
 4. Cloud Functions APIs (via first deploy or API enablement).
@@ -266,7 +270,8 @@ Backend impact for production rollout:
   - `tenantIds` is written to Firestore payload alongside `tenantId`
   - no new functions required; existing callables are schema-extended
   - redeploy functions with updated schemas before enabling multi-tenant UI in production
-- **Firestore indexes:** no new composite indexes required; existing single-field index on `tenantId` is retained
+  - **Cloud Functions (Assessment parity):** `createAssessment`, `updateAssessment` now accept and persist `tenantIds` in callable payloads
+  - **Firestore indexes:** no new composite indexes required for this parity release; existing single-field index on `tenantId` is retained
 - **Firestore rules:** no rule changes required if current rules already grant write access for `tenantIds` alongside `tenantId`
   - existing doc-write rules that permit `tenantId` updates should permit `tenantIds` updates
   - test production rules against sample payloads containing both fields before cutover
@@ -277,6 +282,7 @@ Backend impact for production rollout:
 Operational checklist for rollout:
 - Confirm `createProgram.ts` and `updateProgram.ts` handle `tenantIds` correctly
 - Confirm `createEvent.ts` and `updateEvent.ts` handle `tenantIds` correctly
+- Confirm `createAssessment.ts` and `updateAssessment.ts` handle `tenantIds` correctly
 - Deploy function updates before enabling multi-tenant selection UI in staging/prod
 - Test new multi-tenant admin flows against staging environment before prod cutover
 - Smoke test content visibility across all selected tenants in staging
@@ -324,7 +330,10 @@ These files are the canonical definitions that must be promoted to production:
 - Event admin section: `src/modules/admin/EventsSection.tsx` (defaults/hydration for tenantIds)
 - Assessment admin module: `src/modules/admin/AssessmentsSection.tsx` (includes `tenantIds` multi-select support)
 - Assessment types/schema model: `src/types/assessment.ts` (includes `tenantIds: string[]` in form/record shapes)
-- Assessment service: `src/services/assessment.service.ts` (tenant-scope matching for multi-tenant support)
+- Assessment callable service: `src/services/assessments.service.ts` (create/update callable wrapper)
+- Assessment scoped read service: `src/services/assessments-scoped.service.ts` (role-based visibility)
+- Assessment callable functions: `functions/src/assessments/createAssessment.ts`, `functions/src/assessments/updateAssessment.ts`
+- Assessment callable schema/business rules: `functions/src/assessments/assessmentSchemas.ts`
 - Assessment AI question generation route: `src/app/api/assessments/generate-questions/route.ts`
 - Wallet types/schema model: `src/types/wallet.ts`
 - Wallet client service / transaction logic: `src/services/wallet.service.ts`
@@ -356,13 +365,15 @@ From `functions/src/index.ts`:
 - `updateProgram` (callable, region `asia-south1`)
 - `createEvent` (callable, region `asia-south1`)
 - `updateEvent` (callable, region `asia-south1`)
+- `createAssessment` (callable, region `asia-south1`)
+- `updateAssessment` (callable, region `asia-south1`)
 - `testGroqPrompt` (exported function for AI prompt testing)
 - `seedInitialSuperadmin` (HTTP request function)
 
 Assessment note:
-- There is currently no Firebase callable for Assessment generation/authoring.
 - Assessment question generation currently runs through Next.js server route `src/app/api/assessments/generate-questions/route.ts` and requires `GROQ_API_KEY` in the deployed app environment.
-- Assessment writes are currently done from `src/modules/admin/AssessmentsSection.tsx` directly to Firestore, so any assessment schema field additions (for example `creditsRequired`) require Firestore rules compatibility checks even when no new callable function is deployed.
+- Assessment definition writes are now handled through Firebase callable functions (`createAssessment`, `updateAssessment`) invoked by `src/services/assessments.service.ts`.
+- Assessment authoring still depends on Firestore rules for read paths and on Storage rules for cover image uploads.
 
 Wallet note:
 - There is currently no Firebase callable for wallet issuance.
@@ -460,9 +471,9 @@ Before any prod deploy:
   - `creditsRequired` and `cost` must be accepted by `functions/src/events/eventSchemas.ts`.
   - `eventSource` must be accepted by `functions/src/events/eventSchemas.ts` with allowed values `studioverse_manager` and `external`.
   - deploy Event callables (`createEvent`, `updateEvent`) before using new Event fields in production.
-17. Confirm Assessment schema parity for admin form fields:
-  - `creditsRequired` must be present in `assessments` documents written by admin flows.
-  - review Firestore rules so assessment writes with `creditsRequired` are not blocked.
+17. Confirm Assessment callable schema parity for admin form fields:
+  - `creditsRequired`, promotion fields, and tenant-scope fields are accepted by `functions/src/assessments/assessmentSchemas.ts`.
+  - deploy Assessment callables (`createAssessment`, `updateAssessment`) before using new Assessment admin save flows in production.
 18. Confirm legacy data defaults for newly introduced numeric fields:
   - existing Event docs missing `creditsRequired`/`cost` should be treated as `0` in UI.
   - existing Assessment docs missing `creditsRequired` should be treated as `0` in UI.
@@ -478,6 +489,14 @@ Before any prod deploy:
    - Test multi-tenant edit flows: ensure primary tenant remains locked while secondary tenants remain editable.
    - Deploy function updates before enabling multi-tenant UI in production.
    - Verify tenant-scope visibility logic: content should appear in all tenant routes where either `item.tenantId === targetTenant` OR `item.tenantIds?.includes(targetTenant)`.
+24. **Promotion lifecycle rollout (Apr 2026):**
+  - Confirm `promotionPackages` collection exists with active package docs per tenant/resource type as needed.
+  - Confirm Program/Event/Assessment promotion requests appear in SuperAdmin Promotion Requests queue.
+  - Confirm approve action sets `promotionStatus = promoted`, writes promotion start/end metadata, and records applied package metadata.
+  - Confirm requester wallet debit entries are written in `walletTransactions` when promotion is approved.
+25. **Assessment callable migration guard:**
+  - Confirm production includes `createAssessment` and `updateAssessment` function deployments from the same release commit as frontend.
+  - Confirm no stale admin flow paths depend on direct metadata writes for assessment create/update.
 
 ## Release-day quick execution checklist
 

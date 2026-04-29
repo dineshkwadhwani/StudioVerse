@@ -60,6 +60,58 @@ The repository has active work across:
 
 This context file should not try to reproduce every implementation detail. Those details belong in the deeper domain docs and feature docs.
 
+## Latest implementation progress (29 April 2026)
+
+### Program/Event/Assessment publish + promotion standardization
+
+- Program, Event, and Assessment admin flows were aligned on explicit `visibility` behavior.
+- Publish lifecycle handling was cleaned up so it remains distinct from promotion lifecycle handling.
+
+### Promotion package UX and reliability
+
+- SuperAdmin package flows were aligned for consistent modal-based create/edit behavior.
+- Fixed a promotion package create regression where image-upload flows pre-generated IDs that were incorrectly treated as update operations.
+- Save logic now checks Firestore doc existence before choosing create vs update.
+
+### Promotion lifecycle rollout across resource types
+
+- Promotion fields standardized across resource models:
+	- `promotionPackageId`
+	- `promotionStatus` (`none | requested | promoted`)
+- Program promotion flow implemented first end-to-end (request -> queue -> approval -> wallet debit -> promotion dates).
+- Event promotion flow brought to parity with Program.
+- Assessment promotion flow brought to parity with Program/Event.
+
+### Promotion Requests queue consolidation
+
+- SuperAdmin Promotion Requests now supports mixed queues for:
+	- Program
+	- Event
+	- Assessment
+- Queue cards display package names and resource labels (not raw IDs).
+- Approvals are routed by resource type with consistent wallet and promotion metadata updates.
+
+### Architecture standardization: Assessments now use callable Functions
+
+- Assessments previously saved via direct Firestore writes from admin UI.
+- Assessments now use the same callable backend pattern as Program/Event:
+	- `functions/src/assessments/assessmentSchemas.ts`
+	- `functions/src/assessments/createAssessment.ts`
+	- `functions/src/assessments/updateAssessment.ts`
+	- exported in `functions/src/index.ts`.
+- Frontend assessment definition saves now use service wrapper + callables:
+	- `src/services/assessments.service.ts`
+	- `src/modules/admin/AssessmentsSection.tsx` migrated off direct metadata writes.
+
+### Build and deployment status
+
+- App build and functions build validated successfully after migration.
+- Test rollout completed to Firebase project `studioverse-test`:
+	- Program callable updates deployed.
+	- Event callable updates deployed.
+	- Assessment callable create/update deployed.
+- Production deployment intentionally deferred.
+
 ## Email setup baseline
 
 For Coaching Studio:

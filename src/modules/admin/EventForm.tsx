@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./SuperAdminPortal.module.css";
+import { auth } from "@/services/firebase";
+import { getWalletByUserId } from "@/services/wallet.service";
 import {
   EVENT_SOURCES,
   EVENT_SOURCE_LABELS,
   EVENT_TYPES,
+  EVENT_PROMOTION_STATUS_LABELS,
   EVENT_TYPE_LABELS,
   EVENT_STATUS_LABELS,
   EVENT_VISIBILITY_LABELS,
   type EventFormValues,
 } from "@/types/event";
+import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { EventFormErrors } from "@/lib/validation/event.schema";
 
 type TenantOption = {
@@ -28,6 +32,8 @@ type EventFormProps = {
   uploadBusy: boolean;
   editing: boolean;
   thumbnailName: string | null;
+  promotionPackages: PromotionPackageRecord[];
+  promotionPackagesLoading: boolean;
   onChange: <K extends keyof EventFormValues>(field: K, nextValue: EventFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onCancel: () => void;
@@ -42,11 +48,14 @@ export default function EventForm({
   uploadBusy,
   editing,
   thumbnailName,
+  promotionPackages,
+  promotionPackagesLoading,
   onChange,
   onThumbnailSelect,
   onCancel,
   onSave,
 }: EventFormProps) {
+  const [promotionCreditError, setPromotionCreditError] = useState("");
   const activeTenants = tenants.filter((t) => t.status === "active");
   const primaryTenantId = value.tenantId;
   const selectedTenantIds = Array.isArray(value.tenantIds)
@@ -101,6 +110,7 @@ export default function EventForm({
       "cost",
       "thumbnailUrl",
       "promoted",
+      "promotionPackageId",
       "published",
       "visibility",
     ];
@@ -112,6 +122,36 @@ export default function EventForm({
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [errors]);
+
+  async function validatePromotionCredits(packageId: string): Promise<string | null> {
+    if (!packageId) {
+      return null;
+    }
+
+    const role = typeof window !== "undefined" ? sessionStorage.getItem("cs_role") : null;
+    const requiresCreditCheck = role === "company" || role === "professional";
+    if (!requiresCreditCheck) {
+      return null;
+    }
+
+    const selectedPackage = promotionPackages.find((pkg) => pkg.id === packageId);
+    if (!selectedPackage) {
+      return "Selected promotion package is unavailable.";
+    }
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      return "Unable to verify wallet. Please sign in again.";
+    }
+
+    const wallet = await getWalletByUserId(uid);
+    const availableCoins = wallet?.availableCoins ?? 0;
+    if (availableCoins < selectedPackage.costCredits) {
+      return `Not enough credits. Required: ${selectedPackage.costCredits}, Available: ${availableCoins}.`;
+    }
+
+    return null;
+  }
 
   return (
     <div className={styles.modalOverlay}>
@@ -366,10 +406,29 @@ export default function EventForm({
                 type="checkbox"
                 ref={(el) => { fieldRefs.current.promoted = el; }}
                 checked={value.promoted}
-                onChange={(e) => onChange("promoted", e.target.checked)}
+                onChange={async (e) => {
+                  const isPromoted = e.target.checked;
+
+                  if (isPromoted && value.promotionPackageId) {
+                    const creditError = await validatePromotionCredits(value.promotionPackageId);
+                    if (creditError) {
+                      setPromotionCreditError(creditError);
+                      onChange("promoted", false);
+                      onChange("promotionStatus", "none");
+                      return;
+                    }
+                  }
+
+                  setPromotionCreditError("");
+                  onChange("promoted", isPromoted);
+                  onChange("promotionStatus", isPromoted ? "requested" : "none");
+                  if (!isPromoted) {
+                    onChange("promotionPackageId", "");
+                  }
+                }}
                 disabled={busy}
               />
-              Promoted
+              Request Promotion
             </label>
             <label className={styles.radioPill}>
               <input
@@ -383,6 +442,54 @@ export default function EventForm({
             </label>
             <span className={styles.statusBadge}>{EVENT_STATUS_LABELS[value.status]}</span>
           </div>
+          {promotionCreditError ? <p className={styles.error}>{promotionCreditError}</p> : null}
+
+          {value.promoted ? (
+            <>
+              <label className={styles.label} htmlFor="event-promotion-package">
+                Promotion Package
+              </label>
+              <select
+                id="event-promotion-package"
+                ref={(el) => { fieldRefs.current.promotionPackageId = el; }}
+                className={`${styles.select} ${errors.promotionPackageId ? styles.inputError : ""}`}
+                value={value.promotionPackageId}
+                onChange={async (e) => {
+                  const nextPackageId = e.target.value;
+                  onChange("promotionPackageId", nextPackageId);
+
+                  if (!value.promoted || !nextPackageId) {
+                    setPromotionCreditError("");
+                    return;
+                  }
+
+                  const creditError = await validatePromotionCredits(nextPackageId);
+                  if (creditError) {
+                    setPromotionCreditError(creditError);
+                    onChange("promoted", false);
+                    onChange("promotionStatus", "none");
+                    return;
+                  }
+
+                  setPromotionCreditError("");
+                }}
+                disabled={busy || promotionPackagesLoading || !value.tenantId}
+              >
+                <option value="">
+                  {value.tenantId ? "Select promotion package" : "Select tenant first"}
+                </option>
+                {promotionPackages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                  </option>
+                ))}
+              </select>
+              {errors.promotionPackageId ? <p className={styles.error}>{errors.promotionPackageId}</p> : null}
+              {!promotionPackagesLoading && value.tenantId && promotionPackages.length === 0 ? (
+                <p className={styles.subtitle}>No active Event promotion packages found for this tenant.</p>
+              ) : null}
+            </>
+          ) : null}
 
           {/* Promote / Publish info panel (E3 §12.8) */}
           <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
@@ -393,6 +500,7 @@ export default function EventForm({
               <strong>Promote</strong> elevates a <em>published</em> event to the tenant landing page.
               Promotion does not replace publication — both must be true for landing-page placement.
             </p>
+            <p className={styles.userMeta}>Promotion: {EVENT_PROMOTION_STATUS_LABELS[value.promotionStatus]}</p>
             <p className={styles.userMeta}>Ownership Scope: platform</p>
           </div>
 

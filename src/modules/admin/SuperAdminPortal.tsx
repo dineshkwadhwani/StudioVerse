@@ -37,6 +37,8 @@ import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
 import ManageCoinsSection from "./ManageCoinsSection";
 import CreditPackagesSection from "./CreditPackagesSection";
+import PromotionPackagesSection from "./PromotionPackagesSection";
+import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
 import { getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
@@ -60,6 +62,8 @@ type MenuKey =
   | "assigned-activities"
   | "assign-activity"
   | "credit-packages"
+  | "promotion-packages"
+  | "promotion-requests"
   | "orders";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
@@ -200,6 +204,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "events", label: "Events" },
   { key: "coins", label: "Wallet" },
   { key: "credit-packages", label: "Credit Packages" },
+  { key: "promotion-packages", label: "Promotion Package" },
   { key: "orders", label: "Orders" },
   { key: "referrals", label: "References" },
   { key: "assigned-activities", label: "Assigned Activities" },
@@ -215,7 +220,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "manage",
     label: "Manage",
-    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins", "credit-packages", "orders", "referrals"],
+    itemKeys: ["users", "tenants", "tools", "programs", "events", "coins", "credit-packages", "promotion-packages", "orders", "referrals"],
   },
   {
     key: "actions",
@@ -389,6 +394,7 @@ export default function SuperAdminPortal() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
+  const [promotionRequestsTenantId, setPromotionRequestsTenantId] = useState<string>("");
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
 
   const [usersFilter, setUsersFilter] = useState<UsersFilter>("all");
@@ -1546,6 +1552,22 @@ export default function SuperAdminPortal() {
 
           {activeMenu === "credit-packages" ? <CreditPackagesSection operatorId={profile.id} /> : null}
 
+          {activeMenu === "promotion-packages" ? (
+            <PromotionPackagesSection
+              operatorId={profile.id}
+              onOpenPromotionRequests={(tenantId) => {
+                setPromotionRequestsTenantId(tenantId ?? "");
+                setActiveMenu("promotion-requests");
+              }}
+            />
+          ) : null}
+          {activeMenu === "promotion-requests" ? (
+            <PromotionRequestsSection
+              operatorId={profile.id}
+              initialTenantId={promotionRequestsTenantId || undefined}
+              onBack={() => setActiveMenu("promotion-packages")}
+            />
+          ) : null}
           {activeMenu === "orders" ? <ManageOrdersSection /> : null}
 
           {activeMenu === "programs" ? <ProgramsSection tenants={tenants} /> : null}

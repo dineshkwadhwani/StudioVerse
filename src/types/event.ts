@@ -18,6 +18,7 @@ export const EVENT_PUBLICATION_STATES = [
   "pending_publication_review",
   "rejected_publication",
 ] as const;
+export const EVENT_PROMOTION_STATUSES = ["none", "requested", "promoted"] as const;
 
 // NOTE: Events add "cancelled" status that Programs do not have (E3 §12.7)
 export const EVENT_STATUSES = ["draft", "published", "inactive", "archived", "cancelled"] as const;
@@ -29,6 +30,7 @@ export type EventType = (typeof EVENT_TYPES)[number];
 export type EventSource = (typeof EVENT_SOURCES)[number];
 export type EventPublicationState = (typeof EVENT_PUBLICATION_STATES)[number];
 export type EventStatus = (typeof EVENT_STATUSES)[number];
+export type EventPromotionStatus = (typeof EVENT_PROMOTION_STATUSES)[number];
 
 /** Canonical Event record as returned from Firestore */
 export type EventRecord = {
@@ -57,6 +59,8 @@ export type EventRecord = {
   status: EventStatus;
   /** Promoted flag — eligible for landing-page elevation only when event is also published */
   promoted: boolean;
+  promotionPackageId: string | null;
+  promotionStatus: EventPromotionStatus;
   visibility: EventVisibility;
   // Future extension: platform | company | professional
   ownershipScope: EventOwnershipScope;
@@ -95,6 +99,8 @@ export type EventWriteInput = {
   cost: number;
   status: EventStatus;
   promoted: boolean;
+  promotionPackageId: string | null;
+  promotionStatus: EventPromotionStatus;
   visibility: EventVisibility;
   ownershipScope: EventOwnershipScope;
   ownerEntityId: string | null;
@@ -122,6 +128,8 @@ export type EventFormValues = {
   cost: string;
   status: EventStatus;
   promoted: boolean;
+  promotionPackageId: string;
+  promotionStatus: EventPromotionStatus;
   /** Convenience boolean: true → publicationState="published" / status="published" */
   published: boolean;
   visibility: EventVisibility;
@@ -153,6 +161,8 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   cost: "0",
   status: "draft",
   promoted: false,
+  promotionPackageId: "",
+  promotionStatus: "none",
   published: false,
   visibility: "public",
   ownershipScope: "platform",
@@ -186,4 +196,10 @@ export const EVENT_SOURCE_LABELS: Record<EventSource, string> = {
 export const EVENT_VISIBILITY_LABELS: Record<EventVisibility, string> = {
   public: "Public",
   private: "Private",
+};
+
+export const EVENT_PROMOTION_STATUS_LABELS: Record<EventPromotionStatus, string> = {
+  none: "Not Promoted",
+  requested: "Promotion Requested",
+  promoted: "Promoted",
 };

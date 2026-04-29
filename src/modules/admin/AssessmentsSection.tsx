@@ -3,23 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   collection,
-  doc,
   getDocs,
   orderBy,
   query,
-  serverTimestamp,
-  updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/services/firebase";
+import { auth, db, storage } from "@/services/firebase";
+import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
+import { getWalletByUserId } from "@/services/wallet.service";
+import { saveAssessmentDefinition } from "@/services/assessments.service";
 import {
   DEFAULT_REPORT_STYLE,
   REPORT_STYLE_LABELS,
 } from "@/modules/assessments/report-styles";
 import styles from "./SuperAdminPortal.module.css";
 import {
+  ASSESSMENT_PROMOTION_STATUS_LABELS,
   ASSESSMENT_TYPE_LABELS,
   RENDER_STYLE_LABELS,
   type AssessmentFormValues,
@@ -34,6 +34,7 @@ import {
   type AssessmentVisibility,
   type GeneratedQuestion,
 } from "@/types/assessment";
+import type { PromotionPackageRecord } from "@/types/promotionPackage";
 
 type TenantOption = {
   id: string;
@@ -100,6 +101,9 @@ const EMPTY_FORM: AssessmentFormValues = {
   visibility: "public",
   ownershipScope: "tenant",
   ownerEntityId: "",
+  promoted: false,
+  promotionPackageId: "",
+  promotionStatus: "none",
 };
 
 const ASSESSMENT_VISIBILITY_LABELS: Record<AssessmentVisibility, string> = {
@@ -158,6 +162,9 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
+  const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
+  const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
+  const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
 
   const processedPromptPreview = useMemo(() => {
     const count = parseInt(formValues.questionBankCount, 10);
@@ -217,6 +224,29 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       .finally(() => setLoading(false));
   }, [selectedTenantId]);
 
+  useEffect(() => {
+    async function loadPromotionPackagesForForm(): Promise<void> {
+      if (!formOpen || !formValues.tenantId) {
+        setPromotionPackages([]);
+        setPromotionPackagesLoading(false);
+        return;
+      }
+
+      setPromotionPackagesLoading(true);
+      try {
+        const loaded = await listActivePromotionPackagesForTenant(formValues.tenantId);
+        setPromotionPackages(loaded.filter((pkg) => pkg.resourceType === "assessment"));
+      } catch (loadError) {
+        console.error("Failed to load promotion packages for Assessment form:", loadError);
+        setPromotionPackages([]);
+      } finally {
+        setPromotionPackagesLoading(false);
+      }
+    }
+
+    void loadPromotionPackagesForForm();
+  }, [formOpen, formValues.tenantId]);
+
   function openCreate() {
     setFormValues({
       ...EMPTY_FORM,
@@ -261,6 +291,9 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       visibility: assessment.visibility === "private" ? "private" : "public",
       ownershipScope: assessment.ownershipScope,
       ownerEntityId: assessment.ownerEntityId,
+      promoted: assessment.promotionStatus === "requested" || assessment.promotionStatus === "promoted",
+      promotionPackageId: assessment.promotionPackageId ?? "",
+      promotionStatus: assessment.promotionStatus ?? "none",
     });
     // Load existing questions from database.
     // Avoid orderBy here to prevent composite index dependency in edit flow.
@@ -411,6 +444,36 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       return;
     }
 
+    if (formValues.promoted && !formValues.promotionPackageId.trim()) {
+      setError("Select a promotion package to request Assessment promotion.");
+      return;
+    }
+
+    if (formValues.promoted && formValues.promotionPackageId.trim()) {
+      const role = typeof window !== "undefined" ? sessionStorage.getItem("cs_role") : null;
+      const requiresCreditCheck = role === "company" || role === "professional";
+      if (requiresCreditCheck) {
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+          setError("Unable to verify wallet. Please sign in again.");
+          return;
+        }
+
+        const wallet = await getWalletByUserId(uid);
+        const availableCoins = wallet?.availableCoins ?? 0;
+        const selectedPackage = promotionPackages.find((pkg) => pkg.id === formValues.promotionPackageId);
+        if (!selectedPackage) {
+          setError("Selected promotion package is unavailable.");
+          return;
+        }
+
+        if (availableCoins < selectedPackage.costCredits) {
+          setError(`Not enough credits. Required: ${selectedPackage.costCredits}, Available: ${availableCoins}.`);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -418,7 +481,6 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
     try {
       const isExisting = Boolean(formValues.id);
       const assessmentId = formValues.id ?? buildAssessmentId(formValues.tenantId, formValues.name);
-      const assessmentRef = doc(db, "assessments", assessmentId);
       const normalizedStatus = normalizeAssessmentStatus(formValues.status);
       const publicationState: AssessmentPublicationState =
         normalizedStatus === "published" ? "published" : "unpublished";
@@ -435,7 +497,16 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         assessmentImagePath = nextPath;
       }
 
-      const assessmentDoc: Record<string, unknown> = {
+      const promotionStatus = formValues.promoted && formValues.promotionPackageId.trim()
+        ? "requested"
+        : "none";
+
+      const newQuestions = isExisting
+        ? generatedQuestions.slice(existingQuestionCount)
+        : generatedQuestions;
+
+      await saveAssessmentDefinition({
+        id: isExisting ? assessmentId : undefined,
         tenantId: formValues.tenantId,
         tenantIds: formValues.tenantIds,
         name: formValues.name.trim(),
@@ -454,78 +525,20 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         analysisPrompt: formValues.analysisPrompt.trim(),
         questionGenerationPrompt: formValues.questionGenerationPrompt.trim(),
         status: normalizedStatus,
+        promoted: false,
+        promotionPackageId: promotionStatus === "none" ? null : formValues.promotionPackageId.trim(),
+        promotionStatus,
         publicationState,
         visibility: formValues.visibility,
         ownershipScope: formValues.ownershipScope,
         ownerEntityId: formValues.ownerEntityId.trim(),
-        createdBy: isExisting ? formValues.createdBy || "superadmin" : "superadmin",
-        updatedBy: "superadmin",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        publishedAt: normalizedStatus === "published" ? serverTimestamp() : null,
-      };
+        generatedQuestions: newQuestions,
+        existingQuestionCount,
+      }, isExisting);
 
       if (isExisting) {
-        // Update existing assessment metadata
-        await updateDoc(assessmentRef, assessmentDoc);
-
-        // Add only newly appended questions, keep existing questions untouched.
-        const newQuestions = generatedQuestions.slice(existingQuestionCount);
-        if (newQuestions.length > 0) {
-          const batch = writeBatch(db);
-
-          newQuestions.forEach((q, idx) => {
-            const qRef = doc(collection(db, "assessmentQuestions"));
-            batch.set(qRef, {
-              assessmentId,
-              tenantId: formValues.tenantId,
-              questionText: q.questionText,
-              questionType: formValues.renderStyle,
-              renderStyle: formValues.renderStyle,
-              options: q.options ?? [],
-              correctAnswers: q.correctAnswers ?? [],
-              scoringRule: q.scoringRule ?? "correct=1, wrong=0",
-              imageUrl: "",
-              imageDescription: q.imageDescription ?? "",
-              displayOrder: existingQuestionCount + idx + 1,
-              weight: q.weight ?? 1,
-              tags: q.tags ?? [],
-              isActive: true,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          });
-          await batch.commit();
-        }
         setMessage(`Assessment "${formValues.name}" updated.`);
       } else {
-        // Create new assessment
-        const batch = writeBatch(db);
-        batch.set(assessmentRef, assessmentDoc);
-
-        generatedQuestions.forEach((q, idx) => {
-          const qRef = doc(collection(db, "assessmentQuestions"));
-          batch.set(qRef, {
-            assessmentId,
-            tenantId: formValues.tenantId,
-            questionText: q.questionText,
-            questionType: formValues.renderStyle,
-            renderStyle: formValues.renderStyle,
-            options: q.options ?? [],
-            correctAnswers: q.correctAnswers ?? [],
-            scoringRule: q.scoringRule ?? "correct=1, wrong=0",
-            imageUrl: "",
-            imageDescription: q.imageDescription ?? "",
-            displayOrder: idx + 1,
-            weight: q.weight ?? 1,
-            tags: q.tags ?? [],
-            isActive: true,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        });
-
-        await batch.commit();
         setMessage(`Assessment "${formValues.name}" saved with ${generatedQuestions.length} questions.`);
       }
 
@@ -613,6 +626,13 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
             >
               Draft
             </button>
+            <button
+              type="button"
+              className={`${styles.filterPill} ${selectedPromoted === "true" ? styles.active : ""}`}
+              onClick={() => setSelectedPromoted("true")}
+            >
+              Promoted
+            </button>
           </div>
 
           <div className={styles.assessmentGrid}>
@@ -628,6 +648,9 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                   selectedPublicationState === "draft" &&
                   a.publicationState !== "unpublished"
                 ) {
+                  return false;
+                }
+                if (selectedPromoted === "true" && a.promotionStatus !== "promoted") {
                   return false;
                 }
                 return true;
@@ -651,6 +674,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                     <p className={styles.assessmentMeta}>Render: {RENDER_STYLE_LABELS[a.renderStyle] ?? a.renderStyle}</p>
                     <p className={styles.assessmentMeta}>Credits: {a.creditsRequired ?? 0} • {a.questionBankCount} Questions ({a.questionsPerAttempt}/attempt)</p>
                     <p className={styles.assessmentMeta}>Visibility: {ASSESSMENT_VISIBILITY_LABELS[a.visibility === "private" ? "private" : "public"]}</p>
+                    <p className={styles.assessmentMeta}>Promotion: {ASSESSMENT_PROMOTION_STATUS_LABELS[a.promotionStatus ?? "none"]}</p>
                   </div>
 
                   <div className={styles.assessmentActions}>
@@ -807,6 +831,45 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
                     <option value="public">Public</option>
                     <option value="private">Private</option>
                   </select>
+                </div>
+                <div>
+                  <label className={styles.label} htmlFor="a-promoted">Request Promotion</label>
+                  <label className={styles.checkboxRow}>
+                    <input
+                      id="a-promoted"
+                      type="checkbox"
+                      checked={formValues.promoted}
+                      onChange={(e) => {
+                        const nextPromoted = e.target.checked;
+                        setField("promoted", nextPromoted);
+                        setField("promotionStatus", nextPromoted ? "requested" : "none");
+                        if (!nextPromoted) {
+                          setField("promotionPackageId", "");
+                        }
+                      }}
+                    />
+                    <span>Send approval request to Super Admin</span>
+                  </label>
+                </div>
+                <div>
+                  <label className={styles.label} htmlFor="a-promotion-package">Promotion Package</label>
+                  <select
+                    id="a-promotion-package"
+                    className={styles.select}
+                    value={formValues.promotionPackageId}
+                    onChange={(e) => setField("promotionPackageId", e.target.value)}
+                    disabled={!formValues.promoted || promotionPackagesLoading}
+                  >
+                    <option value="">{formValues.promoted ? "Select promotion package" : "Enable promotion request first"}</option>
+                    {promotionPackages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                      </option>
+                    ))}
+                  </select>
+                  {!promotionPackagesLoading && formValues.promoted && promotionPackages.length === 0 ? (
+                    <p className={styles.subtitle}>No active Assessment promotion packages found for this tenant.</p>
+                  ) : null}
                 </div>
                 <div>
                   <label className={styles.label} htmlFor="a-scope">Ownership Scope</label>

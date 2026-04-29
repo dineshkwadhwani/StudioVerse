@@ -9,6 +9,7 @@ import { getScopedPrograms, canUserEditProgram, type UserScopeContext } from "@/
 import type { ProgramRecord } from "@/types/program";
 import {
   PROGRAM_DELIVERY_TYPE_LABELS,
+  PROGRAM_PROMOTION_STATUS_LABELS,
   PROGRAM_VISIBILITY_LABELS,
   type ProgramDeliveryType,
 } from "@/types/program";
@@ -265,6 +266,7 @@ export default function ManageProgramsPage({ config }: Props) {
                       Duration: {item.durationValue} {item.durationUnit}
                     </p>
                     <p className={styles.meta}>Status: {item.status}</p>
+                    <p className={styles.meta}>Promotion: {PROGRAM_PROMOTION_STATUS_LABELS[item.promotionStatus]}</p>
                     <p className={styles.meta}>Visibility: {PROGRAM_VISIBILITY_LABELS[item.visibility]}</p>
                     <div className={styles.buttonGroup}>
                       {userRole === "superadmin" ? (

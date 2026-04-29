@@ -4,7 +4,7 @@ import { useEffect, useState, startTransition } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import EventForm from "./EventForm";
 import styles from "./SuperAdminPortal.module.css";
-import { db } from "@/services/firebase";
+import { auth, db } from "@/services/firebase";
 import {
   createEventFormValues,
   normalizeEventForm,
@@ -18,7 +18,10 @@ import {
   uploadEventThumbnail,
   validateEventThumbnailFile,
 } from "@/services/events.service";
+import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
+import { getWalletByUserId } from "@/services/wallet.service";
 import {
+  EVENT_PROMOTION_STATUS_LABELS,
   EVENT_SOURCE_LABELS,
   EVENT_STATUS_LABELS,
   EVENT_TYPE_LABELS,
@@ -27,6 +30,7 @@ import {
   type EventRecord,
   type EventSaveMode,
 } from "@/types/event";
+import type { PromotionPackageRecord } from "@/types/promotionPackage";
 
 type TenantOption = {
   id: string;
@@ -62,7 +66,9 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     creditsRequired: String(event.creditsRequired),
     cost: String(event.cost ?? 0),
     status: event.status,
-    promoted: event.promoted,
+    promoted: event.promotionStatus === "requested" || event.promotionStatus === "promoted",
+    promotionPackageId: event.promotionPackageId ?? "",
+    promotionStatus: event.promotionStatus,
     published: event.publicationState === "published",
     visibility: event.visibility === "private" ? "private" : "public",
     ownershipScope: event.ownershipScope,
@@ -89,6 +95,8 @@ export default function EventsSection({
   const [formOpen, setFormOpen] = useState(false);
   const [formValues, setFormValues] = useState<EventFormValues>(createEventFormValues());
   const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
+  const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
+  const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
 
@@ -130,6 +138,29 @@ export default function EventsSection({
   useEffect(() => {
     void refreshEvents(selectedTenantId || undefined);
   }, [selectedTenantId]);
+
+  useEffect(() => {
+    async function loadPromotionPackagesForForm(): Promise<void> {
+      if (!formOpen || !formValues.tenantId) {
+        setPromotionPackages([]);
+        setPromotionPackagesLoading(false);
+        return;
+      }
+
+      setPromotionPackagesLoading(true);
+      try {
+        const loaded = await listActivePromotionPackagesForTenant(formValues.tenantId);
+        setPromotionPackages(loaded.filter((pkg) => pkg.resourceType === "event"));
+      } catch (loadError) {
+        console.error("Failed to load promotion packages for Event form:", loadError);
+        setPromotionPackages([]);
+      } finally {
+        setPromotionPackagesLoading(false);
+      }
+    }
+
+    void loadPromotionPackagesForForm();
+  }, [formOpen, formValues.tenantId]);
 
   function openCreate(): void {
     const defaultTenantId =
@@ -181,6 +212,42 @@ export default function EventsSection({
     setSelectedThumbnail(file);
   }
 
+  async function validatePromotionCreditsForRequester(values: EventFormValues): Promise<string | null> {
+    if (!values.promoted || !values.promotionPackageId) {
+      return null;
+    }
+
+    const role = typeof window !== "undefined" ? sessionStorage.getItem("cs_role") : null;
+    const requiresCreditCheck = role === "company" || role === "professional";
+    if (!requiresCreditCheck) {
+      return null;
+    }
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      return "Unable to verify wallet. Please sign in again.";
+    }
+
+    const wallet = await getWalletByUserId(uid);
+    const availableCoins = wallet?.availableCoins ?? 0;
+
+    let selectedPackage = promotionPackages.find((pkg) => pkg.id === values.promotionPackageId);
+    if (!selectedPackage && values.tenantId) {
+      const loaded = await listActivePromotionPackagesForTenant(values.tenantId);
+      selectedPackage = loaded.find((pkg) => pkg.resourceType === "event" && pkg.id === values.promotionPackageId);
+    }
+
+    if (!selectedPackage) {
+      return "Selected promotion package is unavailable.";
+    }
+
+    if (availableCoins < selectedPackage.costCredits) {
+      return `Not enough credits. Required: ${selectedPackage.costCredits}, Available: ${availableCoins}.`;
+    }
+
+    return null;
+  }
+
   async function submit(): Promise<void> {
     setBusy(true);
     setError("");
@@ -196,6 +263,17 @@ export default function EventsSection({
       });
       if (Object.keys(preliminaryErrors).length > 0) {
         setFormErrors(preliminaryErrors);
+        return;
+      }
+
+      const creditValidationError = await validatePromotionCreditsForRequester(formValues);
+      if (creditValidationError) {
+        setFormErrors((prev) => ({ ...prev, promotionPackageId: creditValidationError }));
+        setFormValues((prev) => ({
+          ...prev,
+          promoted: false,
+          promotionStatus: "none",
+        }));
         return;
       }
 
@@ -374,6 +452,7 @@ export default function EventsSection({
                       </p>
                     ) : null}
                     <p className={styles.eventMeta}>Visibility: {EVENT_VISIBILITY_LABELS[event.visibility]}</p>
+                    <p className={styles.eventMeta}>Promotion: {EVENT_PROMOTION_STATUS_LABELS[event.promotionStatus]}</p>
                   </div>
 
                   <div className={styles.eventActions}>
@@ -403,6 +482,8 @@ export default function EventsSection({
           uploadBusy={uploadBusy}
           editing={Boolean(formValues.id)}
           thumbnailName={selectedThumbnail?.name ?? null}
+          promotionPackages={promotionPackages}
+          promotionPackagesLoading={promotionPackagesLoading}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onCancel={closeForm}

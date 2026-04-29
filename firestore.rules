@@ -1,7 +1,18 @@
+    // Allow public read access to assessments for landing page
+    match /assessments/{assessmentId} {
+      allow read: if true;
+      allow write: if false;
+    }
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Allow public read access to tenants collection for bot config and branding
+    match /tenants/{tenantId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
     function isSignedIn() {
       return request.auth != null;
@@ -90,9 +101,13 @@ service cloud.firestore {
     // Make sure to write security rules for your app before that time, or else
     // all client requests to your Firestore database will be denied until you Update
     // your rules
-    match /{collectionId}/{documentPath=**} {
-      allow read, write: if request.time < timestamp.date(2026, 4, 29)
-        && collectionId != "coinRequests";
+    // Allow public read access to bot-knowledge configs
+    match /bot-knowledge/{tenantId} {
+      allow read: if true;
+      // Only allow writes from backend/admin (never from client)
+      allow write: if false;
     }
+
+    // Add other collection rules here as needed
   }
 }

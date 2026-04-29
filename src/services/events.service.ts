@@ -27,6 +27,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { db, functions, storage } from "@/services/firebase";
 import {
+  type EventPromotionStatus,
   type EventRecord,
   type EventSaveMode,
   type EventWriteInput,
@@ -53,6 +54,16 @@ function toDateTimeString(value: unknown): string | null {
   return null;
 }
 
+function toPromotionStatus(value: unknown, promoted: unknown, promotionPackageId: unknown): EventPromotionStatus {
+  if (value === "requested" || value === "promoted" || value === "none") {
+    return value;
+  }
+  if (typeof promotionPackageId === "string" && promotionPackageId.trim().length > 0 && !Boolean(promoted)) {
+    return "requested";
+  }
+  return Boolean(promoted) ? "promoted" : "none";
+}
+
 // ---------------------------------------------------------------------------
 // Map Firestore document → EventRecord
 // ---------------------------------------------------------------------------
@@ -61,6 +72,7 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
   const visibility = data.visibility === "private" || data.catalogVisibility === "professional_only"
     ? "private"
     : "public";
+  const promotionStatus = toPromotionStatus(data.promotionStatus, data.promoted, data.promotionPackageId);
 
   return {
     id,
@@ -84,6 +96,8 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     cost: data.cost ?? 0,
     status: data.status,
     promoted: Boolean(data.promoted),
+    promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
+    promotionStatus,
     visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,
@@ -126,6 +140,8 @@ function sanitizePayload(input: EventWriteInput): Record<string, unknown> {
     cost: input.cost,
     status: input.status,
     promoted: input.promoted,
+    promotionPackageId: nullToUndef(input.promotionPackageId),
+    promotionStatus: input.promotionStatus,
     visibility: input.visibility,
     ownershipScope: input.ownershipScope,
     ownerEntityId: nullToUndef(input.ownerEntityId),

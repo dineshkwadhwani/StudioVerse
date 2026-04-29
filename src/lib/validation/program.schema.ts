@@ -39,6 +39,8 @@ export const programFormSchema = z.object({
   status: z.enum(PROGRAM_STATUSES),
   facilitatorName: optionalTrimmedString,
   promoted: z.boolean(),
+  promotionPackageId: z.string().trim(),
+  promotionStatus: z.enum(["none", "requested", "promoted"]),
   published: z.boolean(),
   visibility: z.enum(PROGRAM_VISIBILITIES),
   ownershipScope: z.enum(PROGRAM_OWNERSHIP_SCOPES),
@@ -70,6 +72,8 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   const publicationState = parsed.published ? "published" : "draft";
   const status = parsed.published ? "published" : "draft";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
+  const hasPromotionRequest = parsed.promoted && Boolean(parsed.promotionPackageId);
+  const promotionStatus = hasPromotionRequest ? "requested" : "none";
 
   return {
     id: parsed.id,
@@ -90,7 +94,9 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     expiresAt: toProgramBoundaryIso(parsed.expiresAt, "end"),
     status,
     facilitatorName: parsed.facilitatorName || null,
-    promoted: parsed.promoted,
+    promoted: false,
+    promotionPackageId: hasPromotionRequest ? parsed.promotionPackageId : null,
+    promotionStatus,
     visibility: parsed.visibility,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
@@ -182,6 +188,10 @@ export function validateProgramForm(
 
   if (!["public", "private"].includes(values.visibility)) {
     errors.visibility = "Visibility must be public or private.";
+  }
+
+  if (values.promoted && !values.promotionPackageId.trim()) {
+    errors.promotionPackageId = "Select a promotion package for promoted Programs.";
   }
 
   if (mode === "publish") {

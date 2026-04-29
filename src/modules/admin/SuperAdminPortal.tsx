@@ -41,7 +41,7 @@ import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
-import { buildWalletId, createWalletForUser, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
+import { buildWalletId, ensureTenantTreasuryWallet, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
 import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/referral";
@@ -1117,14 +1117,10 @@ export default function SuperAdminPortal() {
         { merge: true }
       );
 
-      await createWalletForUser({
-        userId: profile.id,
+      await ensureTenantTreasuryWallet({
         tenantId,
-        userType: "superadmin",
-        userName: profile.name,
         createdBy: profile.id,
-        initialCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
-        reason: "Tenant opening balance",
+        openingCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
       }).catch(() => undefined);
 
       setTenantModalOpen(false);

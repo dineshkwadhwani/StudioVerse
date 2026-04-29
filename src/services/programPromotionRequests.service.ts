@@ -365,12 +365,13 @@ export async function approveProgramPromotionRequest(args: {
 
     const walletTransactionRef = doc(collection(db, "walletTransactions"));
     transaction.set(walletTransactionRef, {
-      walletId: requesterId,
+      walletId: requesterWallet.id,
       userId: requesterId,
       tenantId,
       userType: String(walletData.userType ?? "professional"),
       userName: String(walletData.userName ?? "User"),
       transactionType: "debit",
+      source: "promotion",
       reason: `Promotion approved for Program ${String(programData.name ?? args.programId)}`,
       coins: promotionPackage.costCredits,
       activityType: "program",
@@ -507,6 +508,7 @@ export async function approveEventPromotionRequest(args: {
       userType: String(walletData.userType ?? "professional"),
       userName: String(walletData.userName ?? "User"),
       transactionType: "debit",
+      source: "promotion",
       reason: `Promotion approved for Event ${String(eventData.name ?? args.eventId)}`,
       coins: promotionPackage.costCredits,
       activityType: "event",
@@ -643,6 +645,7 @@ export async function approveAssessmentPromotionRequest(args: {
       userType: String(walletData.userType ?? "professional"),
       userName: String(walletData.userName ?? "User"),
       transactionType: "debit",
+      source: "promotion",
       reason: `Promotion approved for Assessment ${String(assessmentData.name ?? args.assessmentId)}`,
       coins: promotionPackage.costCredits,
       activityType: "assessment",

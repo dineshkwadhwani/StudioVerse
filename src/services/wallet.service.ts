@@ -39,9 +39,14 @@ const issueRegistrationBonusCallable = httpsCallable<
 >(functions, "issueRegistrationBonus");
 
 const WALLET_ID_SEPARATOR = "::";
+const TREASURY_WALLET_PREFIX = "treasury::";
 
 export function buildWalletId(userId: string, tenantId: string): string {
   return `${String(tenantId).trim()}${WALLET_ID_SEPARATOR}${String(userId).trim()}`;
+}
+
+export function buildTenantTreasuryWalletId(tenantId: string): string {
+  return `${TREASURY_WALLET_PREFIX}${String(tenantId).trim()}`;
 }
 
 function normalizeString(value: unknown): string {
@@ -409,6 +414,7 @@ export async function createWalletForUser(input: {
   createdBy: string;
   initialCoins?: number;
   reason?: string;
+  source?: "registration" | "referral" | "assignment" | "promotion" | "manual_offline_allocation";
 }): Promise<void> {
   const scopedWalletId = buildWalletId(input.userId, input.tenantId);
   const scopedWalletRef = doc(db, "wallets", scopedWalletId);
@@ -451,7 +457,61 @@ export async function createWalletForUser(input: {
         userName: input.userName,
         transactionType: "credit",
         reason: input.reason ?? "Registration bonus",
+        source: input.source ?? "manual_offline_allocation",
         coins: initialCoins,
+        createdBy: input.createdBy,
+        createdAt: serverTimestamp(),
+      });
+    }
+  });
+}
+
+export async function ensureTenantTreasuryWallet(input: {
+  tenantId: string;
+  createdBy: string;
+  openingCoins: number;
+}): Promise<void> {
+  const tenantId = input.tenantId.trim();
+  if (!tenantId) {
+    throw new Error("tenantId is required.");
+  }
+
+  const openingCoins = Math.max(0, Math.floor(Number(input.openingCoins ?? 0)));
+  const treasuryWalletId = buildTenantTreasuryWalletId(tenantId);
+  const treasuryRef = doc(db, "wallets", treasuryWalletId);
+
+  await runTransaction(db, async (transaction) => {
+    const treasurySnap = await transaction.get(treasuryRef);
+    if (treasurySnap.exists()) {
+      return;
+    }
+
+    transaction.set(treasuryRef, {
+      userId: treasuryWalletId,
+      tenantId,
+      userType: "superadmin",
+      userName: "Tenant Treasury",
+      totalIssuedCoins: openingCoins,
+      utilizedCoins: 0,
+      availableCoins: openingCoins,
+      createdBy: input.createdBy,
+      updatedBy: input.createdBy,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    if (openingCoins > 0) {
+      const txRef = doc(collection(db, "walletTransactions"));
+      transaction.set(txRef, {
+        walletId: treasuryWalletId,
+        userId: treasuryWalletId,
+        tenantId,
+        userType: "superadmin",
+        userName: "Tenant Treasury",
+        transactionType: "credit",
+        reason: "Tenant treasury opening balance",
+        source: "manual_offline_allocation",
+        coins: openingCoins,
         createdBy: input.createdBy,
         createdAt: serverTimestamp(),
       });

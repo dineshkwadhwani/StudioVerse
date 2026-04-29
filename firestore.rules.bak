@@ -1,3 +1,16 @@
+(BACKUP of previous rules)
+
+// Allow public read access to events for landing page and admin
+match /events/{eventId} {
+  allow read: if true;
+  allow write: if false;
+}
+
+// Allow public read access to events for landing page and admin
+match /events/{eventId} {
+  allow read: if true;
+  allow write: if false;
+}
 rules_version = '2';
 
 service cloud.firestore {
@@ -99,21 +112,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Allow public read access to events for landing page and admin
-    match /events/{eventId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Allow public read access to programs for landing page and admin
-    match /programs/{programId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
     // Allow public read access to bot-knowledge configs
     match /bot-knowledge/{tenantId} {
       allow read: if true;
+      // Only allow writes from backend/admin (never from client)
       allow write: if false;
     }
 

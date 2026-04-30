@@ -7,32 +7,36 @@ Read this before generating or modifying code.
 
 ## Latest implementation progress (30 April 2026) — Bot Hero Monetization Feature
 
-### Bot Hero feature — full delivery
+### Bot Hero feature — full delivery + post-delivery fixes
 
 - Bot Hero allows a coach to become the persona of the Coaching Studio bot widget for a paid period.
 - Coins are deducted at request submission; refunded on denial.
 - Only one Bot Hero active per tenant at any time; overlap is blocked at approval.
-- Coach must have a profile picture to submit a request.
+- Coach must have a profile picture (`profilePhotoUrl`) to submit a request.
 
 ### Files delivered
 
-- `src/types/botHero.ts` — BotHeroPackageRecord, BotHeroRequestRecord, BotHeroRequestStatus types
-- `src/services/botHero.service.ts` — package CRUD, request submission with wallet deduction, approval (with date overlap check), denial with wallet refund, active bot hero query
-- `src/modules/admin/BotHeroPackagesSection.tsx` — SuperAdmin package CRUD UI
-- `src/modules/admin/ManageEarningPackagesPage.tsx` — added Bot Hero as third tab
-- `src/modules/admin/BotHeroRequestsSection.tsx` — full approval queue with start date picker, end date preview, approve/deny actions
+- `src/types/botHero.ts` — `BotHeroPackageRecord` (with `imageUrl`/`imagePath`), `BotHeroRequestRecord`, `BotHeroRequestStatus` types
+- `src/services/botHero.service.ts` — package CRUD + image upload/validate, request submission with wallet deduction, approval (overlap check), denial with wallet refund, active bot hero query; queries use single-equality `where` + client-side sort (no composite index dependency)
+- `src/modules/admin/BotHeroPackagesSection.tsx` — SuperAdmin package CRUD UI with image upload, package tile with thumbnail, modal matching PromotionPackagesSection structure exactly
+- `src/modules/admin/ManageEarningPackagesPage.tsx` — Bot Hero as third tab
+- `src/modules/admin/BotHeroRequestsSection.tsx` — full approval queue; `operatorId` prop wired correctly from `ApproveRequestsPage.tsx`
 - `src/modules/activities/config/menuConfig.ts` — Promote Coach added to professional Actions group
 - `src/modules/coaching-studio/PromoteCoachPage.tsx` — Coach purchase + request history page
 - `src/modules/coaching-studio/PromoteCoachPage.module.css` — page styles
-- `src/modules/coaching-studio/PromoteCoachRoutePage.tsx` — authenticated route wrapper
+- `src/modules/coaching-studio/PromoteCoachRoutePage.tsx` — authenticated route wrapper; header uses `referralStyles.toolbar` pattern matching `ManageReferralsPage`
 - `src/app/coaching-studio/promote-coach/page.tsx` — Next.js App Router page entry
 - `src/modules/bot/BotWidget.tsx` — loads active Bot Hero on init and overrides persona name/avatar; falls back to tenant config when no active hero
-- `firestore.rules` — added `botHeroPackages` and `botHeroRequests` rules
-- `docs/E14.md` — Bot Hero story and full implementation checklist added
+- `firestore.rules` — `botHeroPackages` and `botHeroRequests` rules added and deployed
+- `firestore.indexes.json` — two composite indexes for `botHeroRequests` added and deployed
+- `docs/E14.md` — spec + implementation checklist fully updated
 
-### Firestore rules deployed
+### Firestore rules and indexes deployed
 
 - Rules deployed to `studioverse-test` on 30 April 2026.
+- Indexes deployed to `studioverse-test` on 30 April 2026:
+  - `botHeroRequests`: `professionalId ASC + createdAt DESC`
+  - `botHeroRequests`: `status ASC + createdAt ASC`
 
 ### Business rules encoded
 
@@ -40,6 +44,16 @@ Read this before generating or modifying code.
 - Approval checks date overlap against all approved/active requests for the tenant.
 - Denial refunds credits via reverse Firestore transaction.
 - Bot widget resolves active Bot Hero using `approvedStartDate <= today <= approvedEndDate` with graceful fallback.
+- Profile picture required check uses `profilePhotoUrl` field from `UserProfileRecord`.
+
+### Post-delivery bug fixes
+
+- `ElevenLabsAgent.tsx` — `declare module "react"` JSX augmentation (was `declare global`; wrong for App Router)
+- `PromoteCoachRoutePage.tsx` — `getUserProfile({ userId })` object arg (not plain string)
+- `PromoteCoachRoutePage.tsx` — `profilePhotoUrl` field name (not `avatarUrl`)
+- `BotHeroPackagesSection.tsx` — restyled to match `PromotionPackagesSection` exactly (toolbar, modal, card grid, button classes)
+- `ApproveRequestsPage.tsx` — `operatorId` now passed to `<BotHeroRequestsSection operatorId={operatorId} />`
+- `botHero.service.ts` queries — removed `orderBy` from both queries; sort client-side to avoid composite index wait
 
 ---
 

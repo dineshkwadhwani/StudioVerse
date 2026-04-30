@@ -8,6 +8,7 @@ Canonical source: Technical Stories Master and local docs derived from it.
 This document explains how the StudioVerse platform is structured at a high level.
 
 StudioVerse is designed as:
+
 - one repository
 - one shared codebase
 - three Studio deployments
@@ -19,6 +20,7 @@ StudioVerse is designed as:
 ## Core model
 
 StudioVerse supports three Studio deployments:
+
 - Coaching Studio
 - Training Studio
 - Recruitment Studio
@@ -28,16 +30,19 @@ The platform should reuse as much code as possible and express Studio-specific d
 ## Deployment shape
 
 The same repository powers three separate Vercel projects, one for each Studio deployment:
+
 - `studioverse-coaching`
 - `studioverse-training`
 - `studioverse-recruitment`
 
 The broader environment model also includes three Firebase projects:
+
 - `studioverse-dev`
 - `studioverse-staging`
 - `studioverse-prod`
 
 This means Studio type and environment are different concerns:
+
 - Studio type = coaching / training / recruitment
 - environment = dev / staging / prod[file:181]
 
@@ -73,6 +78,7 @@ These two config layers must stay separate so app behavior and marketing content
 The technical architecture expects a monorepo-style structure centered around `src/` for frontend application code and `functions/` for Firebase backend code.
 
 Important structural areas:
+
 - `src/app/` for Next.js App Router pages
 - `src/modules/` for feature modules and shared UI structure
 - `src/tenants/` for tenant runtime config and per-tenant metadata
@@ -88,6 +94,7 @@ Important structural areas:
 The frontend is built with Next.js App Router and TypeScript.
 
 Key frontend rules:
+
 - all code lives under `src/`
 - studio routes currently live under tenant-prefixed paths in `src/app/<tenant-id>/`
 - tenant-prefixed paths include both landing and authenticated app-shell pages
@@ -100,6 +107,7 @@ Key frontend rules:
 Firebase provides the backend foundation for the platform.
 
 Core Firebase services in scope:
+
 - Firestore as the primary structured database
 - Firebase Authentication for identity
 - Firebase Storage for files and media
@@ -113,6 +121,7 @@ Functions are expected to be modular, typed, deployable, and responsible for sen
 Security is built as a first-class architecture concern, not an afterthought.
 
 The platform uses:
+
 - authenticated access at the backend layer
 - role-aware access control
 - `studioType` data isolation
@@ -124,6 +133,7 @@ The platform uses:
 ## Role model
 
 The RBAC model uses four stable internal roles:
+
 - `superadmin`
 - `company`
 - `professional`
@@ -136,6 +146,7 @@ These roles stay stable in code and Firestore, while user-facing labels can vary
 The backend architecture already assumes a 25-collection Firestore model.
 
 Core examples include:
+
 - `users`
 - `userContexts`
 - `companies`
@@ -156,6 +167,7 @@ This collection model supports identity, RBAC, content, delivery, reporting, aud
 Environment isolation is mandatory.
 
 The project separates:
+
 - local development and feature work in `studioverse-dev`
 - QA and stakeholder review in `studioverse-staging`
 - live traffic in `studioverse-prod`
@@ -167,6 +179,7 @@ The app should always connect to the correct Firebase project for the active env
 Local development should rely on documented setup conventions and the Firebase Emulator Suite.
 
 The project expects:
+
 - reproducible local setup from README
 - `.env.example` as the environment template
 - `NEXT_PUBLIC_STUDIO_TYPE` for local app-shell Studio switching
@@ -178,6 +191,7 @@ The project expects:
 Routing follows the Next.js App Router structure.
 
 Important route rules:
+
 - tenant entrypoints are `/coaching-studio`, `/training-studio`, and `/recruitment-studio`
 - shared app-shell pages are exposed under each tenant prefix (for example `/training-studio/dashboard`)
 - root (`/`) and shared tenant paths are resolved via host-based rewrites in `src/proxy.ts`
@@ -188,6 +202,7 @@ Important route rules:
 StudioVerse deliberately separates UI, services, and backend logic.
 
 Working boundary rules:
+
 - components render UI
 - hooks coordinate client behavior
 - services perform Firestore access
@@ -209,6 +224,7 @@ The technical foundation is organized like this:
 ## Current status
 
 The technical status currently stands as:
+
 - `T0` done
 - `T1` in progress
 - `T2` in progress
@@ -221,6 +237,7 @@ Implementation has moved beyond initial scaffolding: tenant-prefixed routing, do
 ## Local docs map
 
 The local docs set should be read roughly in this order:
+
 - `docs/E0.md`
 - `docs/E1.md`
 - `docs/T0.md`
@@ -235,6 +252,7 @@ This overview exists to connect those docs into one mental model instead of trea
 ## Practical rule for contributors
 
 When adding code to StudioVerse, default to these choices:
+
 - shared code first
 - config over branching
 - service layer over direct Firestore access
@@ -247,6 +265,7 @@ When adding code to StudioVerse, default to these choices:
 ## Use this document
 
 Use this file as the first-stop summary when:
+
 - onboarding a developer
 - prompting Copilot
 - reviewing architecture decisions

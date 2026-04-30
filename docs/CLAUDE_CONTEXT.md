@@ -7,11 +7,13 @@ This file contains richer working context for Claude Code. It is more detailed t
 StudioVerse is the parent platform for multiple studio deployments. Each studio shares the same base architecture and app shell, but differs in branding, terminology, and selected behaviors.
 
 ### Studios
+
 - Coaching Studio
 - Training Studio
 - Recruitment Studio
 
 ### Core intent
+
 - One codebase.
 - Shared modules where possible.
 - Config-driven studio differences.
@@ -22,18 +24,22 @@ StudioVerse is the parent platform for multiple studio deployments. Each studio 
 ## Existing conventions
 
 ### Routing
+
 - Next.js App Router is the standard.
 - Routes live under `src/app/`.
 - Domain and tenant resolution are handled through proxy/tenant routing utilities.
 - Avoid inventing alternate route structures unless the docs require it.
 
 ### Data access
+
 - Components should not query Firestore directly.
 - Firestore reads/writes must go through services.
 - Trust-sensitive operations should be implemented in Firebase Functions.
 
 ### Config separation
+
 There are two major configuration surfaces:
+
 1. Authenticated app-shell/studio config.
 2. Marketing/landing-page content config.
 
@@ -50,6 +56,7 @@ Do not mix them.
 ## Current working areas from existing Copilot context
 
 The repository has active work across:
+
 - referral / wallet / coin issuance flows
 - assignment and recommendation flows
 - studio-level landing pages
@@ -57,8 +64,51 @@ The repository has active work across:
 - auth and session handling
 - tenant-specific labels and routes
 - email sending with Resend
+- Bot Hero monetization (coach bot persona purchase)
+- Guest Log lead capture from bot conversations
 
 This context file should not try to reproduce every implementation detail. Those details belong in the deeper domain docs and feature docs.
+
+## Latest implementation progress (30 April 2026)
+
+### Bot Hero Monetization Feature — full delivery
+
+A new monetization stream where coaches pay credits to become the face of the bot widget for a defined period.
+
+**Key patterns to know:**
+
+- `src/services/botHero.service.ts` — all Firestore access for packages and requests
+- `src/types/botHero.ts` — `BotHeroPackageRecord` (has `imageUrl`/`imagePath`), `BotHeroRequestRecord`, `BotHeroRequestStatus`
+- Image upload uses Firebase Storage at path `botHeroPackages/{packageId}/image.{ext}` via `uploadBotHeroPackageImage()`
+- Queries use single-equality `where` + client-side sort — no composite index dependency at query time
+- Firestore composite indexes deployed but may take minutes to build; queries are robust to index-building state
+- Bot widget reads active hero at init; falls back to tenant config gracefully
+- Profile picture guard: `profilePhotoUrl` field on `UserProfileRecord` (not `avatarUrl`)
+- Admin UI classes: use `styles.button`, `styles.ghostButton`, `styles.programGrid`, `styles.programTile`, `styles.modal`, `styles.modalHeader`, `styles.modalCloseButton` from `SuperAdminPortal.module.css`
+- Route wrapper pages use `referralStyles.toolbar` from `ManageReferralsPage.module.css` for the header
+
+**Collections added:**
+
+- `botHeroPackages` — one doc per package, superadmin-managed
+- `botHeroRequests` — one doc per coach request, tenant-scoped
+
+**Composite indexes deployed to `studioverse-test`:**
+
+- `botHeroRequests`: `professionalId ASC + createdAt DESC`
+- `botHeroRequests`: `status ASC + createdAt ASC`
+
+**Bug fixes made during delivery:**
+
+- `ElevenLabsAgent.tsx`: JSX custom element declaration must use `declare module "react"` not `declare global`
+- `getUserProfile` takes `{ userId }` object not plain string
+- `UserProfileRecord` uses `profilePhotoUrl` not `avatarUrl`
+- `ApproveRequestsPage.tsx`: `operatorId` must be explicitly passed to `<BotHeroRequestsSection>`
+
+### Guest Log Lead Capture — delivered 30 April 2026
+
+- Guest bot conversations stored per `(tenantId + guestPhone)` in `guestLogs` collection
+- Bot referral writes moved from client Firestore to `/api/bot/referral` backend route (Admin SDK) — fixes unsigned guest write permission errors
+- Firebase Admin credentials required in `.env.local`: `FIREBASE_ADMIN_PROJECT_ID`, `FIREBASE_ADMIN_CLIENT_EMAIL`, `FIREBASE_ADMIN_PRIVATE_KEY`
 
 ## Latest implementation progress (29 April 2026)
 
@@ -76,8 +126,8 @@ This context file should not try to reproduce every implementation detail. Those
 ### Promotion lifecycle rollout across resource types
 
 - Promotion fields standardized across resource models:
-	- `promotionPackageId`
-	- `promotionStatus` (`none | requested | promoted`)
+  - `promotionPackageId`
+  - `promotionStatus` (`none | requested | promoted`)
 - Program promotion flow implemented first end-to-end (request -> queue -> approval -> wallet debit -> promotion dates).
 - Event promotion flow brought to parity with Program.
 - Assessment promotion flow brought to parity with Program/Event.
@@ -85,9 +135,9 @@ This context file should not try to reproduce every implementation detail. Those
 ### Promotion Requests queue consolidation
 
 - SuperAdmin Promotion Requests now supports mixed queues for:
-	- Program
-	- Event
-	- Assessment
+  - Program
+  - Event
+  - Assessment
 - Queue cards display package names and resource labels (not raw IDs).
 - Approvals are routed by resource type with consistent wallet and promotion metadata updates.
 
@@ -95,26 +145,27 @@ This context file should not try to reproduce every implementation detail. Those
 
 - Assessments previously saved via direct Firestore writes from admin UI.
 - Assessments now use the same callable backend pattern as Program/Event:
-	- `functions/src/assessments/assessmentSchemas.ts`
-	- `functions/src/assessments/createAssessment.ts`
-	- `functions/src/assessments/updateAssessment.ts`
-	- exported in `functions/src/index.ts`.
+  - `functions/src/assessments/assessmentSchemas.ts`
+  - `functions/src/assessments/createAssessment.ts`
+  - `functions/src/assessments/updateAssessment.ts`
+  - exported in `functions/src/index.ts`.
 - Frontend assessment definition saves now use service wrapper + callables:
-	- `src/services/assessments.service.ts`
-	- `src/modules/admin/AssessmentsSection.tsx` migrated off direct metadata writes.
+  - `src/services/assessments.service.ts`
+  - `src/modules/admin/AssessmentsSection.tsx` migrated off direct metadata writes.
 
 ### Build and deployment status
 
 - App build and functions build validated successfully after migration.
 - Test rollout completed to Firebase project `studioverse-test`:
-	- Program callable updates deployed.
-	- Event callable updates deployed.
-	- Assessment callable create/update deployed.
+  - Program callable updates deployed.
+  - Event callable updates deployed.
+  - Assessment callable create/update deployed.
 - Production deployment intentionally deferred.
 
 ## Email setup baseline
 
 For Coaching Studio:
+
 - Verified sending domain: `coachingstudio.in`
 - Sender: `contact@coachingstudio.in`
 - Resend is used for outbound transactional email
@@ -124,6 +175,7 @@ For Coaching Studio:
 ## How Claude should use this repo
 
 When changing code:
+
 - keep changes minimal and targeted
 - preserve existing multi-tenant behavior
 - avoid duplicating logic per studio
@@ -133,6 +185,7 @@ When changing code:
 ## Recommended add-ons
 
 If this repo grows further, add these files:
+
 - `docs/ARCHITECTURE_OVERVIEW.md`
 - `docs/COACHING_STUDIO.md`
 - `docs/TRAINING_STUDIO.md`

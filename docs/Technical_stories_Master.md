@@ -1,4 +1,5 @@
 # StudioVerse — Technical Stories PRD
+
 **Version 1.0 | March 2026 | Classification: Confidential — Engineering Use**
 **Document Type: Technical Epic Specification**
 
@@ -28,12 +29,14 @@ This document is the source of truth for developers executing technical setup wo
 ---
 
 ## EPIC T0 — Project Setup & Dev Environment
+
 **Priority:** P0 | **Status:** ✅ COMPLETE
 **Goal:** Establish a consistent, reproducible developer environment and project standards for the StudioVerse monorepo.
 
 ---
 
 ### US-T0-01 — Create Git Repository
+
 **Status:** ✅ Done
 
 **Description:**
@@ -44,6 +47,7 @@ Create the single GitHub repository that will house the entire StudioVerse codeb
 **Owner:** Organisation or personal account as decided by team lead
 
 **Acceptance Criteria:**
+
 - Repository created on GitHub under the agreed organisation or account
 - Repository is private
 - Initial commit exists (even if just a README)
@@ -52,12 +56,14 @@ Create the single GitHub repository that will house the entire StudioVerse codeb
 ---
 
 ### US-T0-02 — Define Branching Strategy
+
 **Status:** ✅ Done
 
 **Description:**
 Define and document the Git branching model used across the studioverse repository.
 
 **Branching model:**
+
 - `main` — production-ready code only. Auto-deploys to production Vercel on merge.
 - `staging` — staging-ready code. Auto-deploys to staging Vercel on merge.
 - `dev` — active development branch. Auto-deploys to dev Vercel on merge.
@@ -66,12 +72,14 @@ Define and document the Git branching model used across the studioverse reposito
 - `hotfix/[description]` — emergency production patches cut from `main`
 
 **Rules:**
+
 - No direct commits to `main` or `staging`
 - All merges to `main` require Pull Request and at least one approval
 - Branch names must follow the naming convention above
 - Stale branches older than 30 days should be deleted after merge
 
 **Acceptance Criteria:**
+
 - Branching strategy documented in README or CONTRIBUTING.md
 - Branch protection rules applied to `main` on GitHub
 - Team members briefed on branching conventions
@@ -79,12 +87,14 @@ Define and document the Git branching model used across the studioverse reposito
 ---
 
 ### US-T0-03 — Setup Local Dev Guide
+
 **Status:** ✅ Done
 
 **Description:**
 Document the complete local development setup process so any developer can onboard and run the project from scratch.
 
 **Guide must cover:**
+
 - Prerequisites (Node.js version, npm/yarn/pnpm, Firebase CLI, Git)
 - Cloning the repository
 - Installing dependencies
@@ -96,6 +106,7 @@ Document the complete local development setup process so any developer can onboa
 - How to switch Studio type locally using `NEXT_PUBLIC_STUDIO_TYPE`
 
 **Acceptance Criteria:**
+
 - `README.md` contains complete setup instructions
 - A `.env.example` file exists with all required keys (no values)
 - A new developer can run the project locally following only the README
@@ -103,12 +114,14 @@ Document the complete local development setup process so any developer can onboa
 ---
 
 ### US-T0-04 — Install Dependencies
+
 **Status:** ✅ Done
 
 **Description:**
 Install and lock all core platform dependencies required by the StudioVerse codebase.
 
 **Core dependencies:**
+
 - `next` (App Router, latest stable)
 - `react` and `react-dom`
 - `typescript`
@@ -123,12 +136,14 @@ Install and lock all core platform dependencies required by the StudioVerse code
 - `clsx` + `tailwind-merge` (class utilities)
 
 **Dev dependencies:**
+
 - `eslint` + `eslint-config-next`
 - `prettier`
 - `@types/node`, `@types/react`, `@types/react-dom`
 - `typescript`
 
 **Acceptance Criteria:**
+
 - `package.json` contains all required dependencies
 - `package-lock.json` or equivalent lockfile is committed
 - `npm install` runs without errors on a clean clone
@@ -137,12 +152,14 @@ Install and lock all core platform dependencies required by the StudioVerse code
 ---
 
 ### US-T0-05 — Setup Next.js Project
+
 **Status:** ✅ Done
 
 **Description:**
 Initialise the Next.js project using the App Router pattern as defined in the StudioVerse Technical Architecture.
 
 **Configuration:**
+
 - Use `create-next-app` with App Router enabled
 - TypeScript enabled by default
 - `src/` directory structure (all code lives under `src/`)
@@ -150,11 +167,13 @@ Initialise the Next.js project using the App Router pattern as defined in the St
 - `@` path alias configured for `src/` directory
 
 **`next.config.js` must include:**
+
 - Image domain allowlists for Firebase Storage
 - Any required redirects for Studio-type routing
 - No `output: export` — the app uses SSR and server components
 
 **Acceptance Criteria:**
+
 - `src/app/` directory exists and uses App Router conventions
 - `npm run dev` starts the dev server successfully
 - `npm run build` completes without errors
@@ -163,12 +182,14 @@ Initialise the Next.js project using the App Router pattern as defined in the St
 ---
 
 ### US-T0-06 — Setup TypeScript
+
 **Status:** ✅ Done
 
 **Description:**
 Configure TypeScript for strict type safety across the entire StudioVerse codebase.
 
 **`tsconfig.json` settings:**
+
 - `"strict": true` — enforces strict type checking
 - `"noImplicitAny": true`
 - `"strictNullChecks": true`
@@ -177,12 +198,14 @@ Configure TypeScript for strict type safety across the entire StudioVerse codeba
 - `"target": "ES2017"` or later
 
 **Rules:**
+
 - No `// @ts-ignore` comments permitted without documented justification
 - No `any` types without documented justification
 - All function parameters and return types must be explicitly typed
 - Shared types live in `src/types/` or within their module's `types.ts`
 
 **Acceptance Criteria:**
+
 - `npx tsc --noEmit` runs without errors on the baseline project
 - `tsconfig.json` has `strict: true`
 - TypeScript errors block the build (enforced by Next.js build pipeline)
@@ -190,17 +213,20 @@ Configure TypeScript for strict type safety across the entire StudioVerse codeba
 ---
 
 ### US-T0-07 — Setup ESLint + Prettier
+
 **Status:** ✅ Done
 
 **Description:**
 Configure code quality and formatting tools to enforce consistency across all contributors.
 
 **ESLint configuration:**
+
 - Use `eslint-config-next` as the base
 - Add rules for: no unused variables, no console.log in production code, consistent imports
 - TypeScript-aware rules enabled
 
 **Prettier configuration:**
+
 - `printWidth: 100`
 - `singleQuote: true`
 - `semi: false`
@@ -209,9 +235,11 @@ Configure code quality and formatting tools to enforce consistency across all co
 - Prettier and ESLint configured to not conflict (use `eslint-config-prettier`)
 
 **Pre-commit hook (optional but recommended):**
+
 - `husky` + `lint-staged` to run ESLint and Prettier on staged files before commit
 
 **Acceptance Criteria:**
+
 - `npm run lint` runs ESLint without errors on the baseline codebase
 - `npm run format` runs Prettier without errors
 - ESLint and Prettier configs committed to the repository
@@ -220,6 +248,7 @@ Configure code quality and formatting tools to enforce consistency across all co
 ---
 
 ### US-T0-08 — Setup Environment Variables
+
 **Status:** ✅ Done
 
 **Description:**
@@ -255,12 +284,14 @@ Define and document the full environment variable strategy for StudioVerse acros
    - `STRIPE_SECRET_KEY` (Post-MVP)
 
 **Rules:**
+
 - All `NEXT_PUBLIC_` variables are safe to expose to the browser
 - All secrets must live in Firebase Functions config or Vercel server environment — never in `NEXT_PUBLIC_` variables
 - `.env.local` is gitignored
 - `.env.example` is committed with all keys but no values
 
 **Acceptance Criteria:**
+
 - `.env.example` committed with all required keys
 - `.env.local` is in `.gitignore`
 - Application reads Studio type correctly from `NEXT_PUBLIC_STUDIO_TYPE`
@@ -269,12 +300,14 @@ Define and document the full environment variable strategy for StudioVerse acros
 ---
 
 ### US-T0-09 — Setup README
+
 **Status:** ✅ Done
 
 **Description:**
 Create a comprehensive README that serves as the entry point for all developers working on StudioVerse.
 
 **README must include:**
+
 - Project overview (StudioVerse — one codebase, three Studios)
 - Tech stack summary
 - Prerequisites
@@ -289,6 +322,7 @@ Create a comprehensive README that serves as the entry point for all developers 
 - Link to key architecture documents
 
 **Acceptance Criteria:**
+
 - README.md exists at repository root
 - A new developer can follow it from zero to running local dev server
 - Studio switching instructions are clearly documented
@@ -296,6 +330,7 @@ Create a comprehensive README that serves as the entry point for all developers 
 ---
 
 ### US-T0-10 — Commit Convention
+
 **Status:** ✅ Done
 
 **Description:**
@@ -305,6 +340,7 @@ Establish a commit message convention to make the Git history readable and CI/CD
 Format: `type(scope): description`
 
 **Types:**
+
 - `feat` — new feature or user story implementation
 - `fix` — bug fix
 - `chore` — tooling, config, dependency changes
@@ -317,11 +353,13 @@ Format: `type(scope): description`
 **Scope examples:** `auth`, `dashboard`, `programs`, `tools`, `assignments`, `firebase`, `studio-config`
 
 **Examples:**
+
 - `feat(auth): implement Google SSO login`
 - `fix(assignments): correct overdue detection timezone handling`
 - `chore(deps): update firebase to v10.8.0`
 
 **Acceptance Criteria:**
+
 - Commit convention documented in README or CONTRIBUTING.md
 - Team members briefed on convention
 - Optional: `commitlint` configured to enforce convention on commit
@@ -329,23 +367,27 @@ Format: `type(scope): description`
 ---
 
 ## EPIC T1 — Firebase Backend Setup
+
 **Priority:** P0 | **Status:** 🔄 PARTIAL (T1-01 to T1-08 Complete, T1-09 and T1-10 Pending)
 **Goal:** Initialise the complete Firebase backend infrastructure that powers all three StudioVerse Studio deployments.
 
 ---
 
 ### US-T1-01 — Create Firebase Project (dev/staging/prod)
+
 **Status:** ✅ Done
 
 **Description:**
 Create three Firebase projects — one per environment — to support complete environment isolation across development, staging, and production.
 
 **Projects:**
+
 - `studioverse-dev` — local development and feature testing
 - `studioverse-staging` — pre-production QA and stakeholder review
 - `studioverse-prod` — live production environment
 
 **Per project, enable:**
+
 - Firestore (Native mode, chosen region)
 - Firebase Authentication
 - Firebase Storage
@@ -355,6 +397,7 @@ Create three Firebase projects — one per environment — to support complete e
 **Region guidance:** Choose a single region consistent across all three projects. Recommended: `asia-south1` (Mumbai) for India/UAE user base, or `us-central1` if global latency is preferred.
 
 **Acceptance Criteria:**
+
 - Three Firebase projects exist in the Firebase Console
 - All three projects have Firestore, Auth, Storage, and Functions enabled
 - Project IDs follow a consistent naming convention
@@ -363,17 +406,20 @@ Create three Firebase projects — one per environment — to support complete e
 ---
 
 ### US-T1-02 — Enable Firestore
+
 **Status:** ✅ Done
 
 **Description:**
 Enable Cloud Firestore in Native mode on all three Firebase projects and configure initial settings.
 
 **Settings:**
+
 - Mode: Native (not Datastore)
 - Region: Consistent with project region decision in T1-01
 - Firestore rules: Set to locked mode initially (deny all) until T1-03 is complete
 
 **Acceptance Criteria:**
+
 - Firestore enabled in Native mode on all three projects
 - Initial rules set to deny-all locked mode
 - Firestore region confirmed and documented
@@ -381,18 +427,21 @@ Enable Cloud Firestore in Native mode on all three Firebase projects and configu
 ---
 
 ### US-T1-03 — Setup Security Rules Baseline
+
 **Status:** ✅ Done
 
 **Description:**
 Implement the initial Firestore security rules that enforce authentication and role-based access at the database layer.
 
 **Baseline rules must enforce:**
+
 - All reads and writes require authentication (`request.auth != null`)
 - No unauthenticated access to any collection
 - `studioType` field scoping on all tenant collections
 - Placeholder rules for all 25 StudioVerse collections (deny-all with auth check as baseline, to be expanded per collection in T4-03)
 
 **Acceptance Criteria:**
+
 - `firestore.rules` file committed to repository
 - Rules deployed to dev Firebase project
 - Unauthenticated access to any collection returns permission-denied
@@ -402,26 +451,31 @@ Implement the initial Firestore security rules that enforce authentication and r
 ---
 
 ### US-T1-04 — Setup Firebase Auth
+
 **Status:** ✅ Done
 
 **Description:**
 Enable and configure Firebase Authentication for the StudioVerse platform.
 
 **Auth providers to enable:**
+
 - Email and Password
 - Google Sign-In (OAuth)
 
 **Auth settings:**
+
 - Email enumeration protection: enabled
 - Authorised domains: configured for dev, staging, and prod domains
 - Custom email templates: placeholder configured (final branding applied in E2)
 
 **Per-Studio auth isolation:**
+
 - All three Studio types share Firebase Auth within the same project per environment
 - Studio type is recorded in the user's Firestore `users` document, not in Firebase Auth custom claims (to avoid complexity)
 - `studioType` is set during registration based on which Studio URL the user registered from
 
 **Acceptance Criteria:**
+
 - Email/Password and Google auth enabled on all three Firebase projects
 - Authorised domains configured for each environment
 - Auth emulator working locally
@@ -429,18 +483,21 @@ Enable and configure Firebase Authentication for the StudioVerse platform.
 ---
 
 ### US-T1-05 — Setup Firebase Storage
+
 **Status:** ✅ Done
 
 **Description:**
 Enable and configure Firebase Storage for file uploads across the platform.
 
 **Storage use cases:**
+
 - User profile avatars
 - Program module content (video, PDF, audio)
 - AI-generated report PDFs
 - Company and Studio logos
 
 **Storage rules baseline:**
+
 - Authenticated users can read their own files
 - Authenticated users can upload to their own designated path
 - Report PDFs are write-once (written by Functions only, not UI)
@@ -456,6 +513,7 @@ Enable and configure Firebase Storage for file uploads across the platform.
 ```
 
 **Acceptance Criteria:**
+
 - Firebase Storage enabled on all three projects
 - Baseline storage rules deployed
 - Storage emulator working locally
@@ -464,12 +522,14 @@ Enable and configure Firebase Storage for file uploads across the platform.
 ---
 
 ### US-T1-06 — Setup Firebase Functions
+
 **Status:** ✅ Done
 
 **Description:**
 Initialise Firebase Functions (Cloud Functions Gen 2) as the server-side business logic layer for StudioVerse.
 
 **Functions setup:**
+
 - Runtime: Node.js 20
 - Language: TypeScript
 - Location: Same region as Firestore
@@ -477,6 +537,7 @@ Initialise Firebase Functions (Cloud Functions Gen 2) as the server-side busines
 - Functions use modular structure — one file per domain area
 
 **Initial function stubs to create (empty but deployable):**
+
 - `buildUserContext` — rebuilds userContexts document on user/role change
 - `onToolSubmitted` — triggers report generation on tool completion
 - `generateReport` — calls Groq API and creates PDF
@@ -511,6 +572,7 @@ tsconfig.json
 ```
 
 **Acceptance Criteria:**
+
 - `functions/` directory initialised with TypeScript
 - All function stubs created and deployable
 - Functions deploy to dev Firebase project without errors
@@ -519,12 +581,14 @@ tsconfig.json
 ---
 
 ### US-T1-07 — Configure Firebase CLI
+
 **Status:** ✅ Done
 
 **Description:**
 Configure the Firebase CLI for use across all three environments and project targets.
 
 **`.firebaserc` configuration:**
+
 ```json
 {
   "projects": {
@@ -536,17 +600,20 @@ Configure the Firebase CLI for use across all three environments and project tar
 ```
 
 **`firebase.json` configuration:**
+
 - Firestore rules and indexes targets defined
 - Functions deploy target defined
 - Storage rules target defined
 - Hosting targets defined (optional if using Vercel for frontend)
 
 **CLI aliases:**
+
 - `firebase use dev` — switches to dev project
 - `firebase use staging` — switches to staging project
 - `firebase use default` — switches to prod project
 
 **Acceptance Criteria:**
+
 - `.firebaserc` committed with all three project targets
 - `firebase.json` committed with correct configuration
 - `firebase use dev` + `firebase deploy --only functions` succeeds
@@ -555,12 +622,14 @@ Configure the Firebase CLI for use across all three environments and project tar
 ---
 
 ### US-T1-08 — Setup Firebase Emulator
+
 **Status:** ✅ Done
 
 **Description:**
 Configure the Firebase Local Emulator Suite for full offline local development without touching real Firebase projects.
 
 **Emulators to enable:**
+
 - Authentication emulator (port 9099)
 - Firestore emulator (port 8080)
 - Functions emulator (port 5001)
@@ -568,6 +637,7 @@ Configure the Firebase Local Emulator Suite for full offline local development w
 - Emulator UI (port 4000)
 
 **`firebase.json` emulator config:**
+
 ```json
 {
   "emulators": {
@@ -581,10 +651,12 @@ Configure the Firebase Local Emulator Suite for full offline local development w
 ```
 
 **Application emulator detection:**
+
 - When `NEXT_PUBLIC_APP_ENV=dev` and running locally, Firebase client SDK connects to emulators
 - Emulator connection logic lives in `src/services/firebase.ts`
 
 **Acceptance Criteria:**
+
 - `firebase emulators:start` runs all emulators without port conflicts
 - Application connects to emulators when running locally in dev mode
 - Emulator UI accessible at `localhost:4000`
@@ -593,6 +665,7 @@ Configure the Firebase Local Emulator Suite for full offline local development w
 ---
 
 ### US-T1-09 — Define Firestore Collections (All 25)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -654,6 +727,7 @@ Fields: studioType ASC, actorId ASC, createdAt DESC
 ```
 
 **Acceptance Criteria:**
+
 - All 25 collections documented in `firestore.indexes.json`
 - Composite indexes defined and deployed to dev project
 - Index deployment succeeds without errors
@@ -662,17 +736,20 @@ Fields: studioType ASC, actorId ASC, createdAt DESC
 ---
 
 ### US-T1-10 — Logging Setup
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Implement a structured logging strategy for both the frontend application and Firebase Functions backend.
 
 **Frontend logging:**
+
 - Use a lightweight logger utility in `src/lib/logger.ts`
 - In `dev` environment: logs to browser console
 - In `staging` and `prod`: suppresses `console.log`, sends errors to monitoring provider
 - Recommended provider: Sentry (free tier) or Firebase Crashlytics (for mobile)
 - Logger interface:
+
 ```typescript
 logger.info(message: string, context?: object): void
 logger.warn(message: string, context?: object): void
@@ -680,12 +757,14 @@ logger.error(message: string, error?: Error, context?: object): void
 ```
 
 **Functions logging:**
+
 - Use Firebase Functions logger (`functions.logger`) for all server-side logs
 - Structured log format: `{ level, message, studioType, userId, functionName, timestamp }`
 - All errors caught in try/catch blocks and logged before rethrowing
 - No raw `console.log` in Functions code
 
 **Acceptance Criteria:**
+
 - `src/lib/logger.ts` exists and is used across the codebase
 - Functions use `functions.logger` consistently
 - No raw `console.log` calls in production code paths
@@ -694,12 +773,14 @@ logger.error(message: string, error?: Error, context?: object): void
 ---
 
 ## EPIC T2 — Frontend Architecture
+
 **Priority:** P0 | **Status:** 🔲 NOT STARTED
 **Goal:** Define the frontend folder structure, component patterns, state management approach, service layer, and all shared engineering conventions that every functional epic will depend on.
 
 ---
 
 ### US-T2-01 — Define Folder Structure (studioverse repo)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -838,6 +919,7 @@ studioverse/
 ```
 
 **Key principles:**
+
 - Each Studio landing page (`coaching-studio/page.tsx` etc.) imports shared marketing
   components from `modules/marketing/shared/` and passes its own `content.config.ts`
 - The `useStudio()` hook and `studio.config.ts` are only used inside the `(app)` shell
@@ -845,6 +927,7 @@ studioverse/
 - Landing page content is purely config-driven per Studio directory — no env var switching needed
 
 **Acceptance Criteria:**
+
 - All folders created in the repository (empty folders use `.gitkeep`)
 - Folder structure matches this specification exactly
 - `src/app/coaching-studio/page.tsx`, `src/app/training-studio/page.tsx`,
@@ -854,18 +937,21 @@ studioverse/
 ---
 
 ### US-T2-02 — Setup App Shell Layout
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Create the root layout and authenticated app layout that all pages will inherit from. This is the layout foundation that Epic E1 will build on.
 
 **Root layout (`src/app/layout.tsx`):**
+
 - Sets `<html lang>` and `<body>` with Tailwind base classes
 - Loads fonts (Google Fonts or local — to be confirmed by design)
 - Wraps children in global providers (Auth provider, Studio provider, Zustand stores)
 - Includes global error boundary
 
 **App shell layout (tenant-prefixed routes under `src/app/<tenant-id>/`):**
+
 - Authenticated layout shell
 - Renders: AppHeader + AppSidebar (desktop) + main content area
 - Reads `userContext` to determine role
@@ -873,6 +959,7 @@ Create the root layout and authenticated app layout that all pages will inherit 
 - Passes Studio config context down via `useStudio()`
 
 **Provider structure:**
+
 ```typescript
 // Root providers wrapper
 <StudioProvider>
@@ -885,6 +972,7 @@ Create the root layout and authenticated app layout that all pages will inherit 
 ```
 
 **Acceptance Criteria:**
+
 - `src/app/layout.tsx` exists with provider wrapping
 - tenant app-shell pages exist under `src/app/coaching-studio/*`, `src/app/training-studio/*`, and `src/app/recruitment-studio/*`
 - `npm run build` succeeds with both layouts in place
@@ -893,6 +981,7 @@ Create the root layout and authenticated app layout that all pages will inherit 
 ---
 
 ### US-T2-03 — Routing Convention (App Router)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -927,6 +1016,7 @@ async rewrites() {
 ```
 
 **How it works:**
+
 - Visitor hits `coachingstudio.io` → Vercel receives request → Next.js rewrites to
   `/coaching-studio` → renders `src/app/coaching-studio/page.tsx`
 - The visitor's browser URL stays as `coachingstudio.io/` — the internal path is never exposed
@@ -963,6 +1053,7 @@ async rewrites() {
 | /widget/[toolId] | Embeddable widget | No | Public |
 
 **Route conventions:**
+
 - Route group `(app)` wraps all authenticated routes — shares one app shell layout
 - `layout.tsx` at `(app)` level handles auth guarding for all child routes
 - Dynamic routes use `[param]` naming
@@ -971,6 +1062,7 @@ async rewrites() {
   since domain rewrites only work on deployed Vercel environments
 
 **Acceptance Criteria:**
+
 - All route files created as placeholder `page.tsx` files
 - `next.config.js` domain rewrite rules implemented for all three Studio domains
 - Route constants defined in `src/constants/routes.ts`
@@ -982,6 +1074,7 @@ async rewrites() {
 ---
 
 ### US-T2-04 — Component Structure + Module Pattern
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1003,6 +1096,7 @@ src/modules/[module-name]/
 ```
 
 **Component rules:**
+
 - Components are function components only (no class components)
 - Each component file exports one primary component as default
 - Props interfaces are defined in the same file as the component
@@ -1012,6 +1106,7 @@ src/modules/[module-name]/
 - Custom components extend `shadcn/ui` — never replace them
 
 **Naming conventions:**
+
 - Component files: `PascalCase.tsx`
 - Hook files: `useCamelCase.ts`
 - Service files: `camelCase.service.ts`
@@ -1019,6 +1114,7 @@ src/modules/[module-name]/
 - Utility files: `camelCase.ts`
 
 **Acceptance Criteria:**
+
 - Module structure documented in CONTRIBUTING.md
 - At least one example module created following the pattern (e.g. `src/modules/app-shell/`)
 - All existing code refactored to follow the pattern
@@ -1027,6 +1123,7 @@ src/modules/[module-name]/
 ---
 
 ### US-T2-05 — State Management (Zustand Stores)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1035,6 +1132,7 @@ Implement the global Zustand stores used across the StudioVerse application.
 **Stores to create:**
 
 **1. Auth Store (`src/store/auth.store.ts`)**
+
 ```typescript
 interface AuthStore {
   user: FirebaseUser | null
@@ -1049,6 +1147,7 @@ interface AuthStore {
 ```
 
 **2. Studio Store (`src/store/studio.store.ts`)**
+
 ```typescript
 interface StudioStore {
   studioType: StudioType
@@ -1058,6 +1157,7 @@ interface StudioStore {
 ```
 
 **3. Notifications Store (`src/store/notifications.store.ts`)**
+
 ```typescript
 interface NotificationsStore {
   notifications: Notification[]
@@ -1070,11 +1170,13 @@ interface NotificationsStore {
 ```
 
 **Rules:**
+
 - Stores are initialised from server state or Firebase auth listener — not from local storage
 - No sensitive data in stores beyond what Firebase Auth already holds
 - Stores are reset on logout
 
 **Acceptance Criteria:**
+
 - All three stores created in `src/store/`
 - Stores are typed with TypeScript interfaces
 - Auth store initialised on Firebase `onAuthStateChanged`
@@ -1083,12 +1185,14 @@ interface NotificationsStore {
 ---
 
 ### US-T2-06 — API / Service Layer Setup
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Create the service layer that mediates all Firestore reads and writes. No component or hook may access Firestore directly — all data access must go through a service function.
 
 **Service layer rules:**
+
 - Service files live in `src/services/`
 - Each service function is async and returns typed data
 - All service functions accept `studioType` as a required parameter for tenant scoping
@@ -1096,6 +1200,7 @@ Create the service layer that mediates all Firestore reads and writes. No compon
 - No Firebase SDK imports outside of `src/services/firebase.ts` and `src/services/`
 
 **Example service pattern:**
+
 ```typescript
 // src/services/programs.service.ts
 export async function getPrograms(studioType: StudioType): Promise<Program[]> {
@@ -1115,6 +1220,7 @@ export async function getPrograms(studioType: StudioType): Promise<Program[]> {
 ```
 
 **Services to create as stubs:**
+
 - `users.service.ts`
 - `userContexts.service.ts`
 - `companies.service.ts`
@@ -1127,6 +1233,7 @@ export async function getPrograms(studioType: StudioType): Promise<Program[]> {
 - `notifications.service.ts`
 
 **Acceptance Criteria:**
+
 - All service stub files created in `src/services/`
 - Service pattern documented with example
 - `ServiceError` class created in `src/utils/`
@@ -1135,6 +1242,7 @@ export async function getPrograms(studioType: StudioType): Promise<Program[]> {
 ---
 
 ### US-T2-07 — Constants + Enums
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1143,6 +1251,7 @@ Define all platform-wide constants and enumerations used across the StudioVerse 
 **Files to create:**
 
 **`src/constants/roles.ts`**
+
 ```typescript
 export const ROLES = {
   SUPER_ADMIN: 'superadmin',
@@ -1155,6 +1264,7 @@ export type Role = typeof ROLES[keyof typeof ROLES]
 ```
 
 **`src/constants/studio.ts`**
+
 ```typescript
 export const STUDIO_TYPES = {
   COACHING: 'coaching',
@@ -1166,6 +1276,7 @@ export type StudioType = typeof STUDIO_TYPES[keyof typeof STUDIO_TYPES]
 ```
 
 **`src/constants/routes.ts`**
+
 ```typescript
 export const ROUTES = {
   HOME: '/',
@@ -1189,11 +1300,13 @@ export const ROUTES = {
 ```
 
 **`src/constants/site.ts`**
+
 - Platform name per studio type
 - Default counter values for landing page
 - Support email addresses
 
 **Acceptance Criteria:**
+
 - All constant files created and exported correctly
 - Constants used across codebase instead of inline string literals
 - TypeScript enums or `as const` objects used consistently
@@ -1202,6 +1315,7 @@ export const ROUTES = {
 ---
 
 ### US-T2-08 — Utilities + Helpers
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1210,6 +1324,7 @@ Create the shared utility functions used across the StudioVerse codebase.
 **Utilities to create:**
 
 **`src/utils/cn.ts`** — Tailwind class merge utility
+
 ```typescript
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -1219,26 +1334,31 @@ export function cn(...inputs: ClassValue[]) {
 ```
 
 **`src/utils/date.ts`**
+
 - `formatDate(date: Timestamp | Date, format?: string): string`
 - `isOverdue(dueDate: Timestamp): boolean`
 - `getDaysUntilDue(dueDate: Timestamp): number`
 - `toFirestoreTimestamp(date: Date): Timestamp`
 
 **`src/utils/format.ts`**
+
 - `formatName(name: string): string` — capitalise correctly
 - `truncate(text: string, maxLength: number): string`
 - `pluralise(word: string, count: number, plural?: string): string`
 
 **`src/utils/validation.ts`**
+
 - Common Zod schemas for reuse across forms
 - `emailSchema`, `nameSchema`, `urlSchema`, `phoneSchema`
 
 **`src/utils/storage.ts`**
+
 - `uploadAvatar(userId: string, file: File): Promise<string>`
 - `uploadProgramAsset(programId: string, moduleId: string, file: File): Promise<string>`
 - `getDownloadUrl(path: string): Promise<string>`
 
 **Acceptance Criteria:**
+
 - All utility files created in `src/utils/`
 - `cn()` utility available and used in all component class props
 - Date utilities handle Firestore Timestamps correctly
@@ -1247,6 +1367,7 @@ export function cn(...inputs: ClassValue[]) {
 ---
 
 ### US-T2-09 — Error Handling (error.tsx + Boundaries)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1255,11 +1376,13 @@ Implement centralised error handling for both the frontend application and the s
 **Error handling layers:**
 
 **1. Route-level error boundaries (Next.js App Router)**
+
 - `src/app/error.tsx` — global error boundary
 - tenant-prefixed app-shell error boundaries, as applicable under `src/app/<tenant-id>/`
 - Each must display a user-friendly error message with a retry option
 
 **2. Service layer errors**
+
 ```typescript
 // src/utils/errors.ts
 export class ServiceError extends Error {
@@ -1279,16 +1402,19 @@ export class NotFoundError extends Error { ... }
 ```
 
 **3. Global unhandled error handler**
+
 - `window.onerror` and `window.onunhandledrejection` captured in root layout
 - Errors sent to logger / monitoring provider
 
 **Error display principles:**
+
 - Never show raw Firebase or Firestore error messages to users
 - Always show a human-readable message
 - Always provide a recovery action (retry, go home, contact support)
 - Loading, empty, and error states handled for every data-fetching component
 
 **Acceptance Criteria:**
+
 - `src/app/error.tsx` exists and renders correctly
 - app-shell routes expose tenant-scoped error handling without relying on a single `(app)` segment
 - `ServiceError` and other typed errors defined in `src/utils/errors.ts`
@@ -1297,12 +1423,14 @@ export class NotFoundError extends Error { ... }
 ---
 
 ### US-T2-10 — Form Handling Pattern
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Establish the standard form handling pattern using `react-hook-form` and `zod` that all forms across StudioVerse must follow.
 
 **Pattern:**
+
 ```typescript
 // Standard form pattern
 const schema = z.object({
@@ -1319,6 +1447,7 @@ const form = useForm<FormData>({
 ```
 
 **Form component conventions:**
+
 - All form fields use `shadcn/ui` Form, FormField, FormItem, FormLabel, FormMessage components
 - Validation schemas defined with Zod
 - Form submission calls a service function — never Firestore directly
@@ -1327,6 +1456,7 @@ const form = useForm<FormData>({
 - Submit buttons disabled during submission
 
 **Shared form components to create:**
+
 - `FormInput` — text input with label + error
 - `FormSelect` — dropdown select
 - `FormTextarea` — multiline text
@@ -1334,6 +1464,7 @@ const form = useForm<FormData>({
 - `FormSubmitButton` — button with loading state
 
 **Acceptance Criteria:**
+
 - Form pattern documented with example
 - Shared form components created in `src/modules/app-shell/components/form/`
 - At least one working form example (e.g. login form shell) follows the pattern
@@ -1342,6 +1473,7 @@ const form = useForm<FormData>({
 ---
 
 ### US-T2-11 — Studio Landing Page Content Config
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1351,6 +1483,7 @@ copy, counters, benefit cards, SEO metadata, and social links to the
 shared marketing components.
 
 **Files to create:**
+
 - `src/modules/marketing/coaching-studio/content.config.ts`
 - `src/modules/marketing/training-studio/content.config.ts`
 - `src/modules/marketing/recruitment-studio/content.config.ts`
@@ -1393,12 +1526,14 @@ export const studioContent = {
 ```
 
 **Why this is separate from `studio.config.ts`:**
+
 - `studio.config.ts` drives the authenticated app shell (terminology, RBAC labels)
 - `content.config.ts` drives the public landing page (copy, SEO, marketing content)
 - They are intentionally separate — landing page editors should never need to
   touch app shell config and vice versa
 
 **Acceptance Criteria:**
+
 - All three `content.config.ts` files created with correct TypeScript types
 - Shared marketing components accept content config as props — no hardcoded copy
 - Each Studio landing page passes its own config to shared components
@@ -1407,23 +1542,27 @@ export const studioContent = {
 ---
 
 ## EPIC T3 — Deployment & DevOps
+
 **Priority:** P0 | **Status:** 🔄 PARTIAL (T3-01 and T3-02 Done)
 **Goal:** Establish the full deployment infrastructure, CI/CD pipeline, and environment management for all three StudioVerse Studio deployments.
 
 ---
 
 ### US-T3-01 — Setup Vercel Projects (3 Studios)
+
 **Status:** ✅ Done
 
 **Description:**
 Create three separate Vercel projects — one per Studio type — all connected to the same `studioverse` GitHub repository.
 
 **Vercel projects:**
+
 - `studioverse-coaching` → coachingstudio.io (or chosen domain)
 - `studioverse-training` → trainingstudio.io (or chosen domain)
 - `studioverse-recruitment` → recruitmentstudio.io (or chosen domain)
 
 **Per project, configure:**
+
 - Framework preset: Next.js
 - Root directory: `/` (monorepo root)
 - Build command: `npm run build`
@@ -1431,6 +1570,7 @@ Create three separate Vercel projects — one per Studio type — all connected 
 - `NEXT_PUBLIC_STUDIO_TYPE` set to the relevant Studio type in Vercel environment variables
 
 **Acceptance Criteria:**
+
 - Three Vercel projects created and connected to GitHub
 - Hello World deploy confirmed on all three projects ✅
 - `NEXT_PUBLIC_STUDIO_TYPE` set correctly per project
@@ -1438,18 +1578,21 @@ Create three separate Vercel projects — one per Studio type — all connected 
 ---
 
 ### US-T3-02 — Connect GitHub Repo to Vercel
+
 **Status:** ✅ Done
 
 **Description:**
 Connect the `studioverse` GitHub repository to all three Vercel projects with automatic deployment on branch push.
 
 **Branch-to-environment mapping (per Vercel project):**
+
 - `main` branch → Production deployment
 - `staging` branch → Preview/Staging deployment
 - `dev` branch → Development preview deployment
 - Feature branches → PR preview deployments (auto)
 
 **Acceptance Criteria:**
+
 - GitHub integration active on all three Vercel projects ✅
 - Push to `main` triggers production deploy on all three
 - PR previews work correctly
@@ -1457,6 +1600,7 @@ Connect the `studioverse` GitHub repository to all three Vercel projects with au
 ---
 
 ### US-T3-03 — Environment Variables (dev/staging/prod)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1480,6 +1624,7 @@ Configure all required environment variables in each Vercel project for each env
 | `NEXT_PUBLIC_ENABLE_MOCK_SESSION` | true | false | false |
 
 **Acceptance Criteria:**
+
 - All variables set in Vercel for all three projects across all environments
 - Application reads correct Firebase project based on environment
 - No secrets in `NEXT_PUBLIC_` variables
@@ -1488,12 +1633,14 @@ Configure all required environment variables in each Vercel project for each env
 ---
 
 ### US-T3-04 — Firebase Deploy Config
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Configure the Firebase deployment pipeline to deploy Functions, Firestore rules, Storage rules, and indexes to the correct Firebase project per environment.
 
 **Deploy commands:**
+
 ```bash
 # Deploy to dev
 firebase use dev && firebase deploy
@@ -1506,12 +1653,14 @@ firebase use default && firebase deploy --only firestore:rules,storage
 ```
 
 **`firebase.json` targets:**
+
 - `firestore.rules` → `firestore.rules`
 - `firestore.indexes` → `firestore.indexes.json`
 - `storage.rules` → `storage.rules`
 - `functions` → `functions/`
 
 **Acceptance Criteria:**
+
 - `firebase deploy` succeeds for all targets on dev project
 - Deploy commands documented in README
 - Separate deploy commands documented for rules-only, functions-only, and full deploys
@@ -1519,6 +1668,7 @@ firebase use default && firebase deploy --only firestore:rules,storage
 ---
 
 ### US-T3-05 — CI/CD Pipeline (GitHub Actions)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1527,6 +1677,7 @@ Implement automated CI/CD workflows using GitHub Actions to enforce code quality
 **Workflows to create:**
 
 **1. `ci.yml` — runs on every PR to `dev`, `staging`, `main`**
+
 - Checkout code
 - Install dependencies
 - Run TypeScript type check (`tsc --noEmit`)
@@ -1535,13 +1686,16 @@ Implement automated CI/CD workflows using GitHub Actions to enforce code quality
 - Fail PR if any step fails
 
 **2. `deploy-functions.yml` — runs on merge to `main`**
+
 - Deploy Firebase Functions to production
 - Notify on success/failure
 
 **3. `deploy-rules.yml` — runs on merge to `main`**
+
 - Deploy Firestore and Storage rules to production
 
 **Acceptance Criteria:**
+
 - `ci.yml` workflow runs on all PRs and blocks merge on failure
 - TypeScript errors block merge
 - ESLint errors block merge
@@ -1551,6 +1705,7 @@ Implement automated CI/CD workflows using GitHub Actions to enforce code quality
 ---
 
 ### US-T3-06 — Multi-environment Setup
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1565,12 +1720,14 @@ Validate and document the complete three-environment setup (dev, staging, prod) 
 | prod | Production URL | studioverse-prod | main | Live users |
 
 **Validation checklist:**
+
 - App connects to correct Firebase project in each environment
 - `NEXT_PUBLIC_APP_ENV` reads correctly in each environment
 - Auth tokens from dev Firebase do not work on prod Firebase (isolation confirmed)
 - Storage buckets are isolated per environment
 
 **Acceptance Criteria:**
+
 - All three environments independently operational
 - Environment isolation confirmed (dev data cannot bleed to prod)
 - Environment matrix documented in README
@@ -1578,22 +1735,26 @@ Validate and document the complete three-environment setup (dev, staging, prod) 
 ---
 
 ### US-T3-07 — Domain Mapping (3 Studio Domains)
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Configure custom domain names for each Studio's production Vercel deployment.
 
 **Domains to configure:**
+
 - Coaching Studio: `coachingstudio.io` (or confirmed brand domain)
 - Training Studio: `trainingstudio.io` (or confirmed brand domain)
 - Recruitment Studio: `recruitmentstudio.io` (or confirmed brand domain)
 
 **DNS configuration:**
+
 - Add Vercel's DNS records (A record or CNAME) to domain registrar
 - `www` to apex redirect configured
 - Canonical domain enforced (apex or www — choose one consistently)
 
 **Acceptance Criteria:**
+
 - All three production domains resolve to correct Vercel deployments
 - HTTPS active on all three domains
 - www redirects to apex (or vice versa) consistently
@@ -1604,6 +1765,7 @@ Configure custom domain names for each Studio's production Vercel deployment.
 ---
 
 ### US-T3-08 — SSL Configuration
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1612,12 +1774,14 @@ Confirm SSL certificates are active and auto-renewing on all three Studio domain
 **Note:** Vercel auto-provisions Let's Encrypt SSL certificates on custom domain configuration. This story is a validation and confirmation story, not a manual implementation story.
 
 **Checklist:**
+
 - SSL certificate active on all three production domains
 - Certificate auto-renewal confirmed (Vercel managed)
 - HTTP to HTTPS redirect active
 - No mixed-content warnings on any page
 
 **Acceptance Criteria:**
+
 - All three domains serve HTTPS only
 - No browser SSL warnings on any domain
 - Certificate expiry dates confirmed and auto-renewal active
@@ -1625,12 +1789,14 @@ Confirm SSL certificates are active and auto-renewing on all three Studio domain
 ---
 
 ### US-T3-09 — Build Validation
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Confirm that the production build process is clean, reproducible, and produces a correct output for all three Studio types.
 
 **Build validation steps:**
+
 1. Set `NEXT_PUBLIC_STUDIO_TYPE=coaching` → run `npm run build` → confirm success
 2. Set `NEXT_PUBLIC_STUDIO_TYPE=training` → run `npm run build` → confirm success
 3. Set `NEXT_PUBLIC_STUDIO_TYPE=recruitment` → run `npm run build` → confirm success
@@ -1639,6 +1805,7 @@ Confirm that the production build process is clean, reproducible, and produces a
 6. Confirm build output size is within acceptable range
 
 **Build scripts in `package.json`:**
+
 ```json
 {
   "scripts": {
@@ -1655,6 +1822,7 @@ Confirm that the production build process is clean, reproducible, and produces a
 ```
 
 **Acceptance Criteria:**
+
 - All three Studio builds succeed without errors
 - Build output validated on each Vercel project
 - Build scripts documented in README
@@ -1662,27 +1830,32 @@ Confirm that the production build process is clean, reproducible, and produces a
 ---
 
 ### US-T3-10 — Rollback Strategy
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Document and validate the rollback procedures for both Vercel frontend and Firebase backend in the event of a bad production deployment.
 
 **Vercel rollback:**
+
 - Vercel retains deployment history per project
 - Rollback = promote a previous deployment to production via Vercel dashboard or CLI
 - Command: `vercel rollback [deployment-url] --scope [team]`
 - All three Studio projects can be rolled back independently
 
 **Firebase Functions rollback:**
+
 - Firebase does not have built-in rollback — rollback is achieved by redeploying a previous version
 - Previous versions are available via Git tags on `main`
 - Rollback procedure: `git checkout [previous-tag]` → `firebase deploy --only functions`
 
 **Firestore rules rollback:**
+
 - Rules are version-controlled in Git
 - Rollback: `git checkout [previous-version] -- firestore.rules` → `firebase deploy --only firestore:rules`
 
 **Rollback runbook:**
+
 1. Identify the bad deployment (Vercel dashboard or Firebase console)
 2. For Vercel: use dashboard to promote previous deployment
 3. For Functions: `git checkout [previous-tag]` → `firebase deploy --only functions`
@@ -1691,6 +1864,7 @@ Document and validate the rollback procedures for both Vercel frontend and Fireb
 6. Create incident post-mortem
 
 **Acceptance Criteria:**
+
 - Rollback procedures documented in RUNBOOK.md or README
 - Vercel rollback tested on staging at least once
 - Firebase Functions rollback procedure tested on dev at least once
@@ -1698,12 +1872,14 @@ Document and validate the rollback procedures for both Vercel frontend and Fireb
 ---
 
 ## EPIC T4 — Security & Access Control
+
 **Priority:** P0 | **Status:** 🔲 NOT STARTED
 **Goal:** Implement the complete security baseline including RBAC, Firestore rules for all 25 collections, data isolation, input validation, audit logging, and PII handling that every functional epic depends on.
 
 ---
 
 ### US-T4-01 — Define Roles (superadmin/company/professional/individual)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1719,6 +1895,7 @@ Formally implement the four-role model across the StudioVerse codebase. The role
 | individual | Coachee | Learner | Candidate | Own data only |
 
 **Implementation:**
+
 - Roles stored in `users.roles` array (string[]) in Firestore
 - `userContexts` document is the RBAC oracle — precomputed by `buildUserContext` Function
 - `useUserContext()` hook exposes role data to components
@@ -1726,11 +1903,13 @@ Formally implement the four-role model across the StudioVerse codebase. The role
 - Role type exported as TypeScript union type
 
 **Multi-role support:**
+
 - A user may hold multiple roles (e.g. `[professional, individual]`)
 - Access rules are additive — user gets the union of permissions across all their roles
 - SuperAdmin always overrides all other role restrictions
 
 **Acceptance Criteria:**
+
 - Role constants defined in `src/constants/roles.ts`
 - Role type exported as TypeScript type
 - `userContexts` schema implemented in Firestore
@@ -1739,6 +1918,7 @@ Formally implement the four-role model across the StudioVerse codebase. The role
 ---
 
 ### US-T4-02 — Auth Guards (Route Protection)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1747,16 +1927,19 @@ Implement route-level authentication and authorisation guards using Next.js App 
 **Two-layer guard strategy:**
 
 **Layer 1: Proxy (`src/proxy.ts`)**
+
 - Checks Firebase Auth session cookie on every request to `(app)` routes
 - Redirects unauthenticated users to `/login`
 - Does not check roles — only checks authentication
 
 **Layer 2: Layout/route-level role check (tenant-prefixed routes in `src/app/<tenant-id>/`)**
+
 - Reads `userContext` from Firestore on load
 - Redirects user to their role-appropriate dashboard if accessing wrong area
 - Example: a `individual` user accessing `/admin/users` is redirected to `/dashboard/individual`
 
 **Client-side guard hook:**
+
 ```typescript
 // src/hooks/useRequireAuth.ts
 export function useRequireAuth(requiredRoles?: Role[]) {
@@ -1766,6 +1949,7 @@ export function useRequireAuth(requiredRoles?: Role[]) {
 ```
 
 **Protected route matrix:**
+
 - `/admin/*` → superadmin only
 - `/cohorts/*` → company, professional only
 - `/reports/*` → all authenticated, but data filtered by role
@@ -1773,6 +1957,7 @@ export function useRequireAuth(requiredRoles?: Role[]) {
 - All other `/dashboard/*` → role-specific
 
 **Acceptance Criteria:**
+
 - Unauthenticated users accessing any `(app)` route are redirected to `/login`
 - Users accessing role-restricted routes are redirected to their own dashboard
 - Auth guard logic is not duplicated in individual page components
@@ -1781,12 +1966,14 @@ export function useRequireAuth(requiredRoles?: Role[]) {
 ---
 
 ### US-T4-03 — Firestore Security Rules (All 25 Collections)
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Implement the complete Firestore security rules for all 25 collections defined in the StudioVerse Database Specification v2.
 
 **Rules must enforce:**
+
 - Authentication required on all reads and writes
 - `studioType` field must match between document and requesting user
 - Role-based access per collection
@@ -1795,40 +1982,49 @@ Implement the complete Firestore security rules for all 25 collections defined i
 **Key rules per collection:**
 
 **users:**
+
 - Read own document: authenticated + `request.auth.uid == resource.data.id`
 - Write own document: authenticated + `request.auth.uid == resource.data.id`
 - Read any user: superadmin only
 - Create: authenticated (own document only)
 
 **userContexts:**
+
 - Read own: authenticated + `request.auth.uid == resource.data.userId`
 - Write: Functions only (no client writes)
 
 **programs:**
+
 - Read published: any authenticated user with matching `studioType`
 - Write: superadmin or professional (own programs only)
 
 **tools:**
+
 - Read published: any authenticated user with matching `studioType`
 - Write: superadmin or professional (own tools only)
 
 **assignments:**
+
 - Read: superadmin, owning professional, or assigned individual
 - Write: superadmin or professional only
 
 **reports:**
+
 - Read: superadmin, owning professional (own individuals only), or individual (own reports only)
 - Write: Functions only (no client writes)
 
 **auditLogs:**
+
 - Read: superadmin only
 - Write: Functions only
 
 **toolSubmissions:**
+
 - Read: superadmin, owning professional, or submitting individual
 - Write: submitting individual only (and only while status is `in_progress`)
 
 **Acceptance Criteria:**
+
 - `firestore.rules` file implements rules for all 25 collections
 - Rules deployed to dev Firebase project
 - Firebase emulator rule tests written for critical read/write paths
@@ -1838,6 +2034,7 @@ Implement the complete Firestore security rules for all 25 collections defined i
 ---
 
 ### US-T4-04 — Data Isolation (studioType + professionalId Scoping)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1846,26 +2043,31 @@ Implement and validate the multi-tenancy data isolation model at both the applic
 **Isolation model:**
 
 **Level 1: Studio Tenant Isolation**
+
 - Every document in every tenant collection carries `studioType`
 - All queries include `where('studioType', '==', studioType)` as the first filter
 - The `studioType` value comes from `useStudio()` — never from user input
 - A user registered as `coaching` studioType cannot see `training` data even if they query directly
 
 **Level 2: Professional Scoping**
+
 - An Individual's data is always linked to their Professional via `professionalId`
 - A Professional can only query Individuals where `professionalId == their userId`
 - A Company can only query Professionals where `companyId == their companyId`
 
 **Level 3: SuperAdmin Override**
+
 - SuperAdmin can read all documents within their Studio type
 - SuperAdmin cannot cross Studio types without a separate account
 
 **Service layer enforcement:**
+
 - Every service function that returns a list must include `studioType` filter
 - `studioType` is never sourced from URL params or user input — always from `useStudio()` config
 - Professional-scoped services always include `professionalId` filter
 
 **Acceptance Criteria:**
+
 - `studioType` filter applied in all service layer list queries
 - `professionalId` filter applied in all individual-scoped queries
 - Firestore rules enforce isolation at database layer independently of application layer
@@ -1874,12 +2076,14 @@ Implement and validate the multi-tenancy data isolation model at both the applic
 ---
 
 ### US-T4-05 — Secure Firebase Functions (Input Validation)
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Implement security hardening for all Firebase Functions including authentication verification, input validation, and rate limiting.
 
 **Every callable Function must:**
+
 1. Verify `context.auth` exists — reject unauthenticated calls with `unauthenticated` error
 2. Verify the caller's role from `userContexts` — reject unauthorised calls with `permission-denied`
 3. Validate all input data using Zod schemas — reject invalid input with `invalid-argument`
@@ -1888,6 +2092,7 @@ Implement security hardening for all Firebase Functions including authentication
 6. Catch all errors and return typed error responses
 
 **Function security wrapper pattern:**
+
 ```typescript
 async function secureFunctionCall<T>(
   context: CallableContext,
@@ -1904,6 +2109,7 @@ async function secureFunctionCall<T>(
 ```
 
 **Acceptance Criteria:**
+
 - All Firebase Functions use authentication verification
 - All Functions validate input with Zod schemas
 - Invalid or unauthenticated calls return typed error responses
@@ -1912,27 +2118,32 @@ async function secureFunctionCall<T>(
 ---
 
 ### US-T4-06 — Input Validation Layer
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Implement a consistent input validation layer across both the frontend (forms) and backend (Functions) to prevent invalid or malicious data from entering the system.
 
 **Frontend validation:**
+
 - All forms use Zod schemas via `react-hook-form` + `zodResolver`
 - Validation runs client-side before any service call
 - Client-side validation is UX — it does not replace server-side validation
 
 **Backend validation:**
+
 - All Firebase Functions re-validate input with Zod schemas independently of frontend validation
 - Server-side validation is the authoritative gate
 - Common validation schemas live in `functions/src/utils/validation.ts` and are shared with frontend via a `shared/` package if monorepo permits, or duplicated deliberately
 
 **Input sanitisation:**
+
 - All string inputs are trimmed before storage
 - No HTML or script content accepted in text fields
 - File upload type and size validated before Storage upload
 
 **Acceptance Criteria:**
+
 - All form inputs validated with Zod on frontend
 - All Function inputs validated with Zod on backend
 - No user-submitted data stored without validation
@@ -1941,6 +2152,7 @@ Implement a consistent input validation layer across both the frontend (forms) a
 ---
 
 ### US-T4-07 — Audit Logging (auditLogs Collection)
+
 **Status:** 🔲 Not Started
 
 **Description:**
@@ -1961,6 +2173,7 @@ Implement the immutable audit trail for all critical platform actions using the 
 | Tool published | professional/superadmin | toolId |
 
 **`auditLogs` document schema:**
+
 ```typescript
 {
   id: string,
@@ -1977,11 +2190,13 @@ Implement the immutable audit trail for all critical platform actions using the 
 ```
 
 **Rules:**
+
 - Audit logs are written by Functions only — never by the UI
 - Audit logs are never updated or deleted — append only
 - SuperAdmin can read audit logs via the Admin Console
 
 **Acceptance Criteria:**
+
 - `auditLogs` collection rules enforce write-from-Functions-only
 - All listed critical events generate audit log entries
 - Audit logs are readable by SuperAdmin in the Admin Console
@@ -1990,17 +2205,20 @@ Implement the immutable audit trail for all critical platform actions using the 
 ---
 
 ### US-T4-08 — Rate Limiting on Functions
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Implement rate limiting on Firebase Functions to prevent abuse and protect platform resources.
 
 **Rate limiting strategy:**
+
 - Use Firestore-based rate limiting (simple and serverless-compatible)
 - Track call counts per user per function per time window in a `rateLimits` subcollection
 - Reject calls that exceed the limit with `resource-exhausted` error
 
 **Limits:**
+
 | Function | Limit |
 |----------|-------|
 | Tool submission | 10 per hour per user |
@@ -2009,6 +2227,7 @@ Implement rate limiting on Firebase Functions to prevent abuse and protect platf
 | Widget session create | 100 per hour per IP |
 
 **Acceptance Criteria:**
+
 - Rate limiting logic implemented for all high-risk Functions
 - Exceeded rate limit returns `resource-exhausted` error
 - Rate limit counters reset after the time window expires
@@ -2017,12 +2236,14 @@ Implement rate limiting on Firebase Functions to prevent abuse and protect platf
 ---
 
 ### US-T4-09 — Secure Env Vars (No Secrets in Frontend)
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Audit and validate that no secret values are present in the frontend bundle or any committed code.
 
 **Audit checklist:**
+
 - `GROQ_API_KEY` — must only exist in Firebase Functions environment
 - `RESEND_API_KEY` — must only exist in Firebase Functions environment
 - `FIREBASE_SERVICE_ACCOUNT_KEY` — must only exist in Firebase Functions environment
@@ -2032,10 +2253,12 @@ Audit and validate that no secret values are present in the frontend bundle or a
 - Git history scanned for any accidentally committed secrets
 
 **Tools:**
+
 - `git-secrets` or `truffleHog` for scanning Git history
 - Vercel environment variable audit for correct scope (preview/production/all)
 
 **Acceptance Criteria:**
+
 - No secrets found in any `NEXT_PUBLIC_` variable
 - No secrets found in any committed file
 - Git history scanned clean
@@ -2044,17 +2267,20 @@ Audit and validate that no secret values are present in the frontend bundle or a
 ---
 
 ### US-T4-10 — PII Handling Policy
+
 **Status:** 🔲 Not Started
 
 **Description:**
 Define and implement the platform's approach to handling Personally Identifiable Information (PII) in compliance with basic data privacy principles.
 
 **PII fields in StudioVerse:**
+
 - Name, email, phone, avatar URL — in `users` collection
 - Assessment responses — in `toolSubmissions` collection
 - Report content — in `reports` collection and Firebase Storage
 
 **PII handling rules:**
+
 - PII is never logged in plain text in application logs or Functions logs
 - Audit log entries reference user IDs, not user names or emails
 - Reports stored in Firebase Storage are access-controlled (signed URLs or role-checked access)
@@ -2063,6 +2289,7 @@ Define and implement the platform's approach to handling Personally Identifiable
 - Data export: users may request an export of their own data (GDPR Article 20)
 
 **Acceptance Criteria:**
+
 - No PII appears in application logs or Functions logs
 - Audit log entries use user IDs, not names or email addresses
 - Reports in Firebase Storage are access-controlled (no public URLs)
@@ -2072,6 +2299,7 @@ Define and implement the platform's approach to handling Personally Identifiable
 ---
 
 ## EPIC T5 — Studio Config Architecture
+
 **Priority:** P0 | **Status:** 🔲 NOT STARTED
 **Goal:** Define and implement the per-Studio configuration system that controls terminology, feature flags, branding, and behaviour across Coaching Studio, Training Studio, and Recruitment Studio.
 

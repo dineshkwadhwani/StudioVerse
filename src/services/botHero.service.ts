@@ -11,7 +11,8 @@ import {
   where,
   orderBy,
 } from "firebase/firestore";
-import { db } from "@/services/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db, storage } from "@/services/firebase";
 import {
   BOT_HERO_DURATION_UNITS,
   type BotHeroDurationUnit,
@@ -45,6 +46,8 @@ function mapPackage(id: string, data: Record<string, unknown>): BotHeroPackageRe
     id,
     name: toStr(data.name),
     description: toStr(data.description) || undefined,
+    imageUrl: toStr(data.imageUrl) || undefined,
+    imagePath: toStr(data.imagePath) || undefined,
     durationValue: toNum(data.durationValue),
     durationUnit: toDurationUnit(toStr(data.durationUnit)),
     credits: toNum(data.credits),
@@ -115,6 +118,8 @@ export async function saveBotHeroPackage(
   const payload = {
     name: values.name.trim(),
     description: values.description.trim(),
+    imageUrl: values.imageUrl.trim() || null,
+    imagePath: values.imagePath.trim() || null,
     durationValue: Number(values.durationValue),
     durationUnit: values.durationUnit,
     credits: Number(values.credits),
@@ -158,6 +163,34 @@ export function getBotHeroPackageSummary(pkg: BotHeroPackageRecord): string {
   return `${pkg.durationValue} ${pkg.durationUnit} • ${pkg.credits} credits`;
 }
 
+function sanitizeBotHeroImageExtension(file: File): string {
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp") return ext;
+  return "jpg";
+}
+
+export function validateBotHeroPackageImageFile(file: File): string | null {
+  if (!file.type.startsWith("image/") || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    return "Use a JPG, PNG, or WebP image.";
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    return "Image must be 2MB or smaller.";
+  }
+  return null;
+}
+
+export async function uploadBotHeroPackageImage(args: {
+  packageId: string;
+  file: File;
+}): Promise<{ imageUrl: string; imagePath: string }> {
+  const ext = sanitizeBotHeroImageExtension(args.file);
+  const imagePath = `botHeroPackages/${args.packageId}/image.${ext}`;
+  const storageRef = ref(storage, imagePath);
+  await uploadBytes(storageRef, args.file, { contentType: args.file.type });
+  const imageUrl = await getDownloadURL(storageRef);
+  return { imageUrl, imagePath };
+}
+
 export function calcEndDate(startDateStr: string, durationValue: number, durationUnit: BotHeroDurationUnit): string {
   const start = new Date(startDateStr);
   const daysToAdd = durationUnit === "weeks" ? durationValue * 7 : durationValue;
@@ -169,17 +202,31 @@ export function calcEndDate(startDateStr: string, durationValue: number, duratio
 // ── Request reads ───────────────────────────────────────────────────────────
 
 export async function listPendingBotHeroRequests(): Promise<BotHeroRequestRecord[]> {
+  // No orderBy — avoids composite index requirement; sort client-side instead
   const snap = await getDocs(
-    query(collection(db, REQUESTS_COLLECTION), where("status", "==", "pending"), orderBy("createdAt", "asc"))
+    query(collection(db, REQUESTS_COLLECTION), where("status", "==", "pending"))
   );
-  return snap.docs.map((row) => mapRequest(row.id, row.data() as Record<string, unknown>));
+  return snap.docs
+    .map((row) => mapRequest(row.id, row.data() as Record<string, unknown>))
+    .sort((a, b) => {
+      const aTime = a.createdAt && "toMillis" in a.createdAt ? (a.createdAt as { toMillis: () => number }).toMillis() : 0;
+      const bTime = b.createdAt && "toMillis" in b.createdAt ? (b.createdAt as { toMillis: () => number }).toMillis() : 0;
+      return aTime - bTime;
+    });
 }
 
 export async function listBotHeroRequestsForProfessional(professionalId: string): Promise<BotHeroRequestRecord[]> {
+  // No orderBy — avoids composite index requirement; sort client-side instead
   const snap = await getDocs(
-    query(collection(db, REQUESTS_COLLECTION), where("professionalId", "==", professionalId), orderBy("createdAt", "desc"))
+    query(collection(db, REQUESTS_COLLECTION), where("professionalId", "==", professionalId))
   );
-  return snap.docs.map((row) => mapRequest(row.id, row.data() as Record<string, unknown>));
+  return snap.docs
+    .map((row) => mapRequest(row.id, row.data() as Record<string, unknown>))
+    .sort((a, b) => {
+      const aTime = a.createdAt && "toMillis" in a.createdAt ? (a.createdAt as { toMillis: () => number }).toMillis() : 0;
+      const bTime = b.createdAt && "toMillis" in b.createdAt ? (b.createdAt as { toMillis: () => number }).toMillis() : 0;
+      return bTime - aTime;
+    });
 }
 
 export async function getActiveBotHero(tenantId: string): Promise<BotHeroRequestRecord | null> {

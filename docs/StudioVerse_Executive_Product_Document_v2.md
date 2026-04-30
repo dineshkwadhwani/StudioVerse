@@ -1,4 +1,5 @@
 # StudioVerse — Executive Product Document
+
 **Version 2.0 | March 2026 | Classification: Confidential**
 
 ---
@@ -121,6 +122,7 @@ StudioVerse implements a **shared-database, shared-schema multi-tenancy model** 
 **Within each tenant, Company and Professional are organizational units, not isolation boundaries.** Data isolation between Companies and between Professionals is enforced at the application layer through the `userContext` document — a precomputed RBAC object that defines exactly what every authenticated user can see and do within their tenant context.
 
 **Isolation rules:**
+
 - A SuperAdmin has cross-tenant, cross-company read access for platform oversight — no write access to tenant data
 - A Company can see all Professionals and Individuals within their organization — zero visibility into other Companies
 - A Professional (whether solo or company-affiliated) can see only their own Individuals (clients, learners, candidates) — zero visibility into another Professional's relationships, even within the same Company
@@ -174,11 +176,13 @@ The foundational tool suite for Coaching Studio, built on Dinesh Wadhwani's Coac
 **Technical Architecture of the Assessment Engine:**
 
 Every tool in the Playground operates as both a native platform feature and an embeddable widget. Each assessment receives a unique, shareable URL. Professionals can:
+
 1. Send the link directly to an Individual via any channel — email, WhatsApp, LinkedIn
 2. Embed the assessment widget on their own personal or company website
 3. Include it in a program sequence as a mandatory completion step
 
 Upon completion, the platform's AI layer — powered by Groq — instantly:
+
 - Generates a comprehensive, branded PDF report with the Professional's logo and color scheme
 - Delivers the report automatically to both the Individual and their Professional
 - Stores the data in the Individual's longitudinal growth profile
@@ -206,6 +210,7 @@ The Events module creates the community heartbeat of each Studio:
 The SuperAdmin is StudioVerse's operating authority — the single role with cross-tenant visibility and platform governance capability. In the initial deployment, this role is held by the platform owner (Dinesh Wadhwani and the StudioVerse team). As the platform scales, trusted organizational administrators may be granted SuperAdmin capabilities with scoped permissions.
 
 **Core Capabilities:**
+
 - **Global Content Catalog Management** — Upload and curate programs (videos, podcasts, PDFs, audio) accessible to all users across a Studio tenant. Set pricing (free or paid) and visibility rules for each item.
 - **Professional Oversight** — Approve, activate, or deactivate Professional accounts across the platform. Maintain platform quality standards.
 - **Global Event Management** — Create platform-wide events (webinars, masterclasses, industry workshops) visible to all registered users.
@@ -222,6 +227,7 @@ The SuperAdmin is StudioVerse's operating authority — the single role with cro
 The Company tier is StudioVerse's enterprise revenue engine. This tier targets professional services firms of all types — coaching consultancies, corporate L&D departments, training companies, recruitment agencies — any organization managing multiple Professionals who serve a common client base.
 
 **Core Capabilities:**
+
 - **Multi-Professional Team Management** — Add, manage, and configure accounts for an unlimited number of Professionals under the Company umbrella. Assign roles, set permissions, and maintain organizational hierarchy.
 - **Centralized Resource Library** — Provide standardized tools, programs, and assessment frameworks to all Professionals in the organization, ensuring consistent delivery standards across the team.
 - **Organizational Analytics** — See aggregate progress data across all Professionals and their Individual client bases. Track which programs are most used, which tools generate highest engagement, and where Individuals are in their development journeys.
@@ -243,6 +249,7 @@ A Professional may operate in one of two modes:
 - **Company-Affiliated Professional** — Operating under a Company account. Access to shared Company resource libraries and cohorts while maintaining strict data isolation of their own client relationships from other Professionals in the same Company.
 
 **Core Capabilities:**
+
 - **Individual and Cohort Management** — Add Individual clients directly to a personal roster. Create named cohorts and add multiple Individuals. Assign programs, tools, and events to individuals or entire cohorts in a single action. Archive completed cohorts.
 - **Assignment Engine** — Assign any combination of programs and tools to any Individual or cohort. Drip content over scheduled timelines. Track completion in real time.
 - **Performance View** — Access reports and progress data exclusively for their own Individuals. Strict data isolation ensures Professional A cannot see Professional B's data at any level — whether they are in the same Company or not.
@@ -252,6 +259,7 @@ A Professional may operate in one of two modes:
 - **Branded Reporting** — All AI-generated PDF reports carry the Professional's logo and color scheme — delivering a premium, white-labeled experience to their clients.
 
 **Why a Professional Joins StudioVerse:**
+
 1. **Regain 40% of their time** by eliminating manual administrative workflows
 2. **Scale beyond their calendar** by productizing their IP into programs and assessment tools
 3. **Become data-driven** by presenting clients with professional reports that demonstrate measurable progress
@@ -264,6 +272,7 @@ A Professional may operate in one of two modes:
 The Individual is either self-registered (discovery via marketplace or widget link) or invited by a Professional. They represent the demand side of the professional services ecosystem — the human beings whose growth, learning, and career development the entire platform ultimately serves.
 
 **Core Capabilities:**
+
 - **Personal Growth Dashboard** — A curated view of all programs, tools, and tasks assigned by their Professional, plus any self-selected content from the free catalog.
 - **Program Consumption** — Watch videos, read PDFs, listen to podcasts. Mark modules as complete to maintain a visual progress journey.
 - **Self-Assessment Tools** — Take any tool assigned by their Professional, or discover and self-initiate tools from the catalog. Receive instant AI-generated reports upon completion.
@@ -429,6 +438,7 @@ HR departments, L&D functions, and talent acquisition teams at mid-to-large orga
 
 **Stream 2 — Marketplace Commission**
 10–15% on every transaction processed through StudioVerse's marketplace:
+
 - Individual program purchases (video courses, PDF guides, audio programs)
 - Event ticket sales (paid workshops, masterclasses)
 - Future: Direct professional session bookings between Individuals and Professionals
@@ -467,6 +477,7 @@ As the platform's dataset matures, premium AI-powered features — predictive pr
 ### Moat 1 — The Widget Strategy: Viral Distribution Engine
 
 Unlike closed, walled-garden platforms, StudioVerse's tools are designed to leak outward intentionally. Every embeddable assessment widget placed on an external professional website functions simultaneously as:
+
 - A **lead acquisition channel** — new users who complete an assessment are prompted to create a StudioVerse account to receive their full report
 - A **brand impression vehicle** — the Professional's clients associate AI-powered assessment reports with their Professional's brand, not a generic tool
 - A **data collection node** — anonymous assessment completions enrich the platform's aggregate dataset
@@ -476,6 +487,7 @@ This creates a viral distribution loop: the more Professionals embed widgets on 
 ### Moat 2 — Data Dominance: The Longitudinal Growth Database
 
 As StudioVerse accumulates structured assessment data across tens of thousands of Individuals over time, it builds the world's most granular database of human professional and personal development patterns across coaching, training, and recruitment contexts. This creates:
+
 - **Benchmark intelligence** — Professionals can see how their clients compare to peer cohorts (anonymously)
 - **Predictive capability** — Machine learning models can begin recommending optimal professional development pathways based on assessment profiles
 - **Research value** — Anonymized aggregate data has significant value for HR research, academic partnerships, and enterprise L&D insights
@@ -508,6 +520,7 @@ StudioVerse is built on the following architectural principles to ensure scalabi
 - **No Direct Database Access from UI** — All business logic resides in Firebase Functions. The frontend never accesses Firestore directly. Zero secrets in frontend code.
 
 **Technology Stack:**
+
 - **Frontend:** Next.js App Router, TypeScript, Tailwind CSS + shadcn/ui
 - **State Management:** Zustand (client-side userContext, session, UI state)
 - **Authentication:** Firebase Auth
@@ -622,6 +635,7 @@ The initial go-to-market leverages the founder's existing coaching practice and 
 StudioVerse's long-term vision extends far beyond software tooling. The platform aspires to become the **intelligence layer for the entire professional services delivery economy** — the authoritative source of structured data on what works in human development, how professional methodologies compare in effectiveness, and what individual learning profiles predict about future growth potential.
 
 In five years, StudioVerse envisions:
+
 - A marketplace with 20,000+ active Professionals and 1,000,000+ Individuals globally, spanning coaching, training, and recruitment
 - The world's largest proprietary database of structured professional development and assessment data across all three verticals
 - AI-powered Professional-matching algorithms that pair Individuals with the optimal coach, trainer, or recruiter for their specific profile and goals
@@ -679,6 +693,5 @@ The following professional service verticals are candidates for future StudioVer
 
 **StudioVerse — One Engine. Infinite Studios.**
 
-*For product, engineering, and partnership inquiries: admin@studioverse.io*
+*For product, engineering, and partnership inquiries: <admin@studioverse.io>*
 *Confidential — Do Not Distribute Without Authorization*
-

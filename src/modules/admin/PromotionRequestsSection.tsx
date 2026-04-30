@@ -6,6 +6,9 @@ import {
   approveAssessmentPromotionRequest,
   approveEventPromotionRequest,
   approveProgramPromotionRequest,
+  denyAssessmentPromotionRequest,
+  denyEventPromotionRequest,
+  denyProgramPromotionRequest,
   listPromotionRequests,
   type PromotionRequestRecord,
 } from "@/services/programPromotionRequests.service";
@@ -28,6 +31,7 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
   const [tenantOptions, setTenantOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [denyingId, setDenyingId] = useState<string | null>(null);
   const [startDates, setStartDates] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -89,6 +93,27 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
       setError(approvalError instanceof Error ? approvalError.message : "Failed to approve promotion request.");
     } finally {
       setApprovingId(null);
+    }
+  }
+
+  async function deny(request: PromotionRequestRecord): Promise<void> {
+    setDenyingId(request.id);
+    setError("");
+    setMessage("");
+    try {
+      if (request.resourceType === "event") {
+        await denyEventPromotionRequest({ eventId: request.id, operatorId });
+      } else if (request.resourceType === "assessment") {
+        await denyAssessmentPromotionRequest({ assessmentId: request.id, operatorId });
+      } else {
+        await denyProgramPromotionRequest({ programId: request.id, operatorId });
+      }
+      setMessage("Promotion request denied.");
+      await refresh();
+    } catch (denyError) {
+      setError(denyError instanceof Error ? denyError.message : "Failed to deny promotion request.");
+    } finally {
+      setDenyingId(null);
     }
   }
 
@@ -211,9 +236,18 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
                   type="button"
                   className={styles.button}
                   onClick={() => void approve(request)}
-                  disabled={approvingId === request.id}
+                  disabled={approvingId === request.id || denyingId === request.id}
                 >
                   {approvingId === request.id ? "Approving..." : "Approve"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.rowAction}
+                  onClick={() => void deny(request)}
+                  disabled={approvingId === request.id || denyingId === request.id}
+                  style={{ color: "#c0392b" }}
+                >
+                  {denyingId === request.id ? "…" : "Deny"}
                 </button>
               </div>
             </article>

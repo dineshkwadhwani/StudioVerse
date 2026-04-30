@@ -88,6 +88,7 @@ export default async function Home() {
   const elevenLabsAgentId = process.env.ELEVEN_LAB_AGENT ?? "";
 
   return (
+    <>
     <div className={styles.page}>
 
       {/* ── NAV ── */}
@@ -298,8 +299,6 @@ export default async function Home() {
         <ContactForm />
       </section>
 
-      <ElevenLabsAgent agentId={elevenLabsAgentId} />
-
       {/* ── FOOTER ── */}
       <footer className={styles.footer}>
         <Link href="/" className={styles.footerBrand}>
@@ -315,5 +314,7 @@ export default async function Home() {
       </footer>
 
     </div>
+    <ElevenLabsAgent agentId={elevenLabsAgentId} />
+    </>
   );
 }

@@ -847,3 +847,108 @@ StudioVerse Database Specification v2.0
 25 collections. One schema. Three Studios. Built for scale.
 Repository: github.com/[org]/studioverse
 Confidential — Engineering Use Only
+
+---
+
+## Addendum — Collections added April 30, 2026
+
+### Collection: `botHeroPackages`
+
+Purpose: Stores Bot Hero packages that coaches can purchase to become the face of the tenant bot widget for a defined period.
+Managed by Super Admin. Global (not tenant-scoped per document, but effectively Coaching Studio only in current implementation).
+
+| Field         | Type      | Notes                                           |
+|---------------|-----------|-------------------------------------------------|
+| id            | string    | Auto-generated Firestore doc ID                 |
+| name          | string    | Display name of the package                     |
+| description   | string    | Optional description                            |
+| imageUrl      | string    | Optional Firebase Storage URL for artwork       |
+| imagePath     | string    | Optional Storage path (for future management)   |
+| durationValue | number    | Duration quantity (e.g. 2)                      |
+| durationUnit  | string    | `days` or `weeks`                               |
+| credits       | number    | Cost in coins deducted from coach wallet        |
+| active        | boolean   | Whether visible to coaches for purchase         |
+| sortOrder     | number    | Display order in package list                   |
+| createdBy     | string    | SuperAdmin uid                                  |
+| updatedBy     | string    | SuperAdmin uid                                  |
+| createdAt     | Timestamp |                                                 |
+| updatedAt     | Timestamp |                                                 |
+
+Security:
+- Read: any signed-in user
+- Write (create/update/delete): superadmin only
+
+Storage path for images: `botHeroPackages/{packageId}/image.{ext}`
+
+---
+
+### Collection: `botHeroRequests`
+
+Purpose: Stores Bot Hero purchase requests submitted by coaches. One doc per request. Multiple requests per coach allowed if date ranges do not conflict.
+
+| Field                | Type      | Notes                                                                 |
+|----------------------|-----------|-----------------------------------------------------------------------|
+| id                   | string    | Auto-generated Firestore doc ID                                       |
+| tenantId             | string    | Tenant that owns this Bot Hero slot                                   |
+| professionalId       | string    | uid of the requesting coach                                           |
+| professionalName     | string    | Coach display name at time of request                                 |
+| professionalAvatar   | string    | Coach profile photo URL at time of request                            |
+| packageId            | string    | Reference to `botHeroPackages` doc                                    |
+| packageName          | string    | Snapshot of package name at time of request                           |
+| durationValue        | number    | Snapshot of package duration value                                    |
+| durationUnit         | string    | Snapshot of package duration unit (`days` or `weeks`)                 |
+| credits              | number    | Credits deducted from coach wallet at submission                      |
+| walletTransactionId  | string    | Reference to the debit wallet transaction                             |
+| status               | string    | `pending` → `approved` → `active` → `expired` / `denied`             |
+| preferredStartDate   | string    | ISO date (YYYY-MM-DD), optional coach hint                            |
+| approvedStartDate    | string    | ISO date, set by admin on approval                                    |
+| approvedEndDate      | string    | ISO date, calculated: approvedStartDate + duration                    |
+| approvedBy           | string    | SuperAdmin uid                                                        |
+| approvedAt           | Timestamp |                                                                       |
+| deniedBy             | string    | SuperAdmin uid, optional                                              |
+| deniedAt             | Timestamp | Optional                                                              |
+| denialReason         | string    | Optional reason text                                                  |
+| refundTransactionId  | string    | Reference to refund wallet transaction (set on denial)                |
+| requestedAt          | Timestamp |                                                                       |
+| createdAt            | Timestamp |                                                                       |
+| updatedAt            | Timestamp |                                                                       |
+
+Security:
+- Create: authenticated professional, own `professionalId` only
+- Read: superadmin or own professional
+- Update: superadmin only
+- Delete: not allowed
+
+Composite indexes (deployed to `studioverse-test` on 30 April 2026):
+- `professionalId ASC + createdAt DESC` — coach request history
+- `status ASC + createdAt ASC` — admin pending queue
+
+Query pattern: Queries use single `where` equality filter + client-side sort to avoid composite index build dependency.
+
+---
+
+### Collection: `guestLogs`
+
+Purpose: Stores lead capture logs from guest bot conversations. One document per `(tenantId + guestPhone)` — all conversations with the same guest are consolidated in a single document.
+
+| Field                | Type      | Notes                                                         |
+|----------------------|-----------|---------------------------------------------------------------|
+| id                   | string    | `{tenantId}::{phoneE164}` composite key                       |
+| tenantId             | string    |                                                               |
+| botName              | string    | Bot persona name at time of conversation                      |
+| guestName            | string    | Name captured during intake                                   |
+| guestPhone           | string    | Phone (E.164) captured during intake                          |
+| category             | string    | Most recent conversation category                             |
+| categories           | string[]  | Deduplicated list of all categories across conversations      |
+| date                 | string    | ISO date of first log                                         |
+| lastConversationAt   | Timestamp | Timestamp of most recent conversation                         |
+| conversationCount    | number    | Number of separate conversation sessions                      |
+| conversations        | array     | Array of conversation entries (question, answer, category, createdAt) |
+| createdAt            | Timestamp |                                                               |
+| updatedAt            | Timestamp |                                                               |
+
+Security:
+- Read: superadmin only (client Firestore rules deny all guest reads)
+- Write: backend only via Admin SDK (`/api/bot/guest-log` route) — client writes are denied
+
+Write path: `/api/bot/guest-log` Next.js API route using Firebase Admin SDK. Guest users are unauthenticated so all writes must go through the trusted backend route.

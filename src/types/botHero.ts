@@ -14,6 +14,8 @@ export type BotHeroPackageRecord = {
   id: string;
   name: string;
   description?: string;
+  imageUrl?: string;
+  imagePath?: string;
   durationValue: number;
   durationUnit: BotHeroDurationUnit;
   credits: number;
@@ -29,6 +31,8 @@ export type BotHeroPackageFormValues = {
   id?: string;
   name: string;
   description: string;
+  imageUrl: string;
+  imagePath: string;
   durationValue: string;
   durationUnit: BotHeroDurationUnit;
   credits: string;

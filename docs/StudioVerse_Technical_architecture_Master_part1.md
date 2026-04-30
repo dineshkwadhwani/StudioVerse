@@ -1,13 +1,17 @@
 # StudioVerse — Technical Architecture Engineering Specification
+
 **Version 2.0 | March 2026 | Classification: Confidential — Engineering Use**
 
 ## Preamble
+
 This document supersedes all previous versions of the CoachingStudio Technical Architecture Specification. It reflects the full architectural evolution of the platform to the StudioVerse model — a single-codebase, multi-tenant, configuration-driven SaaS engine that powers multiple independently branded Studio products.
 
 ## Section 1 — System Overview
 
 ### 1.1 What StudioVerse Is
+
 StudioVerse is a multi-tenant SaaS platform that powers three externally branded Studio products from a single codebase:
+
 - Coaching Studio — coachingstudio.io
 - Training Studio — trainingstudio.io  
 - Recruitment Studio — recruitmentstudio.io
@@ -15,6 +19,7 @@ StudioVerse is a multi-tenant SaaS platform that powers three externally branded
 Each Studio is a fully branded, independently deployed application differentiated by a single environment variable: NEXT_PUBLIC_STUDIO_TYPE.
 
 ### 1.2 Universal Actor Model
+
 | Generic Role | Coaching Studio | Training Studio | Recruitment Studio |
 |---|---|---|---|
 | SuperAdmin | Platform Owner | Platform Owner | Platform Owner |
@@ -23,6 +28,7 @@ Each Studio is a fully branded, independently deployed application differentiate
 | Individual | Coachee | Learner | Candidate |
 
 ### 1.3 Core Architectural Principles
+
 1. Studio-type tenancy — Tenant = Studio type. NEXT_PUBLIC_STUDIO_TYPE drives skin, terminology, catalog defaults.
 2. Assignment-driven execution — Every resource delivered to an Individual is mediated through an Assignment entity.
 3. userContext as RBAC oracle — Precomputed Firestore document is the single source of truth for access decisions.
@@ -58,6 +64,7 @@ What STUDIO_TYPE controls: Branding, Terminology, Landing Page copy, Dashboard l
 | Repository | GitHub — studioverse | Single monorepo |
 
 Repository Identity:
+
 - GitHub Repo: studioverse
 - Firebase Projects: studioverse-dev | studioverse-staging | studioverse-prod
 - Vercel Project: studioverse
@@ -66,11 +73,13 @@ Repository Identity:
 ## Section 4 — Deployment Topology
 
 Environments:
+
 - develop branch → studioverse-dev
 - staging branch → studioverse-staging  
 - main branch → studioverse-prod
 
 Multi-Studio Deployment — each Studio is a separate Vercel project pointing to the same repo:
+
 - coaching-studio-prod → NEXT_PUBLIC_STUDIO_TYPE=coaching → coachingstudio.io
 - training-studio-prod → NEXT_PUBLIC_STUDIO_TYPE=training → trainingstudio.io
 - recruitment-studio-prod → NEXT_PUBLIC_STUDIO_TYPE=recruitment → recruitmentstudio.io
@@ -80,6 +89,7 @@ Multi-Studio Deployment — each Studio is a separate Vercel project pointing to
 Tenant = Studio Type (not Company). Shared-database, shared-schema model with logical isolation.
 
 userContext document structure:
+
 - userId, studioType, roles[]
 - companyIds[], professionalIds[], myProfessionalId
 - individualIds[], cohortIds[]
@@ -87,6 +97,7 @@ userContext document structure:
 - updatedAt
 
 Isolation Rules:
+
 - SuperAdmin: full read across tenants, no cross-tenant write
 - Company: sees all Professionals and Individuals in their companyId scope only
 - Professional: sees own Individuals, cohorts, reports only — not other Professionals' data
@@ -139,6 +150,7 @@ functions/src/
 ## Section 7 — Backend Architecture: Firebase Functions
 
 Function Categories:
+
 - Assignments: createAssignment, updateAssignment, reassignAssignment
 - Tools: submitTool, processToolResult
 - Reports: generateReport (Groq + PDF)
@@ -158,6 +170,7 @@ sendEmail({ to, templateId, data }) → { messageId }
 ## Section 8 — Core Engines
 
 Assignment Engine:
+
 1. Validate caller is Professional or SuperAdmin
 2. Validate caller owns targetId
 3. If cohort → fetch members → expand to userIds
@@ -165,6 +178,7 @@ Assignment Engine:
 5. Status lifecycle: assigned → in_progress → completed / overdue
 
 Tool Engine:
+
 1. Individual submits answers → submitTool Function
 2. Validate attempt count vs retryAllowed
 3. Create toolSubmission document
@@ -176,6 +190,7 @@ Tool Engine:
 9. Update assignment to completed
 
 Program Engine:
+
 1. Assignment created → Individual sees program in dashboard
 2. Drip check: module.releaseAfterDays vs days since assignment
 3. Individual marks module complete → programProgress updated
@@ -183,6 +198,7 @@ Program Engine:
 5. On 100% → assignment completed + notification
 
 Widget Engine:
+
 1. Professional generates widget URL for toolId
 2. Unique URL: /widget/{toolId}?ref={professionalId}
 3. Anonymous user completes assessment on external site

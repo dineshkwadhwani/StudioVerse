@@ -76,15 +76,14 @@ export default function BotHeroRequestsSection({ operatorId }: Props) {
         Review and approve pending Bot Hero requests from coaches. Only one Bot Hero can be active at a time per tenant.
       </p>
 
-      {message && <p className={styles.successMessage}>{message}</p>}
-      {error && <p className={styles.errorMessage}>{error}</p>}
+      {message && <p className={styles.info}>{message}</p>}
+      {error && <p className={styles.error}>{error}</p>}
 
       {loading ? (
-        <p className={styles.loadingText}>Loading requests…</p>
-      ) : requests.length === 0 ? (
+        <p className={styles.loadingText}>Loading requests…</p>      ) : requests.length === 0 ? (
         <div className={styles.emptyCard}>No pending Bot Hero requests.</div>
       ) : (
-        <div className={styles.requestList}>
+        <div className={styles.programGrid}>
           {requests.map((req) => {
             const previewStart = startDates[req.id];
             const previewEnd = previewStart
@@ -93,61 +92,66 @@ export default function BotHeroRequestsSection({ operatorId }: Props) {
             const busy = actionId === req.id;
 
             return (
-              <div key={req.id} className={styles.requestCard}>
-                <div className={styles.requestCardRow}>
-                  {req.professionalAvatar && (
-                    <img src={req.professionalAvatar} alt={req.professionalName} className={styles.requestAvatar} />
+              <article key={req.id} className={styles.programTile}>
+                <div className={styles.programImageWrap}>
+                  {req.professionalAvatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={req.professionalAvatar} alt={req.professionalName} className={styles.programImage} style={{ objectFit: "cover" }} loading="lazy" />
+                  ) : (
+                    <div className={styles.programImage} style={{ background: "#d6eaf8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ color: "#134267", fontWeight: 700, fontSize: "1.2rem" }}>
+                        {req.professionalName.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
                   )}
-                  <div>
-                    <p className={styles.requestName}>{req.professionalName}</p>
-                    <p className={styles.requestMeta}>
-                      Package: <strong>{req.packageName}</strong> &nbsp;|&nbsp;
-                      {req.durationValue} {req.durationUnit} &nbsp;|&nbsp;
-                      {req.credits} credits
-                    </p>
-                    {req.preferredStartDate && (
-                      <p className={styles.requestMeta}>Preferred start: {req.preferredStartDate}</p>
-                    )}
-                  </div>
                 </div>
 
-                <div className={styles.requestApprovalRow}>
-                  <label className={styles.filterField}>
-                    <span className={styles.filterLabel}>Start Date</span>
+                <div className={styles.programContent}>
+                  <p className={styles.programTitle}>{req.professionalName}</p>
+                  <p className={styles.programMeta}>Package: <strong>{req.packageName}</strong></p>
+                  <p className={styles.programMeta}>{req.durationValue} {req.durationUnit} &nbsp;|&nbsp; {req.credits} credits</p>
+                  {req.preferredStartDate && (
+                    <p className={styles.programMeta}>Preferred start: {req.preferredStartDate}</p>
+                  )}
+
+                  <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <label className={styles.label} style={{ margin: 0 }}>Start Date</label>
                     <input
                       type="date"
-                      className={styles.filterInput}
+                      className={styles.input}
+                      style={{ width: "160px", marginBottom: 0 }}
                       min={todayIso}
                       value={startDates[req.id] ?? ""}
                       onChange={(e) => setStartDates((prev) => ({ ...prev, [req.id]: e.target.value }))}
                     />
-                  </label>
+                  </div>
                   {previewEnd && (
-                    <p className={styles.requestMeta}>
+                    <p className={styles.programMeta} style={{ marginTop: "4px" }}>
                       Calculated end: <strong>{previewEnd}</strong>
                     </p>
                   )}
                 </div>
 
-                <div className={styles.requestActions}>
+                <div className={styles.programActions}>
                   <button
                     type="button"
-                    className={styles.primaryBtn}
+                    className={styles.button}
                     onClick={() => void handleApprove(req)}
                     disabled={busy}
                   >
-                    {busy ? "Processing…" : "Approve"}
+                    {busy ? "…" : "Approve"}
                   </button>
                   <button
                     type="button"
-                    className={styles.dangerBtn}
+                    className={styles.rowAction}
                     onClick={() => void handleDeny(req)}
                     disabled={busy}
+                    style={{ color: "#c0392b" }}
                   >
-                    {busy ? "Processing…" : "Deny"}
+                    {busy ? "…" : "Deny"}
                   </button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>

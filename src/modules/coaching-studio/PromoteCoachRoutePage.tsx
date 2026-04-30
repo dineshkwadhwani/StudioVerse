@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
@@ -12,6 +13,7 @@ import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
+import referralStyles from "@/modules/referrals/pages/ManageReferralsPage.module.css";
 import PromoteCoachPage from "./PromoteCoachPage";
 
 function getInitials(name: string) {
@@ -63,7 +65,8 @@ export default function PromoteCoachRoutePage() {
     return unsub;
   }, [router, basePath]);
 
-  const roleMenuGroups = getRoleMenuGroups(role, { basePath });
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [role, basePath]);
+  const initials = useMemo(() => getInitials(name), [name]);
 
   async function handleSignOut() {
     await signOut(auth);
@@ -73,66 +76,64 @@ export default function PromoteCoachRoutePage() {
   if (loading) return null;
 
   return (
-    <div className={landingStyles.page}>
-      <header className={landingStyles.header}>
-        <div className={landingStyles.headerLeft}>
-          <Image src="/tenants/coaching-studio/logo.png" alt={tenantConfig.name} width={120} height={36} />
-        </div>
-        <div className={dashboardStyles.profileArea} ref={menuRef}>
-          <button
-            type="button"
-            className={dashboardStyles.profileButton}
-            onClick={() => setMenuOpen((prev) => !prev)}
-            aria-label="Open user menu"
-          >
-            {avatarUrl ? (
-              <Image src={avatarUrl} alt={name} width={36} height={36} className={dashboardStyles.profileAvatar} />
-            ) : (
-              <span className={dashboardStyles.profileInitials}>{getInitials(name)}</span>
-            )}
-          </button>
-
-          {menuOpen && (
-            <div className={dashboardStyles.profileDropdown}>
-              <div className={dashboardStyles.dropdownUserInfo}>
-                <span className={dashboardStyles.dropdownName}>{name}</span>
-                <span className={dashboardStyles.dropdownRole}>{getRoleLabel(role)}</span>
-              </div>
-              {roleMenuGroups.map((group) => (
-                <div key={group.key} className={dashboardStyles.dropdownGroup}>
-                  <span className={dashboardStyles.dropdownGroupLabel}>{group.label}</span>
-                  {group.items.map((item) => {
-                    if (item.type === "signout") {
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          className={dashboardStyles.dropdownItem}
-                          onClick={() => void handleSignOut()}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    }
-                    return (
-                      <a key={item.key} href={item.href} className={dashboardStyles.dropdownItem}>
-                        {item.label}
-                      </a>
-                    );
-                  })}
+    <main className={referralStyles.page}>
+      <header className={referralStyles.toolbar}>
+        <Link href={basePath} className={landingStyles.brand}>
+          <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
+          <div className={landingStyles.brandText}>
+            <span className={landingStyles.brandTitle}>{tenantConfig.name}</span>
+            <span className={landingStyles.brandSubtitle}>StudioVerse Platform</span>
+          </div>
+        </Link>
+        <nav className={landingStyles.desktopNav}>
+          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{tenantConfig.labels.assessment}</Link>
+          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+        </nav>
+        <div className={dashboardStyles.rightControls}>
+          <div className={dashboardStyles.profileArea} ref={menuRef}>
+            <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
+              {initials} ▾
+            </button>
+            {menuOpen && (
+              <section className={dashboardStyles.menuPanel}>
+                <div className={dashboardStyles.menuUser}>
+                  <p className={dashboardStyles.menuName}>{name}</p>
+                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
+                    company: tenantConfig.roles.company,
+                    professional: tenantConfig.roles.professional,
+                    individual: tenantConfig.roles.individual,
+                  })}</p>
                 </div>
-              ))}
-            </div>
-          )}
+                {roleMenuGroups.map((group) => (
+                  <div key={group.key} className={dashboardStyles.menuGroup}>
+                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
+                    {group.items.map((item) => (
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={() => void handleSignOut()}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
+                    ))}
+                  </div>
+                ))}
+              </section>
+            )}
+          </div>
         </div>
       </header>
 
-      <main className={dashboardStyles.main}>
+      <div className={referralStyles.shell}>
         <PromoteCoachPage
           tenantConfig={tenantConfig}
           currentUser={{ uid, name, avatarUrl: avatarUrl || undefined }}
         />
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

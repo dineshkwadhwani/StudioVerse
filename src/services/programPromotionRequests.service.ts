@@ -4,6 +4,7 @@ import {
   getDocs,
   runTransaction,
   serverTimestamp,
+  updateDoc,
   type DocumentData,
 } from "firebase/firestore";
 import { type AssessmentPromotionStatus, type AssessmentRecord } from "@/types/assessment";
@@ -363,6 +364,51 @@ export async function approveProgramPromotionRequest(args: {
       updatedBy: args.operatorId,
       updatedAt: serverTimestamp(),
     });
+
+export async function denyProgramPromotionRequest(args: {
+  programId: string;
+  operatorId: string;
+}): Promise<void> {
+  await updateDoc(doc(db, "programs", args.programId), {
+    promotionStatus: "none",
+    promotionPackageId: null,
+    promoted: false,
+    promotionDeniedAt: serverTimestamp(),
+    promotionDeniedBy: args.operatorId,
+    updatedBy: args.operatorId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function denyEventPromotionRequest(args: {
+  eventId: string;
+  operatorId: string;
+}): Promise<void> {
+  await updateDoc(doc(db, "events", args.eventId), {
+    promotionStatus: "none",
+    promotionPackageId: null,
+    promoted: false,
+    promotionDeniedAt: serverTimestamp(),
+    promotionDeniedBy: args.operatorId,
+    updatedBy: args.operatorId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function denyAssessmentPromotionRequest(args: {
+  assessmentId: string;
+  operatorId: string;
+}): Promise<void> {
+  await updateDoc(doc(db, "assessments", args.assessmentId), {
+    promotionStatus: "none",
+    promotionPackageId: null,
+    promoted: false,
+    promotionDeniedAt: serverTimestamp(),
+    promotionDeniedBy: args.operatorId,
+    updatedBy: args.operatorId,
+    updatedAt: serverTimestamp(),
+  });
+}
 
     const walletTransactionRef = doc(collection(db, "walletTransactions"));
     transaction.set(walletTransactionRef, {

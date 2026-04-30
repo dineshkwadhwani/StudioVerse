@@ -1,4 +1,5 @@
 # StudioVerse — Outstanding Work & Test Strategy
+
 **Last updated:** April 27, 2026  
 **Status:** Pre-Launch E2E Testing Phase  
 **Source:** Full codebase audit against E0–E12 epics. See `docs/CODEBASE_CONTEXT.md` for full context.
@@ -18,6 +19,7 @@ No open critical blockers.
 No open high priority items.
 
 ### E14 — Revenue Models and Monetization
+
 - ✅ Per-tenant treasury wallet (`treasury::<tenantId>`) — created on tenant save, seeded from config, backfill callable available.
 - ✅ Registration bonus callable — issues coins to user, debits tenant treasury 1:1 with auto top-up.
 - ✅ Referral reward callable — credits referrer (or company), debits tenant treasury 1:1 with auto top-up.
@@ -39,6 +41,7 @@ No open high priority items.
 ## Medium Priority
 
 ### E8 — "Assign Activity" Menu Item Links to /dashboard
+
 - `assign-activity` menu item exists for both Company and Professional roles
 - Currently href points to `/dashboard` — no dedicated assignment page exists
 - Assignment modal is triggered contextually from Programs/Events/Tools pages, not from a standalone route
@@ -47,17 +50,19 @@ No open high priority items.
 ---
 
 ### E4 — SelectAndMove and ImageBasedSingleChoice Quiz Runners Unconfirmed
+
 - Types for both render styles are defined in `src/types/assessment.ts`
 - Components not confirmed present in `src/modules/assessments/quiz-runners/`
 - Verify or implement: `SelectAndMoveQuiz.tsx`, `ImageBasedSingleChoiceQuiz.tsx`
 
 ### E4 — No AI Question Generation UI
+
 - `aiGenerationPrompt` field is stored in assessment metadata
 - No UI or service to trigger AI generation of questions from this prompt
 - Would allow SuperAdmin to auto-populate question banks
 
-
 ### E5 — No Admin UI for Wallet Adjustments and Reversals
+
 - Transaction types `adjustment_credit`, `adjustment_debit`, `reversal`, `expiry` exist in the type system
 - No admin UI to create these transaction types
 - SuperAdmin cannot currently correct wallet errors
@@ -67,28 +72,34 @@ No open high priority items.
 ## Low Priority / Polish
 
 ### E0 — SEO Metadata Missing
+
 - No `generateMetadata()` export visible in `src/modules/landing/pages/LandingPage.tsx`
 - Add Next.js metadata exports (title, description, Open Graph) for each studio's landing page
 
 ### E0 — Analytics Event Instrumentation
+
 - No analytics events tracked (scroll depth, CTA clicks, role selection, auth funnel)
 - Spec requires one analytics provider with 8+ event types
 - Choose a provider and add instrumentation
 
 ### E0 — Benefits Section Not Implemented
+
 - Hero, programs, events, tools sections are live
 - Benefits/why-choose-us section not implemented as distinct cards per role (Coach vs Learner)
 
 ### E1 — Dashboard Has No Real Widgets
+
 - Dashboard pages are placeholders across all studios and roles
 - Needs role-appropriate widgets: upcoming activities, wallet balance, referral count, profile completion
 
 ### E4 — Assessment Versioning
+
 - No version control when an assessment's questions are updated
 - Existing reports reference the question set at time of attempt — this could become inconsistent
 - Consider snapshotting questions at attempt time or adding a version field
 
 ### E5 — Wallet Analytics
+
 - No utilization rate calculation or reconciliation view
 - Would help SuperAdmin understand platform coin circulation
 
@@ -126,6 +137,7 @@ No open high priority items.
 #### Quick Reference: What Can Be Automated vs Manual
 
 **AUTOMATABLE (E2E Framework / API Tests):**
+
 - ✅ Phase 1-3: Landing page load, registration, login for all 4 roles
 - ✅ Phase 4-7: Profile completion, user creation, wallet initialization and transactions
 - ✅ Phase 8-9: Activity assignment workflows, My Activities visibility
@@ -136,6 +148,7 @@ No open high priority items.
 - ✅ Unit tests: All service layer functions (users, assignments, wallets, cohorts, assessments)
 
 **NOT EASILY AUTOMATED (Manual/Visual Tests):**
+
 - ❌ Phase 1: Visual responsive design (mobile/tablet/desktop)
 - ❌ Phase 1: Email delivery verification (placeholder implementation)
 - ❌ Real payment/coin purchase flows
@@ -160,6 +173,7 @@ No open high priority items.
 **Tools:** Playwright + TypeScript (with GitHub Actions CI/CD)
 
 **Test Structure:**
+
 ```
 tests/
 ├── e2e/

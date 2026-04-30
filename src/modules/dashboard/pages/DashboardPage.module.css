@@ -10,6 +10,10 @@
   min-height: 100vh;
   background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
   color: var(--ink);
+  padding-top: 80px;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-bottom: 32px;
 }
 
 .mobileTopNav {
@@ -170,7 +174,30 @@
 .shell {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 28px;
+}
+
+/* Standard Layout Components */
+
+.pageTitle {
+  margin: 0 0 16px;
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.pageDescription {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.contentBox {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-card);
+  box-shadow: 0 12px 24px rgba(19, 58, 86, 0.1);
+  padding: 24px;
 }
 
 .contentCard {
@@ -182,9 +209,17 @@
 }
 
 .dashboardTitle {
-  margin: 0;
-  font-size: clamp(1.8rem, 3vw, 2.2rem);
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
   color: var(--ink);
+  font-weight: 700;
+}
+
+.dashboardSubtitle {
+  margin: 0 0 20px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .summaryStack {

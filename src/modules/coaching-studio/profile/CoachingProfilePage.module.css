@@ -2,6 +2,10 @@
   min-height: 100vh;
   background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
   color: #133a56;
+  padding-top: 80px;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-bottom: 32px;
 }
 
 .loadingState {

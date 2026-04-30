@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -209,7 +210,7 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image
             src={tenantConfig.theme.logo}
@@ -223,13 +224,13 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
             <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
+        <nav className={landingStyles.desktopNav}>
+          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+        </nav>
 
         <div className={dashboardStyles.rightControls}>
-          <nav className={landingStyles.desktopNav}>
-            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
-            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
-            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
-          </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button
@@ -255,17 +256,19 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>
-                  Sign Out
-                </button>
               </section>
             )}
           </div>
@@ -275,7 +278,11 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
       <div className={styles.shell}>
         <section className={styles.card}>
           <h1 className={styles.title}>Assigned Activities</h1>
-          <p className={styles.subtitle}>Track all activities you assigned to others, including status and report access.</p>
+          <p className={styles.contextText}>
+            {role === "company"
+              ? "Track all activities your company has assigned to professionals and individuals, including status and reports."
+              : "Track all activities you have assigned to individuals, including completion status and reports."}
+          </p>
 
           <div className={styles.filterRow}>
             {(["all", "assessment", "program", "event"] as const).map((type) => (

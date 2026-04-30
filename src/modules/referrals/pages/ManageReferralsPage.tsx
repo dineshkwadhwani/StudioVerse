@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -186,7 +187,7 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
@@ -194,13 +195,13 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
             <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
+        <nav className={landingStyles.desktopNav}>
+          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+        </nav>
 
         <div className={dashboardStyles.rightControls}>
-          <nav className={landingStyles.desktopNav}>
-            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
-            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
-            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
-          </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
@@ -220,14 +221,19 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>
               </section>
             )}
           </div>
@@ -237,7 +243,11 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
       <div className={styles.shell}>
         <section className={styles.card}>
           <h1 className={styles.title}>Manage Referrals</h1>
-          <p className={styles.subtitle}>Create and track your referrals for Coach and Individual journeys.</p>
+          <p className={styles.contextText}>
+            {role === "company"
+              ? "Track referrals submitted by your professionals and monitor referral-driven growth across your company."
+              : "Refer coaches and individuals to the platform, earn credits for each referral, and track their progress here."}
+          </p>
           <p className={styles.note}>
             Every referral gives you 10 coins now, and you receive 5 extra coins when that referral joins.
           </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -264,32 +264,33 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
                   <div key={group.key} className={styles.menuGroup}>
                     <p className={styles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <button
-                        key={item.key}
-                        type="button"
-                        className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
-                        disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
-                        onClick={() => {
-                          if (item.href !== `${basePath}/dashboard`) {
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={styles.menuDivider} />}
+                        <button
+                          type="button"
+                          className={`${styles.menuItem} ${activeKey === item.key && item.type !== "signout" ? styles.menuItemActive : ""}`}
+                          disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
+                          onClick={() => {
+                            if (item.type === "signout") {
+                              void handleLogout();
+                              setMenuOpen(false);
+                              return;
+                            }
+                            if (item.href !== `${basePath}/dashboard`) {
+                              setMenuOpen(false);
+                              router.push(item.href);
+                              return;
+                            }
+                            setActiveKey(item.key);
                             setMenuOpen(false);
-                            router.push(item.href);
-                            return;
-                          }
-                          setActiveKey(item.key);
-                          setMenuOpen(false);
-                        }}
-                      >
-                        {item.label}
-                      </button>
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-
-                <hr className={styles.menuDivider} />
-
-                <button type="button" className={styles.menuItem} onClick={handleLogout}>
-                  Sign Out
-                </button>
               </section>
             )}
           </div>
@@ -317,6 +318,9 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
       <div className={styles.shell}>
         <section className={styles.contentCard}>
           <h1 className={styles.dashboardTitle}>Dashboard</h1>
+          <p className={styles.pageDescription}>
+            {role === "company" ? "Your workspace dashboard showing team activities and resources." : role === "professional" ? "Your coaching dashboard with assignments and team summary." : "Your personal dashboard with activities and progress."}
+          </p>
 
           <div className={styles.summaryStack}>
             <article className={styles.summaryCard}>

@@ -19,6 +19,8 @@ Queued for prod rollout once project exists:
 - Event promotion and visibility callable updates (`createEvent`, `updateEvent`) including promotion metadata parity.
 - Assessment callable standardization rollout (`createAssessment`, `updateAssessment`) replacing direct admin metadata writes.
 - Promotion request lifecycle rollout for Program/Event/Assessment including package-based approval and wallet debit behavior.
+- Treasury wallet architecture (`treasury::<tenantId>`) — `ensureTenantTreasuryWallet`, `backfillTenantTreasuryWallets` callable, `issueRegistrationBonus` callable, `processReferralJoinWithTreasury` callable, `returnDebitsToTreasury` Firestore trigger (creator earnings routing included).
+- Firestore rules update: treasury wallet guard (`isTreasuryWallet`), scoped wallet ID read support (`.*::<uid>`), treasury-blocked client writes.
 
 Go-live handoff instruction:
 - After `studioverse-prod` is created, execute sections A through F in order.

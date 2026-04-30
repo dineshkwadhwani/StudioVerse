@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -376,7 +377,7 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
@@ -410,14 +411,19 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>
               </section>
             )}
           </div>
@@ -430,8 +436,8 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
             <h1 className={styles.title}>Manage Users</h1>
             <p className={styles.subtitle}>
               {creator?.role === "company"
-                ? `Create ${professionalLabel}s and ${individualLabel}s in your Company scope.`
-                : `Create ${individualLabel}s associated with your ${professionalLabel} scope.`}
+                ? `Create and manage ${professionalLabel}s and ${individualLabel}s in your company scope.`
+                : `Create and manage ${individualLabel}s associated with your ${professionalLabel} scope.`}
             </p>
 
             <div className={styles.field}>
@@ -506,8 +512,8 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
             <h2 className={styles.title}>Users In Scope</h2>
             <p className={styles.subtitle}>
               {creator?.role === "company"
-                ? `Showing ${professionalLabel}s and ${individualLabel}s from your Company.`
-                : `Showing ${individualLabel}s associated with you.`}
+                ? `View ${professionalLabel}s and ${individualLabel}s available in your company scope.`
+                : `View ${individualLabel}s currently associated with your ${professionalLabel} scope.`}
             </p>
 
             {creator?.role === "company" && (

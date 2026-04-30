@@ -11,13 +11,39 @@
   min-height: 100vh;
   background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
   color: var(--ink-strong);
-  padding: 28px;
+  padding-top: 80px;
+  padding-left: 28px;
+  padding-right: 28px;
+  padding-bottom: 28px;
 }
 
 .shell {
   max-width: 1180px;
   margin: 0 auto;
-  padding-top: 96px;
+}
+
+/* Standard Layout Components */
+
+.pageTitle {
+  margin: 0 0 16px;
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.pageDescription {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.contentBox {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-card);
+  box-shadow: 0 12px 24px rgba(19, 58, 86, 0.12);
+  padding: 24px;
 }
 
 .authCard,
@@ -134,7 +160,9 @@
   background: #e9f5ff;
   border: 1px solid var(--line);
   border-radius: 0 0 16px 16px;
-  padding: 10px 12px;
+  padding: 8px 12px;
+  min-height: 56px;
+  box-shadow: 0 1px 0 var(--line), 0 4px 12px rgba(19, 58, 86, 0.08);
 }
 
 .brandBlock {
@@ -147,6 +175,25 @@
   border-radius: 10px;
   border: 1px solid var(--line);
   background: #fff;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.brandTitle {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--ink-strong);
+}
+
+.brandSubtitle {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .profileArea {
@@ -268,7 +315,17 @@
 }
 
 .card h2 {
-  margin-top: 0;
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.card h2 ~ p {
+  margin: 0 0 18px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .field {

@@ -1,3 +1,23 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1180px, 100vw);
+  z-index: 30;
+  background: #e9f5ff;
+  border: 1px solid #c6dcea;
+  border-radius: 0 0 16px 16px;
+  padding: 8px 12px;
+  min-height: 56px;
+  box-shadow: 0 1px 0 #c6dcea, 0 4px 12px rgba(19, 58, 86, 0.08);
+}
+
 .profileArea {
   position: relative;
   margin-left: auto;

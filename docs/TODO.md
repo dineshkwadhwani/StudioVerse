@@ -18,21 +18,33 @@ No open critical blockers.
 No open high priority items.
 
 ### E14 — Revenue Models and Monetization
-- Implement Super Admin monetization settings for listing fee, promotion fee, marketplace commission percentage, and lead unlock fee.
-- Allow creator-owned Programs and Events by removing platform-only validation constraints and wiring creator ownership rules.
-- Implement listing fee charge flow when creator content is published as public.
-- Implement marketplace purchase flow that applies commission only for non-owner purchases of creator-owned public content.
-- Implement creator earnings wallet balances for earned, available-for-cashout, and pending-settlement credits.
-- Implement creator earnings ledger entries for every eligible monetized transaction.
-- Implement lead unlock monetization flow with paid unlock actions and transaction records.
-- Implement creator self-assignment exemption logic so no commission is charged for creator-owned private/self delivery.
-- Implement Super Admin monetization reporting for listing revenue, promotion revenue, commission revenue, lead unlock revenue, and liabilities.
-- Implement cash-out readiness data model and payout request lifecycle for future Razorpay payout integration.
-- Add end-to-end audit fields and transaction traceability across all monetization paths.
+- ✅ Per-tenant treasury wallet (`treasury::<tenantId>`) — created on tenant save, seeded from config, backfill callable available.
+- ✅ Registration bonus callable — issues coins to user, debits tenant treasury 1:1 with auto top-up.
+- ✅ Referral reward callable — credits referrer (or company), debits tenant treasury 1:1 with auto top-up.
+- ✅ All user spend returns to tenant treasury (platform-owned content path via `returnDebitsToTreasury`).
+- ✅ Creator earnings routing — non-owner assignment of creator-owned content credits the creator wallet (or company wallet for associated coaches).
+- ✅ Self-assignment exemption — creator assigning their own content does not trigger creator earnings.
+- ✅ Company-coach earnings rule — centralized in `resolveEarningsRecipientForUser`; applies to all current and future earnings paths.
+- ✅ Standardised transaction source/reason labels across all wallet transaction writes.
+- ⏳ Marketplace commission split (platform keeps %, creator receives remainder) — creator currently receives 100%.
+- ⏳ Listing fee charge when creator publishes public content.
+- ⏳ Lead unlock monetization flow.
+- ⏳ Creator earnings wallet UI (balance and history for coach/company).
+- ⏳ Super Admin monetization reporting dashboard.
+- ⏳ Cash-out readiness data model and Razorpay payout lifecycle.
+- ⏳ Monetization settings config UI in Super Admin portal (commission %, listing fee, lead unlock fee).
 
 ---
 
 ## Medium Priority
+
+### E8 — "Assign Activity" Menu Item Links to /dashboard
+- `assign-activity` menu item exists for both Company and Professional roles
+- Currently href points to `/dashboard` — no dedicated assignment page exists
+- Assignment modal is triggered contextually from Programs/Events/Tools pages, not from a standalone route
+- Fix options: (a) create a dedicated `/assign-activity` page that opens the AssignmentModal, or (b) remove the menu item and rely on contextual assignment buttons on content pages
+
+---
 
 ### E4 — SelectAndMove and ImageBasedSingleChoice Quiz Runners Unconfirmed
 - Types for both render styles are defined in `src/types/assessment.ts`

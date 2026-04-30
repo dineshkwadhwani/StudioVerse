@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -262,7 +262,7 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image
             src={tenantConfig.theme.logo}
@@ -308,22 +308,19 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        className={dashboardStyles.menuLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>
-                  Sign Out
-                </button>
               </section>
             )}
           </div>
@@ -333,10 +330,13 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
       <section className={styles.shell}>
         <div className={styles.heroCard}>
           <div>
-            <p className={styles.eyebrow}>My Profile</p>
             <h1 className={styles.title}>Update Profile</h1>
             <p className={styles.subtitle}>
-              Complete the mandatory section first. The rest is optional, but richer profile data improves assessments and future recruitment outcomes.
+              {profile?.userType === "company"
+                ? "Manage your company profile and team information."
+                : profile?.userType === "professional"
+                  ? "Update your professional details and coaching preferences."
+                  : "Complete your profile to enable better recommendations."}
             </p>
           </div>
 

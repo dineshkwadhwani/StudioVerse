@@ -11,7 +11,6 @@ import {
   PROGRAM_DELIVERY_TYPE_LABELS,
   PROGRAM_PROMOTION_STATUS_LABELS,
   PROGRAM_VISIBILITY_LABELS,
-  type ProgramDeliveryType,
 } from "@/types/program";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
@@ -20,6 +19,7 @@ import styles from "./ManageProgramsPage.module.css";
 
 type Props = {
   config: TenantConfig;
+  showHeader?: boolean;
 };
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
@@ -49,14 +49,13 @@ function isInTenantScope(
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
-export default function ManageProgramsPage({ config }: Props) {
+export default function ManageProgramsPage({ config, showHeader = true }: Props) {
   const router = useRouter();
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
 
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDeliveryType, setSelectedDeliveryType] = useState<string>("all");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
@@ -154,16 +153,14 @@ export default function ManageProgramsPage({ config }: Props) {
     setIsDetailModalOpen(true);
   };
 
-  const visiblePrograms = selectedDeliveryType === "all"
-    ? programs
-    : programs.filter((item) => item.deliveryType === selectedDeliveryType);
+  const visiblePrograms = programs;
 
-  const deliveryTypeOptions = Array.from(new Set(programs.map((item) => item.deliveryType)))
-    .sort((a, b) =>
-      PROGRAM_DELIVERY_TYPE_LABELS[a as ProgramDeliveryType].localeCompare(
-        PROGRAM_DELIVERY_TYPE_LABELS[b as ProgramDeliveryType]
-      )
-    );
+  const programsSubtitle =
+    userRole === "company"
+      ? "Create and manage programs for your company teams, keep drafts in progress, and publish when they are ready."
+      : userRole === "professional"
+        ? "Create and manage programs in your assigned scope, keep drafts in progress, and publish when they are ready."
+        : "Create and manage programs for your studio tenant, keep drafts in progress, and publish when they are ready.";
 
   const heroImage =
     config.landingContent?.heroImages?.programs ||
@@ -173,78 +170,46 @@ export default function ManageProgramsPage({ config }: Props) {
 
   return (
     <main className={styles.page}>
-      <TenantViewAllHeader
-        config={config}
-        currentPage="programs"
-        onSignInRegister={() => {}}
-      />
-
-      <section className={styles.heroSection}>
-        <div className={styles.heroText}>
-          <span className={styles.heroTag}>Manage Programs</span>
-          <h1 className={styles.heroTitle}>Manage Your Programs</h1>
-          <p className={styles.heroCopy}>
-            Create, edit, and manage programs across your organization. View programs you own and manage, along with programs created by your team.
-          </p>
-        </div>
-        <div className={styles.heroImageWrap}>
-          <img
-            src={heroImage}
-            alt={`${config.name} programs`}
-            className={styles.heroImage}
-          />
-        </div>
-      </section>
+      {showHeader ? (
+        <TenantViewAllHeader
+          config={config}
+          currentPage="programs"
+          onSignInRegister={() => {}}
+        />
+      ) : null}
 
       <section className={styles.content}>
-        <div className={styles.topControlsRow}>
-          <div className={styles.titleAndFilters}>
-            <h2 className={styles.title}>Your Programs</h2>
-            <div className={styles.filterGroup}>
-              <label className={styles.filterLabel} htmlFor="programs-type-filter">
-                Delivery Type
-              </label>
-              <select
-                id="programs-type-filter"
-                className={styles.filterSelect}
-                value={selectedDeliveryType}
-                onChange={(event) => setSelectedDeliveryType(event.target.value)}
-              >
-                <option value="all">All Types</option>
-                {deliveryTypeOptions.map((deliveryType) => (
-                  <option key={deliveryType} value={deliveryType}>
-                    {PROGRAM_DELIVERY_TYPE_LABELS[deliveryType as ProgramDeliveryType]}
-                  </option>
-                ))}
-              </select>
+        <article className={styles.manageCard}>
+          <h2 className={styles.sectionHeading}>Manage Programs</h2>
+          <p className={styles.sectionSubtitle}>
+            {programsSubtitle}
+          </p>
+
+          <div className={styles.controlCard}>
+            <div className={styles.topControlsRow}>
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => {
+                    // TODO: Navigate to create program page
+                    alert("Create program feature coming soon");
+                  }}
+                >
+                  Add Program
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.addButton}
-              onClick={() => {
-                // TODO: Navigate to create program page
-                alert("Create program feature coming soon");
-              }}
-            >
-              + Add New Program
-            </button>
-          </div>
-        </div>
+          {error ? <p className={styles.error}>{error}</p> : null}
+          {isLoading ? <p className={styles.emptyCard}>Loading programs...</p> : null}
+          {!isLoading && programs.length === 0 ? (
+            <p className={styles.emptyCard}>No programs found for your roles and scope.</p>
+          ) : null}
 
-        {error ? <p className={styles.error}>{error}</p> : null}
-        {isLoading ? <p className={styles.helper}>Loading programs...</p> : null}
-        {!isLoading && programs.length === 0 ? (
-          <p className={styles.helper}>No programs found for your roles and scope.</p>
-        ) : null}
-        {!isLoading && programs.length > 0 && visiblePrograms.length === 0 ? (
-          <p className={styles.helper}>No programs found for the selected delivery type.</p>
-        ) : null}
-
-        {!isLoading && visiblePrograms.length > 0 ? (
-          <div className={styles.grid}>
+          {!isLoading && visiblePrograms.length > 0 ? (
+            <div className={styles.grid}>
             {visiblePrograms.map((item) => {
               const canEdit = userRole && currentUserId ? canUserEditProgram(item, { userId: currentUserId, role: userRole as any, tenantId }) : false;
 
@@ -309,8 +274,9 @@ export default function ManageProgramsPage({ config }: Props) {
                 </article>
               );
             })}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
+        </article>
       </section>
 
       <DetailModal

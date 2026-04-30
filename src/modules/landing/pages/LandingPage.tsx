@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { Fragment, useMemo, useRef, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import type { TenantConfig } from "@/types/tenant";
@@ -703,21 +703,19 @@ export default function LandingPage({ config }: Props) {
                       <div key={group.key} className={headerStyles.menuGroup}>
                         <p className={headerStyles.menuGroupTitle}>{group.label}</p>
                         {group.items.map((item) => (
-                          <Link
-                            key={item.key}
-                            href={item.href}
-                            className={headerStyles.menuLink}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            {item.label}
-                          </Link>
+                          <Fragment key={item.key}>
+                            {item.type === "signout" && <hr className={headerStyles.menuDivider} />}
+                            {item.type === "signout" ? (
+                              <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>{item.label}</button>
+                            ) : (
+                              <Link href={item.href} className={headerStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                                {item.label}
+                              </Link>
+                            )}
+                          </Fragment>
                         ))}
                       </div>
                     ))}
-                    <hr className={headerStyles.menuDivider} />
-                    <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>
-                      Sign Out
-                    </button>
                   </section>
                 ) : null}
               </div>
@@ -760,11 +758,14 @@ export default function LandingPage({ config }: Props) {
                   })}</p>
                 </div>
                 {roleMenuItems.map((item) => (
-                  <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
-                    {item.label}
-                  </Link>
+                  item.type === "signout" ? (
+                    <button key={item.key} type="button" onClick={handleSignOut}>{item.label}</button>
+                  ) : (
+                    <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                      {item.label}
+                    </Link>
+                  )
                 ))}
-                <button type="button" onClick={handleSignOut}>Sign Out</button>
               </>
             ) : (
               <button type="button" onClick={() => {

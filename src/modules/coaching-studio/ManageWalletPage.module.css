@@ -2,6 +2,10 @@
   min-height: 100vh;
   background: linear-gradient(180deg, #f7fbff 0%, #edf6ff 100%);
   color: #1b2b3a;
+  padding-top: 80px;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-bottom: 32px;
 }
 
 .shell {

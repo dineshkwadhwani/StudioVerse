@@ -177,7 +177,7 @@ One codebase, three studio deployments (Coaching, Training, Recruitment), shared
 **Gaps:**
 - Super Admin is NOT in activities menu config — handled separately via SuperAdminPortal
 - No route-level authorization guards (users can bypass menu by direct URL)
-- `manage-cohort` and `manage-individual` menu items link to `/dashboard` (placeholder)
+- `assign-activity` menu item (Company + Professional) links to `/dashboard` — assignment is modal-based and has no dedicated route yet
 - Sign Out action missing from menu config
 - Two separate menu configs exist — should be consolidated
 - Backend enforcement (defense in depth) not visible
@@ -210,8 +210,7 @@ One codebase, three studio deployments (Coaching, Training, Recruitment), shared
 - UI: `src/modules/users/pages/ManageUsersPage.tsx`
 - All studio routes: `/*/manage-users`
 
-**Gap — CRITICAL:**
-- `/src/app/api/users/create-scoped/route.ts` is **missing** — directory exists but no file. The service cannot be called from the frontend without this API route. Needs to be created.
+**Note:** `/src/app/api/users/create-scoped/route.ts` is fully implemented (verified April 2026). Handles auth token verification, role guards, phone deduplication, atomic wallet creation, and auth user rollback on Firestore failure.
 
 ---
 

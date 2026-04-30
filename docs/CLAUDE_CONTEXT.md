@@ -140,3 +140,22 @@ If this repo grows further, add these files:
 - `docs/EMAIL_SETUP.md`
 - `docs/ROUTING_GUIDE.md`
 - `docs/SECURITY_AND_DATA_ACCESS.md`
+
+### Latest implementation progress (29 April 2026) — Earning Packages Admin Refactor
+
+- **Earning Packages (SuperAdmin)**
+  - The "Earning Packages" resource page for SuperAdmin was implemented as a first-class admin module, not as a sub-page.
+  - The files `ManageEarningPackagesPage.tsx` and its CSS were moved from `src/modules/admin/pages/` to directly under `src/modules/admin/` to match the structure of other admin resource modules.
+  - All references and imports were updated to use the new location.
+  - The obsolete files and the now-empty `pages` folder were deleted to maintain a clean structure.
+  - The SuperAdmin menu now correctly routes to the Earning Packages resource, rendering the real management UI for both Credit and Promotion Packages.
+  - The tabbed interface for Credit and Promotion Packages is fully functional and styled consistently with other admin resources.
+
+- **Structural/Architecture Alignment**
+  - No business logic or resource pages should be placed in a `pages` folder under admin; all resource modules live directly under `src/modules/admin/`.
+  - MenuKey and menu routing are strictly type-checked and aligned with the resource modules.
+  - All admin resource pages (including Earning Packages) now follow the same modular, maintainable pattern as other admin features.
+
+- **General Clean-up**
+  - Removed all obsolete files and folders after migration.
+  - Validated that the admin UI, menu, and routing are consistent and error-free.

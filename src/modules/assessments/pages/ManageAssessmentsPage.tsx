@@ -17,6 +17,7 @@ import styles from "@/modules/programs/pages/ManageProgramsPage.module.css";
 
 type Props = {
   config: TenantConfig;
+  showHeader?: boolean;
 };
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
@@ -37,7 +38,7 @@ function isInTenantScope(record: Pick<AssessmentRecord, "tenantId" | "tenantIds"
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
-export default function ManageAssessmentsPage({ config }: Props) {
+export default function ManageAssessmentsPage({ config, showHeader = true }: Props) {
   const router = useRouter();
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
@@ -135,53 +136,47 @@ export default function ManageAssessmentsPage({ config }: Props) {
 
   return (
     <main className={styles.page}>
-      <TenantViewAllHeader config={config} currentPage="tools" onSignInRegister={() => undefined} />
-
-      <section className={styles.heroSection}>
-        <div className={styles.heroText}>
-          <span className={styles.heroTag}>Manage Assessments</span>
-          <h1 className={styles.heroTitle}>Manage Your Assessments</h1>
-          <p className={styles.heroCopy}>
-            Manage all assessments in your scope and keep delivery consistent across the tenant.
-          </p>
-        </div>
-        <div className={styles.heroImageWrap}>
-          <img src={heroImage} alt={`${config.name} assessments`} className={styles.heroImage} />
-        </div>
-      </section>
+      {showHeader ? (
+        <TenantViewAllHeader config={config} currentPage="tools" onSignInRegister={() => undefined} />
+      ) : null}
 
       <section className={styles.content}>
-        <div className={styles.topControlsRow}>
-          <div className={styles.titleAndFilters}>
-            <h2 className={styles.title}>Your Assessments</h2>
-            <div className={styles.filterGroup}>
-              <label className={styles.filterLabel} htmlFor="assessment-type-filter">Assessment Type</label>
-              <select
-                id="assessment-type-filter"
-                className={styles.filterSelect}
-                value={selectedType}
-                onChange={(event) => setSelectedType(event.target.value)}
-              >
-                <option value="all">All Types</option>
-                {typeOptions.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
+        <article className={styles.manageCard}>
+          <h2 className={styles.sectionHeading}>Manage Assessments</h2>
+          <p className={styles.sectionSubtitle}>
+            Create tenant-wide Assessments for StudioVerse tenants. Publish to make them visible; promote to elevate them on the landing page.
+          </p>
+
+          <div className={styles.controlCard}>
+            <div className={styles.topControlsRow}>
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel} htmlFor="assessment-type-filter">Assessment Type</label>
+                <select
+                  id="assessment-type-filter"
+                  className={styles.filterSelect}
+                  value={selectedType}
+                  onChange={(event) => setSelectedType(event.target.value)}
+                >
+                  <option value="all">All Types</option>
+                  {typeOptions.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className={styles.actions}>
+                <button type="button" className={styles.addButton} onClick={() => router.push("/admin")}>Add Assessment</button>
+              </div>
             </div>
           </div>
-          <div className={styles.actions}>
-            <button type="button" className={styles.addButton} onClick={() => router.push("/admin")}>+ Add New Assessment</button>
-          </div>
-        </div>
 
-        {error ? <p className={styles.error}>{error}</p> : null}
-        {isLoading ? <p className={styles.helper}>Loading assessments...</p> : null}
-        {!isLoading && assessments.length === 0 ? <p className={styles.helper}>No assessments found for your scope.</p> : null}
+          {error ? <p className={styles.error}>{error}</p> : null}
+          {isLoading ? <p className={styles.emptyCard}>Loading assessments...</p> : null}
+          {!isLoading && assessments.length === 0 ? <p className={styles.emptyCard}>No assessments found for your scope.</p> : null}
 
-        {!isLoading && visibleAssessments.length > 0 ? (
-          <div className={styles.grid}>
+          {!isLoading && visibleAssessments.length > 0 ? (
+            <div className={styles.grid}>
             {visibleAssessments.map((item) => {
               const canEdit = userRole && currentUserId
                 ? canUserEditAssessment(item, { userId: currentUserId, role: userRole, tenantId })
@@ -225,8 +220,9 @@ export default function ManageAssessmentsPage({ config }: Props) {
                 </article>
               );
             })}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
+        </article>
       </section>
     </main>
   );

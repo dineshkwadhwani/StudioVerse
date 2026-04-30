@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -181,7 +182,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
@@ -189,13 +190,13 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
             <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
+        <nav className={landingStyles.desktopNav}>
+          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+        </nav>
 
         <div className={dashboardStyles.rightControls}>
-          <nav className={landingStyles.desktopNav}>
-            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
-            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
-            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
-          </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
@@ -215,14 +216,19 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>
               </section>
             )}
           </div>
@@ -232,7 +238,13 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
       <div className={styles.shell}>
         <section className={styles.card}>
           <h1 className={styles.title}>Manage Wallet</h1>
-          <p className={styles.subtitle}>See your current balance and every place where credits were spent or added.</p>
+          <p className={styles.contextText}>
+            {role === "company"
+              ? "Manage credit allocations, view transaction history, and respond to credit requests from your professionals."
+              : role === "professional"
+              ? "View your credit balance, request credits from your company, and track your transaction history."
+              : "View your credit balance, purchase credits, and track your transaction history."}
+          </p>
 
           <div className={styles.actionRow}>
             <Link href={`${basePath}/buy-coins`} className={styles.button}>

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
@@ -10,6 +10,7 @@ import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/act
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
+import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ViewAllHeader.module.css";
 import { clearAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
@@ -86,8 +87,8 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
   const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
   const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
 
-  const navClass = (page: ViewAllPage): string => {
-    return `${landingStyles.navLink} ${currentPage === page ? landingStyles.navLinkActive : ""}`;
+  const navClass = (_page: ViewAllPage): string => {
+    return landingStyles.navLink;
   };
 
   async function handleSignOut() {
@@ -102,7 +103,7 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
 
   return (
     <>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image src={config.theme.logo} width={76} height={40} alt={`${config.name} logo`} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
@@ -125,16 +126,16 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
             </button>
           ) : (
             <div className={styles.desktopAuthWrap}>
-              <div className={styles.profileArea} ref={menuRef}>
-                <button type="button" className={styles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
+              <div className={dashboardStyles.profileArea} ref={menuRef}>
+                <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
                   {initials} ▾
                 </button>
 
                 {menuOpen ? (
-                  <section className={styles.menuPanel}>
-                    <div className={styles.menuUser}>
-                      <p className={styles.menuName}>{name}</p>
-                      <p className={styles.menuRole}>{getRoleLabel(role, {
+                  <section className={dashboardStyles.menuPanel}>
+                    <div className={dashboardStyles.menuUser}>
+                      <p className={dashboardStyles.menuName}>{name}</p>
+                      <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
                         company: config.roles.company,
                         professional: config.roles.professional,
                         individual: config.roles.individual,
@@ -142,24 +143,22 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
                     </div>
 
                     {roleMenuGroups.map((group) => (
-                      <div key={group.key} className={styles.menuGroup}>
-                        <p className={styles.menuGroupTitle}>{group.label}</p>
+                      <div key={group.key} className={dashboardStyles.menuGroup}>
+                        <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                         {group.items.map((item) => (
-                          <Link
-                            key={item.key}
-                            href={item.href}
-                            className={styles.menuLink}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            {item.label}
-                          </Link>
+                          <Fragment key={item.key}>
+                            {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                            {item.type === "signout" ? (
+                              <button type="button" className={dashboardStyles.menuItem} onClick={handleSignOut}>{item.label}</button>
+                            ) : (
+                              <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                                {item.label}
+                              </Link>
+                            )}
+                          </Fragment>
                         ))}
                       </div>
                     ))}
-                    <hr className={styles.menuDivider} />
-                    <button type="button" className={styles.menuItem} onClick={handleSignOut}>
-                      Sign Out
-                    </button>
                   </section>
                 ) : null}
               </div>
@@ -197,11 +196,14 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
                   })}</p>
                 </div>
                 {roleMenuItems.map((item) => (
-                  <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
-                    {item.label}
-                  </Link>
+                  item.type === "signout" ? (
+                    <button key={item.key} type="button" onClick={handleSignOut}>{item.label}</button>
+                  ) : (
+                    <Link key={item.key} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                      {item.label}
+                    </Link>
+                  )
                 ))}
-                <button type="button" onClick={handleSignOut}>Sign Out</button>
               </>
             ) : (
               <button

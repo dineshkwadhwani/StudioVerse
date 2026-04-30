@@ -1,26 +1,57 @@
+.toolbar {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1180px, 100vw);
+  z-index: 30;
+  background: #e9f5ff;
+  border: 1px solid #c6dcea;
+  border-radius: 0 0 16px 16px;
+  padding: 8px 12px;
+  min-height: 56px;
+  box-shadow: 0 1px 0 #c6dcea, 0 4px 12px rgba(19, 58, 86, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f7fbff 0%, #edf6ff 100%);
-  color: #1b2b3a;
+  background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
+  color: #133a56;
+  padding-top: 80px;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-bottom: 32px;
 }
 
 .shell {
-  width: min(1100px, 92vw);
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 0 36px;
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #d6e6f5;
+  background: #f8fcff;
+  border: 1px solid #c6dcea;
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 8px 24px rgba(18, 52, 79, 0.06);
+  box-shadow: 0 10px 22px rgba(19, 58, 86, 0.1);
 }
 
 .title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
+  font-weight: 700;
+  color: #133a56;
+}
+
+.contextText {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+  color: #4d6e86;
+  line-height: 1.5;
 }
 
 .subtitle {

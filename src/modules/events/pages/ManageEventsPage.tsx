@@ -19,6 +19,7 @@ import styles from "@/modules/programs/pages/ManageProgramsPage.module.css";
 
 type Props = {
   config: TenantConfig;
+  showHeader?: boolean;
 };
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
@@ -48,7 +49,7 @@ function isInTenantScope(
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
-export default function ManageEventsPage({ config }: Props) {
+export default function ManageEventsPage({ config, showHeader = true }: Props) {
   const router = useRouter();
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
@@ -150,9 +151,11 @@ export default function ManageEventsPage({ config }: Props) {
     setIsDetailModalOpen(true);
   };
 
-  const visibleEvents = selectedEventType === "all"
-    ? events
-    : events.filter((item) => item.eventType === selectedEventType);
+  const visibleEvents = showHeader
+    ? selectedEventType === "all"
+      ? events
+      : events.filter((item) => item.eventType === selectedEventType)
+    : events;
 
   const eventTypeOptions = Array.from(new Set(events.map((item) => item.eventType)))
     .sort((a, b) =>
@@ -169,78 +172,70 @@ export default function ManageEventsPage({ config }: Props) {
 
   return (
     <main className={styles.page}>
-      <TenantViewAllHeader
-        config={config}
-        currentPage="events"
-        onSignInRegister={() => {}}
-      />
-
-      <section className={styles.heroSection}>
-        <div className={styles.heroText}>
-          <span className={styles.heroTag}>Manage Events</span>
-          <h1 className={styles.heroTitle}>Manage Your Events</h1>
-          <p className={styles.heroCopy}>
-            Create, edit, and manage events across your organization. View events you own and manage, along with events created by your team.
-          </p>
-        </div>
-        <div className={styles.heroImageWrap}>
-          <img
-            src={heroImage}
-            alt={`${config.name} events`}
-            className={styles.heroImage}
-          />
-        </div>
-      </section>
+      {showHeader ? (
+        <TenantViewAllHeader
+          config={config}
+          currentPage="events"
+          onSignInRegister={() => {}}
+        />
+      ) : null}
 
       <section className={styles.content}>
-        <div className={styles.topControlsRow}>
-          <div className={styles.titleAndFilters}>
-            <h2 className={styles.title}>Your Events</h2>
-            <div className={styles.filterGroup}>
-              <label className={styles.filterLabel} htmlFor="events-type-filter">
-                Event Type
-              </label>
-              <select
-                id="events-type-filter"
-                className={styles.filterSelect}
-                value={selectedEventType}
-                onChange={(event) => setSelectedEventType(event.target.value)}
-              >
-                <option value="all">All Types</option>
-                {eventTypeOptions.map((eventType) => (
-                  <option key={eventType} value={eventType}>
-                    {EVENT_TYPE_LABELS[eventType as EventType]}
-                  </option>
-                ))}
-              </select>
+        <article className={styles.manageCard}>
+          <h2 className={styles.sectionHeading}>Manage Events</h2>
+          <p className={styles.sectionSubtitle}>
+            Create tenant-wide Events for StudioVerse tenants. Publish to make them visible; promote to elevate them on the landing page.
+          </p>
+
+          <div className={styles.controlCard}>
+            <div className={styles.topControlsRow}>
+              {showHeader ? (
+                <div className={styles.filterGroup}>
+                  <label className={styles.filterLabel} htmlFor="events-type-filter">
+                    Event Type
+                  </label>
+                  <select
+                    id="events-type-filter"
+                    className={styles.filterSelect}
+                    value={selectedEventType}
+                    onChange={(event) => setSelectedEventType(event.target.value)}
+                  >
+                    <option value="all">All Types</option>
+                    {eventTypeOptions.map((eventType) => (
+                      <option key={eventType} value={eventType}>
+                        {EVENT_TYPE_LABELS[eventType as EventType]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => {
+                    // TODO: Navigate to create event page
+                    alert("Create event feature coming soon");
+                  }}
+                >
+                  Add Event
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.addButton}
-              onClick={() => {
-                // TODO: Navigate to create event page
-                alert("Create event feature coming soon");
-              }}
-            >
-              + Add New Event
-            </button>
-          </div>
-        </div>
+          {error ? <p className={styles.error}>{error}</p> : null}
+          {isLoading ? <p className={styles.emptyCard}>Loading events...</p> : null}
+          {!isLoading && events.length === 0 ? (
+            <p className={styles.emptyCard}>No events found for your roles and scope.</p>
+          ) : null}
+          {!isLoading && showHeader && events.length > 0 && visibleEvents.length === 0 ? (
+            <p className={styles.emptyCard}>No events found for the selected event type.</p>
+          ) : null}
 
-        {error ? <p className={styles.error}>{error}</p> : null}
-        {isLoading ? <p className={styles.helper}>Loading events...</p> : null}
-        {!isLoading && events.length === 0 ? (
-          <p className={styles.helper}>No events found for your roles and scope.</p>
-        ) : null}
-        {!isLoading && events.length > 0 && visibleEvents.length === 0 ? (
-          <p className={styles.helper}>No events found for the selected event type.</p>
-        ) : null}
-
-        {!isLoading && visibleEvents.length > 0 ? (
-          <div className={styles.grid}>
+          {!isLoading && visibleEvents.length > 0 ? (
+            <div className={styles.grid}>
             {visibleEvents.map((item) => {
               const canEdit = userRole && currentUserId ? canUserEditEvent(item, { userId: currentUserId, role: userRole as any, tenantId }) : false;
 
@@ -304,8 +299,9 @@ export default function ManageEventsPage({ config }: Props) {
                 </article>
               );
             })}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
+        </article>
       </section>
 
       <DetailModal

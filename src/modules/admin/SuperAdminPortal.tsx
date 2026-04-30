@@ -35,8 +35,8 @@ import {
 import ProgramsSection from "./ProgramsSection";
 import EventsSection from "./EventsSection";
 import AssessmentsSection from "./AssessmentsSection";
+import ResourcesSection from "./ResourcesSection";
 import ManageCoinsSection from "./ManageCoinsSection";
-import CreditPackagesSection from "./CreditPackagesSection";
 import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
@@ -48,6 +48,7 @@ import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/refer
 import type { WalletUserType } from "@/types/wallet";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./SuperAdminPortal.module.css";
+import ManageEarningPackagesPage from "./ManageEarningPackagesPage";
 
 type MenuKey =
   | "dashboard"
@@ -57,13 +58,12 @@ type MenuKey =
   | "tools"
   | "programs"
   | "events"
+  | "resources"
   | "coins"
   | "referrals"
   | "assigned-activities"
   | "assign-activity"
-  | "credit-packages"
-  | "promotion-packages"
-  | "promotion-requests"
+  | "earning-packages"
   | "orders";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
@@ -201,24 +201,20 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "profile", label: "Update Profile" },
   { key: "users", label: "Users" },
   { key: "tenants", label: "Tenants" },
-  { key: "tools", label: "Assessment" },
-  { key: "programs", label: "Programs" },
-  { key: "events", label: "Events" },
+  { key: "resources", label: "Resources" },
   { key: "coins", label: "Wallet" },
-  { key: "credit-packages", label: "Credit Packages" },
-  { key: "promotion-packages", label: "Promotion Package" },
   { key: "orders", label: "Orders" },
   { key: "referrals", label: "References" },
   { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
-  { key: "promotion-requests", label: "Promotion Requests" },
+  { key: "earning-packages", label: "Earning Packages" },
 ];
 
 const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = [
   {
     key: "my-account",
     label: "My Account",
-    itemKeys: ["dashboard", "profile"],
+    itemKeys: ["dashboard", "profile", "coins", "referrals"],
   },
   {
     key: "manage",
@@ -226,20 +222,15 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
     itemKeys: [
       "users",
       "tenants",
-      "tools",
-      "programs",
-      "events",
-      "coins",
-      "credit-packages",
-      "promotion-packages",
+      "resources",
+      "earning-packages",
       "orders",
-      "referrals"
     ],
   },
   {
     key: "actions",
     label: "Actions",
-    itemKeys: ["assigned-activities", "assign-activity", "promotion-requests"],
+    itemKeys: ["assigned-activities", "assign-activity"],
   },
 ];
 
@@ -1203,6 +1194,10 @@ export default function SuperAdminPortal() {
               height={40}
               className={styles.brandLogo}
             />
+            <div className={styles.brandText}>
+              <span className={styles.brandTitle}>StudioVerse</span>
+              <span className={styles.brandSubtitle}>ADMIN</span>
+            </div>
           </div>
 
           <div className={styles.profileArea} ref={menuRef}>
@@ -1297,16 +1292,12 @@ export default function SuperAdminPortal() {
             </article>
           ) : null}
 
-          {activeMenu === "promotion-requests" ? (
-            <PromotionRequestsSection
-              operatorId={profile.id}
-              onBack={() => setActiveMenu("promotion-packages")}
-            />
-          ) : null}
+          {/* Removed invalid promotion-requests menu handling. Not a valid MenuKey. */}
 
           {activeMenu === "profile" ? (
             <article className={styles.card}>
               <h2>Update Profile</h2>
+              <p className={styles.pageDescription}>Update your super admin credentials and profile information.</p>
               <label className={styles.label} htmlFor="profile-name">
                 Name
               </label>
@@ -1580,30 +1571,15 @@ export default function SuperAdminPortal() {
             />
           ) : null}
 
-          {activeMenu === "credit-packages" ? <CreditPackagesSection operatorId={profile.id} /> : null}
 
-          {activeMenu === "promotion-packages" ? (
-            <PromotionPackagesSection
-              operatorId={profile.id}
-              onOpenPromotionRequests={(tenantId) => {
-                setPromotionRequestsTenantId(tenantId ?? "");
-                setActiveMenu("promotion-requests");
-              }}
-            />
+          {activeMenu === "earning-packages" ? (
+            profile && <ManageEarningPackagesPage operatorId={profile.id} />
           ) : null}
-          {activeMenu === "promotion-requests" ? (
-            <PromotionRequestsSection
-              operatorId={profile.id}
-              initialTenantId={promotionRequestsTenantId || undefined}
-              onBack={() => setActiveMenu("promotion-packages")}
-            />
-          ) : null}
+
           {activeMenu === "orders" ? <ManageOrdersSection /> : null}
 
-          {activeMenu === "programs" ? <ProgramsSection tenants={tenants} /> : null}
-
-          {activeMenu === "events" ? (
-            <EventsSection tenants={tenants} />
+          {activeMenu === "resources" ? (
+            <ResourcesSection tenants={tenants} />
           ) : null}
 
           {activeMenu === "referrals" ? (

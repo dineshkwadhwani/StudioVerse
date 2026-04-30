@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -439,7 +440,7 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
           <div className={landingStyles.brandText}>
@@ -447,13 +448,13 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
             <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
+        <nav className={landingStyles.desktopNav}>
+          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+        </nav>
 
         <div className={dashboardStyles.rightControls}>
-          <nav className={landingStyles.desktopNav}>
-            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
-            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
-            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
-          </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
@@ -473,14 +474,19 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>
               </section>
             )}
           </div>
@@ -491,6 +497,11 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
         <div className={styles.grid}>
           <section className={styles.card}>
             <h1 className={styles.title}>{editingCohortId ? "Edit Cohort" : "Create Cohort"}</h1>
+            <p className={styles.contextText}>
+              {creator?.role === "company"
+                ? `Create and manage cohorts, assign ${professionalLabel}s, and group ${individualLabel}s across your company.`
+                : `Create cohorts, add ${individualLabel}s, and manage your coaching groups in one place.`}
+            </p>
             <p className={styles.subtitle}>
               {`A Cohort requires more than one ${individualLabel} and becomes Active only when a ${professionalLabel} is assigned.`}
             </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -358,7 +359,7 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
 
   return (
     <main className={styles.page}>
-      <header className={landingStyles.nav}>
+      <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image
             src={tenantConfig.theme.logo}
@@ -372,13 +373,13 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
             <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
+        <nav className={landingStyles.desktopNav}>
+          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+        </nav>
 
         <div className={dashboardStyles.rightControls}>
-          <nav className={landingStyles.desktopNav}>
-            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
-            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
-            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
-          </nav>
 
           <div className={dashboardStyles.profileArea} ref={menuRef}>
             <button
@@ -404,17 +405,19 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
                   <div key={group.key} className={dashboardStyles.menuGroup}>
                     <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
                     {group.items.map((item) => (
-                      <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                        {item.label}
-                      </Link>
+                      <Fragment key={item.key}>
+                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
+                        {item.type === "signout" ? (
+                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
+                        ) : (
+                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
+                            {item.label}
+                          </Link>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                 ))}
-
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>
-                  Sign Out
-                </button>
               </section>
             )}
           </div>
@@ -423,8 +426,14 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
 
       <div className={styles.shell}>
         <section className={styles.card}>
-          <h1 className={styles.title}>My activities</h1>
-          <p className={styles.subtitle}>All assignments made to your account are shown below.</p>
+          <h1 className={styles.title}>My Activities</h1>
+          <p className={styles.contextText}>
+            {role === "company"
+              ? "View all activities assigned to your company account, including programs, events, and assessments."
+              : role === "professional"
+              ? "View all activities assigned to you by your company, including programs, events, and assessments."
+              : "View all activities assigned to you, including programs, events, and assessments."}
+          </p>
 
           <div className={styles.radioRow}>
             {(["all", "assessment", "program", "event"] as const).map((type) => (

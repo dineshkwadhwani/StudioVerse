@@ -569,18 +569,22 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
   return (
     <article className={styles.card}>
       <h2>Manage Assessments</h2>
+      <p className={styles.subtitle}>
+        Create tenant-wide Assessments for StudioVerse tenants. Publish to make them
+        visible; promote to elevate them on the landing page.
+      </p>
 
       {/* Toolbar */}
       <div className={styles.controlCard}>
         <div className={styles.actions}>
           <select
             className={styles.select}
-            style={{ width: "auto", marginBottom: 0 }}
+            style={{ minWidth: 220, marginBottom: 0 }}
             value={selectedTenantId}
             onChange={(e) => setSelectedTenantId(e.target.value)}
             aria-label="Filter by tenant"
           >
-            <option value="">All Tenants</option>
+            <option value="">All tenants</option>
             {tenants.map((t) => (
               <option key={t.id} value={t.tenantId}>
                 {t.tenantName}

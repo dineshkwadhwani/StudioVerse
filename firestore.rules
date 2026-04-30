@@ -44,6 +44,14 @@ service cloud.firestore {
       return isSignedIn() && currentUserType() == "professional";
     }
 
+    // Treasury wallets use the ID pattern "treasury::<tenantId>".
+    // They are never owned by an individual user so we gate reads to
+    // superadmins only from the client side. All writes go through
+    // trusted backend Functions (Admin SDK) and bypass rules entirely.
+    function isTreasuryWallet(walletId) {
+      return walletId.matches("^treasury::.*");
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     // Login queries users by phoneE164+tenantId so collection reads must be
     // open to any authenticated user. Writes are scoped to own document.
@@ -72,33 +80,43 @@ service cloud.firestore {
     }
 
     // ── Wallets ────────────────────────────────────────────────────────────
-    // Company users need to update the recipient wallet when approving coin
-    // requests (transferCoins updates both fromUserId and toUserId wallets
-    // in one transaction from the client).
+    // Treasury wallets (treasury::<tenantId>) are written exclusively by
+    // trusted backend Functions (Admin SDK) and readable by SuperAdmin only.
+    // Regular user wallets use scoped IDs (<tenantId>::<userId>) or legacy
+    // userId-only IDs. Company users can update wallets of their associated
+    // users for coin request approvals.
     match /wallets/{walletId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && (
+                    || (isSignedIn() && !isTreasuryWallet(walletId) && (
                          request.auth.uid == walletId ||
-                         request.auth.uid == resource.data.userId
-                       ));
-      allow create: if isSignedIn();
-      allow update: if isSuperAdmin()
-                    || (isSignedIn() && (
-                         request.auth.uid == walletId ||
-                         request.auth.uid == resource.data.userId
+                         resource.data.userId == request.auth.uid ||
+                         walletId.matches(".*::" + request.auth.uid)
                        ))
-                    || (isCompanyUser() &&
+                    || (isCompanyUser() && !isTreasuryWallet(walletId) &&
+                         resource.data.associatedCompanyId == currentCompanyId());
+      allow create: if isSignedIn() && !isTreasuryWallet(walletId);
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && !isTreasuryWallet(walletId) && (
+                         request.auth.uid == walletId ||
+                         resource.data.userId == request.auth.uid ||
+                         walletId.matches(".*::" + request.auth.uid)
+                       ))
+                    || (isCompanyUser() && !isTreasuryWallet(walletId) &&
                          get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentCompanyId());
       allow delete: if false;
     }
 
     // ── Wallet Transactions ────────────────────────────────────────────────
+    // Treasury transactions (walletId = treasury::<tenantId>) are written by
+    // backend Functions and readable by SuperAdmin only.
+    // Regular user transactions include scoped wallet IDs (<tenantId>::<userId>).
     match /walletTransactions/{txId} {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && (
                          resource.data.userId   == request.auth.uid ||
+                         resource.data.createdBy == request.auth.uid ||
                          resource.data.walletId == request.auth.uid ||
-                         resource.data.createdBy == request.auth.uid
+                         resource.data.walletId.matches(".*::" + request.auth.uid)
                        ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();

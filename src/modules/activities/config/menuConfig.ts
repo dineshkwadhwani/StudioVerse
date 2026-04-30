@@ -4,6 +4,7 @@ export type StudioMenuItem = {
   key: string;
   label: string;
   href: string;
+  type?: "signout";
 };
 
 export type StudioMenuGroupName = "my-account" | "manage" | "actions";
@@ -57,10 +58,8 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
-        { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/manage-programs") },
-        { key: "manage-events", label: "Events", href: buildPath(basePath, "/manage-events") },
+        { key: "manage-resources", label: "Resources", href: buildPath(basePath, "/manage-resources") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/manage-cohorts") },
-        { key: "manage-assessments", label: "Assessments", href: buildPath(basePath, "/manage-assessments") },
       ],
     },
     {
@@ -70,6 +69,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
         { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/dashboard") },
         { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },
   ];
@@ -92,10 +92,8 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       label: "Manage",
       items: [
         { key: "manage-users", label: "Users", href: buildPath(basePath, "/manage-users") },
-        { key: "manage-programs", label: "Programs", href: buildPath(basePath, "/manage-programs") },
-        { key: "manage-events", label: "Events", href: buildPath(basePath, "/manage-events") },
+        { key: "manage-resources", label: "Resources", href: buildPath(basePath, "/manage-resources") },
         { key: "manage-cohort", label: "Cohort", href: buildPath(basePath, "/manage-cohorts") },
-        { key: "manage-assessments", label: "Assessments", href: buildPath(basePath, "/manage-assessments") },
       ],
     },
     {
@@ -105,6 +103,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
         { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/dashboard") },
         { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },
   ];
@@ -127,6 +126,7 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       label: "Actions",
       items: [
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },
   ];

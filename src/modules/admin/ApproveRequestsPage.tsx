@@ -47,7 +47,7 @@ export default function ApproveRequestsPage({ operatorId }: ApproveRequestsPageP
         )}
         {activeTab === "cashout" && <CashoutRequestsSection />}
         {activeTab === "listing" && <ListingRequestsSection />}
-        {activeTab === "bot-hero" && <BotHeroRequestsSection />}
+        {activeTab === "bot-hero" && <BotHeroRequestsSection operatorId={operatorId} />}
       </section>
     </section>
   );

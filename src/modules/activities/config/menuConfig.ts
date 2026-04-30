@@ -103,6 +103,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
         { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/dashboard") },
         { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "promote-coach", label: "Promote Coach", href: buildPath(basePath, "/promote-coach") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },

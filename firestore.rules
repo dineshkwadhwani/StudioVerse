@@ -301,6 +301,28 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ── Bot Hero Packages ──────────────────────────────────────────────────
+    // Super Admin can manage packages; any signed-in user can read (to display packages to coaches).
+    match /botHeroPackages/{packageId} {
+      allow read:   if isSignedIn();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── Bot Hero Requests ──────────────────────────────────────────────────
+    // Professionals can create their own requests.
+    // Professionals can read their own requests; Super Admin reads all.
+    // Only Super Admin can update (approve/deny).
+    match /botHeroRequests/{requestId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && resource.data.professionalId == request.auth.uid);
+      allow create: if isProfessionalUser()
+                    && request.resource.data.professionalId == request.auth.uid;
+      allow update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
     // ── Bot Knowledge ──────────────────────────────────────────────────────
     match /bot-knowledge/{docId} {
       allow read:  if true;

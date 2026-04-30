@@ -5,6 +5,44 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest implementation progress (30 April 2026) — Bot Hero Monetization Feature
+
+### Bot Hero feature — full delivery
+
+- Bot Hero allows a coach to become the persona of the Coaching Studio bot widget for a paid period.
+- Coins are deducted at request submission; refunded on denial.
+- Only one Bot Hero active per tenant at any time; overlap is blocked at approval.
+- Coach must have a profile picture to submit a request.
+
+### Files delivered
+
+- `src/types/botHero.ts` — BotHeroPackageRecord, BotHeroRequestRecord, BotHeroRequestStatus types
+- `src/services/botHero.service.ts` — package CRUD, request submission with wallet deduction, approval (with date overlap check), denial with wallet refund, active bot hero query
+- `src/modules/admin/BotHeroPackagesSection.tsx` — SuperAdmin package CRUD UI
+- `src/modules/admin/ManageEarningPackagesPage.tsx` — added Bot Hero as third tab
+- `src/modules/admin/BotHeroRequestsSection.tsx` — full approval queue with start date picker, end date preview, approve/deny actions
+- `src/modules/activities/config/menuConfig.ts` — Promote Coach added to professional Actions group
+- `src/modules/coaching-studio/PromoteCoachPage.tsx` — Coach purchase + request history page
+- `src/modules/coaching-studio/PromoteCoachPage.module.css` — page styles
+- `src/modules/coaching-studio/PromoteCoachRoutePage.tsx` — authenticated route wrapper
+- `src/app/coaching-studio/promote-coach/page.tsx` — Next.js App Router page entry
+- `src/modules/bot/BotWidget.tsx` — loads active Bot Hero on init and overrides persona name/avatar; falls back to tenant config when no active hero
+- `firestore.rules` — added `botHeroPackages` and `botHeroRequests` rules
+- `docs/E14.md` — Bot Hero story and full implementation checklist added
+
+### Firestore rules deployed
+
+- Rules deployed to `studioverse-test` on 30 April 2026.
+
+### Business rules encoded
+
+- Credits deducted at submission via Firestore transaction.
+- Approval checks date overlap against all approved/active requests for the tenant.
+- Denial refunds credits via reverse Firestore transaction.
+- Bot widget resolves active Bot Hero using `approvedStartDate <= today <= approvedEndDate` with graceful fallback.
+
+---
+
 ## Latest implementation progress (30 April 2026) — Guest Log Lead Capture + Bot Referral Write Hardening
 
 ### Guest Log lead-capture delivery (bot conversations)

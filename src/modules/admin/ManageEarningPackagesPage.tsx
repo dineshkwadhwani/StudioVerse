@@ -40,11 +40,9 @@ export default function ManageEarningPackagesPage({ operatorId }: ManageEarningP
         </div>
       </section>
       <section className={styles.contentCard}>
-        {activeTab === "credit" ? (
-          <CreditPackagesSection operatorId={operatorId} />
-        ) : (
-          <PromotionPackagesSection operatorId={operatorId} />
-        )}
+        {activeTab === "credit" && <CreditPackagesSection operatorId={operatorId} />}
+        {activeTab === "promotion" && <PromotionPackagesSection operatorId={operatorId} />}
+        {activeTab === "bot-hero" && <BotHeroPackagesSection operatorId={operatorId} />}
       </section>
     </section>
   );

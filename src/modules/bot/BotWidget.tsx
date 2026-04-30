@@ -10,6 +10,7 @@ import {
 import { auth } from "@/services/firebase";
 import { db } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
+import { getActiveBotHero } from "@/services/botHero.service";
 import styles from "./BotWidget.module.css";
 
 type BotMode = "studio" | "professional";
@@ -266,6 +267,24 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
 
     void loadTenantBotConfig();
     resolveUserFromSession();
+
+    // Bot Hero override: if an active bot hero exists, override persona name and avatar.
+    async function loadBotHeroOverride() {
+      try {
+        const hero = await getActiveBotHero(tenantConfig.id);
+        if (hero && !cancelled) {
+          setRuntimeBotCfg((prev) => ({
+            ...prev,
+            personaName: hero.professionalName || prev.personaName,
+            personaAvatar: hero.professionalAvatar || prev.personaAvatar,
+          }));
+        }
+      } catch {
+        // Non-critical — fall back to tenant config silently.
+      }
+    }
+
+    void loadBotHeroOverride();
 
     return () => {
       cancelled = true;

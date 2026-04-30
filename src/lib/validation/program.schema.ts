@@ -62,7 +62,7 @@ function toProgramBoundaryIso(value: string, boundary: "start" | "end"): string 
   return new Date(`${value}${suffix}`).toISOString();
 }
 
-export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSaveMode): ProgramWriteInput {
+export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSaveMode, isSuperAdmin?: boolean): ProgramWriteInput {
   void mode;
   const parsed = programFormSchema.parse(values);
   const durationValue = parsed.durationValue ? Number(parsed.durationValue) : 0;
@@ -73,7 +73,8 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   const status = parsed.published ? "published" : "draft";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
   const hasPromotionRequest = parsed.promoted && Boolean(parsed.promotionPackageId);
-  const promotionStatus = hasPromotionRequest ? "requested" : "none";
+  // Superadmins bypass the approval queue — their promotions are auto-approved
+  const promotionStatus = hasPromotionRequest ? (isSuperAdmin ? "promoted" : "requested") : "none";
 
   return {
     id: parsed.id,
@@ -94,7 +95,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     expiresAt: toProgramBoundaryIso(parsed.expiresAt, "end"),
     status,
     facilitatorName: parsed.facilitatorName || null,
-    promoted: false,
+    promoted: hasPromotionRequest && isSuperAdmin ? true : false,
     promotionPackageId: hasPromotionRequest ? parsed.promotionPackageId : null,
     promotionStatus,
     visibility: parsed.visibility,

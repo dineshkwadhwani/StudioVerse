@@ -4,16 +4,8 @@ import Image from "next/image";
 import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import {
-  collection,
-  doc,
   getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-  limit,
+  doc,
 } from "firebase/firestore";
 import { auth } from "@/services/firebase";
 import { db } from "@/services/firebase";
@@ -383,39 +375,31 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
 
   async function createGuestReferral(name: string, phone: string) {
     try {
-      // Find oldest superadmin
-      const adminsSnap = await getDocs(query(collection(db, "users"), where("userType", "==", "superadmin"), limit(50)));
-      const adminDoc = adminsSnap.empty
-        ? null
-        : adminsSnap.docs
-            .slice()
-            .sort((a, b) => {
-              const aTs = a.data().createdAt as { toMillis?: () => number } | undefined;
-              const bTs = b.data().createdAt as { toMillis?: () => number } | undefined;
-              const aMs = typeof aTs?.toMillis === "function" ? aTs.toMillis() : Number.MAX_SAFE_INTEGER;
-              const bMs = typeof bTs?.toMillis === "function" ? bTs.toMillis() : Number.MAX_SAFE_INTEGER;
-              return aMs - bMs;
-            })[0];
-      const adminId = adminDoc?.id ?? "system";
-      const adminName = adminDoc ? String(adminDoc.data().name ?? "Super Admin") : "Super Admin";
-
-      const refId = doc(collection(db, "referrals")).id;
-      await setDoc(doc(db, "referrals", refId), {
-        tenantId: tenantConfig.id,
-        referrerUserId: adminId,
-        referrerName: adminName,
-        referrerRole: "superadmin",
-        referrerCompanyId: null,
-        referredType: "individual",
-        referredEmail: "",
-        referredPhone: phone,
-        referredName: name,
-        status: "referred",
-        source: "BOT",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      const res = await fetch("/api/bot/referral", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: tenantConfig.id,
+          referredName: name,
+          referredPhone: phone,
+          source: "BOT",
+        }),
       });
-      setReferralDocId(refId);
+
+      const data = (await res.json()) as { referralId?: string; error?: string; warning?: string; code?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to create referral.");
+      }
+
+      if (!data.referralId) {
+        if (data.warning || data.code === "admin_credentials_missing") {
+          console.warn("Guest referral persistence skipped:", data.warning ?? data.code);
+          return;
+        }
+        throw new Error(data.error ?? "Failed to create referral.");
+      }
+
+      setReferralDocId(data.referralId);
     } catch (err) {
       console.error("Failed to create bot referral:", err);
     }
@@ -425,28 +409,43 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
     if (!email.trim()) return;
     try {
       if (referralDocId) {
-        await updateDoc(doc(db, "referrals", referralDocId), {
-          referredEmail: email.trim().toLowerCase(),
-          updatedAt: serverTimestamp(),
+        const updateRes = await fetch("/api/bot/referral", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            referralId: referralDocId,
+            referredEmail: email.trim().toLowerCase(),
+          }),
         });
+        const updateData = (await updateRes.json()) as { error?: string; warning?: string; code?: string };
+        if (!updateRes.ok) {
+          throw new Error(updateData.error ?? "Failed to update referral email.");
+        }
+
+        if (updateData.warning || updateData.code === "admin_credentials_missing") {
+          console.warn("Referral email update skipped:", updateData.warning ?? updateData.code);
+        }
       } else if (isLoggedIn) {
         // Logged in user — create a record for follow-up
-        const refId = doc(collection(db, "referrals")).id;
-        await setDoc(doc(db, "referrals", refId), {
-          tenantId: tenantConfig.id,
-          referrerUserId: "system",
-          referrerName: "System",
-          referrerRole: "superadmin",
-          referredType: "individual",
-          referredEmail: email.trim().toLowerCase(),
-          referredPhone: "",
-          referredName: resolvedUser?.name ?? "",
-          referredUserId: resolvedUser?.uid ?? "",
-          status: "referred",
-          source: "bot-cap",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+        const createRes = await fetch("/api/bot/referral", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenantId: tenantConfig.id,
+            referredName: resolvedUser?.name ?? "",
+            referredEmail: email.trim().toLowerCase(),
+            referredUserId: resolvedUser?.uid ?? "",
+            source: "bot-cap",
+          }),
         });
+        const createData = (await createRes.json()) as { error?: string; warning?: string; code?: string };
+        if (!createRes.ok) {
+          throw new Error(createData.error ?? "Failed to create cap referral.");
+        }
+
+        if (createData.warning || createData.code === "admin_credentials_missing") {
+          console.warn("Cap referral persistence skipped:", createData.warning ?? createData.code);
+        }
       }
       setCapEmailSaved(true);
     } catch (err) {
@@ -471,6 +470,9 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
     }
 
     if (guestStep === "phone") {
+      const assistantAfterName = `Lovely to meet you, ${guestName.split(" ")[0]}. Could you share your phone number so I can keep you updated?`;
+      const assistantAfterPhone = `Thank you, ${guestName.split(" ")[0]}. I am ${personaName}. Welcome to ${tenantConfig.name}. What can I do for you today? Do you have a question related to ${tenantConfig.name}, or would you like advice?`;
+
       setGuestPhone(val);
       setGuestTempInput("");
       setGuestReady(true);
@@ -481,10 +483,50 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
         { role: "user", content: val },
         {
           role: "assistant",
-          content: `Thank you, ${guestName.split(" ")[0]}. I am ${personaName}. Welcome to ${tenantConfig.name}. What can I do for you today? Do you have a question related to ${tenantConfig.name}, or would you like advice?`,
+          content: assistantAfterPhone,
         },
       ]);
+
+      // Persist intake messages once phone is known so the full guest-bot exchange lives in one phone-based log.
+      await saveGuestConversationLog({
+        category: "general",
+        userMessage: guestName,
+        assistantMessage: assistantAfterName,
+      });
+      await saveGuestConversationLog({
+        category: "general",
+        userMessage: val,
+        assistantMessage: assistantAfterPhone,
+      });
       return;
+    }
+  }
+
+  async function saveGuestConversationLog(args: {
+    category: "coaching-studio" | "general";
+    userMessage: string;
+    assistantMessage: string;
+  }): Promise<void> {
+    if (isLoggedIn || !guestReady || !guestPhone || !guestName) {
+      return;
+    }
+
+    try {
+      await fetch("/api/bot/guest-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: tenantConfig.id,
+          botName: personaName,
+          guestName,
+          guestPhone,
+          category: args.category,
+          userMessage: args.userMessage,
+          assistantMessage: args.assistantMessage,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to save guest conversation log:", error);
     }
   }
 
@@ -500,16 +542,30 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
     if (!mode) {
       const selectedMode = inferModeFromOpenEndedAnswer(userMsg, hasStudio, hasProfessional);
       if (!selectedMode) {
+        const followUpReply = `Thanks for sharing that. Just to make sure I support you the right way: is this about ${tenantConfig.name} features, or would you like personal ${tenantConfig.roles.professional.toLowerCase()} advice?`;
         setMessages((prev) => [
           ...prev,
           { role: "user", content: userMsg },
           {
             role: "assistant",
-            content: `Thanks for sharing that. Just to make sure I support you the right way: is this about ${tenantConfig.name} features, or would you like personal ${tenantConfig.roles.professional.toLowerCase()} advice?`,
+            content: followUpReply,
           },
         ]);
+
+        if (!isLoggedIn && guestReady) {
+          await saveGuestConversationLog({
+            category: "general",
+            userMessage: userMsg,
+            assistantMessage: followUpReply,
+          });
+        }
         return;
       }
+
+      const modeReply =
+        selectedMode === "studio"
+          ? `Perfect. I can help with ${tenantConfig.name} questions. Please share your question and I will guide you.`
+          : `Great, I can help with practical advice. Tell me what situation you are facing, and I will support you step by step.`;
 
       setMode(selectedMode);
       setMessages((prev) => [
@@ -517,12 +573,17 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
         { role: "user", content: userMsg },
         {
           role: "assistant",
-          content:
-            selectedMode === "studio"
-              ? `Perfect. I can help with ${tenantConfig.name} questions. Please share your question and I will guide you.`
-              : `Great, I can help with practical advice. Tell me what situation you are facing, and I will support you step by step.`,
+          content: modeReply,
         },
       ]);
+
+      if (!isLoggedIn && guestReady) {
+        await saveGuestConversationLog({
+          category: selectedMode === "studio" ? "coaching-studio" : "general",
+          userMessage: userMsg,
+          assistantMessage: modeReply,
+        });
+      }
       return;
     }
 
@@ -561,6 +622,15 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
       const data = await res.json() as { reply?: string; error?: string };
       const reply = normalizeAssistantReply(data.reply ?? "I'm sorry, something went wrong.");
 
+      if (!isLoggedIn && guestReady) {
+        const category = mode === "studio" ? "coaching-studio" : "general";
+        await saveGuestConversationLog({
+          category,
+          userMessage: userMsg,
+          assistantMessage: reply,
+        });
+      }
+
       const withReply: ChatMessage[] = [...newMessages, { role: "assistant", content: reply }];
 
       if (newCount >= messageCap) {
@@ -583,7 +653,7 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, capReached, mode, messages, userMessageCount, messageCap, isLoggedIn, tenantConfig, guestStep, resolvedUser, hasStudio, hasProfessional]);
+  }, [input, loading, capReached, mode, messages, userMessageCount, messageCap, isLoggedIn, tenantConfig, guestStep, resolvedUser, hasStudio, hasProfessional, guestReady, guestPhone, guestName, personaName]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {

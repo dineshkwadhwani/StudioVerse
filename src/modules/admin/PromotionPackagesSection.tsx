@@ -23,7 +23,6 @@ import {
 
 type Props = {
   operatorId: string;
-  onOpenPromotionRequests: (tenantId?: string) => void;
 };
 
 type TenantOption = {
@@ -47,10 +46,9 @@ const EMPTY_FORM: PromotionPackageFormValues = {
   sortOrder: "",
 };
 
-export default function PromotionPackagesSection({ operatorId, onOpenPromotionRequests }: Props) {
+export default function PromotionPackagesSection({ operatorId }: Props) {
   const [packages, setPackages] = useState<PromotionPackageRecord[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [resourceFilter, setResourceFilter] = useState<"all" | PromotionPackageRecord["resourceType"]>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,7 +80,7 @@ export default function PromotionPackagesSection({ operatorId, onOpenPromotionRe
   async function refresh() {
     setLoading(true);
     try {
-      setPackages(await listPromotionPackages(selectedTenantId || undefined));
+      setPackages(await listPromotionPackages());
     } finally {
       setLoading(false);
     }
@@ -94,10 +92,10 @@ export default function PromotionPackagesSection({ operatorId, onOpenPromotionRe
 
   useEffect(() => {
     void refresh();
-  }, [selectedTenantId]);
+  }, []);
 
   function openCreate() {
-    const defaultTenantId = selectedTenantId || tenants.find((tenant) => tenant.status === "active")?.tenantId || "";
+    const defaultTenantId = tenants.find((tenant) => tenant.status === "active")?.tenantId || "";
     setFormValues({ ...EMPTY_FORM, tenantId: defaultTenantId });
     setSelectedImage(null);
     setFormErrors({});
@@ -200,24 +198,6 @@ export default function PromotionPackagesSection({ operatorId, onOpenPromotionRe
 
       <div className={styles.controlCard}>
         <div className={styles.actions}>
-          <select
-            className={styles.select}
-            value={selectedTenantId}
-            onChange={(event) => setSelectedTenantId(event.target.value)}
-            style={{ minWidth: 220, marginBottom: 0 }}
-          >
-            <option value="">All tenants</option>
-            {tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.tenantId}>
-                {tenant.tenantName}
-              </option>
-            ))}
-          </select>
-
-          <button type="button" className={styles.ghostButton} onClick={() => onOpenPromotionRequests(selectedTenantId || undefined)}>
-            Promotion Requests
-          </button>
-
           <button type="button" className={styles.button} onClick={openCreate}>
             Add Promotion Package
           </button>
@@ -230,7 +210,7 @@ export default function PromotionPackagesSection({ operatorId, onOpenPromotionRe
       {loading ? (
         <div className={styles.emptyCard}>Loading promotion packages…</div>
       ) : packages.length === 0 ? (
-        <div className={styles.emptyCard}>No promotion packages found for the selected tenant filter.</div>
+        <div className={styles.emptyCard}>No promotion packages found.</div>
       ) : (
         <>
           <div className={styles.filterPillGroup}>

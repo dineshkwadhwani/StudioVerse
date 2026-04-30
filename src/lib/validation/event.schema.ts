@@ -84,6 +84,7 @@ function toEventDateTime(date: string, time: string): string | null {
 export function normalizeEventForm(
   values: EventFormValues,
   mode: EventSaveMode,
+  isSuperAdmin?: boolean,
 ): EventWriteInput {
   void mode;
   const parsed = eventFormSchema.parse(values);
@@ -95,7 +96,8 @@ export function normalizeEventForm(
   const status = parsed.published ? "published" : "draft";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
   const hasPromotionRequest = parsed.promoted && Boolean(parsed.promotionPackageId);
-  const promotionStatus = hasPromotionRequest ? "requested" : "none";
+  // Superadmins bypass the approval queue — their promotions are auto-approved
+  const promotionStatus = hasPromotionRequest ? (isSuperAdmin ? "promoted" : "requested") : "none";
 
   const eventDate = parsed.eventDate || null;
   const eventTime = parsed.eventTime || null;
@@ -122,7 +124,7 @@ export function normalizeEventForm(
     creditsRequired,
     cost,
     status,
-    promoted: false,
+    promoted: hasPromotionRequest && isSuperAdmin ? true : false,
     promotionPackageId: hasPromotionRequest ? parsed.promotionPackageId : null,
     promotionStatus,
     visibility: parsed.visibility,

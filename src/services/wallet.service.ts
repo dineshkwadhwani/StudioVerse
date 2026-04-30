@@ -38,8 +38,14 @@ const issueRegistrationBonusCallable = httpsCallable<
   { status: string; reason?: string }
 >(functions, "issueRegistrationBonus");
 
+const backfillTenantTreasuryWalletsCallable = httpsCallable<
+  { tenantId?: string },
+  { status: string; created?: number; skipped?: number }
+>(functions, "backfillTenantTreasuryWallets");
+
 const WALLET_ID_SEPARATOR = "::";
 const TREASURY_WALLET_PREFIX = "treasury::";
+const TREASURY_OWNER_USER_ID = "9767676738";
 
 export function buildWalletId(userId: string, tenantId: string): string {
   return `${String(tenantId).trim()}${WALLET_ID_SEPARATOR}${String(userId).trim()}`;
@@ -487,7 +493,7 @@ export async function ensureTenantTreasuryWallet(input: {
     }
 
     transaction.set(treasuryRef, {
-      userId: treasuryWalletId,
+      userId: TREASURY_OWNER_USER_ID,
       tenantId,
       userType: "superadmin",
       userName: "Tenant Treasury",
@@ -504,7 +510,7 @@ export async function ensureTenantTreasuryWallet(input: {
       const txRef = doc(collection(db, "walletTransactions"));
       transaction.set(txRef, {
         walletId: treasuryWalletId,
-        userId: treasuryWalletId,
+        userId: TREASURY_OWNER_USER_ID,
         tenantId,
         userType: "superadmin",
         userName: "Tenant Treasury",
@@ -517,6 +523,20 @@ export async function ensureTenantTreasuryWallet(input: {
       });
     }
   });
+}
+
+export async function backfillTenantTreasuryWallets(tenantId?: string): Promise<{
+  status: string;
+  created: number;
+  skipped: number;
+}> {
+  const result = await backfillTenantTreasuryWalletsCallable(tenantId ? { tenantId } : {});
+  const data = result.data ?? { status: "ok", created: 0, skipped: 0 };
+  return {
+    status: String(data.status ?? "ok"),
+    created: Number(data.created ?? 0),
+    skipped: Number(data.skipped ?? 0),
+  };
 }
 
 // ========== Coin Request Functions ==========

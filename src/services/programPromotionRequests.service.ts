@@ -273,6 +273,7 @@ function addDurationFrom(startDate: Date, durationValue: number, durationUnit: "
 export async function approveProgramPromotionRequest(args: {
   programId: string;
   operatorId: string;
+  promotionStartsAt?: Date;
 }): Promise<void> {
   await runTransaction(db, async (transaction) => {
     const programRef = doc(db, "programs", args.programId);
@@ -353,7 +354,7 @@ export async function approveProgramPromotionRequest(args: {
       );
     }
 
-    const promotionStartsAt = new Date();
+    const promotionStartsAt = args.promotionStartsAt ?? new Date();
     const promotionEndsAt = addDurationFrom(promotionStartsAt, promotionPackage.durationValue, promotionPackage.durationUnit);
 
     transaction.update(walletRef, {
@@ -410,6 +411,7 @@ export async function approveProgramPromotionRequest(args: {
 export async function approveEventPromotionRequest(args: {
   eventId: string;
   operatorId: string;
+  promotionStartsAt?: Date;
 }): Promise<void> {
   await runTransaction(db, async (transaction) => {
     const eventRef = doc(db, "events", args.eventId);
@@ -490,7 +492,7 @@ export async function approveEventPromotionRequest(args: {
       );
     }
 
-    const promotionStartsAt = new Date();
+    const promotionStartsAt = args.promotionStartsAt ?? new Date();
     const promotionEndsAt = addDurationFrom(promotionStartsAt, promotionPackage.durationValue, promotionPackage.durationUnit);
 
     transaction.update(walletRef, {
@@ -547,6 +549,7 @@ export async function approveEventPromotionRequest(args: {
 export async function approveAssessmentPromotionRequest(args: {
   assessmentId: string;
   operatorId: string;
+  promotionStartsAt?: Date;
 }): Promise<void> {
   await runTransaction(db, async (transaction) => {
     const assessmentRef = doc(db, "assessments", args.assessmentId);
@@ -627,7 +630,7 @@ export async function approveAssessmentPromotionRequest(args: {
       );
     }
 
-    const promotionStartsAt = new Date();
+    const promotionStartsAt = args.promotionStartsAt ?? new Date();
     const promotionEndsAt = addDurationFrom(promotionStartsAt, promotionPackage.durationValue, promotionPackage.durationUnit);
 
     transaction.update(walletRef, {

@@ -5,6 +5,48 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest implementation progress (30 April 2026) — Guest Log Lead Capture + Bot Referral Write Hardening
+
+### Guest Log lead-capture delivery (bot conversations)
+
+- Implemented lead logging for guest bot chats in Firestore collection `guestLogs`.
+- Log model uses one document per `(tenantId + guestPhone)` so all guest exchanges are retained in a single lead document.
+- Stored metadata includes:
+  - `tenantId`, `botName`, `guestName`, `guestPhone`
+  - latest `category` and deduplicated `categories`
+  - `date`, `lastConversationAt`, `conversationCount`
+  - conversation entries (`question`, `answer`, `category`, `createdAt`)
+- Guest onboarding/intake exchange messages (name + phone prompts) are now persisted once phone is captured, so initial lead context is not lost.
+
+### SuperAdmin Guest Log UX wiring
+
+- SuperAdmin portal now exposes `Guest Log` under the `Actions` menu group.
+- Guest Log page supports filter/search controls:
+  - from date
+  - to date
+  - category (`coaching-studio` / `general` / `all`)
+  - phone number search
+- Results panel renders full conversation history and metadata for each lead log.
+
+### Security model and write-path hardening
+
+- Firestore rules keep `guestLogs` client writes denied; read is superadmin-only.
+- Guest log persistence is handled by backend route handlers (Admin SDK), not direct client writes.
+- Bot referral writes were migrated from client Firestore calls to backend API route `/api/bot/referral`.
+- Reason: avoid unsigned guest write failures and keep referral writes in trusted server path.
+
+### Local dev/admin credentials behavior
+
+- Added Firebase Admin env-based initialization path for local runtime with:
+  - `FIREBASE_ADMIN_PROJECT_ID`
+  - `FIREBASE_ADMIN_CLIENT_EMAIL`
+  - `FIREBASE_ADMIN_PRIVATE_KEY`
+- Referral API route handles missing admin credentials gracefully in local/dev by returning warning payloads (chat remains functional) instead of breaking UX.
+
+### Deployment state
+
+- Firestore rules were deployed to `studioverse-test` after Guest Log changes (`firestore.rules` compiled and released).
+
 ## Latest implementation progress (29 April 2026) — Program/Event/Assessment Publish + Promotion Standardization
 
 ### Cross-entity publishing model cleanup

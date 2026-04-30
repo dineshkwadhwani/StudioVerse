@@ -15,6 +15,7 @@ type TenantOption = {
 
 type ResourcesSectionProps = {
   tenants?: TenantOption[];
+  isSuperAdmin?: boolean;
 };
 
 type ResourceTab = "programs" | "events" | "assessments";
@@ -25,7 +26,7 @@ const TAB_CONTEXT: Record<ResourceTab, string> = {
   assessments: "Manage assessment resources, structure, and publishing controls across tenants.",
 };
 
-export default function ResourcesSection({ tenants }: ResourcesSectionProps) {
+export default function ResourcesSection({ tenants, isSuperAdmin }: ResourcesSectionProps) {
   const [activeTab, setActiveTab] = useState<ResourceTab>("programs");
 
   return (
@@ -79,7 +80,7 @@ export default function ResourcesSection({ tenants }: ResourcesSectionProps) {
               id="resources-panel-programs"
               aria-labelledby="resources-tab-programs"
             >
-              <ProgramsSection tenants={tenants} />
+              <ProgramsSection tenants={tenants} isSuperAdmin={isSuperAdmin} />
             </div>
           )}
           {activeTab === "events" && (
@@ -88,7 +89,7 @@ export default function ResourcesSection({ tenants }: ResourcesSectionProps) {
               id="resources-panel-events"
               aria-labelledby="resources-tab-events"
             >
-              <EventsSection tenants={tenants} />
+              <EventsSection tenants={tenants} isSuperAdmin={isSuperAdmin} />
             </div>
           )}
           {activeTab === "assessments" && (
@@ -97,7 +98,7 @@ export default function ResourcesSection({ tenants }: ResourcesSectionProps) {
               id="resources-panel-assessments"
               aria-labelledby="resources-tab-assessments"
             >
-              <AssessmentsSection tenants={tenants} />
+              <AssessmentsSection tenants={tenants} isSuperAdmin={isSuperAdmin} />
             </div>
           )}
         </div>

@@ -39,6 +39,7 @@ type TenantOption = {
 
 type ProgramsSectionProps = {
   tenants?: TenantOption[];
+  isSuperAdmin?: boolean;
 };
 
 function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
@@ -77,7 +78,7 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
   });
 }
 
-export default function ProgramsSection({ tenants: propTenants }: ProgramsSectionProps) {
+export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: ProgramsSectionProps) {
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -292,7 +293,7 @@ export default function ProgramsSection({ tenants: propTenants }: ProgramsSectio
         thumbnailPath: nextThumbnailPath,
       };
 
-      const payload = normalizeProgramForm(nextFormValues, mode);
+      const payload = normalizeProgramForm(nextFormValues, mode, isSuperAdmin);
       await saveProgram(payload, mode, isExisting);
 
       setFormValues(nextFormValues);

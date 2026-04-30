@@ -41,6 +41,7 @@ type TenantOption = {
 
 type EventsSectionProps = {
   tenants?: TenantOption[];
+  isSuperAdmin?: boolean;
 };
 
 function mapEventToForm(event: EventRecord): EventFormValues {
@@ -82,6 +83,7 @@ function mapEventToForm(event: EventRecord): EventFormValues {
 
 export default function EventsSection({
   tenants: propTenants,
+  isSuperAdmin,
 }: EventsSectionProps) {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
@@ -301,7 +303,7 @@ export default function EventsSection({
         thumbnailPath: nextThumbnailPath,
       };
 
-      const payload = normalizeEventForm(nextFormValues, mode);
+      const payload = normalizeEventForm(nextFormValues, mode, isSuperAdmin);
       await saveEvent(payload, mode, isExisting);
 
       setFormValues(nextFormValues);

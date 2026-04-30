@@ -41,7 +41,7 @@ import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
-import { buildWalletId, ensureTenantTreasuryWallet, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
+import { backfillTenantTreasuryWallets, buildWalletId, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
 import type { ReferredType, ReferralRecord, ReferralStatus } from "@/types/referral";
@@ -49,6 +49,8 @@ import type { WalletUserType } from "@/types/wallet";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./SuperAdminPortal.module.css";
 import ManageEarningPackagesPage from "./ManageEarningPackagesPage";
+import ApproveRequestsPage from "./ApproveRequestsPage";
+import GuestLogPage from "./GuestLogPage";
 
 type MenuKey =
   | "dashboard"
@@ -64,7 +66,9 @@ type MenuKey =
   | "assigned-activities"
   | "assign-activity"
   | "earning-packages"
-  | "orders";
+  | "orders"
+  | "approve-requests"
+  | "guest-log";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
 type UsersFilter = "all" | AppUserType;
@@ -208,6 +212,8 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "assigned-activities", label: "Assigned Activities" },
   { key: "assign-activity", label: "Assign Activity" },
   { key: "earning-packages", label: "Earning Packages" },
+  { key: "approve-requests", label: "Approve Requests" },
+  { key: "guest-log", label: "Guest Log" },
 ];
 
 const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = [
@@ -230,7 +236,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "actions",
     label: "Actions",
-    itemKeys: ["assigned-activities", "assign-activity"],
+    itemKeys: ["assigned-activities", "assign-activity", "approve-requests", "guest-log"],
   },
 ];
 
@@ -1108,11 +1114,32 @@ export default function SuperAdminPortal() {
         { merge: true }
       );
 
-      await ensureTenantTreasuryWallet({
-        tenantId,
-        createdBy: profile.id,
-        openingCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
-      }).catch(() => undefined);
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error("Authentication required to ensure tenant treasury wallet.");
+      }
+
+      const treasuryResponse = await fetch("/api/admin/tenants/ensure-treasury", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          tenantId,
+          openingCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
+        }),
+      });
+
+      if (!treasuryResponse.ok) {
+        const errorPayload = (await treasuryResponse.json().catch(() => null)) as { error?: string } | null;
+        const treasuryError = errorPayload?.error ?? "Failed to ensure tenant treasury wallet.";
+        if (treasuryError.toLowerCase().includes("default credentials")) {
+          await backfillTenantTreasuryWallets(tenantId);
+        } else {
+          throw new Error(treasuryError);
+        }
+      }
 
       setTenantModalOpen(false);
       setInfo("Tenant saved.");
@@ -1576,10 +1603,16 @@ export default function SuperAdminPortal() {
             profile && <ManageEarningPackagesPage operatorId={profile.id} />
           ) : null}
 
+          {activeMenu === "approve-requests" ? (
+            profile && <ApproveRequestsPage operatorId={profile.id} />
+          ) : null}
+
+          {activeMenu === "guest-log" ? <GuestLogPage /> : null}
+
           {activeMenu === "orders" ? <ManageOrdersSection /> : null}
 
           {activeMenu === "resources" ? (
-            <ResourcesSection tenants={tenants} />
+            <ResourcesSection tenants={tenants} isSuperAdmin={profile.userType === "superadmin"} />
           ) : null}
 
           {activeMenu === "referrals" ? (

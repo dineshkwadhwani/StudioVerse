@@ -45,6 +45,7 @@ type TenantOption = {
 
 type AssessmentsSectionProps = {
   tenants?: TenantOption[];
+  isSuperAdmin?: boolean;
 };
 
 type AssessmentFormValuesWithCreatedBy = AssessmentFormValues & {
@@ -144,7 +145,7 @@ function matchesTenantScope(args: {
   return args.tenantIds.includes(args.selectedTenantId);
 }
 
-export default function AssessmentsSection({ tenants: propTenants }: AssessmentsSectionProps) {
+export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin }: AssessmentsSectionProps) {
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -498,7 +499,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
       }
 
       const promotionStatus = formValues.promoted && formValues.promotionPackageId.trim()
-        ? "requested"
+        ? (isSuperAdmin ? "promoted" : "requested")
         : "none";
 
       const newQuestions = isExisting
@@ -525,7 +526,7 @@ export default function AssessmentsSection({ tenants: propTenants }: Assessments
         analysisPrompt: formValues.analysisPrompt.trim(),
         questionGenerationPrompt: formValues.questionGenerationPrompt.trim(),
         status: normalizedStatus,
-        promoted: false,
+        promoted: promotionStatus === "promoted",
         promotionPackageId: promotionStatus === "none" ? null : formValues.promotionPackageId.trim(),
         promotionStatus,
         publicationState,

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveTenantByHost } from "@/lib/tenant/routing";
 import ContactForm from "./ContactForm";
+import ElevenLabsAgent from "./ElevenLabsAgent";
 import styles from "./StudioVersePage.module.css";
 
 export const metadata = {
@@ -83,6 +84,8 @@ export default async function Home() {
   if (tenant) {
     redirect(`/${tenant.id}`);
   }
+
+  const elevenLabsAgentId = process.env.ELEVEN_LAB_AGENT ?? "";
 
   return (
     <div className={styles.page}>
@@ -294,6 +297,8 @@ export default async function Home() {
 
         <ContactForm />
       </section>
+
+      <ElevenLabsAgent agentId={elevenLabsAgentId} />
 
       {/* ── FOOTER ── */}
       <footer className={styles.footer}>

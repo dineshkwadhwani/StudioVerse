@@ -18,7 +18,7 @@ import { EVENT_PROMOTION_STATUS_LABELS } from "@/types/event";
 type Props = {
   operatorId: string;
   initialTenantId?: string;
-  onBack: () => void;
+  onBack?: () => void;
 };
 
 export default function PromotionRequestsSection({ operatorId, initialTenantId, onBack }: Props) {
@@ -28,6 +28,7 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
   const [tenantOptions, setTenantOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [startDates, setStartDates] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -70,13 +71,17 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
     setApprovingId(request.id);
     setError("");
     setMessage("");
+
+    const startDateStr = startDates[request.id];
+    const promotionStartsAt = startDateStr ? new Date(startDateStr) : new Date();
+
     try {
       if (request.resourceType === "event") {
-        await approveEventPromotionRequest({ eventId: request.id, operatorId });
+        await approveEventPromotionRequest({ eventId: request.id, operatorId, promotionStartsAt });
       } else if (request.resourceType === "assessment") {
-        await approveAssessmentPromotionRequest({ assessmentId: request.id, operatorId });
+        await approveAssessmentPromotionRequest({ assessmentId: request.id, operatorId, promotionStartsAt });
       } else {
-        await approveProgramPromotionRequest({ programId: request.id, operatorId });
+        await approveProgramPromotionRequest({ programId: request.id, operatorId, promotionStartsAt });
       }
       setMessage("Promotion request approved.");
       await refresh();
@@ -96,9 +101,11 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
 
       <div className={styles.controlCard}>
         <div className={styles.actions}>
-          <button type="button" className={styles.ghostButton} onClick={onBack}>
-            Back To Promotion Packages
-          </button>
+          {onBack ? (
+            <button type="button" className={styles.ghostButton} onClick={onBack}>
+              Back To Promotion Packages
+            </button>
+          ) : null}
           <select
             className={styles.select}
             value={selectedTenantId}
@@ -153,6 +160,21 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
                     : request.resourceType === "assessment"
                     ? ASSESSMENT_PROMOTION_STATUS_LABELS[request.promotionStatus]
                     : PROGRAM_PROMOTION_STATUS_LABELS[request.promotionStatus as ProgramRecord["promotionStatus"]];
+
+                  const startDateStr = startDates[request.id] ?? new Date().toISOString().slice(0, 10);
+                  const startDate = new Date(startDateStr);
+                  let endDate: Date | null = null;
+                  if (pkg) {
+                    endDate = new Date(startDate);
+                    if (pkg.durationUnit === "days") {
+                      endDate.setDate(endDate.getDate() + pkg.durationValue);
+                    } else if (pkg.durationUnit === "weeks") {
+                      endDate.setDate(endDate.getDate() + pkg.durationValue * 7);
+                    } else {
+                      endDate.setMonth(endDate.getMonth() + pkg.durationValue);
+                    }
+                  }
+
                   return (
                     <>
                       <p className={styles.programTitle}>{request.name}</p>
@@ -161,6 +183,24 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
                       <p className={styles.programMeta}>Promotion Package: {pkg?.name ?? "-"}</p>
                       <p className={styles.programMeta}>Promotion Resource: {pkg ? PROMOTION_RESOURCE_LABELS[pkg.resourceType] : "-"}</p>
                       <p className={styles.programMeta}>Promotion Status: {statusLabel}</p>
+                      <div style={{ marginTop: 10 }}>
+                        <label className={styles.label} htmlFor={`start-date-${request.id}`}>
+                          Promotion Start Date
+                        </label>
+                        <input
+                          id={`start-date-${request.id}`}
+                          type="date"
+                          className={styles.input}
+                          style={{ marginBottom: 4 }}
+                          value={startDateStr}
+                          min={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) => setStartDates((prev) => ({ ...prev, [request.id]: e.target.value }))}
+                        />
+                        <p className={styles.programMeta}>
+                          Promotion End Date:{" "}
+                          {endDate ? endDate.toLocaleDateString(undefined, { dateStyle: "medium" }) : "-"}
+                        </p>
+                      </div>
                     </>
                   );
                 })()}

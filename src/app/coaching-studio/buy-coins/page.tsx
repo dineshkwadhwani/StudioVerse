@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function Page() {
-  return <BuyCoinsPage tenantId={config.id} />;
+  return <BuyCoinsPage tenantConfig={config} />;
 }

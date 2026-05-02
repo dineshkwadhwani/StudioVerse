@@ -98,6 +98,10 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     promoted: Boolean(data.promoted),
     promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: typeof data.listingPackageId === "string" ? data.listingPackageId : null,
+    listingStatus: data.listingStatus === "requested" || data.listingStatus === "approved" || data.listingStatus === "rejected"
+      ? data.listingStatus
+      : "none",
     visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,
@@ -142,6 +146,8 @@ function sanitizePayload(input: EventWriteInput): Record<string, unknown> {
     promoted: input.promoted,
     promotionPackageId: nullToUndef(input.promotionPackageId),
     promotionStatus: input.promotionStatus,
+    listingPackageId: nullToUndef(input.listingPackageId),
+    listingStatus: input.listingStatus,
     visibility: input.visibility,
     ownershipScope: input.ownershipScope,
     ownerEntityId: nullToUndef(input.ownerEntityId),

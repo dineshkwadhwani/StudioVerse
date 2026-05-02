@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type ReferredType = "coach" | "individual";
+export type ReferredType = "coach" | "individual" | "company";
 export type ReferralStatus = "referred" | "reminded" | "joined";
 export type ReferrerRole = "company" | "professional" | "individual" | "superadmin";
 

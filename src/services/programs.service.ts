@@ -45,6 +45,8 @@ function sanitizePayload(input: ProgramWriteInput): Record<string, unknown> {
     promoted: input.promoted,
     promotionPackageId: nullToUndef(input.promotionPackageId),
     promotionStatus: input.promotionStatus,
+    listingPackageId: nullToUndef(input.listingPackageId),
+    listingStatus: input.listingStatus,
     visibility: input.visibility,
     ownershipScope: input.ownershipScope,
     catalogVisibility: input.catalogVisibility,
@@ -121,6 +123,10 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
     promoted: Boolean(data.promoted),
     promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: typeof data.listingPackageId === "string" ? data.listingPackageId : null,
+    listingStatus: data.listingStatus === "requested" || data.listingStatus === "approved" || data.listingStatus === "rejected"
+      ? data.listingStatus
+      : "none",
     visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,

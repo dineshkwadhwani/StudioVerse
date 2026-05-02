@@ -21,10 +21,16 @@ export type AssessmentType =
   | "custom";
 
 export type AssessmentStatus = "draft" | "published" | "archived";
-export type AssessmentPublicationState = "unpublished" | "published" | "scheduled";
+export type AssessmentPublicationState =
+  | "unpublished"
+  | "published"
+  | "scheduled"
+  | "pending_publication_review"
+  | "rejected_publication";
 export type AssessmentOwnershipScope = "platform" | "tenant" | "professional";
 export type AssessmentVisibility = "public" | "private";
 export type AssessmentPromotionStatus = "none" | "requested" | "promoted";
+export type AssessmentListingStatus = "none" | "requested" | "approved" | "rejected";
 export type AssessmentReportStyle =
   | "development-template"
   | "diagnostic-template"
@@ -60,6 +66,8 @@ export type AssessmentRecord = {
   promoted: boolean;
   promotionPackageId: string | null;
   promotionStatus: AssessmentPromotionStatus;
+  listingPackageId: string | null;
+  listingStatus: AssessmentListingStatus;
   publicationState: AssessmentPublicationState;
   visibility: AssessmentVisibility;
   ownershipScope: AssessmentOwnershipScope;
@@ -162,6 +170,8 @@ export type AssessmentFormValues = {
   promoted: boolean;
   promotionPackageId: string;
   promotionStatus: AssessmentPromotionStatus;
+  listingPackageId: string;
+  listingStatus: AssessmentListingStatus;
   publicationState: AssessmentPublicationState;
   visibility: AssessmentVisibility;
   ownershipScope: AssessmentOwnershipScope;
@@ -194,6 +204,13 @@ export const ASSESSMENT_PROMOTION_STATUS_LABELS: Record<AssessmentPromotionStatu
   none: "Not Promoted",
   requested: "Promotion Requested",
   promoted: "Promoted",
+};
+
+export const ASSESSMENT_LISTING_STATUS_LABELS: Record<AssessmentListingStatus, string> = {
+  none: "Not Listed",
+  requested: "Under Review",
+  approved: "Published",
+  rejected: "Rejected",
 };
 
 export type GeneratedQuestion = {

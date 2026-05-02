@@ -27,7 +27,9 @@ export type AssessmentWriteInput = {
   promoted: boolean;
   promotionPackageId: string | null;
   promotionStatus: "none" | "requested" | "promoted";
-  publicationState: "unpublished" | "published" | "scheduled";
+  listingPackageId: string | null;
+  listingStatus: "none" | "requested" | "approved" | "rejected";
+  publicationState: "unpublished" | "published" | "scheduled" | "pending_publication_review" | "rejected_publication";
   visibility: "public" | "private";
   ownershipScope: "platform" | "tenant" | "professional";
   ownerEntityId: string;

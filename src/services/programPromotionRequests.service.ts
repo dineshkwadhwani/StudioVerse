@@ -62,6 +62,10 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
     promoted: Boolean(data.promoted),
     promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: typeof data.listingPackageId === "string" ? data.listingPackageId : null,
+    listingStatus: data.listingStatus === "requested" || data.listingStatus === "approved" || data.listingStatus === "rejected"
+      ? data.listingStatus
+      : "none",
     visibility,
     ownershipScope: data.ownershipScope,
     ownerEntityId: data.ownerEntityId ?? null,
@@ -116,6 +120,10 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     promoted: Boolean(data.promoted),
     promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: typeof data.listingPackageId === "string" ? data.listingPackageId : null,
+    listingStatus: data.listingStatus === "requested" || data.listingStatus === "approved" || data.listingStatus === "rejected"
+      ? data.listingStatus
+      : "none",
     visibility,
     ownershipScope: data.ownershipScope ?? "platform",
     ownerEntityId: data.ownerEntityId ?? null,
@@ -172,6 +180,10 @@ function mapAssessment(id: string, data: DocumentData): AssessmentRecord {
     promoted: Boolean(data.promoted),
     promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: typeof data.listingPackageId === "string" ? data.listingPackageId : null,
+    listingStatus: data.listingStatus === "requested" || data.listingStatus === "approved" || data.listingStatus === "rejected"
+      ? data.listingStatus
+      : "none",
     publicationState: data.publicationState ?? "unpublished",
     visibility,
     ownershipScope: data.ownershipScope ?? "tenant",
@@ -257,6 +269,124 @@ export async function listAssessmentPromotionRequests(tenantId?: string): Promis
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export async function chargePromotionRequestOnSubmission(args: {
+  resourceType: PromotionResourceType;
+  resourceId: string;
+  operatorId: string;
+}): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const collectionName = getPromotionResourceCollection(args.resourceType);
+    const resourceLabel = getPromotionResourceLabel(args.resourceType);
+    const resourceRef = doc(db, collectionName, args.resourceId);
+    const resourceSnap = await transaction.get(resourceRef);
+    if (!resourceSnap.exists()) {
+      throw new Error(`${resourceLabel} request no longer exists.`);
+    }
+
+    const resourceData = resourceSnap.data();
+    const currentPromotionStatus = typeof resourceData.promotionStatus === "string"
+      ? resourceData.promotionStatus
+      : (Boolean(resourceData.promoted) ? "promoted" : "none");
+
+    if (currentPromotionStatus !== "requested") {
+      return;
+    }
+
+    const existingCharge = resourceData.promotionCharge as Record<string, unknown> | undefined;
+    const alreadyCharged = Number(existingCharge?.creditsDeducted ?? 0) > 0;
+    if (alreadyCharged) {
+      return;
+    }
+
+    const promotionPackageId = typeof resourceData.promotionPackageId === "string" ? resourceData.promotionPackageId : "";
+    if (!promotionPackageId) {
+      throw new Error(`Promotion package is missing on this ${resourceLabel} request.`);
+    }
+
+    const promotionPackageRef = doc(db, "promotionPackages", promotionPackageId);
+    const promotionPackageSnap = await transaction.get(promotionPackageRef);
+    if (!promotionPackageSnap.exists()) {
+      throw new Error("Selected promotion package was not found.");
+    }
+
+    const promotionPackageData = promotionPackageSnap.data() as Record<string, unknown>;
+    const promotionCost = Number(promotionPackageData.costCredits ?? 0);
+    const promotionPackageStatus = String(promotionPackageData.status ?? "inactive").trim();
+    if (promotionPackageStatus !== "active") {
+      throw new Error("Selected promotion package is inactive.");
+    }
+    if (!Number.isFinite(promotionCost) || promotionCost < 0) {
+      throw new Error("Selected promotion package has invalid promotion cost.");
+    }
+
+    const requesterId = typeof resourceData.promotionRequestedBy === "string"
+      ? resourceData.promotionRequestedBy
+      : typeof resourceData.updatedBy === "string"
+      ? resourceData.updatedBy
+      : typeof resourceData.createdBy === "string"
+      ? resourceData.createdBy
+      : "";
+    if (!requesterId) {
+      throw new Error(`Could not determine requester wallet for this ${resourceLabel} promotion.`);
+    }
+
+    const tenantId = String(resourceData.tenantId ?? "");
+    const requesterWallet = await getWalletByUserAndTenant({ userId: requesterId, tenantId });
+    if (!requesterWallet) {
+      throw new Error("Requester wallet not found.");
+    }
+
+    const walletRef = doc(db, "wallets", requesterWallet.id);
+    const walletSnap = await transaction.get(walletRef);
+    if (!walletSnap.exists()) {
+      throw new Error("Requester wallet not found.");
+    }
+
+    const walletData = walletSnap.data() as Record<string, unknown>;
+    const availableCoins = Number(walletData.availableCoins ?? 0);
+    const utilizedCoins = Number(walletData.utilizedCoins ?? 0);
+    if (!Number.isFinite(availableCoins) || availableCoins < promotionCost) {
+      throw new Error(`Requester does not have enough credits. Required: ${promotionCost}, Available: ${availableCoins}.`);
+    }
+
+    transaction.update(walletRef, {
+      availableCoins: availableCoins - promotionCost,
+      utilizedCoins: utilizedCoins + promotionCost,
+      updatedBy: args.operatorId,
+      updatedAt: serverTimestamp(),
+    });
+
+    const walletTransactionRef = doc(collection(db, "walletTransactions"));
+    transaction.set(walletTransactionRef, {
+      walletId: requesterWallet.id,
+      userId: requesterId,
+      tenantId,
+      userType: String(walletData.userType ?? "professional"),
+      userName: String(walletData.userName ?? "User"),
+      transactionType: "debit",
+      source: "promotion",
+      reason: `Promotion requested for ${resourceLabel} ${String(resourceData.name ?? args.resourceId)}`,
+      coins: promotionCost,
+      activityType: args.resourceType,
+      activityId: args.resourceId,
+      createdBy: args.operatorId,
+      createdAt: serverTimestamp(),
+    });
+
+    transaction.update(resourceRef, {
+      promotionCharge: {
+        userId: requesterId,
+        creditsDeducted: promotionCost,
+        chargedAt: serverTimestamp(),
+        chargedBy: args.operatorId,
+      },
+      promotionChargeTxId: walletTransactionRef.id,
+      updatedBy: args.operatorId,
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
 function addDurationFrom(startDate: Date, durationValue: number, durationUnit: "days" | "weeks" | "months"): Date {
   const result = new Date(startDate);
 
@@ -269,6 +399,20 @@ function addDurationFrom(startDate: Date, durationValue: number, durationUnit: "
   }
 
   return result;
+}
+
+type PromotionResourceType = "program" | "event" | "assessment";
+
+function getPromotionResourceCollection(resourceType: PromotionResourceType): "programs" | "events" | "assessments" {
+  if (resourceType === "event") return "events";
+  if (resourceType === "assessment") return "assessments";
+  return "programs";
+}
+
+function getPromotionResourceLabel(resourceType: PromotionResourceType): string {
+  if (resourceType === "event") return "Event";
+  if (resourceType === "assessment") return "Assessment";
+  return "Program";
 }
 
 export async function approveProgramPromotionRequest(args: {
@@ -317,9 +461,12 @@ export async function approveProgramPromotionRequest(args: {
       throw new Error("Selected promotion package is inactive.");
     }
 
-    if (!Number.isFinite(promotionPackage.costCredits) || promotionPackage.costCredits <= 0) {
+    if (!Number.isFinite(promotionPackage.costCredits) || promotionPackage.costCredits < 0) {
       throw new Error("Selected promotion package has invalid promotion cost.");
     }
+
+    const existingCharge = programData.promotionCharge as Record<string, unknown> | undefined;
+    const alreadyCharged = Number(existingCharge?.creditsDeducted ?? 0) > 0;
 
     const requesterId = typeof programData.promotionRequestedBy === "string"
       ? programData.promotionRequestedBy
@@ -349,7 +496,7 @@ export async function approveProgramPromotionRequest(args: {
     const availableCoins = Number(walletData.availableCoins ?? 0);
     const utilizedCoins = Number(walletData.utilizedCoins ?? 0);
 
-    if (!Number.isFinite(availableCoins) || availableCoins < promotionPackage.costCredits) {
+    if (!alreadyCharged && (!Number.isFinite(availableCoins) || availableCoins < promotionPackage.costCredits)) {
       throw new Error(
         `Requester does not have enough credits. Required: ${promotionPackage.costCredits}, Available: ${availableCoins}.`
       );
@@ -358,74 +505,31 @@ export async function approveProgramPromotionRequest(args: {
     const promotionStartsAt = args.promotionStartsAt ?? new Date();
     const promotionEndsAt = addDurationFrom(promotionStartsAt, promotionPackage.durationValue, promotionPackage.durationUnit);
 
-    transaction.update(walletRef, {
-      availableCoins: availableCoins - promotionPackage.costCredits,
-      utilizedCoins: utilizedCoins + promotionPackage.costCredits,
-      updatedBy: args.operatorId,
-      updatedAt: serverTimestamp(),
-    });
+    if (!alreadyCharged) {
+      transaction.update(walletRef, {
+        availableCoins: availableCoins - promotionPackage.costCredits,
+        utilizedCoins: utilizedCoins + promotionPackage.costCredits,
+        updatedBy: args.operatorId,
+        updatedAt: serverTimestamp(),
+      });
 
-export async function denyProgramPromotionRequest(args: {
-  programId: string;
-  operatorId: string;
-}): Promise<void> {
-  await updateDoc(doc(db, "programs", args.programId), {
-    promotionStatus: "none",
-    promotionPackageId: null,
-    promoted: false,
-    promotionDeniedAt: serverTimestamp(),
-    promotionDeniedBy: args.operatorId,
-    updatedBy: args.operatorId,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-export async function denyEventPromotionRequest(args: {
-  eventId: string;
-  operatorId: string;
-}): Promise<void> {
-  await updateDoc(doc(db, "events", args.eventId), {
-    promotionStatus: "none",
-    promotionPackageId: null,
-    promoted: false,
-    promotionDeniedAt: serverTimestamp(),
-    promotionDeniedBy: args.operatorId,
-    updatedBy: args.operatorId,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-export async function denyAssessmentPromotionRequest(args: {
-  assessmentId: string;
-  operatorId: string;
-}): Promise<void> {
-  await updateDoc(doc(db, "assessments", args.assessmentId), {
-    promotionStatus: "none",
-    promotionPackageId: null,
-    promoted: false,
-    promotionDeniedAt: serverTimestamp(),
-    promotionDeniedBy: args.operatorId,
-    updatedBy: args.operatorId,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-    const walletTransactionRef = doc(collection(db, "walletTransactions"));
-    transaction.set(walletTransactionRef, {
-      walletId: requesterWallet.id,
-      userId: requesterId,
-      tenantId,
-      userType: String(walletData.userType ?? "professional"),
-      userName: String(walletData.userName ?? "User"),
-      transactionType: "debit",
-      source: "promotion",
-      reason: `Promotion approved for Program ${String(programData.name ?? args.programId)}`,
-      coins: promotionPackage.costCredits,
-      activityType: "program",
-      activityId: args.programId,
-      createdBy: args.operatorId,
-      createdAt: serverTimestamp(),
-    });
+      const walletTransactionRef = doc(collection(db, "walletTransactions"));
+      transaction.set(walletTransactionRef, {
+        walletId: requesterWallet.id,
+        userId: requesterId,
+        tenantId,
+        userType: String(walletData.userType ?? "professional"),
+        userName: String(walletData.userName ?? "User"),
+        transactionType: "debit",
+        source: "promotion",
+        reason: `Promotion approved for Program ${String(programData.name ?? args.programId)}`,
+        coins: promotionPackage.costCredits,
+        activityType: "program",
+        activityId: args.programId,
+        createdBy: args.operatorId,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     transaction.update(programRef, {
       promoted: true,
@@ -433,12 +537,14 @@ export async function denyAssessmentPromotionRequest(args: {
       promotionStartsAt,
       promotionApprovedAt: serverTimestamp(),
       promotionApprovedBy: args.operatorId,
-      promotionCharge: {
-        userId: requesterId,
-        creditsDeducted: promotionPackage.costCredits,
-        chargedAt: promotionStartsAt,
-        chargedBy: args.operatorId,
-      },
+      promotionCharge: alreadyCharged
+        ? existingCharge
+        : {
+            userId: requesterId,
+            creditsDeducted: promotionPackage.costCredits,
+            chargedAt: promotionStartsAt,
+            chargedBy: args.operatorId,
+          },
       promotionAppliedPackage: {
         id: promotionPackage.id,
         name: promotionPackage.name,
@@ -504,6 +610,9 @@ export async function approveEventPromotionRequest(args: {
       throw new Error("Selected promotion package has invalid promotion cost.");
     }
 
+    const existingCharge = eventData.promotionCharge as Record<string, unknown> | undefined;
+    const alreadyCharged = Number(existingCharge?.creditsDeducted ?? 0) > 0;
+
     const requesterId = typeof eventData.promotionRequestedBy === "string"
       ? eventData.promotionRequestedBy
       : typeof eventData.updatedBy === "string"
@@ -532,7 +641,7 @@ export async function approveEventPromotionRequest(args: {
     const availableCoins = Number(walletData.availableCoins ?? 0);
     const utilizedCoins = Number(walletData.utilizedCoins ?? 0);
 
-    if (!Number.isFinite(availableCoins) || availableCoins < promotionPackage.costCredits) {
+    if (!alreadyCharged && (!Number.isFinite(availableCoins) || availableCoins < promotionPackage.costCredits)) {
       throw new Error(
         `Requester does not have enough credits. Required: ${promotionPackage.costCredits}, Available: ${availableCoins}.`
       );
@@ -541,29 +650,31 @@ export async function approveEventPromotionRequest(args: {
     const promotionStartsAt = args.promotionStartsAt ?? new Date();
     const promotionEndsAt = addDurationFrom(promotionStartsAt, promotionPackage.durationValue, promotionPackage.durationUnit);
 
-    transaction.update(walletRef, {
-      availableCoins: availableCoins - promotionPackage.costCredits,
-      utilizedCoins: utilizedCoins + promotionPackage.costCredits,
-      updatedBy: args.operatorId,
-      updatedAt: serverTimestamp(),
-    });
+    if (!alreadyCharged) {
+      transaction.update(walletRef, {
+        availableCoins: availableCoins - promotionPackage.costCredits,
+        utilizedCoins: utilizedCoins + promotionPackage.costCredits,
+        updatedBy: args.operatorId,
+        updatedAt: serverTimestamp(),
+      });
 
-    const walletTransactionRef = doc(collection(db, "walletTransactions"));
-    transaction.set(walletTransactionRef, {
-      walletId: requesterWallet.id,
-      userId: requesterId,
-      tenantId,
-      userType: String(walletData.userType ?? "professional"),
-      userName: String(walletData.userName ?? "User"),
-      transactionType: "debit",
-      source: "promotion",
-      reason: `Promotion approved for Event ${String(eventData.name ?? args.eventId)}`,
-      coins: promotionPackage.costCredits,
-      activityType: "event",
-      activityId: args.eventId,
-      createdBy: args.operatorId,
-      createdAt: serverTimestamp(),
-    });
+      const walletTransactionRef = doc(collection(db, "walletTransactions"));
+      transaction.set(walletTransactionRef, {
+        walletId: requesterWallet.id,
+        userId: requesterId,
+        tenantId,
+        userType: String(walletData.userType ?? "professional"),
+        userName: String(walletData.userName ?? "User"),
+        transactionType: "debit",
+        source: "promotion",
+        reason: `Promotion approved for Event ${String(eventData.name ?? args.eventId)}`,
+        coins: promotionPackage.costCredits,
+        activityType: "event",
+        activityId: args.eventId,
+        createdBy: args.operatorId,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     transaction.update(eventRef, {
       promoted: true,
@@ -571,12 +682,14 @@ export async function approveEventPromotionRequest(args: {
       promotionStartsAt,
       promotionApprovedAt: serverTimestamp(),
       promotionApprovedBy: args.operatorId,
-      promotionCharge: {
-        userId: requesterId,
-        creditsDeducted: promotionPackage.costCredits,
-        chargedAt: promotionStartsAt,
-        chargedBy: args.operatorId,
-      },
+      promotionCharge: alreadyCharged
+        ? existingCharge
+        : {
+            userId: requesterId,
+            creditsDeducted: promotionPackage.costCredits,
+            chargedAt: promotionStartsAt,
+            chargedBy: args.operatorId,
+          },
       promotionAppliedPackage: {
         id: promotionPackage.id,
         name: promotionPackage.name,
@@ -642,6 +755,9 @@ export async function approveAssessmentPromotionRequest(args: {
       throw new Error("Selected promotion package has invalid promotion cost.");
     }
 
+    const existingCharge = assessmentData.promotionCharge as Record<string, unknown> | undefined;
+    const alreadyCharged = Number(existingCharge?.creditsDeducted ?? 0) > 0;
+
     const requesterId = typeof assessmentData.promotionRequestedBy === "string"
       ? assessmentData.promotionRequestedBy
       : typeof assessmentData.updatedBy === "string"
@@ -670,7 +786,7 @@ export async function approveAssessmentPromotionRequest(args: {
     const availableCoins = Number(walletData.availableCoins ?? 0);
     const utilizedCoins = Number(walletData.utilizedCoins ?? 0);
 
-    if (!Number.isFinite(availableCoins) || availableCoins < promotionPackage.costCredits) {
+    if (!alreadyCharged && (!Number.isFinite(availableCoins) || availableCoins < promotionPackage.costCredits)) {
       throw new Error(
         `Requester does not have enough credits. Required: ${promotionPackage.costCredits}, Available: ${availableCoins}.`
       );
@@ -679,29 +795,31 @@ export async function approveAssessmentPromotionRequest(args: {
     const promotionStartsAt = args.promotionStartsAt ?? new Date();
     const promotionEndsAt = addDurationFrom(promotionStartsAt, promotionPackage.durationValue, promotionPackage.durationUnit);
 
-    transaction.update(walletRef, {
-      availableCoins: availableCoins - promotionPackage.costCredits,
-      utilizedCoins: utilizedCoins + promotionPackage.costCredits,
-      updatedBy: args.operatorId,
-      updatedAt: serverTimestamp(),
-    });
+    if (!alreadyCharged) {
+      transaction.update(walletRef, {
+        availableCoins: availableCoins - promotionPackage.costCredits,
+        utilizedCoins: utilizedCoins + promotionPackage.costCredits,
+        updatedBy: args.operatorId,
+        updatedAt: serverTimestamp(),
+      });
 
-    const walletTransactionRef = doc(collection(db, "walletTransactions"));
-    transaction.set(walletTransactionRef, {
-      walletId: requesterWallet.id,
-      userId: requesterId,
-      tenantId,
-      userType: String(walletData.userType ?? "professional"),
-      userName: String(walletData.userName ?? "User"),
-      transactionType: "debit",
-      source: "promotion",
-      reason: `Promotion approved for Assessment ${String(assessmentData.name ?? args.assessmentId)}`,
-      coins: promotionPackage.costCredits,
-      activityType: "assessment",
-      activityId: args.assessmentId,
-      createdBy: args.operatorId,
-      createdAt: serverTimestamp(),
-    });
+      const walletTransactionRef = doc(collection(db, "walletTransactions"));
+      transaction.set(walletTransactionRef, {
+        walletId: requesterWallet.id,
+        userId: requesterId,
+        tenantId,
+        userType: String(walletData.userType ?? "professional"),
+        userName: String(walletData.userName ?? "User"),
+        transactionType: "debit",
+        source: "promotion",
+        reason: `Promotion approved for Assessment ${String(assessmentData.name ?? args.assessmentId)}`,
+        coins: promotionPackage.costCredits,
+        activityType: "assessment",
+        activityId: args.assessmentId,
+        createdBy: args.operatorId,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     transaction.update(assessmentRef, {
       promoted: true,
@@ -709,12 +827,14 @@ export async function approveAssessmentPromotionRequest(args: {
       promotionStartsAt,
       promotionApprovedAt: serverTimestamp(),
       promotionApprovedBy: args.operatorId,
-      promotionCharge: {
-        userId: requesterId,
-        creditsDeducted: promotionPackage.costCredits,
-        chargedAt: promotionStartsAt,
-        chargedBy: args.operatorId,
-      },
+      promotionCharge: alreadyCharged
+        ? existingCharge
+        : {
+            userId: requesterId,
+            creditsDeducted: promotionPackage.costCredits,
+            chargedAt: promotionStartsAt,
+            chargedBy: args.operatorId,
+          },
       promotionAppliedPackage: {
         id: promotionPackage.id,
         name: promotionPackage.name,
@@ -727,5 +847,112 @@ export async function approveAssessmentPromotionRequest(args: {
       updatedBy: args.operatorId,
       updatedAt: serverTimestamp(),
     });
+  });
+}
+
+async function denyPromotionRequest(args: {
+  resourceType: PromotionResourceType;
+  resourceId: string;
+  operatorId: string;
+}): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const collectionName = getPromotionResourceCollection(args.resourceType);
+    const resourceRef = doc(db, collectionName, args.resourceId);
+    const resourceSnap = await transaction.get(resourceRef);
+    if (!resourceSnap.exists()) {
+      throw new Error("Promotion request no longer exists.");
+    }
+
+    const resourceData = resourceSnap.data();
+    const charge = resourceData.promotionCharge as Record<string, unknown> | undefined;
+    const chargeUserId = typeof charge?.userId === "string" ? charge.userId : "";
+    const chargeCredits = Number(charge?.creditsDeducted ?? 0);
+    const tenantId = String(resourceData.tenantId ?? "");
+
+    let refundTxId: string | null = null;
+    if (chargeUserId && Number.isFinite(chargeCredits) && chargeCredits > 0) {
+      const requesterWallet = await getWalletByUserAndTenant({ userId: chargeUserId, tenantId });
+      if (requesterWallet) {
+        const walletRef = doc(db, "wallets", requesterWallet.id);
+        const walletSnap = await transaction.get(walletRef);
+        if (walletSnap.exists()) {
+          const walletData = walletSnap.data() as Record<string, unknown>;
+          const availableCoins = Number(walletData.availableCoins ?? 0);
+          const utilizedCoins = Number(walletData.utilizedCoins ?? 0);
+          const nextUtilized = Math.max(0, utilizedCoins - chargeCredits);
+
+          transaction.update(walletRef, {
+            availableCoins: availableCoins + chargeCredits,
+            utilizedCoins: nextUtilized,
+            updatedBy: args.operatorId,
+            updatedAt: serverTimestamp(),
+          });
+
+          const walletTransactionRef = doc(collection(db, "walletTransactions"));
+          refundTxId = walletTransactionRef.id;
+          transaction.set(walletTransactionRef, {
+            walletId: requesterWallet.id,
+            userId: chargeUserId,
+            tenantId,
+            userType: String(walletData.userType ?? "professional"),
+            userName: String(walletData.userName ?? "User"),
+            transactionType: "credit",
+            source: "promotion",
+            reason: `Promotion request denied for ${getPromotionResourceLabel(args.resourceType)} ${String(resourceData.name ?? args.resourceId)}`,
+            coins: chargeCredits,
+            activityType: args.resourceType,
+            activityId: args.resourceId,
+            createdBy: args.operatorId,
+            createdAt: serverTimestamp(),
+          });
+        }
+      }
+    }
+
+    transaction.update(resourceRef, {
+      promotionStatus: "none",
+      promotionPackageId: null,
+      promoted: false,
+      promotionDeniedAt: serverTimestamp(),
+      promotionDeniedBy: args.operatorId,
+      promotionRefundTxId: refundTxId,
+      promotionCharge: null,
+      promotionChargeTxId: null,
+      updatedBy: args.operatorId,
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function denyProgramPromotionRequest(args: {
+  programId: string;
+  operatorId: string;
+}): Promise<void> {
+  await denyPromotionRequest({
+    resourceType: "program",
+    resourceId: args.programId,
+    operatorId: args.operatorId,
+  });
+}
+
+export async function denyEventPromotionRequest(args: {
+  eventId: string;
+  operatorId: string;
+}): Promise<void> {
+  await denyPromotionRequest({
+    resourceType: "event",
+    resourceId: args.eventId,
+    operatorId: args.operatorId,
+  });
+}
+
+export async function denyAssessmentPromotionRequest(args: {
+  assessmentId: string;
+  operatorId: string;
+}): Promise<void> {
+  await denyPromotionRequest({
+    resourceType: "assessment",
+    resourceId: args.assessmentId,
+    operatorId: args.operatorId,
   });
 }

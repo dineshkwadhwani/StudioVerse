@@ -13,21 +13,21 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "@/services/firebase";
 import {
-  PROMOTION_DURATION_UNIT_LABELS,
-  PROMOTION_PACKAGE_DURATION_UNITS,
-  PROMOTION_PACKAGE_RESOURCE_TYPES,
-  type PromotionPackageFormValues,
-  type PromotionPackageRecord,
-  type PromotionPackageStatus,
-} from "@/types/promotionPackage";
+  LISTING_DURATION_UNIT_LABELS,
+  LISTING_PACKAGE_DURATION_UNITS,
+  LISTING_PACKAGE_RESOURCE_TYPES,
+  type ListingPackageFormValues,
+  type ListingPackageRecord,
+  type ListingPackageStatus,
+} from "@/types/listingPackage";
 
-const COLLECTION = "promotionPackages";
+const COLLECTION = "listingPackages";
 
 function toStringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function mapPromotionPackage(id: string, data: Record<string, unknown>): PromotionPackageRecord {
+function mapListingPackage(id: string, data: Record<string, unknown>): ListingPackageRecord {
   const resourceTypeRaw = toStringValue(data.resourceType);
   const durationUnitRaw = toStringValue(data.durationUnit);
 
@@ -38,35 +38,35 @@ function mapPromotionPackage(id: string, data: Record<string, unknown>): Promoti
     description: toStringValue(data.description),
     imageUrl: toStringValue(data.imageUrl) || undefined,
     imagePath: toStringValue(data.imagePath) || undefined,
-    resourceType: PROMOTION_PACKAGE_RESOURCE_TYPES.includes(resourceTypeRaw as PromotionPackageRecord["resourceType"])
-      ? (resourceTypeRaw as PromotionPackageRecord["resourceType"])
+    resourceType: LISTING_PACKAGE_RESOURCE_TYPES.includes(resourceTypeRaw as ListingPackageRecord["resourceType"])
+      ? (resourceTypeRaw as ListingPackageRecord["resourceType"])
       : "program",
     durationValue: typeof data.durationValue === "number" ? data.durationValue : Number(data.durationValue) || 0,
-    durationUnit: PROMOTION_PACKAGE_DURATION_UNITS.includes(durationUnitRaw as PromotionPackageRecord["durationUnit"])
-      ? (durationUnitRaw as PromotionPackageRecord["durationUnit"])
+    durationUnit: LISTING_PACKAGE_DURATION_UNITS.includes(durationUnitRaw as ListingPackageRecord["durationUnit"])
+      ? (durationUnitRaw as ListingPackageRecord["durationUnit"])
       : "weeks",
     costCredits: typeof data.costCredits === "number" ? data.costCredits : Number(data.costCredits) || 0,
-    status: (toStringValue(data.status) || "inactive") as PromotionPackageStatus,
+    status: (toStringValue(data.status) || "inactive") as ListingPackageStatus,
     sortOrder: typeof data.sortOrder === "number" ? data.sortOrder : Number(data.sortOrder) || 99,
     createdBy: toStringValue(data.createdBy),
     updatedBy: toStringValue(data.updatedBy),
-    createdAt: data.createdAt as PromotionPackageRecord["createdAt"],
-    updatedAt: data.updatedAt as PromotionPackageRecord["updatedAt"],
+    createdAt: data.createdAt as ListingPackageRecord["createdAt"],
+    updatedAt: data.updatedAt as ListingPackageRecord["updatedAt"],
   };
 }
 
-export async function listPromotionPackages(tenantId?: string): Promise<PromotionPackageRecord[]> {
+export async function listListingPackages(tenantId?: string): Promise<ListingPackageRecord[]> {
   const base = collection(db, COLLECTION);
   const snap = tenantId
     ? await getDocs(query(base, where("tenantId", "==", tenantId)))
     : await getDocs(base);
 
   return snap.docs
-    .map((row) => mapPromotionPackage(row.id, row.data() as Record<string, unknown>))
+    .map((row) => mapListingPackage(row.id, row.data() as Record<string, unknown>))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export async function listActivePromotionPackagesForTenant(tenantId: string): Promise<PromotionPackageRecord[]> {
+export async function listActiveListingPackagesForTenant(tenantId: string): Promise<ListingPackageRecord[]> {
   if (!tenantId.trim()) {
     return [];
   }
@@ -80,11 +80,11 @@ export async function listActivePromotionPackagesForTenant(tenantId: string): Pr
   );
 
   return snap.docs
-    .map((row) => mapPromotionPackage(row.id, row.data() as Record<string, unknown>))
+    .map((row) => mapListingPackage(row.id, row.data() as Record<string, unknown>))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export async function getPromotionPackageById(packageId: string): Promise<PromotionPackageRecord | null> {
+export async function getListingPackageById(packageId: string): Promise<ListingPackageRecord | null> {
   const snap = await getDocs(
     query(collection(db, COLLECTION), where(documentId(), "==", packageId.trim())),
   );
@@ -94,15 +94,15 @@ export async function getPromotionPackageById(packageId: string): Promise<Promot
   }
 
   const row = snap.docs[0];
-  return mapPromotionPackage(row.id, row.data() as Record<string, unknown>);
+  return mapListingPackage(row.id, row.data() as Record<string, unknown>);
 }
 
-export function getPromotionPackageSummary(pkg: PromotionPackageRecord): string {
-  const unitLabel = PROMOTION_DURATION_UNIT_LABELS[pkg.durationUnit].toLowerCase();
+export function getListingPackageSummary(pkg: ListingPackageRecord): string {
+  const unitLabel = LISTING_DURATION_UNIT_LABELS[pkg.durationUnit].toLowerCase();
   return `${pkg.durationValue} ${unitLabel} • ${pkg.costCredits} credits`;
 }
 
-export function validatePromotionPackageForm(values: PromotionPackageFormValues): Record<string, string> {
+export function validateListingPackageForm(values: ListingPackageFormValues): Record<string, string> {
   const errors: Record<string, string> = {};
 
   if (!values.tenantId.trim()) {
@@ -119,17 +119,17 @@ export function validatePromotionPackageForm(values: PromotionPackageFormValues)
 
   const costCredits = Number(values.costCredits);
   if (!values.costCredits.trim() || !Number.isFinite(costCredits) || costCredits < 0) {
-    errors.costCredits = "Promotion cost cannot be negative.";
+    errors.costCredits = "Listing cost cannot be negative.";
   }
 
   return errors;
 }
 
-export async function savePromotionPackage(
-  values: PromotionPackageFormValues,
+export async function saveListingPackage(
+  values: ListingPackageFormValues,
   operatorId: string,
-): Promise<PromotionPackageRecord> {
-  const errors = validatePromotionPackageForm(values);
+): Promise<ListingPackageRecord> {
+  const errors = validateListingPackageForm(values);
   if (Object.keys(errors).length > 0) {
     throw new Error(Object.values(errors)[0]);
   }
@@ -164,7 +164,7 @@ export async function savePromotionPackage(
     });
   }
 
-  return mapPromotionPackage(ref.id, { ...payload, id: ref.id });
+  return mapListingPackage(ref.id, { ...payload, id: ref.id });
 }
 
 function sanitizeExtension(file: File): string {
@@ -175,7 +175,7 @@ function sanitizeExtension(file: File): string {
   return "jpg";
 }
 
-export function validatePromotionPackageImageFile(file: File): string | null {
+export function validateListingPackageImageFile(file: File): string | null {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
     return "Use a JPG, PNG, or WebP image.";
   }
@@ -185,13 +185,13 @@ export function validatePromotionPackageImageFile(file: File): string | null {
   return null;
 }
 
-export async function uploadPromotionPackageImage(args: {
+export async function uploadListingPackageImage(args: {
   tenantId: string;
   packageId: string;
   file: File;
 }): Promise<{ imageUrl: string; imagePath: string }> {
   const ext = sanitizeExtension(args.file);
-  const imagePath = `promotionPackages/${args.tenantId}/${args.packageId}/image.${ext}`;
+  const imagePath = `listingPackages/${args.tenantId}/${args.packageId}/image.${ext}`;
   const storageRef = ref(storage, imagePath);
   await uploadBytes(storageRef, args.file, { contentType: args.file.type });
   const imageUrl = await getDownloadURL(storageRef);

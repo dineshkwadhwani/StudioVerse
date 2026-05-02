@@ -365,8 +365,8 @@ export default function LoginRegisterModal({
         status: 'active',
       });
 
-      // Process referral join (only for professionals and individuals, non-fatal if fails)
-      if ((role === 'professional' || role === 'individual')) {
+      // Process referral join for all registered user types (non-fatal if fails)
+      if (role === 'professional' || role === 'individual' || role === 'company') {
         try {
           await processReferralJoinForNewUser({
             userId: savedProfile.userId,
@@ -374,7 +374,7 @@ export default function LoginRegisterModal({
             email: savedProfile.email,
             phoneE164: savedProfile.phoneE164,
             tenantId: savedProfile.tenantId,
-            userType: role,
+            userType: role as 'professional' | 'individual' | 'company',
           });
         } catch {
           // Referral processing failed — non-fatal, user registration still succeeds.

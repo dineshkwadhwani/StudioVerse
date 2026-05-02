@@ -41,6 +41,8 @@ export const programFormSchema = z.object({
   promoted: z.boolean(),
   promotionPackageId: z.string().trim(),
   promotionStatus: z.enum(["none", "requested", "promoted"]),
+  listingPackageId: z.string().trim(),
+  listingStatus: z.enum(["none", "requested", "approved", "rejected"]),
   published: z.boolean(),
   visibility: z.enum(PROGRAM_VISIBILITIES),
   ownershipScope: z.enum(PROGRAM_OWNERSHIP_SCOPES),
@@ -68,9 +70,14 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   const durationValue = parsed.durationValue ? Number(parsed.durationValue) : 0;
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
 
-  // Determine publication state based on the published checkbox
-  const publicationState = parsed.published ? "published" : "draft";
-  const status = parsed.published ? "published" : "draft";
+  const hasListingRequest = parsed.published && Boolean(parsed.listingPackageId);
+  const publicationState = parsed.published
+    ? (isSuperAdmin ? "published" : "pending_publication_review")
+    : "draft";
+  const status = parsed.published && isSuperAdmin ? "published" : "draft";
+  const listingStatus = parsed.published
+    ? (isSuperAdmin ? "approved" : "requested")
+    : "none";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
   const hasPromotionRequest = parsed.promoted && Boolean(parsed.promotionPackageId);
   // Superadmins bypass the approval queue — their promotions are auto-approved
@@ -98,6 +105,8 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     promoted: hasPromotionRequest && isSuperAdmin ? true : false,
     promotionPackageId: hasPromotionRequest ? parsed.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: hasListingRequest ? parsed.listingPackageId : null,
+    listingStatus,
     visibility: parsed.visibility,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
@@ -109,7 +118,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
 export function validateProgramForm(
   values: ProgramFormValues,
   mode: ProgramSaveMode,
-  options?: { hasSelectedThumbnail?: boolean },
+  options?: { hasSelectedThumbnail?: boolean; isSuperAdmin?: boolean },
 ): ProgramFormErrors {
   const errors: ProgramFormErrors = {};
 
@@ -193,6 +202,10 @@ export function validateProgramForm(
 
   if (values.promoted && !values.promotionPackageId.trim()) {
     errors.promotionPackageId = "Select a promotion package for promoted Programs.";
+  }
+
+  if (values.published && !options?.isSuperAdmin && !values.listingPackageId.trim()) {
+    errors.listingPackageId = "Select a listing package to submit publication approval request.";
   }
 
   if (mode === "publish") {

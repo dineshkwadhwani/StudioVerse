@@ -24,7 +24,7 @@ type SendReferralInviteEmailArgs = {
   mailConfig: TenantMailConfig;
   referredEmail: string;
   referredPhone: string;
-  referredType: "coach" | "individual";
+  referredType: "coach" | "individual" | "company";
   tenantId: string;
   referrerName: string;
 };
@@ -34,7 +34,7 @@ type SendReferralReminderEmailArgs = {
   referralId: string;
   referredEmail: string;
   referredPhone: string;
-  referredType: "coach" | "individual";
+  referredType: "coach" | "individual" | "company";
   tenantId: string;
 };
 
@@ -175,7 +175,7 @@ export async function sendAssignmentEmail(
 export async function sendReferralInviteEmail(
   args: SendReferralInviteEmailArgs
 ): Promise<SendAssignmentEmailResult> {
-  const referredRoleLabel = args.referredType === "coach" ? "coach" : "individual";
+  const referredRoleLabel = args.referredType === "coach" ? "coach" : args.referredType === "company" ? "company" : "individual";
   const subject = "You have been referred to StudioVerse";
   const body = [
     "Hi,",
@@ -205,7 +205,7 @@ export async function sendReferralReminderEmail(
     "",
     `This is a reminder for referral ID ${args.referralId}.`,
     `Tenant: ${args.tenantId}`,
-    `Role: ${args.referredType === "coach" ? "coach" : "individual"}`,
+    `Role: ${args.referredType === "coach" ? "coach" : args.referredType === "company" ? "company" : "individual"}`,
     `Phone: ${args.referredPhone}`,
     "",
     "Please finish your onboarding at the earliest.",

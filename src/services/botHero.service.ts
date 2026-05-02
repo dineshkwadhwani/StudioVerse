@@ -152,8 +152,8 @@ export function validateBotHeroPackageForm(
   }
 
   const cred = Number(values.credits);
-  if (!values.credits.trim() || !Number.isFinite(cred) || cred <= 0) {
-    errors.credits = "Credits must be a positive number.";
+  if (!values.credits.trim() || !Number.isFinite(cred) || cred < 0) {
+    errors.credits = "Credits cannot be negative.";
   }
 
   return errors;

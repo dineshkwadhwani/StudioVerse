@@ -51,6 +51,8 @@ export const eventFormSchema = z.object({
   promoted: z.boolean(),
   promotionPackageId: z.string().trim(),
   promotionStatus: z.enum(["none", "requested", "promoted"]),
+  listingPackageId: z.string().trim(),
+  listingStatus: z.enum(["none", "requested", "approved", "rejected"]),
   published: z.boolean(),
   visibility: z.enum(EVENT_VISIBILITIES),
   ownershipScope: z.enum(EVENT_OWNERSHIP_SCOPES),
@@ -91,9 +93,14 @@ export function normalizeEventForm(
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
   const cost = parsed.cost ? Number(parsed.cost) : 0;
 
-  // Published checkbox drives both status and publicationState
-  const publicationState = parsed.published ? "published" : "draft";
-  const status = parsed.published ? "published" : "draft";
+  const hasListingRequest = parsed.published && Boolean(parsed.listingPackageId);
+  const publicationState = parsed.published
+    ? (isSuperAdmin ? "published" : "pending_publication_review")
+    : "draft";
+  const status = parsed.published && isSuperAdmin ? "published" : "draft";
+  const listingStatus = parsed.published
+    ? (isSuperAdmin ? "approved" : "requested")
+    : "none";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
   const hasPromotionRequest = parsed.promoted && Boolean(parsed.promotionPackageId);
   // Superadmins bypass the approval queue — their promotions are auto-approved
@@ -127,6 +134,8 @@ export function normalizeEventForm(
     promoted: hasPromotionRequest && isSuperAdmin ? true : false,
     promotionPackageId: hasPromotionRequest ? parsed.promotionPackageId : null,
     promotionStatus,
+    listingPackageId: hasListingRequest ? parsed.listingPackageId : null,
+    listingStatus,
     visibility: parsed.visibility,
     ownershipScope: parsed.ownershipScope,
     ownerEntityId: parsed.ownerEntityId || null,
@@ -141,7 +150,7 @@ export function normalizeEventForm(
 export function validateEventForm(
   values: EventFormValues,
   mode: EventSaveMode,
-  options?: { hasSelectedThumbnail?: boolean },
+  options?: { hasSelectedThumbnail?: boolean; isSuperAdmin?: boolean },
 ): EventFormErrors {
   void mode;
   const errors: EventFormErrors = {};
@@ -242,6 +251,10 @@ export function validateEventForm(
 
   if (values.promoted && !values.promotionPackageId.trim()) {
     errors.promotionPackageId = "Select a promotion package for promoted Events.";
+  }
+
+  if (values.published && !options?.isSuperAdmin && !values.listingPackageId.trim()) {
+    errors.listingPackageId = "Select a listing package to submit publication approval request.";
   }
 
   // Archived/cancelled events cannot be published

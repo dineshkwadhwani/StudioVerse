@@ -11,14 +11,20 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "@/services/firebase";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
+import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import { saveAssessmentDefinition } from "@/services/assessments.service";
+import {
+  chargePromotionRequestOnSubmission,
+  denyAssessmentPromotionRequest,
+} from "@/services/programPromotionRequests.service";
 import {
   DEFAULT_REPORT_STYLE,
   REPORT_STYLE_LABELS,
 } from "@/modules/assessments/report-styles";
 import styles from "./SuperAdminPortal.module.css";
 import {
+  ASSESSMENT_LISTING_STATUS_LABELS,
   ASSESSMENT_PROMOTION_STATUS_LABELS,
   ASSESSMENT_TYPE_LABELS,
   RENDER_STYLE_LABELS,
@@ -35,6 +41,7 @@ import {
   type GeneratedQuestion,
 } from "@/types/assessment";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
+import type { ListingPackageRecord } from "@/types/listingPackage";
 
 type TenantOption = {
   id: string;
@@ -105,6 +112,8 @@ const EMPTY_FORM: AssessmentFormValues = {
   promoted: false,
   promotionPackageId: "",
   promotionStatus: "none",
+  listingPackageId: "",
+  listingStatus: "none",
 };
 
 const ASSESSMENT_VISIBILITY_LABELS: Record<AssessmentVisibility, string> = {
@@ -166,6 +175,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
   const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
+  const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
+  const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
 
   const processedPromptPreview = useMemo(() => {
     const count = parseInt(formValues.questionBankCount, 10);
@@ -248,6 +259,29 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
     void loadPromotionPackagesForForm();
   }, [formOpen, formValues.tenantId]);
 
+  useEffect(() => {
+    async function loadListingPackagesForForm(): Promise<void> {
+      if (!formOpen || !formValues.tenantId) {
+        setListingPackages([]);
+        setListingPackagesLoading(false);
+        return;
+      }
+
+      setListingPackagesLoading(true);
+      try {
+        const loaded = await listActiveListingPackagesForTenant(formValues.tenantId);
+        setListingPackages(loaded.filter((pkg) => pkg.resourceType === "assessment"));
+      } catch (loadError) {
+        console.error("Failed to load listing packages for Assessment form:", loadError);
+        setListingPackages([]);
+      } finally {
+        setListingPackagesLoading(false);
+      }
+    }
+
+    void loadListingPackagesForForm();
+  }, [formOpen, formValues.tenantId]);
+
   function openCreate() {
     setFormValues({
       ...EMPTY_FORM,
@@ -295,6 +329,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
       promoted: assessment.promotionStatus === "requested" || assessment.promotionStatus === "promoted",
       promotionPackageId: assessment.promotionPackageId ?? "",
       promotionStatus: assessment.promotionStatus ?? "none",
+      listingPackageId: assessment.listingPackageId ?? "",
+      listingStatus: assessment.listingStatus ?? (assessment.publicationState === "pending_publication_review" ? "requested" : "none"),
     });
     // Load existing questions from database.
     // Avoid orderBy here to prevent composite index dependency in edit flow.
@@ -445,6 +481,12 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
       return;
     }
 
+    const hasPublishIntent = formValues.status === "published";
+    if (hasPublishIntent && !isSuperAdmin && !formValues.listingPackageId.trim()) {
+      setError("Select a listing package to submit publication approval request.");
+      return;
+    }
+
     if (formValues.promoted && !formValues.promotionPackageId.trim()) {
       setError("Select a promotion package to request Assessment promotion.");
       return;
@@ -482,9 +524,13 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
     try {
       const isExisting = Boolean(formValues.id);
       const assessmentId = formValues.id ?? buildAssessmentId(formValues.tenantId, formValues.name);
-      const normalizedStatus = normalizeAssessmentStatus(formValues.status);
-      const publicationState: AssessmentPublicationState =
-        normalizedStatus === "published" ? "published" : "unpublished";
+      const requestedStatus = normalizeAssessmentStatus(formValues.status);
+      const normalizedStatus = hasPublishIntent
+        ? (isSuperAdmin ? "published" : "draft")
+        : requestedStatus;
+      const publicationState: AssessmentPublicationState = hasPublishIntent
+        ? (isSuperAdmin ? "published" : "pending_publication_review")
+        : (normalizedStatus === "published" ? "published" : "unpublished");
 
       let assessmentImageUrl = formValues.assessmentImageUrl;
       let assessmentImagePath = formValues.assessmentImagePath;
@@ -500,6 +546,9 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
 
       const promotionStatus = formValues.promoted && formValues.promotionPackageId.trim()
         ? (isSuperAdmin ? "promoted" : "requested")
+        : "none";
+      const listingStatus = hasPublishIntent
+        ? (isSuperAdmin ? "approved" : "requested")
         : "none";
 
       const newQuestions = isExisting
@@ -529,6 +578,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
         promoted: promotionStatus === "promoted",
         promotionPackageId: promotionStatus === "none" ? null : formValues.promotionPackageId.trim(),
         promotionStatus,
+        listingPackageId: listingStatus === "none" ? null : formValues.listingPackageId.trim(),
+        listingStatus,
         publicationState,
         visibility: formValues.visibility,
         ownershipScope: formValues.ownershipScope,
@@ -536,6 +587,20 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
         generatedQuestions: newQuestions,
         existingQuestionCount,
       }, isExisting);
+
+      if (promotionStatus === "requested") {
+        const operatorId = auth.currentUser?.uid ?? "system";
+        try {
+          await chargePromotionRequestOnSubmission({
+            resourceType: "assessment",
+            resourceId: assessmentId,
+            operatorId,
+          });
+        } catch (chargeError) {
+          await denyAssessmentPromotionRequest({ assessmentId, operatorId });
+          throw chargeError;
+        }
+      }
 
       if (isExisting) {
         setMessage(`Assessment "${formValues.name}" updated.`);
@@ -680,10 +745,13 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                     <p className={styles.assessmentMeta}>Credits: {a.creditsRequired ?? 0} • {a.questionBankCount} Questions ({a.questionsPerAttempt}/attempt)</p>
                     <p className={styles.assessmentMeta}>Visibility: {ASSESSMENT_VISIBILITY_LABELS[a.visibility === "private" ? "private" : "public"]}</p>
                     <p className={styles.assessmentMeta}>Promotion: {ASSESSMENT_PROMOTION_STATUS_LABELS[a.promotionStatus ?? "none"]}</p>
+                    <p className={styles.assessmentMeta}>Listing: {ASSESSMENT_LISTING_STATUS_LABELS[a.listingStatus ?? "none"]}</p>
                   </div>
 
                   <div className={styles.assessmentActions}>
-                    <span className={styles.statusBadge}>{normalizeAssessmentStatus(a.status)}</span>
+                    <span className={styles.statusBadge}>
+                      {a.publicationState === "pending_publication_review" ? "Under Review" : normalizeAssessmentStatus(a.status)}
+                    </span>
                     <button type="button" className={styles.rowAction} onClick={() => openEdit(a)}>
                       Edit
                     </button>
@@ -705,32 +773,39 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
               </button>
             </div>
 
-            {/* ── Section: Identity ── */}
+            {/* ── Section: Tenant ── */}
             <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
-              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Identity</legend>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Tenant</legend>
 
               <label className={styles.label} htmlFor="a-tenant">Tenants *</label>
               <div id="a-tenant" className={styles.controlCard}>
-                {tenants.map((t) => {
-                  const checked = formValues.tenantIds.includes(t.tenantId);
-                  return (
-                    <label key={t.id} className={styles.checkboxRow}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const nextTenantIds = checked
-                            ? formValues.tenantIds.filter((tenantId) => tenantId !== t.tenantId)
-                            : [...formValues.tenantIds, t.tenantId];
-                          setField("tenantIds", nextTenantIds);
-                          setField("tenantId", nextTenantIds[0] ?? "");
-                        }}
-                      />
-                      <span>{t.tenantName}</span>
-                    </label>
-                  );
-                })}
+                <div className={styles.radioRow}>
+                  {tenants.map((t) => {
+                    const checked = formValues.tenantIds.includes(t.tenantId);
+                    return (
+                      <label key={t.id} className={styles.radioPill}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const nextTenantIds = checked
+                              ? formValues.tenantIds.filter((tenantId) => tenantId !== t.tenantId)
+                              : [...formValues.tenantIds, t.tenantId];
+                            setField("tenantIds", nextTenantIds);
+                            setField("tenantId", nextTenantIds[0] ?? "");
+                          }}
+                        />
+                        <span>{t.tenantName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
+            </fieldset>
+
+            {/* ── Section: Assessment ── */}
+            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Assessment</legend>
 
               <label className={styles.label} htmlFor="a-name">Assessment Name *</label>
               <input id="a-name" className={styles.input} value={formValues.name} onChange={(e) => setField("name", e.target.value)} placeholder="e.g. Leadership Self-Awareness Assessment" />
@@ -741,9 +816,26 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
               <label className={styles.label} htmlFor="a-long">Long Description</label>
               <textarea id="a-long" className={styles.input} rows={3} value={formValues.longDescription} onChange={(e) => setField("longDescription", e.target.value)} placeholder="Full description for the assessment detail page" style={{ resize: "vertical" }} />
 
-              <label className={styles.label} htmlFor="a-image">Assessment Image</label>
+              <label className={styles.label} htmlFor="a-context">Assessment Context</label>
+              <textarea id="a-context" className={styles.input} rows={3} value={formValues.assessmentContext} onChange={(e) => setField("assessmentContext", e.target.value)} placeholder="Describe the professional context or scenario this assessment addresses" style={{ resize: "vertical" }} />
+
+              <label className={styles.label} htmlFor="a-benefit">Participant Benefit</label>
+              <textarea id="a-benefit" className={styles.input} rows={2} value={formValues.assessmentBenefit} onChange={(e) => setField("assessmentBenefit", e.target.value)} placeholder="What will the participant gain or learn from this assessment?" style={{ resize: "vertical" }} />
+            </fieldset>
+
+            {/* ── Section: Assessment Details ── */}
+            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Assessment Details</legend>
+
+              <label className={styles.label} htmlFor="a-visibility">Visibility</label>
+              <select id="a-visibility" className={styles.select} value={formValues.visibility} onChange={(e) => setField("visibility", e.target.value as AssessmentVisibility)}>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+
+              <label className={styles.label} htmlFor="a-thumbnail">Thumbnail</label>
               <input
-                id="a-image"
+                id="a-thumbnail"
                 className={styles.input}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -762,22 +854,6 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                   />
                 </div>
               ) : null}
-            </fieldset>
-
-            {/* ── Section: Context & Purpose ── */}
-            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
-              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Context &amp; Purpose</legend>
-
-              <label className={styles.label} htmlFor="a-context">Assessment Context</label>
-              <textarea id="a-context" className={styles.input} rows={3} value={formValues.assessmentContext} onChange={(e) => setField("assessmentContext", e.target.value)} placeholder="Describe the professional context or scenario this assessment addresses" style={{ resize: "vertical" }} />
-
-              <label className={styles.label} htmlFor="a-benefit">Participant Benefit</label>
-              <textarea id="a-benefit" className={styles.input} rows={2} value={formValues.assessmentBenefit} onChange={(e) => setField("assessmentBenefit", e.target.value)} placeholder="What will the participant gain or learn from this assessment?" style={{ resize: "vertical" }} />
-            </fieldset>
-
-            {/* ── Section: Configuration ── */}
-            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
-              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Configuration</legend>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
                 <div>
@@ -795,10 +871,6 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className={styles.label} htmlFor="a-bank-count">Questions to Generate (Bank Count)</label>
-                  <input id="a-bank-count" type="number" min={1} max={100} className={styles.input} value={formValues.questionBankCount} onChange={(e) => setField("questionBankCount", e.target.value)} />
                 </div>
                 <div>
                   <label className={styles.label} htmlFor="a-credits-required">Credits Required</label>
@@ -824,22 +896,75 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                   </select>
                 </div>
                 <div>
-                  <label className={styles.label} htmlFor="a-pub">Publication State (auto)</label>
-                  <select id="a-pub" className={styles.select} value={formValues.status === "published" ? "published" : "unpublished"} disabled>
-                    <option value="unpublished">Unpublished</option>
-                    <option value="published">Published</option>
+                  <label className={styles.label} htmlFor="a-scope">Ownership Scope</label>
+                  <select id="a-scope" className={styles.select} value={formValues.ownershipScope} onChange={(e) => setField("ownershipScope", e.target.value as AssessmentOwnershipScope)}>
+                    <option value="platform">Platform</option>
+                    <option value="tenant">Tenant</option>
+                    <option value="professional">Professional</option>
                   </select>
                 </div>
                 <div>
-                  <label className={styles.label} htmlFor="a-visibility">Visibility</label>
-                  <select id="a-visibility" className={styles.select} value={formValues.visibility} onChange={(e) => setField("visibility", e.target.value as AssessmentVisibility)}>
-                    <option value="public">Public</option>
-                    <option value="private">Private</option>
-                  </select>
+                  <label className={styles.label} htmlFor="a-owner">Owner Entity ID</label>
+                  <input id="a-owner" className={styles.input} value={formValues.ownerEntityId} onChange={(e) => setField("ownerEntityId", e.target.value)} placeholder="Optional - leave blank for platform-level" />
+                </div>
+              </div>
+            </fieldset>
+
+            {/* ── Section: Publish ── */}
+            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Publish</legend>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <div>
+                  <label className={styles.radioPill}>
+                    <input
+                      id="a-publish"
+                      type="checkbox"
+                      checked={formValues.status === "published"}
+                      onChange={(e) => {
+                        const nextPublished = e.target.checked;
+                        setField("status", nextPublished ? "published" : "draft");
+                        if (!nextPublished) {
+                          setField("listingPackageId", "");
+                          setField("listingStatus", "none");
+                        }
+                      }}
+                    />
+                    <span>Publish now</span>
+                  </label>
                 </div>
                 <div>
-                  <label className={styles.label} htmlFor="a-promoted">Request Promotion</label>
-                  <label className={styles.checkboxRow}>
+                  <label className={styles.label} htmlFor="a-listing-package">Listing Package</label>
+                  <select
+                    id="a-listing-package"
+                    className={styles.select}
+                    value={formValues.listingPackageId}
+                    onChange={(e) => setField("listingPackageId", e.target.value)}
+                    disabled={formValues.status !== "published" || listingPackagesLoading}
+                  >
+                    <option value="">
+                      {formValues.status === "published" ? "Select listing package" : "Enable publish first"}
+                    </option>
+                    {listingPackages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                      </option>
+                    ))}
+                  </select>
+                  {formValues.status === "published" && !listingPackagesLoading && listingPackages.length === 0 ? (
+                    <p className={styles.subtitle}>No active Assessment listing packages found for this tenant.</p>
+                  ) : null}
+                </div>
+              </div>
+            </fieldset>
+
+            {/* ── Section: Promotion ── */}
+            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Promotion</legend>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <div>
+                  <label className={styles.radioPill}>
                     <input
                       id="a-promoted"
                       type="checkbox"
@@ -853,7 +978,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                         }
                       }}
                     />
-                    <span>Send approval request to Super Admin</span>
+                    <span>Promote now</span>
                   </label>
                 </div>
                 <div>
@@ -876,51 +1001,18 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                     <p className={styles.subtitle}>No active Assessment promotion packages found for this tenant.</p>
                   ) : null}
                 </div>
-                <div>
-                  <label className={styles.label} htmlFor="a-scope">Ownership Scope</label>
-                  <select id="a-scope" className={styles.select} value={formValues.ownershipScope} onChange={(e) => setField("ownershipScope", e.target.value as AssessmentOwnershipScope)}>
-                    <option value="platform">Platform</option>
-                    <option value="tenant">Tenant</option>
-                    <option value="professional">Professional</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={styles.label} htmlFor="a-owner">Owner Entity ID</label>
-                  <input id="a-owner" className={styles.input} value={formValues.ownerEntityId} onChange={(e) => setField("ownerEntityId", e.target.value)} placeholder="Optional — leave blank for platform-level" />
-                </div>
               </div>
             </fieldset>
 
-            {/* ── Section: AI Prompts ── */}
+            {/* ── Section: Generate Questions ── */}
             <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
-              <legend style={{ fontWeight: 700, padding: "0 6px" }}>AI Prompts</legend>
-
-              <label className={styles.label} htmlFor="a-analysis-prompt">Analysis Prompt (used to generate participant reports)</label>
-              <textarea id="a-analysis-prompt" className={styles.input} rows={3} value={formValues.analysisPrompt} onChange={(e) => setField("analysisPrompt", e.target.value)} placeholder="Describe how the AI should interpret submitted answers and generate the narrative report for this assessment" style={{ resize: "vertical" }} />
-
-              <label className={styles.label} htmlFor="a-report-style">Report Style</label>
-              <select
-                id="a-report-style"
-                className={styles.select}
-                value={formValues.reportStyle}
-                onChange={(e) => setField("reportStyle", e.target.value as AssessmentReportStyle)}
-              >
-                {reportStyleOptions.map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Generate Questions</legend>
 
               <label className={styles.label} htmlFor="a-gen-prompt">Question Generation Prompt *</label>
               <textarea id="a-gen-prompt" className={styles.input} rows={4} value={formValues.questionGenerationPrompt} onChange={(e) => setField("questionGenerationPrompt", e.target.value)} placeholder={`Describe the type of questions to generate. Use [No of Questions] or [NO_OF_QUESTIONS] as a placeholder.\nE.g. "Generate exactly [NO_OF_QUESTIONS] self-awareness questions for senior leaders that explore emotional intelligence, blind spots, and behavioural patterns."`} style={{ resize: "vertical" }} />
 
-              {processedPromptPreview ? (
-                <div style={{ marginTop: 10, border: "1px solid #c6dcea", borderRadius: 10, background: "#f6fbff", padding: 10 }}>
-                  <p style={{ margin: "0 0 6px 0", fontSize: "0.82rem", color: "#1a6189", fontWeight: 700 }}>Processed Prompt Preview</p>
-                  <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace", fontSize: "0.8rem", color: "#335269" }}>
-                    {processedPromptPreview}
-                  </pre>
-                </div>
-              ) : null}
+              <label className={styles.label} htmlFor="a-bank-count">Questions to Generate</label>
+              <input id="a-bank-count" type="number" min={1} max={100} className={styles.input} value={formValues.questionBankCount} onChange={(e) => setField("questionBankCount", e.target.value)} />
 
               {fetchError && <p className={styles.error}>{fetchError}</p>}
               {fetchSuccess && <p className={styles.info}>{fetchSuccess}</p>}
@@ -949,6 +1041,35 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                   </button>
                 )}
               </div>
+
+              {processedPromptPreview ? (
+                <div style={{ marginTop: 10, border: "1px solid #c6dcea", borderRadius: 10, background: "#f6fbff", padding: 10 }}>
+                  <p style={{ margin: "0 0 6px 0", fontSize: "0.82rem", color: "#1a6189", fontWeight: 700 }}>Processed Prompt Preview</p>
+                  <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace", fontSize: "0.8rem", color: "#335269" }}>
+                    {processedPromptPreview}
+                  </pre>
+                </div>
+              ) : null}
+            </fieldset>
+
+            {/* ── Section: Analysis Prompt ── */}
+            <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+              <legend style={{ fontWeight: 700, padding: "0 6px" }}>Analysis Prompt</legend>
+
+              <label className={styles.label} htmlFor="a-report-style">Report Style</label>
+              <select
+                id="a-report-style"
+                className={styles.select}
+                value={formValues.reportStyle}
+                onChange={(e) => setField("reportStyle", e.target.value as AssessmentReportStyle)}
+              >
+                {reportStyleOptions.map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+
+              <label className={styles.label} htmlFor="a-analysis-prompt">Analysis Prompt</label>
+              <textarea id="a-analysis-prompt" className={styles.input} rows={3} value={formValues.analysisPrompt} onChange={(e) => setField("analysisPrompt", e.target.value)} placeholder="Describe how the AI should interpret submitted answers and generate the narrative report for this assessment" style={{ resize: "vertical" }} />
             </fieldset>
 
             {/* ── Generated Questions Table ── */}

@@ -19,6 +19,7 @@ export const EVENT_PUBLICATION_STATES = [
   "rejected_publication",
 ] as const;
 export const EVENT_PROMOTION_STATUSES = ["none", "requested", "promoted"] as const;
+export const EVENT_LISTING_STATUSES = ["none", "requested", "approved", "rejected"] as const;
 
 // NOTE: Events add "cancelled" status that Programs do not have (E3 §12.7)
 export const EVENT_STATUSES = ["draft", "published", "inactive", "archived", "cancelled"] as const;
@@ -31,6 +32,7 @@ export type EventSource = (typeof EVENT_SOURCES)[number];
 export type EventPublicationState = (typeof EVENT_PUBLICATION_STATES)[number];
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 export type EventPromotionStatus = (typeof EVENT_PROMOTION_STATUSES)[number];
+export type EventListingStatus = (typeof EVENT_LISTING_STATUSES)[number];
 
 /** Canonical Event record as returned from Firestore */
 export type EventRecord = {
@@ -61,6 +63,8 @@ export type EventRecord = {
   promoted: boolean;
   promotionPackageId: string | null;
   promotionStatus: EventPromotionStatus;
+  listingPackageId: string | null;
+  listingStatus: EventListingStatus;
   visibility: EventVisibility;
   // Future extension: platform | company | professional
   ownershipScope: EventOwnershipScope;
@@ -101,6 +105,8 @@ export type EventWriteInput = {
   promoted: boolean;
   promotionPackageId: string | null;
   promotionStatus: EventPromotionStatus;
+  listingPackageId: string | null;
+  listingStatus: EventListingStatus;
   visibility: EventVisibility;
   ownershipScope: EventOwnershipScope;
   ownerEntityId: string | null;
@@ -130,6 +136,8 @@ export type EventFormValues = {
   promoted: boolean;
   promotionPackageId: string;
   promotionStatus: EventPromotionStatus;
+  listingPackageId: string;
+  listingStatus: EventListingStatus;
   /** Convenience boolean: true → publicationState="published" / status="published" */
   published: boolean;
   visibility: EventVisibility;
@@ -163,6 +171,8 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   promoted: false,
   promotionPackageId: "",
   promotionStatus: "none",
+  listingPackageId: "",
+  listingStatus: "none",
   published: false,
   visibility: "public",
   ownershipScope: "platform",
@@ -202,4 +212,11 @@ export const EVENT_PROMOTION_STATUS_LABELS: Record<EventPromotionStatus, string>
   none: "Not Promoted",
   requested: "Promotion Requested",
   promoted: "Promoted",
+};
+
+export const EVENT_LISTING_STATUS_LABELS: Record<EventListingStatus, string> = {
+  none: "Not Listed",
+  requested: "Under Review",
+  approved: "Published",
+  rejected: "Rejected",
 };

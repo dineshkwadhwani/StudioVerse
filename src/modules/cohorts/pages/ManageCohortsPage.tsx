@@ -515,11 +515,14 @@ export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig 
               <div className={styles.field}>
                 <label className={styles.label}>{`${professionalLabel} (Optional)`}</label>
                 <select className={styles.select} value={professionalId} onChange={(event) => setProfessionalId(event.target.value)}>
-                  <option value="">Unassigned (Cohort remains inactive)</option>
+                  <option value="">No Coach</option>
                   {professionals.map((entry) => (
                     <option key={entry.id} value={entry.id}>{entry.fullName}</option>
                   ))}
                 </select>
+                {professionals.length === 0 ? (
+                  <p className={styles.helper}>{`No ${professionalLabel}s found in your company yet.`}</p>
+                ) : null}
               </div>
             ) : (
               <p className={styles.helper}>{`As a ${professionalLabel}, you are automatically assigned to the Cohort.`}</p>

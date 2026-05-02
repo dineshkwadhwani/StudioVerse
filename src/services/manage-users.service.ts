@@ -13,6 +13,7 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { buildWalletId } from "@/services/wallet.service";
+import { processReferralJoinForNewUser } from "@/services/referral.service";
 
 export type ManageUserRole = "company" | "professional" | "individual";
 
@@ -402,6 +403,19 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
   const created = await getUserById(userRef.id);
   if (!created) {
     throw new Error("Failed to create user.");
+  }
+
+  try {
+    await processReferralJoinForNewUser({
+      userId: created.userId,
+      fullName: created.fullName,
+      tenantId,
+      userType: targetUserType,
+      email: created.email,
+      phoneE164: created.phoneE164,
+    });
+  } catch {
+    // Referral processing is best-effort and should not block user creation.
   }
 
   return {

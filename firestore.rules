@@ -44,6 +44,10 @@ service cloud.firestore {
       return isSignedIn() && currentUserType() == "professional";
     }
 
+    function isIndependentProfessionalUser() {
+      return isProfessionalUser() && currentCompanyId() == null;
+    }
+
     // Treasury wallets use the ID pattern "treasury::<tenantId>".
     // They are never owned by an individual user so we gate reads to
     // superadmins only from the client side. All writes go through
@@ -89,8 +93,14 @@ service cloud.firestore {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && !isTreasuryWallet(walletId) && (
                          request.auth.uid == walletId ||
+                         walletId == currentUserIdValue() ||
+                         walletId == currentUserUidValue() ||
                          resource.data.userId == request.auth.uid ||
-                         walletId.matches(".*::" + request.auth.uid)
+                         resource.data.userId == currentUserIdValue() ||
+                         resource.data.userId == currentUserUidValue() ||
+                         walletId.matches(".*::" + request.auth.uid) ||
+                         walletId.matches(".*::" + currentUserIdValue()) ||
+                         walletId.matches(".*::" + currentUserUidValue())
                        ))
                     || (isCompanyUser() && !isTreasuryWallet(walletId) &&
                          resource.data.associatedCompanyId == currentCompanyId());
@@ -98,11 +108,17 @@ service cloud.firestore {
       allow update: if isSuperAdmin()
                     || (isSignedIn() && !isTreasuryWallet(walletId) && (
                          request.auth.uid == walletId ||
+                         walletId == currentUserIdValue() ||
+                         walletId == currentUserUidValue() ||
                          resource.data.userId == request.auth.uid ||
-                         walletId.matches(".*::" + request.auth.uid)
+                         resource.data.userId == currentUserIdValue() ||
+                         resource.data.userId == currentUserUidValue() ||
+                         walletId.matches(".*::" + request.auth.uid) ||
+                         walletId.matches(".*::" + currentUserIdValue()) ||
+                         walletId.matches(".*::" + currentUserUidValue())
                        ))
                     || (isCompanyUser() && !isTreasuryWallet(walletId) &&
-                         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentCompanyId());
+                         resource.data.associatedCompanyId == currentCompanyId());
       allow delete: if false;
     }
 
@@ -114,9 +130,17 @@ service cloud.firestore {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && (
                          resource.data.userId   == request.auth.uid ||
+                         resource.data.userId   == currentUserIdValue() ||
+                         resource.data.userId   == currentUserUidValue() ||
                          resource.data.createdBy == request.auth.uid ||
+                         resource.data.createdBy == currentUserIdValue() ||
+                         resource.data.createdBy == currentUserUidValue() ||
                          resource.data.walletId == request.auth.uid ||
-                         resource.data.walletId.matches(".*::" + request.auth.uid)
+                         resource.data.walletId == currentUserIdValue() ||
+                         resource.data.walletId == currentUserUidValue() ||
+                         resource.data.walletId.matches(".*::" + request.auth.uid) ||
+                         resource.data.walletId.matches(".*::" + currentUserIdValue()) ||
+                         resource.data.walletId.matches(".*::" + currentUserUidValue())
                        ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
@@ -264,6 +288,40 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Cashout Requests ───────────────────────────────────────────────────
+    match /cashoutRequests/{requestId} {
+      allow create: if isSignedIn()
+        && (
+          request.resource.data.requesterUserId == request.auth.uid
+          || request.resource.data.requesterUserId == currentUserIdValue()
+          || request.resource.data.requesterUserId == currentUserUidValue()
+        )
+        && request.resource.data.tenantId == currentTenantId()
+        && request.resource.data.status == "pending"
+        && request.resource.data.creditsRequested is number
+        && request.resource.data.creditsRequested >= 1
+        && (
+          (isCompanyUser() && request.resource.data.requesterUserType == "company")
+          || (isIndependentProfessionalUser() && request.resource.data.requesterUserType == "professional")
+        );
+
+      allow read: if isSuperAdmin()
+        || (isSignedIn() && (
+          resource.data.requesterUserId == request.auth.uid
+          || resource.data.requesterUserId == currentUserIdValue()
+          || resource.data.requesterUserId == currentUserUidValue()
+        ));
+
+      allow update: if isSuperAdmin()
+        && resource.data.status == "pending"
+        && request.resource.data.status in ["approved", "denied"]
+        && request.resource.data.requesterUserId == resource.data.requesterUserId
+        && request.resource.data.tenantId == resource.data.tenantId
+        && request.resource.data.creditsRequested == resource.data.creditsRequested;
+
+      allow delete: if false;
+    }
+
     // ── Coin Packages ──────────────────────────────────────────────────────
     match /coinPackages/{packageId} {
       allow read:   if true;
@@ -293,6 +351,14 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ── Listing Packages ──────────────────────────────────────────────────
+    match /listingPackages/{packageId} {
+      allow read:   if isSignedIn();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
     // ── Program Promotion Requests ─────────────────────────────────────────
     match /programPromotionRequests/{requestId} {
       allow read:   if isSignedIn();
@@ -316,9 +382,17 @@ service cloud.firestore {
     // Only Super Admin can update (approve/deny).
     match /botHeroRequests/{requestId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.professionalId == request.auth.uid);
+                    || (isSignedIn() && (
+                         resource.data.professionalId == request.auth.uid ||
+                         resource.data.professionalId == currentUserIdValue() ||
+                         resource.data.professionalId == currentUserUidValue()
+                       ));
       allow create: if isProfessionalUser()
-                    && request.resource.data.professionalId == request.auth.uid;
+                    && (
+                      request.resource.data.professionalId == request.auth.uid ||
+                      request.resource.data.professionalId == currentUserIdValue() ||
+                      request.resource.data.professionalId == currentUserUidValue()
+                    );
       allow update: if isSuperAdmin();
       allow delete: if false;
     }

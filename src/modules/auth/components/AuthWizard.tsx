@@ -287,12 +287,12 @@ export default function AuthWizard({ tenantConfig = coachingTenantConfig, onClos
         status: "active",
       });
 
-      if (savedProfile.userType === "professional" || savedProfile.userType === "individual") {
+      if (savedProfile.userType === "professional" || savedProfile.userType === "individual" || savedProfile.userType === "company") {
         await processReferralJoinForNewUser({
           userId: savedProfile.userId,
           fullName: savedProfile.fullName,
           tenantId: savedProfile.tenantId,
-          userType: savedProfile.userType,
+          userType: savedProfile.userType as "professional" | "individual" | "company",
           email: savedProfile.email,
           phoneE164: savedProfile.phoneE164,
         });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import styles from "./ManageEarningPackagesPage.module.css";
 import CreditPackagesSection from "./CreditPackagesSection";
 import PromotionPackagesSection from "./PromotionPackagesSection";
+import ListingPackagesSection from "./ListingPackagesSection";
 import BotHeroPackagesSection from "./BotHeroPackagesSection";
 
 interface ManageEarningPackagesPageProps {
@@ -13,6 +14,7 @@ interface ManageEarningPackagesPageProps {
 const TAB_LIST = [
   { key: "credit", label: "Credit Packages" },
   { key: "promotion", label: "Promotion Packages" },
+  { key: "listing", label: "Listing Packages" },
   { key: "bot-hero", label: "Bot Hero" },
 ];
 
@@ -24,7 +26,7 @@ export default function ManageEarningPackagesPage({ operatorId }: ManageEarningP
       <section className={styles.heroCard}>
         <h2 className={styles.title}>Manage Earning Packages</h2>
         <p className={styles.contextText}>
-          Create, edit, and manage credit and promotion earning packages for all tenants. Use the tabs below to switch between package types.
+          Create, edit, and manage credit, promotion, and listing earning packages for all tenants. Use the tabs below to switch between package types.
         </p>
         <div className={styles.tabBar}>
           {TAB_LIST.map((tab) => (
@@ -42,6 +44,7 @@ export default function ManageEarningPackagesPage({ operatorId }: ManageEarningP
       <section className={styles.contentCard}>
         {activeTab === "credit" && <CreditPackagesSection operatorId={operatorId} />}
         {activeTab === "promotion" && <PromotionPackagesSection operatorId={operatorId} />}
+        {activeTab === "listing" && <ListingPackagesSection operatorId={operatorId} />}
         {activeTab === "bot-hero" && <BotHeroPackagesSection operatorId={operatorId} />}
       </section>
     </section>

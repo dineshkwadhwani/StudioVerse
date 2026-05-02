@@ -9,6 +9,7 @@ import {
   where,
   addDoc,
   updateDoc,
+  limit,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
@@ -24,6 +25,7 @@ import type {
   CoinRequest,
   CoinRequestFormValues,
 } from "@/types/coinRequest";
+import type { CashoutConfig, CashoutRequest } from "@/types/cashoutRequest";
 
 type AdminSelectableUser = {
   id: string;
@@ -46,6 +48,9 @@ const backfillTenantTreasuryWalletsCallable = httpsCallable<
 const WALLET_ID_SEPARATOR = "::";
 const TREASURY_WALLET_PREFIX = "treasury::";
 const TREASURY_OWNER_USER_ID = "9767676738";
+const DEFAULT_CASHOUT_CREDIT_COST = 25;
+const DEFAULT_CASHBACK_PERCENTAGE = 80;
+export const DEFAULT_MIN_CASHOUT_CREDITS = 40;
 
 export function buildWalletId(userId: string, tenantId: string): string {
   return `${String(tenantId).trim()}${WALLET_ID_SEPARATOR}${String(userId).trim()}`;
@@ -67,6 +72,18 @@ function normalizeTenantKey(value: unknown): string {
 
 function toNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function clampPercentage(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_CASHBACK_PERCENTAGE;
+  }
+
+  return Math.min(100, Math.max(0, value));
+}
+
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function mapWalletDoc(id: string, data: Record<string, unknown>): WalletRecord {
@@ -103,6 +120,32 @@ function mapWalletTransactionDoc(id: string, data: Record<string, unknown>): Wal
     createdBy: String(data.createdBy ?? ""),
     createdAt: data.createdAt as WalletTransactionRecord["createdAt"],
   };
+}
+
+async function resolveUserRecordByAnyId(userId: string): Promise<{ id: string; data: Record<string, unknown> } | null> {
+  const normalized = userId.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const directSnap = await getDoc(doc(db, "users", normalized));
+  if (directSnap.exists()) {
+    return { id: directSnap.id, data: directSnap.data() as Record<string, unknown> };
+  }
+
+  const byUserIdSnap = await getDocs(query(collection(db, "users"), where("userId", "==", normalized), limit(1)));
+  if (!byUserIdSnap.empty) {
+    const first = byUserIdSnap.docs[0];
+    return { id: first.id, data: first.data() as Record<string, unknown> };
+  }
+
+  const byUidSnap = await getDocs(query(collection(db, "users"), where("uid", "==", normalized), limit(1)));
+  if (!byUidSnap.empty) {
+    const first = byUidSnap.docs[0];
+    return { id: first.id, data: first.data() as Record<string, unknown> };
+  }
+
+  return null;
 }
 
 export async function getWalletByUserId(userId: string): Promise<WalletRecord | null> {
@@ -165,6 +208,46 @@ export async function getTenantRegistrationFreeCoins(tenantId: string): Promise<
     0,
     Math.floor(Number(tenantSnap.data()?.walletConfig?.registrationFreeCoins ?? 10))
   );
+}
+
+export async function getTenantCashoutConfig(tenantId: string): Promise<CashoutConfig> {
+  const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
+  const walletConfig = tenantSnap.data()?.walletConfig as Record<string, unknown> | undefined;
+  const cashoutConfig = walletConfig?.cashout as Record<string, unknown> | undefined;
+
+  const creditCost = Math.max(
+    0,
+    Number(
+      cashoutConfig?.creditCost
+      ?? walletConfig?.cashoutCreditCost
+      ?? DEFAULT_CASHOUT_CREDIT_COST
+    )
+  );
+
+  const cashbackPercentage = clampPercentage(
+    Number(
+      cashoutConfig?.cashbackPercentage
+      ?? walletConfig?.cashbackPercentage
+      ?? DEFAULT_CASHBACK_PERCENTAGE
+    )
+  );
+
+  const minimumCredits = Math.max(
+    1,
+    Math.floor(
+      Number(
+        cashoutConfig?.minimumCredits
+        ?? walletConfig?.cashoutMinimumCredits
+        ?? DEFAULT_MIN_CASHOUT_CREDITS
+      )
+    )
+  );
+
+  return {
+    creditCost: Number.isFinite(creditCost) ? creditCost : DEFAULT_CASHOUT_CREDIT_COST,
+    cashbackPercentage,
+    minimumCredits: Number.isFinite(minimumCredits) ? minimumCredits : DEFAULT_MIN_CASHOUT_CREDITS,
+  };
 }
 
 export async function getWalletForUserContext(userIds: string[], tenantId?: string): Promise<WalletRecord | null> {
@@ -537,6 +620,369 @@ export async function backfillTenantTreasuryWallets(tenantId?: string): Promise<
     created: Number(data.created ?? 0),
     skipped: Number(data.skipped ?? 0),
   };
+}
+
+// ========== Cashout Request Functions ==========
+
+function mapCashoutRequestDoc(id: string, data: Record<string, unknown>): CashoutRequest {
+  return {
+    id,
+    tenantId: String(data.tenantId ?? ""),
+    requesterUserId: String(data.requesterUserId ?? ""),
+    requesterName: String(data.requesterName ?? ""),
+    requesterCompanyName:
+      typeof data.requesterCompanyName === "string"
+        ? data.requesterCompanyName
+        : undefined,
+    requesterUserType: (data.requesterUserType as CashoutRequest["requesterUserType"]) ?? "professional",
+    requesterAssociatedCompanyId:
+      typeof data.requesterAssociatedCompanyId === "string"
+        ? data.requesterAssociatedCompanyId
+        : data.requesterAssociatedCompanyId === null
+          ? null
+          : undefined,
+    creditsRequested: toNumber(data.creditsRequested),
+    creditCost: toNumber(data.creditCost),
+    cashbackPercentage: toNumber(data.cashbackPercentage),
+    grossAmountRs: toNumber(data.grossAmountRs),
+    payoutAmountRs: toNumber(data.payoutAmountRs),
+    status: (data.status as CashoutRequest["status"]) ?? "pending",
+    requestComment: typeof data.requestComment === "string" ? data.requestComment : undefined,
+    approvalComment: typeof data.approvalComment === "string" ? data.approvalComment : undefined,
+    denialReason: typeof data.denialReason === "string" ? data.denialReason : undefined,
+    approvedBy: typeof data.approvedBy === "string" ? data.approvedBy : undefined,
+    approvedAt: data.approvedAt as CashoutRequest["approvedAt"],
+    deniedBy: typeof data.deniedBy === "string" ? data.deniedBy : undefined,
+    deniedAt: data.deniedAt as CashoutRequest["deniedAt"],
+    payoutProvider: typeof data.payoutProvider === "string" ? data.payoutProvider : undefined,
+    payoutStatus: typeof data.payoutStatus === "string" ? data.payoutStatus : undefined,
+    payoutReference: typeof data.payoutReference === "string" ? data.payoutReference : undefined,
+    walletTransactionId: typeof data.walletTransactionId === "string" ? data.walletTransactionId : undefined,
+    refundTransactionId: typeof data.refundTransactionId === "string" ? data.refundTransactionId : undefined,
+    createdAt: data.createdAt as CashoutRequest["createdAt"],
+    updatedAt: data.updatedAt as CashoutRequest["updatedAt"],
+  };
+}
+
+export async function createCashoutRequest(args: {
+  tenantId: string;
+  requesterUserId: string;
+  requesterName: string;
+  creditsRequested: number;
+  requestComment?: string;
+}): Promise<string> {
+  const tenantId = args.tenantId.trim();
+  const requesterUserId = args.requesterUserId.trim();
+  const requesterName = args.requesterName.trim() || "User";
+  const creditsRequested = Math.floor(Number(args.creditsRequested));
+
+  if (!tenantId || !requesterUserId) {
+    throw new Error("tenantId and requesterUserId are required.");
+  }
+
+  const cashoutConfig = await getTenantCashoutConfig(tenantId);
+  const minimumCredits = cashoutConfig.minimumCredits;
+
+  if (!Number.isFinite(creditsRequested) || creditsRequested < minimumCredits) {
+    throw new Error(`Minimum ${minimumCredits} credits are required for cashout.`);
+  }
+
+  const requesterRecord = await resolveUserRecordByAnyId(requesterUserId);
+  if (!requesterRecord) {
+    throw new Error("Requester profile could not be resolved.");
+  }
+
+  const requesterUserType = String(requesterRecord.data.userType ?? "").trim();
+  const requesterTenantId = String(requesterRecord.data.tenantId ?? "").trim();
+  const requesterAssociatedCompanyId = String(requesterRecord.data.associatedCompanyId ?? "").trim();
+  const requesterCompanyName = String(requesterRecord.data.companyName ?? "").trim();
+  const requesterCanonicalUserId =
+    String(requesterRecord.data.userId ?? requesterRecord.id).trim() || requesterRecord.id;
+
+  if (requesterTenantId !== tenantId) {
+    throw new Error("Requester belongs to a different tenant.");
+  }
+
+  const isCompany = requesterUserType === "company";
+  const isIndependentProfessional = requesterUserType === "professional" && !requesterAssociatedCompanyId;
+
+  if (!isCompany && !isIndependentProfessional) {
+    throw new Error("Cashout is allowed only for company users and independent coaches.");
+  }
+
+  const grossAmountRs = roundMoney(creditsRequested * cashoutConfig.creditCost);
+  const payoutAmountRs = roundMoney(grossAmountRs * (cashoutConfig.cashbackPercentage / 100));
+
+  const requestRef = doc(collection(db, "cashoutRequests"));
+  const scopedWalletId = buildWalletId(requesterCanonicalUserId, tenantId);
+  const scopedWalletRef = doc(db, "wallets", scopedWalletId);
+  const legacyWalletRef = doc(db, "wallets", requesterCanonicalUserId);
+
+  await runTransaction(db, async (transaction) => {
+    const [scopedSnap, legacySnap] = await Promise.all([
+      transaction.get(scopedWalletRef),
+      transaction.get(legacyWalletRef),
+    ]);
+
+    const scopedData = scopedSnap.exists() ? (scopedSnap.data() as Record<string, unknown>) : null;
+    const legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+    const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === tenantId);
+    const current = scopedData ?? (useLegacy ? legacyData : null);
+
+    if (!current) {
+      throw new Error("Requester wallet not found.");
+    }
+
+    const targetWalletRef = useLegacy ? legacyWalletRef : scopedWalletRef;
+    const targetWalletId = useLegacy ? requesterCanonicalUserId : scopedWalletId;
+    const availableCoins = toNumber(current.availableCoins);
+    const utilizedCoins = toNumber(current.utilizedCoins);
+
+    if (availableCoins < creditsRequested) {
+      throw new Error(`Insufficient credits. Requested: ${creditsRequested}, Available: ${availableCoins}.`);
+    }
+
+    transaction.set(
+      targetWalletRef,
+      {
+        availableCoins: availableCoins - creditsRequested,
+        utilizedCoins: utilizedCoins + creditsRequested,
+        updatedBy: requesterUserId,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const walletTxRef = doc(collection(db, "walletTransactions"));
+    transaction.set(walletTxRef, {
+      walletId: targetWalletId,
+      userId: requesterCanonicalUserId,
+      tenantId,
+      userType: current.userType,
+      userName: String(current.userName ?? requesterName),
+      transactionType: "debit",
+      reason: `Cashout request submitted (${creditsRequested} credits)` ,
+      source: "cashout",
+      coins: creditsRequested,
+      createdBy: requesterUserId,
+      createdAt: serverTimestamp(),
+    });
+
+    transaction.set(requestRef, {
+      tenantId,
+      requesterUserId: requesterCanonicalUserId,
+      requesterName,
+      requesterCompanyName: isCompany ? (requesterCompanyName || requesterName) : "",
+      requesterUserType: isCompany ? "company" : "professional",
+      requesterAssociatedCompanyId: requesterAssociatedCompanyId || null,
+      creditsRequested,
+      creditCost: cashoutConfig.creditCost,
+      cashbackPercentage: cashoutConfig.cashbackPercentage,
+      grossAmountRs,
+      payoutAmountRs,
+      requestComment: args.requestComment?.trim() || "",
+      status: "pending",
+      walletTransactionId: walletTxRef.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  return requestRef.id;
+}
+
+export async function listCashoutRequests(args?: {
+  tenantId?: string;
+  requesterUserId?: string;
+}): Promise<CashoutRequest[]> {
+  if (args?.requesterUserId) {
+    const snap = await getDocs(
+      query(collection(db, "cashoutRequests"), where("requesterUserId", "==", args.requesterUserId))
+    );
+
+    const records = snap.docs
+      .map((entry) => mapCashoutRequestDoc(entry.id, entry.data() as Record<string, unknown>))
+      .filter((entry) => !args.tenantId || entry.tenantId === args.tenantId);
+
+    return records.sort((a, b) => {
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (a.status !== "pending" && b.status === "pending") return 1;
+      return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
+    });
+  }
+
+  if (args?.tenantId) {
+    const snap = await getDocs(query(collection(db, "cashoutRequests"), where("tenantId", "==", args.tenantId)));
+    return snap.docs
+      .map((entry) => mapCashoutRequestDoc(entry.id, entry.data() as Record<string, unknown>))
+      .sort((a, b) => {
+        if (a.status === "pending" && b.status !== "pending") return -1;
+        if (a.status !== "pending" && b.status === "pending") return 1;
+        return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
+      });
+  }
+
+  const snap = await getDocs(collection(db, "cashoutRequests"));
+  return snap.docs
+    .map((entry) => mapCashoutRequestDoc(entry.id, entry.data() as Record<string, unknown>))
+    .sort((a, b) => {
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (a.status !== "pending" && b.status === "pending") return 1;
+      return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
+    });
+}
+
+export async function listCashoutRequestsForUserContext(args: {
+  userIds: string[];
+  tenantId?: string;
+}): Promise<CashoutRequest[]> {
+  const normalizedIds = Array.from(new Set(args.userIds.map((id) => id.trim()).filter(Boolean)));
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const snapshots = await Promise.all(
+    normalizedIds.map((requesterUserId) => listCashoutRequests({ requesterUserId, tenantId: args.tenantId }))
+  );
+
+  const deduped = snapshots.flat().reduce<CashoutRequest[]>((acc, item) => {
+    if (!acc.some((existing) => existing.id === item.id)) {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+
+  return deduped.sort((a, b) => {
+    if (a.status === "pending" && b.status !== "pending") return -1;
+    if (a.status !== "pending" && b.status === "pending") return 1;
+    return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
+  });
+}
+
+export async function approveCashoutRequest(args: {
+  requestId: string;
+  approvedBy: string;
+  comment?: string;
+}): Promise<void> {
+  const requestRef = doc(db, "cashoutRequests", args.requestId);
+
+  await runTransaction(db, async (transaction) => {
+    const requestSnap = await transaction.get(requestRef);
+    if (!requestSnap.exists()) {
+      throw new Error("Cashout request not found.");
+    }
+
+    const requestData = requestSnap.data() as Record<string, unknown>;
+    const status = String(requestData.status ?? "pending");
+
+    if (status !== "pending") {
+      throw new Error(`Cannot approve request with status: ${status}`);
+    }
+
+    transaction.update(requestRef, {
+      status: "approved",
+      approvalComment: args.comment?.trim() || "Approved",
+      approvedBy: args.approvedBy,
+      approvedAt: serverTimestamp(),
+      payoutProvider: "razorpay",
+      payoutStatus: "queued_placeholder",
+      payoutReference: `placeholder_${args.requestId}`,
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function denyCashoutRequest(args: {
+  requestId: string;
+  deniedBy: string;
+  reason: string;
+}): Promise<void> {
+  const reason = args.reason.trim();
+  if (!reason) {
+    throw new Error("Denial reason is required.");
+  }
+
+  const requestRef = doc(db, "cashoutRequests", args.requestId);
+
+  await runTransaction(db, async (transaction) => {
+    const requestSnap = await transaction.get(requestRef);
+    if (!requestSnap.exists()) {
+      throw new Error("Cashout request not found.");
+    }
+
+    const requestData = requestSnap.data() as Record<string, unknown>;
+    const status = String(requestData.status ?? "pending");
+    if (status !== "pending") {
+      throw new Error(`Cannot deny request with status: ${status}`);
+    }
+
+    const tenantId = String(requestData.tenantId ?? "").trim();
+    const requesterUserId = String(requestData.requesterUserId ?? "").trim();
+    const creditsRequested = Math.floor(Number(requestData.creditsRequested ?? 0));
+
+    if (!tenantId || !requesterUserId || creditsRequested <= 0) {
+      throw new Error("Cashout request data is invalid.");
+    }
+
+    const scopedWalletId = buildWalletId(requesterUserId, tenantId);
+    const scopedWalletRef = doc(db, "wallets", scopedWalletId);
+    const legacyWalletRef = doc(db, "wallets", requesterUserId);
+
+    const [scopedSnap, legacySnap] = await Promise.all([
+      transaction.get(scopedWalletRef),
+      transaction.get(legacyWalletRef),
+    ]);
+
+    const scopedData = scopedSnap.exists() ? (scopedSnap.data() as Record<string, unknown>) : null;
+    const legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+    const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === tenantId);
+    const current = scopedData ?? (useLegacy ? legacyData : null);
+
+    if (!current) {
+      throw new Error("Requester wallet not found for refund.");
+    }
+
+    const targetWalletRef = useLegacy ? legacyWalletRef : scopedWalletRef;
+    const targetWalletId = useLegacy ? requesterUserId : scopedWalletId;
+    const currentAvailable = toNumber(current.availableCoins);
+    const currentUtilized = toNumber(current.utilizedCoins);
+
+    transaction.set(
+      targetWalletRef,
+      {
+        availableCoins: currentAvailable + creditsRequested,
+        utilizedCoins: Math.max(0, currentUtilized - creditsRequested),
+        updatedBy: args.deniedBy,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const refundTxRef = doc(collection(db, "walletTransactions"));
+    transaction.set(refundTxRef, {
+      walletId: targetWalletId,
+      userId: requesterUserId,
+      tenantId,
+      userType: current.userType,
+      userName: String(current.userName ?? requestData.requesterName ?? "User"),
+      transactionType: "credit",
+      reason: `Cashout denied: ${reason}`,
+      source: "cashout",
+      coins: creditsRequested,
+      createdBy: args.deniedBy,
+      createdAt: serverTimestamp(),
+    });
+
+    transaction.update(requestRef, {
+      status: "denied",
+      denialReason: reason,
+      approvalComment: reason,
+      deniedBy: args.deniedBy,
+      deniedAt: serverTimestamp(),
+      refundTransactionId: refundTxRef.id,
+      updatedAt: serverTimestamp(),
+    });
+  });
 }
 
 // ========== Coin Request Functions ==========

@@ -5,6 +5,7 @@ import styles from "./SuperAdminPortal.module.css";
 import { auth } from "@/services/firebase";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
+  EVENT_LISTING_STATUS_LABELS,
   EVENT_SOURCES,
   EVENT_SOURCE_LABELS,
   EVENT_TYPES,
@@ -15,6 +16,7 @@ import {
   type EventFormValues,
 } from "@/types/event";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
+import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { EventFormErrors } from "@/lib/validation/event.schema";
 
 type TenantOption = {
@@ -34,6 +36,8 @@ type EventFormProps = {
   thumbnailName: string | null;
   promotionPackages: PromotionPackageRecord[];
   promotionPackagesLoading: boolean;
+  listingPackages: ListingPackageRecord[];
+  listingPackagesLoading: boolean;
   onChange: <K extends keyof EventFormValues>(field: K, nextValue: EventFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onCancel: () => void;
@@ -50,6 +54,8 @@ export default function EventForm({
   thumbnailName,
   promotionPackages,
   promotionPackagesLoading,
+  listingPackages,
+  listingPackagesLoading,
   onChange,
   onThumbnailSelect,
   onCancel,
@@ -171,327 +177,396 @@ export default function EventForm({
         </div>
 
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {/* Tenant */}
-          <label className={styles.label} htmlFor="event-tenant">Tenants</label>
-          <div
-            id="event-tenant"
-            className={`${styles.controlCard} ${errors.tenantId ? styles.inputError : ""}`}
-          >
-            {activeTenants.map((t) => (
-              <label key={t.id} className={styles.checkboxRow}>
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Tenant</legend>
+
+            <label className={styles.label} htmlFor="event-tenant">Tenants</label>
+            <div
+              id="event-tenant"
+              className={`${styles.controlCard} ${errors.tenantId ? styles.inputError : ""}`}
+            >
+              <div className={styles.radioRow}>
+                {activeTenants.map((t) => (
+                  <label key={t.id} className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTenantIdsWithPrimary.includes(t.tenantId)}
+                      onChange={() => toggleTenantSelection(t.tenantId)}
+                      disabled={busy}
+                    />
+                    <span>{t.tenantName}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {errors.tenantId ? <p className={styles.error}>{errors.tenantId}</p> : null}
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Event</legend>
+
+            <label className={styles.label} htmlFor="event-name">Event Name</label>
+            <input
+              id="event-name"
+              ref={(el) => { fieldRefs.current.name = el; }}
+              className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
+              value={value.name}
+              onChange={(e) => onChange("name", e.target.value)}
+              disabled={busy}
+            />
+            {errors.name ? <p className={styles.error}>{errors.name}</p> : null}
+
+            <label className={styles.label} htmlFor="event-short-description">Short Description</label>
+            <textarea
+              id="event-short-description"
+              ref={(el) => { fieldRefs.current.shortDescription = el; }}
+              className={`${styles.input} ${errors.shortDescription ? styles.inputError : ""}`}
+              value={value.shortDescription}
+              onChange={(e) => onChange("shortDescription", e.target.value)}
+              rows={3}
+              disabled={busy}
+            />
+            {errors.shortDescription ? <p className={styles.error}>{errors.shortDescription}</p> : null}
+
+            <label className={styles.label} htmlFor="event-long-description">Long Description</label>
+            <textarea
+              id="event-long-description"
+              ref={(el) => { fieldRefs.current.longDescription = el; }}
+              className={`${styles.input} ${errors.longDescription ? styles.inputError : ""}`}
+              value={value.longDescription}
+              onChange={(e) => onChange("longDescription", e.target.value)}
+              rows={5}
+              disabled={busy}
+            />
+            {errors.longDescription ? <p className={styles.error}>{errors.longDescription}</p> : null}
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Event Details</legend>
+
+            <label className={styles.label} htmlFor="event-details">Details</label>
+            <textarea
+              id="event-details"
+              ref={(el) => { fieldRefs.current.details = el; }}
+              className={`${styles.input} ${errors.details ? styles.inputError : ""}`}
+              value={value.details}
+              onChange={(e) => onChange("details", e.target.value)}
+              rows={4}
+              disabled={busy}
+            />
+            {errors.details ? <p className={styles.error}>{errors.details}</p> : null}
+
+            <label className={styles.label} htmlFor="event-visibility">Visibility</label>
+            <select
+              id="event-visibility"
+              ref={(el) => {
+                fieldRefs.current.visibility = el;
+              }}
+              className={styles.select}
+              value={value.visibility}
+              onChange={(e) => onChange("visibility", e.target.value as EventFormValues["visibility"])}
+              disabled={busy}
+            >
+              <option value="public">{EVENT_VISIBILITY_LABELS.public}</option>
+              <option value="private">{EVENT_VISIBILITY_LABELS.private}</option>
+            </select>
+            {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
+
+            <label className={styles.label} htmlFor="event-thumbnail">Thumbnail</label>
+            <input
+              id="event-thumbnail"
+              ref={(el) => { fieldRefs.current.thumbnailUrl = el; }}
+              className={`${styles.input} ${errors.thumbnailUrl ? styles.inputError : ""}`}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => onThumbnailSelect(e.target.files?.[0] ?? null)}
+              disabled={busy || uploadBusy}
+            />
+            <p className={styles.subtitle}>
+              {thumbnailName
+                ? `Selected: ${thumbnailName}`
+                : value.thumbnailUrl
+                  ? "Existing thumbnail will be kept unless you upload a replacement."
+                  : "Upload a JPG, PNG, or WebP image up to 2MB."}
+            </p>
+            {errors.thumbnailUrl ? <p className={styles.error}>{errors.thumbnailUrl}</p> : null}
+
+            <label className={styles.label} htmlFor="event-video-url">Video / Meeting URL</label>
+            <input
+              id="event-video-url"
+              ref={(el) => { fieldRefs.current.videoUrl = el; }}
+              className={`${styles.input} ${errors.videoUrl ? styles.inputError : ""}`}
+              value={value.videoUrl}
+              onChange={(e) => onChange("videoUrl", e.target.value)}
+              placeholder="https://"
+              disabled={busy}
+            />
+            {errors.videoUrl ? <p className={styles.error}>{errors.videoUrl}</p> : null}
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="event-type">Event Type</label>
+                <select
+                  id="event-type"
+                  ref={(el) => { fieldRefs.current.eventType = el; }}
+                  className={styles.select}
+                  value={value.eventType}
+                  onChange={(e) => onChange("eventType", e.target.value as EventFormValues["eventType"])}
+                  disabled={busy}
+                >
+                  {EVENT_TYPES.map((eventType) => (
+                    <option key={eventType} value={eventType}>{EVENT_TYPE_LABELS[eventType]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="event-source">Event Source</label>
+                <select
+                  id="event-source"
+                  ref={(el) => { fieldRefs.current.eventSource = el; }}
+                  className={styles.select}
+                  value={value.eventSource}
+                  onChange={(e) => onChange("eventSource", e.target.value as EventFormValues["eventSource"])}
+                  disabled={busy}
+                >
+                  {EVENT_SOURCES.map((eventSource) => (
+                    <option key={eventSource} value={eventSource}>{EVENT_SOURCE_LABELS[eventSource]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <label className={styles.label} htmlFor="event-date">Event Date</label>
                 <input
-                  type="checkbox"
-                  checked={selectedTenantIdsWithPrimary.includes(t.tenantId)}
-                  onChange={() => toggleTenantSelection(t.tenantId)}
+                  id="event-date"
+                  ref={(el) => { fieldRefs.current.eventDate = el; }}
+                  className={`${styles.input} ${errors.eventDate ? styles.inputError : ""}`}
+                  type="date"
+                  value={value.eventDate}
+                  onChange={(e) => onChange("eventDate", e.target.value)}
                   disabled={busy}
                 />
-                <span>{t.tenantName}</span>
+                {errors.eventDate ? <p className={styles.error}>{errors.eventDate}</p> : null}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <label className={styles.label} htmlFor="event-time">Event Time</label>
+                <input
+                  id="event-time"
+                  ref={(el) => { fieldRefs.current.eventTime = el; }}
+                  className={`${styles.input} ${errors.eventTime ? styles.inputError : ""}`}
+                  type="time"
+                  value={value.eventTime}
+                  onChange={(e) => onChange("eventTime", e.target.value)}
+                  disabled={busy}
+                />
+                {errors.eventTime ? <p className={styles.error}>{errors.eventTime}</p> : null}
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <div style={{ flex: 2, minWidth: 220 }}>
+                <label className={styles.label} htmlFor="event-location-address">Location Address</label>
+                <input
+                  id="event-location-address"
+                  ref={(el) => { fieldRefs.current.locationAddress = el; }}
+                  className={`${styles.input} ${errors.locationAddress ? styles.inputError : ""}`}
+                  value={value.locationAddress}
+                  onChange={(e) => onChange("locationAddress", e.target.value)}
+                  placeholder="Venue address or online meeting location"
+                  disabled={busy}
+                />
+                {errors.locationAddress ? <p className={styles.error}>{errors.locationAddress}</p> : null}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <label className={styles.label} htmlFor="event-location-city">Location City</label>
+                <input
+                  id="event-location-city"
+                  ref={(el) => { fieldRefs.current.locationCity = el; }}
+                  className={`${styles.input} ${errors.locationCity ? styles.inputError : ""}`}
+                  value={value.locationCity}
+                  onChange={(e) => onChange("locationCity", e.target.value)}
+                  placeholder="City"
+                  disabled={busy}
+                />
+                {errors.locationCity ? <p className={styles.error}>{errors.locationCity}</p> : null}
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="event-credits">Credits Required</label>
+                <input
+                  id="event-credits"
+                  ref={(el) => { fieldRefs.current.creditsRequired = el; }}
+                  className={`${styles.input} ${errors.creditsRequired ? styles.inputError : ""}`}
+                  value={value.creditsRequired}
+                  onChange={(e) => onChange("creditsRequired", e.target.value)}
+                  inputMode="numeric"
+                  disabled={busy}
+                />
+                {errors.creditsRequired ? <p className={styles.error}>{errors.creditsRequired}</p> : null}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="event-cost">Cost</label>
+                <input
+                  id="event-cost"
+                  ref={(el) => { fieldRefs.current.cost = el; }}
+                  className={`${styles.input} ${errors.cost ? styles.inputError : ""}`}
+                  value={value.cost}
+                  onChange={(e) => onChange("cost", e.target.value)}
+                  inputMode="decimal"
+                  disabled={busy}
+                />
+                {errors.cost ? <p className={styles.error}>{errors.cost}</p> : null}
+              </div>
+            </div>
+
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Publish</legend>
+
+            <div className={styles.actions} style={{ alignItems: "center", marginBottom: 12 }}>
+              <label className={styles.radioPill}>
+                <input
+                  type="checkbox"
+                  ref={(el) => { fieldRefs.current.published = el; }}
+                  checked={value.published}
+                  onChange={(e) => {
+                    const nextPublished = e.target.checked;
+                    onChange("published", nextPublished);
+                    if (!nextPublished) {
+                      onChange("listingPackageId", "");
+                      onChange("listingStatus", "none");
+                    }
+                  }}
+                  disabled={busy}
+                />
+                Publish now
               </label>
-            ))}
-          </div>
-          {errors.tenantId ? <p className={styles.error}>{errors.tenantId}</p> : null}
-
-          {/* Name */}
-          <label className={styles.label} htmlFor="event-name">Event Name</label>
-          <input
-            id="event-name"
-            ref={(el) => { fieldRefs.current.name = el; }}
-            className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
-            value={value.name}
-            onChange={(e) => onChange("name", e.target.value)}
-            disabled={busy}
-          />
-          {errors.name ? <p className={styles.error}>{errors.name}</p> : null}
-
-          {/* Event type */}
-          <label className={styles.label} htmlFor="event-type">Event Type</label>
-          <select
-            id="event-type"
-            ref={(el) => { fieldRefs.current.eventType = el; }}
-            className={styles.select}
-            value={value.eventType}
-            onChange={(e) => onChange("eventType", e.target.value as EventFormValues["eventType"])}
-            disabled={busy}
-          >
-            {EVENT_TYPES.map((eventType) => (
-              <option key={eventType} value={eventType}>{EVENT_TYPE_LABELS[eventType]}</option>
-            ))}
-          </select>
-
-          {/* Event source */}
-          <label className={styles.label} htmlFor="event-source">Event Source</label>
-          <select
-            id="event-source"
-            ref={(el) => { fieldRefs.current.eventSource = el; }}
-            className={styles.select}
-            value={value.eventSource}
-            onChange={(e) => onChange("eventSource", e.target.value as EventFormValues["eventSource"])}
-            disabled={busy}
-          >
-            {EVENT_SOURCES.map((eventSource) => (
-              <option key={eventSource} value={eventSource}>{EVENT_SOURCE_LABELS[eventSource]}</option>
-            ))}
-          </select>
-
-          {/* Short description */}
-          <label className={styles.label} htmlFor="event-short-description">Short Description</label>
-          <textarea
-            id="event-short-description"
-            ref={(el) => { fieldRefs.current.shortDescription = el; }}
-            className={`${styles.input} ${errors.shortDescription ? styles.inputError : ""}`}
-            value={value.shortDescription}
-            onChange={(e) => onChange("shortDescription", e.target.value)}
-            rows={3}
-            disabled={busy}
-          />
-          {errors.shortDescription ? <p className={styles.error}>{errors.shortDescription}</p> : null}
-
-          {/* Long description */}
-          <label className={styles.label} htmlFor="event-long-description">Long Description</label>
-          <textarea
-            id="event-long-description"
-            ref={(el) => { fieldRefs.current.longDescription = el; }}
-            className={`${styles.input} ${errors.longDescription ? styles.inputError : ""}`}
-            value={value.longDescription}
-            onChange={(e) => onChange("longDescription", e.target.value)}
-            rows={5}
-            disabled={busy}
-          />
-          {errors.longDescription ? <p className={styles.error}>{errors.longDescription}</p> : null}
-
-          {/* Date + Time row */}
-          <div className={styles.actions}>
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <label className={styles.label} htmlFor="event-date">Event Date</label>
-              <input
-                id="event-date"
-                ref={(el) => { fieldRefs.current.eventDate = el; }}
-                className={`${styles.input} ${errors.eventDate ? styles.inputError : ""}`}
-                type="date"
-                value={value.eventDate}
-                onChange={(e) => onChange("eventDate", e.target.value)}
-                disabled={busy}
-              />
-              {errors.eventDate ? <p className={styles.error}>{errors.eventDate}</p> : null}
+              <span className={styles.statusBadge}>{EVENT_STATUS_LABELS[value.status]}</span>
+              {value.listingStatus === "requested" ? <span className={styles.statusBadge}>Under Review</span> : null}
             </div>
 
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <label className={styles.label} htmlFor="event-time">Event Time</label>
-              <input
-                id="event-time"
-                ref={(el) => { fieldRefs.current.eventTime = el; }}
-                className={`${styles.input} ${errors.eventTime ? styles.inputError : ""}`}
-                type="time"
-                value={value.eventTime}
-                onChange={(e) => onChange("eventTime", e.target.value)}
-                disabled={busy}
-              />
-              {errors.eventTime ? <p className={styles.error}>{errors.eventTime}</p> : null}
+            {value.published ? (
+              <>
+                <label className={styles.label} htmlFor="event-listing-package">
+                  Listing Package
+                </label>
+                <select
+                  id="event-listing-package"
+                  className={`${styles.select} ${errors.listingPackageId ? styles.inputError : ""}`}
+                  value={value.listingPackageId}
+                  onChange={(e) => onChange("listingPackageId", e.target.value)}
+                  disabled={busy || listingPackagesLoading || !value.tenantId}
+                >
+                  <option value="">
+                    {value.tenantId ? "Select listing package" : "Select tenant first"}
+                  </option>
+                  {listingPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                    </option>
+                  ))}
+                </select>
+                {errors.listingPackageId ? <p className={styles.error}>{errors.listingPackageId}</p> : null}
+                {!listingPackagesLoading && value.tenantId && listingPackages.length === 0 ? (
+                  <p className={styles.subtitle}>No active Event listing packages found for this tenant.</p>
+                ) : null}
+              </>
+            ) : null}
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Promotion</legend>
+
+            <div className={styles.actions} style={{ alignItems: "center", marginBottom: 12 }}>
+              <label className={styles.radioPill}>
+                <input
+                  type="checkbox"
+                  ref={(el) => { fieldRefs.current.promoted = el; }}
+                  checked={value.promoted}
+                  onChange={async (e) => {
+                    const isPromoted = e.target.checked;
+
+                    if (isPromoted && value.promotionPackageId) {
+                      const creditError = await validatePromotionCredits(value.promotionPackageId);
+                      if (creditError) {
+                        setPromotionCreditError(creditError);
+                        onChange("promoted", false);
+                        onChange("promotionStatus", "none");
+                        return;
+                      }
+                    }
+
+                    setPromotionCreditError("");
+                    onChange("promoted", isPromoted);
+                    onChange("promotionStatus", isPromoted ? "requested" : "none");
+                    if (!isPromoted) {
+                      onChange("promotionPackageId", "");
+                    }
+                  }}
+                  disabled={busy}
+                />
+                Promote now
+              </label>
             </div>
-          </div>
+            {promotionCreditError ? <p className={styles.error}>{promotionCreditError}</p> : null}
 
-          {/* Location Address + City */}
-          <div className={styles.actions}>
-            <div style={{ flex: 2, minWidth: 220 }}>
-              <label className={styles.label} htmlFor="event-location-address">Location Address</label>
-              <input
-                id="event-location-address"
-                ref={(el) => { fieldRefs.current.locationAddress = el; }}
-                className={`${styles.input} ${errors.locationAddress ? styles.inputError : ""}`}
-                value={value.locationAddress}
-                onChange={(e) => onChange("locationAddress", e.target.value)}
-                placeholder="Venue address or online meeting location"
-                disabled={busy}
-              />
-              {errors.locationAddress ? <p className={styles.error}>{errors.locationAddress}</p> : null}
-            </div>
+            {value.promoted ? (
+              <>
+                <label className={styles.label} htmlFor="event-promotion-package">
+                  Promotion Package
+                </label>
+                <select
+                  id="event-promotion-package"
+                  ref={(el) => { fieldRefs.current.promotionPackageId = el; }}
+                  className={`${styles.select} ${errors.promotionPackageId ? styles.inputError : ""}`}
+                  value={value.promotionPackageId}
+                  onChange={async (e) => {
+                    const nextPackageId = e.target.value;
+                    onChange("promotionPackageId", nextPackageId);
 
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <label className={styles.label} htmlFor="event-location-city">Location City</label>
-              <input
-                id="event-location-city"
-                ref={(el) => { fieldRefs.current.locationCity = el; }}
-                className={`${styles.input} ${errors.locationCity ? styles.inputError : ""}`}
-                value={value.locationCity}
-                onChange={(e) => onChange("locationCity", e.target.value)}
-                placeholder="City"
-                disabled={busy}
-              />
-              {errors.locationCity ? <p className={styles.error}>{errors.locationCity}</p> : null}
-            </div>
-          </div>
+                    if (!value.promoted || !nextPackageId) {
+                      setPromotionCreditError("");
+                      return;
+                    }
 
-          {/* Details */}
-          <label className={styles.label} htmlFor="event-details">Details</label>
-          <textarea
-            id="event-details"
-            ref={(el) => { fieldRefs.current.details = el; }}
-            className={`${styles.input} ${errors.details ? styles.inputError : ""}`}
-            value={value.details}
-            onChange={(e) => onChange("details", e.target.value)}
-            rows={4}
-            disabled={busy}
-          />
-          {errors.details ? <p className={styles.error}>{errors.details}</p> : null}
-
-          {/* Video URL + Credits + Cost row */}
-          <div className={styles.actions}>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label className={styles.label} htmlFor="event-video-url">Video / Meeting URL</label>
-              <input
-                id="event-video-url"
-                ref={(el) => { fieldRefs.current.videoUrl = el; }}
-                className={`${styles.input} ${errors.videoUrl ? styles.inputError : ""}`}
-                value={value.videoUrl}
-                onChange={(e) => onChange("videoUrl", e.target.value)}
-                placeholder="https://"
-                disabled={busy}
-              />
-              {errors.videoUrl ? <p className={styles.error}>{errors.videoUrl}</p> : null}
-            </div>
-
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label className={styles.label} htmlFor="event-credits">Credits Required</label>
-              <input
-                id="event-credits"
-                ref={(el) => { fieldRefs.current.creditsRequired = el; }}
-                className={`${styles.input} ${errors.creditsRequired ? styles.inputError : ""}`}
-                value={value.creditsRequired}
-                onChange={(e) => onChange("creditsRequired", e.target.value)}
-                inputMode="numeric"
-                disabled={busy}
-              />
-              {errors.creditsRequired ? <p className={styles.error}>{errors.creditsRequired}</p> : null}
-            </div>
-
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label className={styles.label} htmlFor="event-cost">Cost</label>
-              <input
-                id="event-cost"
-                ref={(el) => { fieldRefs.current.cost = el; }}
-                className={`${styles.input} ${errors.cost ? styles.inputError : ""}`}
-                value={value.cost}
-                onChange={(e) => onChange("cost", e.target.value)}
-                inputMode="decimal"
-                disabled={busy}
-              />
-              {errors.cost ? <p className={styles.error}>{errors.cost}</p> : null}
-            </div>
-          </div>
-
-          {/* Thumbnail */}
-          <label className={styles.label} htmlFor="event-thumbnail">Thumbnail</label>
-          <input
-            id="event-thumbnail"
-            ref={(el) => { fieldRefs.current.thumbnailUrl = el; }}
-            className={`${styles.input} ${errors.thumbnailUrl ? styles.inputError : ""}`}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={(e) => onThumbnailSelect(e.target.files?.[0] ?? null)}
-            disabled={busy || uploadBusy}
-          />
-          <p className={styles.subtitle}>
-            {thumbnailName
-              ? `Selected: ${thumbnailName}`
-              : value.thumbnailUrl
-                ? "Existing thumbnail will be kept unless you upload a replacement."
-                : "Upload a JPG, PNG, or WebP image up to 2MB."}
-          </p>
-          {errors.thumbnailUrl ? <p className={styles.error}>{errors.thumbnailUrl}</p> : null}
-
-          {/* Promote / Publish toggles */}
-          <div className={styles.actions} style={{ alignItems: "center", marginBottom: 12 }}>
-            <label className={styles.radioPill}>
-              <input
-                type="checkbox"
-                ref={(el) => { fieldRefs.current.promoted = el; }}
-                checked={value.promoted}
-                onChange={async (e) => {
-                  const isPromoted = e.target.checked;
-
-                  if (isPromoted && value.promotionPackageId) {
-                    const creditError = await validatePromotionCredits(value.promotionPackageId);
+                    const creditError = await validatePromotionCredits(nextPackageId);
                     if (creditError) {
                       setPromotionCreditError(creditError);
                       onChange("promoted", false);
                       onChange("promotionStatus", "none");
                       return;
                     }
-                  }
 
-                  setPromotionCreditError("");
-                  onChange("promoted", isPromoted);
-                  onChange("promotionStatus", isPromoted ? "requested" : "none");
-                  if (!isPromoted) {
-                    onChange("promotionPackageId", "");
-                  }
-                }}
-                disabled={busy}
-              />
-              Request Promotion
-            </label>
-            <label className={styles.radioPill}>
-              <input
-                type="checkbox"
-                ref={(el) => { fieldRefs.current.published = el; }}
-                checked={value.published}
-                onChange={(e) => onChange("published", e.target.checked)}
-                disabled={busy}
-              />
-              Publish
-            </label>
-            <span className={styles.statusBadge}>{EVENT_STATUS_LABELS[value.status]}</span>
-          </div>
-          {promotionCreditError ? <p className={styles.error}>{promotionCreditError}</p> : null}
-
-          {value.promoted ? (
-            <>
-              <label className={styles.label} htmlFor="event-promotion-package">
-                Promotion Package
-              </label>
-              <select
-                id="event-promotion-package"
-                ref={(el) => { fieldRefs.current.promotionPackageId = el; }}
-                className={`${styles.select} ${errors.promotionPackageId ? styles.inputError : ""}`}
-                value={value.promotionPackageId}
-                onChange={async (e) => {
-                  const nextPackageId = e.target.value;
-                  onChange("promotionPackageId", nextPackageId);
-
-                  if (!value.promoted || !nextPackageId) {
                     setPromotionCreditError("");
-                    return;
-                  }
-
-                  const creditError = await validatePromotionCredits(nextPackageId);
-                  if (creditError) {
-                    setPromotionCreditError(creditError);
-                    onChange("promoted", false);
-                    onChange("promotionStatus", "none");
-                    return;
-                  }
-
-                  setPromotionCreditError("");
-                }}
-                disabled={busy || promotionPackagesLoading || !value.tenantId}
-              >
-                <option value="">
-                  {value.tenantId ? "Select promotion package" : "Select tenant first"}
-                </option>
-                {promotionPackages.map((pkg) => (
-                  <option key={pkg.id} value={pkg.id}>
-                    {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                  }}
+                  disabled={busy || promotionPackagesLoading || !value.tenantId}
+                >
+                  <option value="">
+                    {value.tenantId ? "Select promotion package" : "Select tenant first"}
                   </option>
-                ))}
-              </select>
-              {errors.promotionPackageId ? <p className={styles.error}>{errors.promotionPackageId}</p> : null}
-              {!promotionPackagesLoading && value.tenantId && promotionPackages.length === 0 ? (
-                <p className={styles.subtitle}>No active Event promotion packages found for this tenant.</p>
-              ) : null}
-            </>
-          ) : null}
+                  {promotionPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                    </option>
+                  ))}
+                </select>
+                {errors.promotionPackageId ? <p className={styles.error}>{errors.promotionPackageId}</p> : null}
+                {!promotionPackagesLoading && value.tenantId && promotionPackages.length === 0 ? (
+                  <p className={styles.subtitle}>No active Event promotion packages found for this tenant.</p>
+                ) : null}
+              </>
+            ) : null}
+          </fieldset>
 
-          {/* Promote / Publish info panel (E3 §12.8) */}
           <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
             <p className={styles.userMeta}>
               <strong>Publish</strong> makes this event visible in the tenant event catalog.
@@ -501,24 +576,9 @@ export default function EventForm({
               Promotion does not replace publication — both must be true for landing-page placement.
             </p>
             <p className={styles.userMeta}>Promotion: {EVENT_PROMOTION_STATUS_LABELS[value.promotionStatus]}</p>
+            <p className={styles.userMeta}>Listing: {EVENT_LISTING_STATUS_LABELS[value.listingStatus]}</p>
             <p className={styles.userMeta}>Ownership Scope: platform</p>
           </div>
-
-          <label className={styles.label} htmlFor="event-visibility">Visibility</label>
-          <select
-            id="event-visibility"
-            ref={(el) => {
-              fieldRefs.current.visibility = el;
-            }}
-            className={styles.select}
-            value={value.visibility}
-            onChange={(e) => onChange("visibility", e.target.value as EventFormValues["visibility"])}
-            disabled={busy}
-          >
-            <option value="public">{EVENT_VISIBILITY_LABELS.public}</option>
-            <option value="private">{EVENT_VISIBILITY_LABELS.private}</option>
-          </select>
-          {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
 
           {errors.form ? <p className={styles.error}>{errors.form}</p> : null}
         </div>

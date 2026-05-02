@@ -8,12 +8,17 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
+import { getUserById } from "@/services/manage-users.service";
 import {
+  createCashoutRequest,
   getCoinRequestsForCompanyContext,
+  getTenantCashoutConfig,
   getWalletForUserContext,
+  listCashoutRequestsForUserContext,
   listWalletTransactionsForUserContext,
 } from "@/services/wallet.service";
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
+import type { CashoutConfig, CashoutRequest } from "@/types/cashoutRequest";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
@@ -66,6 +71,17 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   const [coinRequestsModalOpen, setCoinRequestsModalOpen] = useState(false);
   const [pendingCoinRequestCount, setPendingCoinRequestCount] = useState(0);
 
+  const [contextUserIds, setContextUserIds] = useState<string[]>([]);
+  const [canCashout, setCanCashout] = useState(false);
+  const [cashoutConfig, setCashoutConfig] = useState<CashoutConfig | null>(null);
+  const [cashoutRequests, setCashoutRequests] = useState<CashoutRequest[]>([]);
+  const [cashoutModalOpen, setCashoutModalOpen] = useState(false);
+  const [cashoutCreditsInput, setCashoutCreditsInput] = useState("");
+  const [cashoutNote, setCashoutNote] = useState("");
+  const [cashoutBusy, setCashoutBusy] = useState(false);
+  const [cashoutError, setCashoutError] = useState("");
+  const [cashoutSuccess, setCashoutSuccess] = useState("");
+
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
     const storedName = sessionStorage.getItem("cs_name");
@@ -102,7 +118,21 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           new Set([firebaseUser.uid, storedUid, storedProfileId, profile?.id, profile?.userId].filter(Boolean) as string[])
         );
 
+        setContextUserIds(userIds);
         setUserId(firebaseUser.uid);
+
+        const resolvedUser = await getUserById(profile?.userId || firebaseUser.uid);
+        const isCompanyUser = profile?.userType === "company";
+        const isIndependentCoach = profile?.userType === "professional" && !resolvedUser?.associatedCompanyId;
+        const allowCashout = Boolean(isCompanyUser || isIndependentCoach);
+
+        setCanCashout(allowCashout);
+        if (allowCashout) {
+          const nextCashoutConfig = await getTenantCashoutConfig(tenantId);
+          setCashoutConfig(nextCashoutConfig);
+        } else {
+          setCashoutConfig(null);
+        }
 
         const companyIds = Array.from(
           new Set([firebaseUser.uid, profile?.userId].filter(Boolean) as string[])
@@ -117,12 +147,14 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
         const results = await Promise.allSettled([
           getWalletForUserContext(userIds, tenantId),
           listWalletTransactionsForUserContext({ userIds, tenantId }),
+          listCashoutRequestsForUserContext({ userIds, tenantId }),
           storedRoleRaw === "company" ? getCoinRequestsForCompanyContext(companyIds) : Promise.resolve([]),
         ]);
 
         const walletResult = results[0];
         const transactionsResult = results[1];
-        const coinRequestsResult = results[2];
+        const cashoutRequestsResult = results[2];
+        const coinRequestsResult = results[3];
 
         if (walletResult.status === "fulfilled") {
           setWallet(walletResult.value);
@@ -130,6 +162,10 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
 
         if (transactionsResult.status === "fulfilled") {
           setTransactions(transactionsResult.value);
+        }
+
+        if (cashoutRequestsResult.status === "fulfilled") {
+          setCashoutRequests(cashoutRequestsResult.value);
         }
 
         if (coinRequestsResult.status === "fulfilled") {
@@ -178,6 +214,102 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
     await signOut(auth);
     sessionStorage.clear();
     router.replace(basePath);
+  }
+
+  async function refreshWalletAndTransactions(userIds: string[]) {
+    const normalized = userIds.map((item) => item.trim()).filter(Boolean);
+    if (normalized.length === 0) {
+      return;
+    }
+
+    const [nextWallet, nextTransactions, nextCashoutRequests] = await Promise.all([
+      getWalletForUserContext(normalized, tenantId),
+      listWalletTransactionsForUserContext({ userIds: normalized, tenantId }),
+      listCashoutRequestsForUserContext({ userIds: normalized, tenantId }),
+    ]);
+
+    setWallet(nextWallet);
+    setTransactions(nextTransactions);
+    setCashoutRequests(nextCashoutRequests);
+  }
+
+  async function handleCreateCashoutRequest() {
+    if (!userId || !wallet || !cashoutConfig || !canCashout) {
+      return;
+    }
+
+    const minimumCashoutCredits = cashoutConfig.minimumCredits;
+    const credits = Math.floor(Number(cashoutCreditsInput));
+    if (!Number.isFinite(credits) || credits < minimumCashoutCredits) {
+      setCashoutError(`Minimum credits required for cashout is ${minimumCashoutCredits}. You currently have ${wallet.availableCoins}.`);
+      return;
+    }
+
+    if (credits > wallet.availableCoins) {
+      setCashoutError(`You only have ${wallet.availableCoins} credits available.`);
+      return;
+    }
+
+    setCashoutBusy(true);
+    setCashoutError("");
+    setCashoutSuccess("");
+
+    try {
+      await createCashoutRequest({
+        tenantId,
+        requesterUserId: userId,
+        requesterName: name,
+        creditsRequested: credits,
+        requestComment: cashoutNote.trim(),
+      });
+
+      await refreshWalletAndTransactions(contextUserIds.length > 0 ? contextUserIds : [userId]);
+
+      setCashoutSuccess("Cashout request submitted. Credits have been held pending Super Admin review.");
+      setCashoutCreditsInput("");
+      setCashoutNote("");
+      setCashoutModalOpen(false);
+    } catch (requestError) {
+      const messageText = requestError instanceof Error ? requestError.message : "Failed to submit cashout request.";
+      setCashoutError(messageText);
+    } finally {
+      setCashoutBusy(false);
+    }
+  }
+
+  const requestedCashoutCredits = Math.floor(Number(cashoutCreditsInput || 0));
+  const estimatedGrossAmount = cashoutConfig
+    ? Math.max(0, requestedCashoutCredits) * cashoutConfig.creditCost
+    : 0;
+  const estimatedPayoutAmount = cashoutConfig
+    ? (estimatedGrossAmount * cashoutConfig.cashbackPercentage) / 100
+    : 0;
+  const estimatedMarkdown = Math.max(0, estimatedGrossAmount - estimatedPayoutAmount);
+  const minimumCashoutCredits = cashoutConfig?.minimumCredits ?? 40;
+  const hasMinimumCashoutBalance = Boolean(wallet && wallet.availableCoins >= minimumCashoutCredits);
+  const cashoutStatusByWalletTransactionId = useMemo(() => {
+    return cashoutRequests.reduce<Record<string, CashoutRequest["status"]>>((acc, request) => {
+      if (request.walletTransactionId) {
+        acc[request.walletTransactionId] = request.status;
+      }
+      return acc;
+    }, {});
+  }, [cashoutRequests]);
+
+  function handleCashoutButtonClick() {
+    if (busy || !wallet || !cashoutConfig) {
+      return;
+    }
+
+    if (!hasMinimumCashoutBalance) {
+      setCashoutSuccess("");
+      setCashoutError(`Minimum credits required for cashout is ${minimumCashoutCredits}. You currently have ${wallet.availableCoins}.`);
+      return;
+    }
+
+    setCashoutError("");
+    setCashoutSuccess("");
+    setCashoutModalOpen(true);
   }
 
   return (
@@ -265,10 +397,27 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                 {pendingCoinRequestCount > 0 ? ` (${pendingCoinRequestCount})` : ""}
               </button>
             )}
+            {(role === "company" || role === "professional") && canCashout ? (
+              <button
+                type="button"
+                className={styles.button}
+                onClick={handleCashoutButtonClick}
+              >
+                Cashout Credits
+              </button>
+            ) : null}
           </div>
+
+          {(role === "company" || role === "professional") && canCashout && !busy && wallet && cashoutConfig && !hasMinimumCashoutBalance ? (
+            <p className={styles.subtitle}>
+              Minimum {minimumCashoutCredits} credits are required for cashout. You currently have {wallet.availableCoins}.
+            </p>
+          ) : null}
 
           {busy ? <p className={styles.subtitle}>Loading wallet...</p> : null}
           {error ? <div className={styles.error}>{error}</div> : null}
+          {cashoutError ? <div className={styles.error}>{cashoutError}</div> : null}
+          {cashoutSuccess ? <div className={styles.empty}>{cashoutSuccess}</div> : null}
 
           {!busy && wallet ? (
             <div className={styles.summaryGrid}>
@@ -298,6 +447,9 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                   <div className={styles.badgeRow}>
                     <span className={styles.badge}>{item.transactionType.toUpperCase()}</span>
                     {item.activityType ? <span className={styles.badge}>{String(item.activityType).toUpperCase()}</span> : null}
+                    {cashoutStatusByWalletTransactionId[item.id] ? (
+                      <span className={styles.badge}>CASHOUT {String(cashoutStatusByWalletTransactionId[item.id]).toUpperCase()}</span>
+                    ) : null}
                   </div>
                   <h2 className={styles.itemTitle}>{item.reason || "Wallet transaction"}</h2>
                   <p className={styles.itemMeta}>Credits: {item.coins}</p>
@@ -318,6 +470,124 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           onPendingCountChange={(count) => setPendingCoinRequestCount(count)}
         />
       )}
+
+      {cashoutModalOpen && wallet && cashoutConfig ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(19, 58, 86, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "16px",
+              boxShadow: "0 12px 24px rgba(19, 58, 86, 0.12)",
+              width: "min(620px, 100%)",
+              maxHeight: "86vh",
+              overflow: "auto",
+              padding: "20px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h2 style={{ margin: 0, color: "#133a56" }}>Cashout Credits</h2>
+              <button
+                type="button"
+                onClick={() => setCashoutModalOpen(false)}
+                style={{ border: 0, background: "transparent", color: "#4d6e86", fontSize: "1.4rem", cursor: "pointer" }}
+              >
+                x
+              </button>
+            </div>
+
+            <p style={{ margin: "0 0 10px", color: "#4d6e86" }}>
+              Available Credits: <strong>{wallet.availableCoins}</strong>
+            </p>
+            <p style={{ margin: "0 0 10px", color: "#4d6e86" }}>
+              Credit Cost: <strong>Rs {cashoutConfig.creditCost.toFixed(2)}</strong> per credit
+            </p>
+            <p style={{ margin: "0 0 16px", color: "#4d6e86" }}>
+              Cashback Percentage: <strong>{cashoutConfig.cashbackPercentage.toFixed(2)}%</strong>
+            </p>
+
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: 700, color: "#133a56" }} htmlFor="cashout-credits-input">
+              Credits to Cashout
+            </label>
+            <input
+              id="cashout-credits-input"
+              type="number"
+              min={minimumCashoutCredits}
+              value={cashoutCreditsInput}
+              onChange={(event) => setCashoutCreditsInput(event.target.value)}
+              style={{
+                width: "100%",
+                border: "1px solid #c6dcea",
+                borderRadius: "10px",
+                padding: "10px 12px",
+                marginBottom: "8px",
+                boxSizing: "border-box",
+              }}
+            />
+            <p style={{ margin: "0 0 12px", color: "#4d6e86", fontSize: "0.9rem" }}>
+              Minimum credits required: {minimumCashoutCredits}
+            </p>
+
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: 700, color: "#133a56" }} htmlFor="cashout-note-input">
+              Note (optional)
+            </label>
+            <textarea
+              id="cashout-note-input"
+              rows={3}
+              value={cashoutNote}
+              onChange={(event) => setCashoutNote(event.target.value)}
+              style={{
+                width: "100%",
+                border: "1px solid #c6dcea",
+                borderRadius: "10px",
+                padding: "10px 12px",
+                marginBottom: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <div style={{ border: "1px solid #d9e8f6", borderRadius: "10px", padding: "12px", marginBottom: "16px", background: "#f8fcff" }}>
+              <p style={{ margin: "0 0 6px", color: "#133a56" }}>Gross Value: Rs {estimatedGrossAmount.toFixed(2)}</p>
+              <p style={{ margin: "0 0 6px", color: "#133a56" }}>Markdown ({(100 - cashoutConfig.cashbackPercentage).toFixed(2)}%): Rs {estimatedMarkdown.toFixed(2)}</p>
+              <p style={{ margin: 0, color: "#133a56", fontWeight: 700 }}>Estimated Payout: Rs {estimatedPayoutAmount.toFixed(2)}</p>
+            </div>
+
+            {cashoutError ? (
+              <div style={{ border: "1px solid #efc4c4", background: "#fff5f5", color: "#8a2a2a", borderRadius: "8px", padding: "10px", marginBottom: "10px" }}>
+                {cashoutError}
+              </div>
+            ) : null}
+
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setCashoutModalOpen(false)}
+                style={{ border: "1px solid #c6dcea", background: "#fff", borderRadius: "8px", padding: "10px 14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateCashoutRequest()}
+                disabled={cashoutBusy}
+                style={{ border: 0, background: "linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%)", color: "#fff", borderRadius: "8px", padding: "10px 14px", fontWeight: 700, cursor: cashoutBusy ? "not-allowed" : "pointer", opacity: cashoutBusy ? 0.7 : 1 }}
+              >
+                {cashoutBusy ? "Submitting..." : "Submit Cashout Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

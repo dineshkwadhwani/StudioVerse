@@ -6,6 +6,7 @@ export const PROGRAM_CATALOG_VISIBILITY = ["tenant_wide", "company_only", "profe
 export const PROGRAM_PUBLICATION_STATES = ["draft", "published", "pending_publication_review", "rejected_publication"] as const;
 export const PROGRAM_STATUSES = ["draft", "published", "inactive", "archived"] as const;
 export const PROGRAM_PROMOTION_STATUSES = ["none", "requested", "promoted"] as const;
+export const PROGRAM_LISTING_STATUSES = ["none", "requested", "approved", "rejected"] as const;
 
 export type ProgramDeliveryType = (typeof PROGRAM_DELIVERY_TYPES)[number];
 export type ProgramDurationUnit = (typeof PROGRAM_DURATION_UNITS)[number];
@@ -15,6 +16,7 @@ export type ProgramCatalogVisibility = (typeof PROGRAM_CATALOG_VISIBILITY)[numbe
 export type ProgramPublicationState = (typeof PROGRAM_PUBLICATION_STATES)[number];
 export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
 export type ProgramPromotionStatus = (typeof PROGRAM_PROMOTION_STATUSES)[number];
+export type ProgramListingStatus = (typeof PROGRAM_LISTING_STATUSES)[number];
 
 export type ProgramRecord = {
   id: string;
@@ -38,6 +40,8 @@ export type ProgramRecord = {
   promoted: boolean;
   promotionPackageId: string | null;
   promotionStatus: ProgramPromotionStatus;
+  listingPackageId: string | null;
+  listingStatus: ProgramListingStatus;
   visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string | null;
@@ -73,6 +77,8 @@ export type ProgramWriteInput = {
   promoted: boolean;
   promotionPackageId: string | null;
   promotionStatus: ProgramPromotionStatus;
+  listingPackageId: string | null;
+  listingStatus: ProgramListingStatus;
   visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
   ownerEntityId: string | null;
@@ -100,6 +106,8 @@ export type ProgramFormValues = {
   promoted: boolean;
   promotionPackageId: string;
   promotionStatus: ProgramPromotionStatus;
+  listingPackageId: string;
+  listingStatus: ProgramListingStatus;
   published: boolean;
   visibility: ProgramVisibility;
   ownershipScope: ProgramOwnershipScope;
@@ -131,6 +139,8 @@ export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   promoted: false,
   promotionPackageId: "",
   promotionStatus: "none",
+  listingPackageId: "",
+  listingStatus: "none",
   published: false,
   visibility: "public",
   ownershipScope: "platform",
@@ -174,6 +184,13 @@ export const PROGRAM_PROMOTION_STATUS_LABELS: Record<ProgramPromotionStatus, str
   none: "Not Promoted",
   requested: "Promotion Requested",
   promoted: "Promoted",
+};
+
+export const PROGRAM_LISTING_STATUS_LABELS: Record<ProgramListingStatus, string> = {
+  none: "Not Listed",
+  requested: "Under Review",
+  approved: "Published",
+  rejected: "Rejected",
 };
 
 export function toDateInputValue(value: Date | null): string {

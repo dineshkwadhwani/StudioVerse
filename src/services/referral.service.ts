@@ -26,7 +26,7 @@ const processReferralJoinCallable = httpsCallable<
     userId: string;
     fullName: string;
     tenantId: string;
-    userType: "professional" | "individual";
+    userType: "professional" | "individual" | "company";
     email: string;
     phoneE164: string;
   },
@@ -262,7 +262,7 @@ export async function processReferralJoinForNewUser(args: {
   userId: string;
   fullName: string;
   tenantId: string;
-  userType: "professional" | "individual";
+  userType: "professional" | "individual" | "company";
   email: string;
   phoneE164: string;
 }): Promise<void> {

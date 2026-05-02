@@ -5,10 +5,13 @@ import styles from "./SuperAdminPortal.module.css";
 import {
   assignCoins,
   getWalletByUserAndTenant,
+  listCashoutRequestsForUserContext,
+  listWalletTransactionsForUserContext,
   listWallets,
   listUsersForCoinAssignment,
 } from "@/services/wallet.service";
-import type { WalletRecord, WalletUserType } from "@/types/wallet";
+import type { CashoutRequest } from "@/types/cashoutRequest";
+import type { WalletRecord, WalletTransactionRecord, WalletUserType } from "@/types/wallet";
 
 type TenantOption = {
   id: string;
@@ -46,6 +49,11 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   const [selectedUserId, setSelectedUserId] = useState("");
   const [coinsToAssign, setCoinsToAssign] = useState("10");
   const [busy, setBusy] = useState(false);
+  const [walletDetailOpen, setWalletDetailOpen] = useState(false);
+  const [walletDetailBusy, setWalletDetailBusy] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<WalletRecord | null>(null);
+  const [walletDetailTransactions, setWalletDetailTransactions] = useState<WalletTransactionRecord[]>([]);
+  const [walletDetailCashoutRequests, setWalletDetailCashoutRequests] = useState<CashoutRequest[]>([]);
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
   const [walletSnapshot, setWalletSnapshot] = useState<{ issued: number; utilized: number; available: number } | null>(null);
@@ -57,6 +65,44 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
 
     return wallets.filter((wallet) => wallet.userType === walletFilterType);
   }, [walletFilterType, wallets]);
+
+  const walletDetailCashoutStatusByTransactionId = useMemo(() => {
+    return walletDetailCashoutRequests.reduce<Record<string, CashoutRequest["status"]>>((acc, request) => {
+      if (request.walletTransactionId) {
+        acc[request.walletTransactionId] = request.status;
+      }
+      return acc;
+    }, {});
+  }, [walletDetailCashoutRequests]);
+
+  async function openWalletDetail(wallet: WalletRecord): Promise<void> {
+    setSelectedWallet(wallet);
+    setWalletDetailOpen(true);
+    setWalletDetailBusy(true);
+    setError("");
+
+    const normalizedUserIds = Array.from(new Set([
+      wallet.userId,
+      wallet.id,
+      wallet.id.includes("::") ? wallet.id.split("::").pop() ?? "" : "",
+    ].map((item) => item.trim()).filter(Boolean)));
+
+    try {
+      const [transactions, cashoutRequests] = await Promise.all([
+        listWalletTransactionsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined }),
+        listCashoutRequestsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined }),
+      ]);
+      setWalletDetailTransactions(transactions);
+      setWalletDetailCashoutRequests(cashoutRequests);
+    } catch (detailError) {
+      const message = detailError instanceof Error ? detailError.message : "Failed to load wallet details.";
+      setError(message);
+      setWalletDetailTransactions([]);
+      setWalletDetailCashoutRequests([]);
+    } finally {
+      setWalletDetailBusy(false);
+    }
+  }
 
   async function refreshWallets(): Promise<void> {
     const rows = await listWallets();
@@ -299,6 +345,13 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
                     <span className={styles.statusBadge}>Available {wallet.availableCoins}</span>
                     <span className={styles.statusBadge}>Utilized {wallet.utilizedCoins}</span>
                     <span className={styles.statusBadge}>Issued {wallet.totalIssuedCoins}</span>
+                    <button
+                      type="button"
+                      className={styles.rowAction}
+                      onClick={() => void openWalletDetail(wallet)}
+                    >
+                      View Details
+                    </button>
                   </div>
                 </section>
               ))}
@@ -306,6 +359,68 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
           )}
         </div>
       </div>
+
+      {walletDetailOpen && selectedWallet ? (
+        <div className={styles.modalOverlay}>
+          <section className={styles.modal} style={{ width: "min(920px, 100%)" }}>
+            <div className={styles.modalHeader}>
+              <h3>{selectedWallet.userName} - Wallet Details</h3>
+              <button
+                type="button"
+                className={styles.modalCloseButton}
+                onClick={() => {
+                  setWalletDetailOpen(false);
+                  setSelectedWallet(null);
+                  setWalletDetailTransactions([]);
+                  setWalletDetailCashoutRequests([]);
+                }}
+                aria-label="Close wallet details"
+              >
+                x
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
+                <p style={{ margin: 0 }}>Tenant: {selectedWallet.tenantId || "-"}</p>
+                <p style={{ margin: "6px 0 0" }}>User ID: {selectedWallet.userId}</p>
+                <p style={{ margin: "6px 0 0" }}>Type: {selectedWallet.userType}</p>
+              </div>
+
+              <div className={styles.usersGrid} style={{ marginBottom: 12 }}>
+                <div className={styles.emptyCard}><strong>Available</strong><p style={{ margin: "8px 0 0" }}>{selectedWallet.availableCoins}</p></div>
+                <div className={styles.emptyCard}><strong>Utilized</strong><p style={{ margin: "8px 0 0" }}>{selectedWallet.utilizedCoins}</p></div>
+                <div className={styles.emptyCard}><strong>Total Issued</strong><p style={{ margin: "8px 0 0" }}>{selectedWallet.totalIssuedCoins}</p></div>
+              </div>
+
+              {walletDetailBusy ? (
+                <div className={styles.emptyCard}>Loading wallet activity...</div>
+              ) : walletDetailTransactions.length === 0 ? (
+                <div className={styles.emptyCard}>No wallet transaction records found yet.</div>
+              ) : (
+                <div className={styles.userStack}>
+                  {walletDetailTransactions.map((tx) => (
+                    <section key={tx.id} className={styles.userItem}>
+                      <div>
+                        <p className={styles.userName}>{tx.reason || "Wallet transaction"}</p>
+                        <p className={styles.userMeta}>Credits: {tx.coins}</p>
+                        <p className={styles.userMeta}>User: {tx.userName}</p>
+                      </div>
+                      <div className={styles.userActions}>
+                        <span className={styles.statusBadge}>{tx.transactionType.toUpperCase()}</span>
+                        {tx.activityType ? <span className={styles.statusBadge}>{String(tx.activityType).toUpperCase()}</span> : null}
+                        {walletDetailCashoutStatusByTransactionId[tx.id] ? (
+                          <span className={styles.statusBadge}>CASHOUT {String(walletDetailCashoutStatusByTransactionId[tx.id]).toUpperCase()}</span>
+                        ) : null}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </article>
   );
 }

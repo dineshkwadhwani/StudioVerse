@@ -5,6 +5,7 @@ import styles from "./SuperAdminPortal.module.css";
 import { auth } from "@/services/firebase";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
+  PROGRAM_LISTING_STATUS_LABELS,
   PROGRAM_DELIVERY_TYPES,
   PROGRAM_DELIVERY_TYPE_LABELS,
   PROGRAM_DURATION_UNITS,
@@ -16,6 +17,7 @@ import {
   type ProgramFormValues as ProgramValues,
 } from "@/types/program";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
+import type { ListingPackageRecord } from "@/types/listingPackage";
 import type {ProgramFormErrors} from "@/lib/validation/program.schema";
 
 type TenantOption = {
@@ -35,6 +37,8 @@ type ProgramFormProps = {
   thumbnailName: string | null;
   promotionPackages: PromotionPackageRecord[];
   promotionPackagesLoading: boolean;
+  listingPackages: ListingPackageRecord[];
+  listingPackagesLoading: boolean;
   onChange: <K extends keyof ProgramFormValues>(field: K, nextValue: ProgramFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onCancel: () => void;
@@ -51,6 +55,8 @@ export default function ProgramForm({
   thumbnailName,
   promotionPackages,
   promotionPackagesLoading,
+  listingPackages,
+  listingPackagesLoading,
   onChange,
   onThumbnailSelect,
   onCancel,
@@ -170,386 +176,451 @@ export default function ProgramForm({
         </div>
 
         <div style={{ overflowY: "auto", flex: 1 }}>
-        <label className={styles.label} htmlFor="program-tenant">
-          Tenants
-        </label>
-        <div
-          id="program-tenant"
-          className={`${styles.controlCard} ${errors.tenantId ? styles.inputError : ""}`}
-        >
-          {activeTenants.map((tenant) => {
-            const isPrimaryTenant = editing && primaryTenantId === tenant.tenantId;
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Tenant</legend>
 
-            return (
-              <label key={tenant.id} className={styles.checkboxRow}>
+            <label className={styles.label} htmlFor="program-tenant">
+              Tenants
+            </label>
+            <div
+              id="program-tenant"
+              className={`${styles.controlCard} ${errors.tenantId ? styles.inputError : ""}`}
+            >
+              <div className={styles.radioRow}>
+                {activeTenants.map((tenant) => {
+                  const isPrimaryTenant = editing && primaryTenantId === tenant.tenantId;
+
+                  return (
+                    <label key={tenant.id} className={styles.radioPill}>
+                      <input
+                        type="checkbox"
+                        checked={selectedTenantIdsWithPrimary.includes(tenant.tenantId)}
+                        onChange={() => toggleTenantSelection(tenant.tenantId)}
+                        disabled={busy || isPrimaryTenant}
+                      />
+                      <span>{tenant.tenantName}</span>
+                      {isPrimaryTenant ? <span className={styles.primaryLockBadge}>Primary (locked)</span> : null}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            {errors.tenantId ? <p className={styles.error}>{errors.tenantId}</p> : null}
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Program</legend>
+
+            <label className={styles.label} htmlFor="program-name">
+              Program Name
+            </label>
+            <input
+              id="program-name"
+              ref={(element) => {
+                fieldRefs.current.name = element;
+              }}
+              className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
+              value={value.name}
+              onChange={(event) => onChange("name", event.target.value)}
+              disabled={busy}
+            />
+            {errors.name ? <p className={styles.error}>{errors.name}</p> : null}
+
+            <label className={styles.label} htmlFor="program-short-description">
+              Short Description
+            </label>
+            <textarea
+              id="program-short-description"
+              ref={(element) => {
+                fieldRefs.current.shortDescription = element;
+              }}
+              className={`${styles.input} ${errors.shortDescription ? styles.inputError : ""}`}
+              value={value.shortDescription}
+              onChange={(event) => onChange("shortDescription", event.target.value)}
+              rows={3}
+              disabled={busy}
+            />
+            {errors.shortDescription ? <p className={styles.error}>{errors.shortDescription}</p> : null}
+
+            <label className={styles.label} htmlFor="program-long-description">
+              Long Description
+            </label>
+            <textarea
+              id="program-long-description"
+              ref={(element) => {
+                fieldRefs.current.longDescription = element;
+              }}
+              className={`${styles.input} ${errors.longDescription ? styles.inputError : ""}`}
+              value={value.longDescription}
+              onChange={(event) => onChange("longDescription", event.target.value)}
+              rows={5}
+              disabled={busy}
+            />
+            {errors.longDescription ? <p className={styles.error}>{errors.longDescription}</p> : null}
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Program Details</legend>
+
+            <label className={styles.label} htmlFor="program-details">
+              Details
+            </label>
+            <textarea
+              id="program-details"
+              ref={(element) => {
+                fieldRefs.current.details = element;
+              }}
+              className={`${styles.input} ${errors.details ? styles.inputError : ""}`}
+              value={value.details}
+              onChange={(event) => onChange("details", event.target.value)}
+              rows={4}
+              disabled={busy}
+            />
+            {errors.details ? <p className={styles.error}>{errors.details}</p> : null}
+
+            <label className={styles.label} htmlFor="program-visibility">
+              Visibility
+            </label>
+            <select
+              id="program-visibility"
+              ref={(element) => {
+                fieldRefs.current.visibility = element;
+              }}
+              className={styles.select}
+              value={value.visibility}
+              onChange={(event) => onChange("visibility", event.target.value as ProgramFormValues["visibility"])}
+              disabled={busy}
+            >
+              <option value="public">{PROGRAM_VISIBILITY_LABELS.public}</option>
+              <option value="private">{PROGRAM_VISIBILITY_LABELS.private}</option>
+            </select>
+            {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
+
+            <label className={styles.label} htmlFor="program-thumbnail">
+              Thumbnail
+            </label>
+            <input
+              id="program-thumbnail"
+              ref={(element) => {
+                fieldRefs.current.thumbnailUrl = element;
+              }}
+              className={`${styles.input} ${errors.thumbnailUrl ? styles.inputError : ""}`}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => onThumbnailSelect(event.target.files?.[0] ?? null)}
+              disabled={busy || uploadBusy}
+            />
+            <p className={styles.subtitle}>
+              {thumbnailName
+                ? `Selected thumbnail: ${thumbnailName}`
+                : value.thumbnailUrl
+                  ? "Existing thumbnail will be kept unless you upload a replacement."
+                  : "Upload a JPG, PNG, or WebP image up to 2MB."}
+            </p>
+            {errors.thumbnailUrl ? <p className={styles.error}>{errors.thumbnailUrl}</p> : null}
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-video-url">
+                  Video URL
+                </label>
+                <input
+                  id="program-video-url"
+                  ref={(element) => {
+                    fieldRefs.current.videoUrl = element;
+                  }}
+                  className={styles.input}
+                  value={value.videoUrl}
+                  onChange={(event) => onChange("videoUrl", event.target.value)}
+                  disabled={busy}
+                />
+                {errors.videoUrl ? <p className={styles.error}>{errors.videoUrl}</p> : null}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-credits-required">
+                  Credits Required
+                </label>
+                <input
+                  id="program-credits-required"
+                  ref={(element) => {
+                    fieldRefs.current.creditsRequired = element;
+                  }}
+                  className={`${styles.input} ${errors.creditsRequired ? styles.inputError : ""}`}
+                  value={value.creditsRequired}
+                  onChange={(event) => onChange("creditsRequired", event.target.value)}
+                  inputMode="numeric"
+                  disabled={busy}
+                />
+                {errors.creditsRequired ? <p className={styles.error}>{errors.creditsRequired}</p> : null}
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-available-from">
+                  Available From
+                </label>
+                <input
+                  id="program-available-from"
+                  ref={(element) => {
+                    fieldRefs.current.availableFrom = element;
+                  }}
+                  className={`${styles.input} ${errors.availableFrom ? styles.inputError : ""}`}
+                  type="date"
+                  value={value.availableFrom}
+                  onChange={(event) => onChange("availableFrom", event.target.value)}
+                  disabled={busy}
+                />
+                {errors.availableFrom ? <p className={styles.error}>{errors.availableFrom}</p> : null}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-expires-at">
+                  Expire Date
+                </label>
+                <input
+                  id="program-expires-at"
+                  ref={(element) => {
+                    fieldRefs.current.expiresAt = element;
+                  }}
+                  className={`${styles.input} ${errors.expiresAt ? styles.inputError : ""}`}
+                  type="date"
+                  value={value.expiresAt}
+                  onChange={(event) => onChange("expiresAt", event.target.value)}
+                  disabled={busy}
+                />
+                {errors.expiresAt ? <p className={styles.error}>{errors.expiresAt}</p> : null}
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-facilitator-name">
+                  Facilitator Name
+                </label>
+                <input
+                  id="program-facilitator-name"
+                  ref={(element) => {
+                    fieldRefs.current.facilitatorName = element;
+                  }}
+                  className={styles.input}
+                  value={value.facilitatorName}
+                  onChange={(event) => onChange("facilitatorName", event.target.value)}
+                  disabled={busy}
+                />
+              </div>
+            </div>
+
+            <label className={styles.label} htmlFor="program-delivery-type">
+              Delivery Type
+            </label>
+            <select
+              id="program-delivery-type"
+              className={styles.select}
+              value={value.deliveryType}
+              onChange={(event) => onChange("deliveryType", event.target.value as ProgramFormValues["deliveryType"])}
+              disabled={busy}
+            >
+              {PROGRAM_DELIVERY_TYPES.map((deliveryType) => (
+                <option key={deliveryType} value={deliveryType}>
+                  {PROGRAM_DELIVERY_TYPE_LABELS[deliveryType]}
+                </option>
+              ))}
+            </select>
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <label className={styles.label} htmlFor="program-duration-value">
+                  Duration Value
+                </label>
+                <input
+                  id="program-duration-value"
+                  ref={(element) => {
+                    fieldRefs.current.durationValue = element;
+                  }}
+                  className={styles.input}
+                  value={value.durationValue}
+                  onChange={(event) => onChange("durationValue", event.target.value)}
+                  inputMode="numeric"
+                  disabled={busy}
+                />
+                {errors.durationValue ? <p className={styles.error}>{errors.durationValue}</p> : null}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <label className={styles.label} htmlFor="program-duration-unit">
+                  Duration Unit
+                </label>
+                <select
+                  id="program-duration-unit"
+                  className={styles.select}
+                  value={value.durationUnit}
+                  onChange={(event) => onChange("durationUnit", event.target.value as ProgramFormValues["durationUnit"])}
+                  disabled={busy}
+                >
+                  {PROGRAM_DURATION_UNITS.map((durationUnit) => (
+                    <option key={durationUnit} value={durationUnit}>
+                      {PROGRAM_DURATION_UNIT_LABELS[durationUnit]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Publish</legend>
+
+            <div className={styles.actions} style={{ alignItems: "center", marginBottom: 12 }}>
+              <label className={styles.radioPill}>
                 <input
                   type="checkbox"
-                  checked={selectedTenantIdsWithPrimary.includes(tenant.tenantId)}
-                  onChange={() => toggleTenantSelection(tenant.tenantId)}
-                  disabled={busy || isPrimaryTenant}
+                  ref={(element) => {
+                    fieldRefs.current.published = element;
+                  }}
+                  checked={value.published}
+                  onChange={(event) => {
+                    const nextPublished = event.target.checked;
+                    onChange("published", nextPublished);
+                    if (!nextPublished) {
+                      onChange("listingPackageId", "");
+                      onChange("listingStatus", "none");
+                    }
+                  }}
+                  disabled={busy}
                 />
-                <span>{tenant.tenantName}</span>
-                {isPrimaryTenant ? <span className={styles.primaryLockBadge}>Primary (locked)</span> : null}
+                Publish now
               </label>
-            );
-          })}
-        </div>
-        {errors.tenantId ? <p className={styles.error}>{errors.tenantId}</p> : null}
+              <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[value.status]}</span>
+              {value.listingStatus === "requested" ? <span className={styles.statusBadge}>Under Review</span> : null}
+            </div>
 
-        <label className={styles.label} htmlFor="program-name">
-          Program Name
-        </label>
-        <input
-          id="program-name"
-          ref={(element) => {
-            fieldRefs.current.name = element;
-          }}
-          className={`${styles.input} ${errors.name ? styles.inputError : ""}`}
-          value={value.name}
-          onChange={(event) => onChange("name", event.target.value)}
-          disabled={busy}
-        />
-        {errors.name ? <p className={styles.error}>{errors.name}</p> : null}
-
-        <label className={styles.label} htmlFor="program-short-description">
-          Short Description
-        </label>
-        <textarea
-          id="program-short-description"
-          ref={(element) => {
-            fieldRefs.current.shortDescription = element;
-          }}
-          className={`${styles.input} ${errors.shortDescription ? styles.inputError : ""}`}
-          value={value.shortDescription}
-          onChange={(event) => onChange("shortDescription", event.target.value)}
-          rows={3}
-          disabled={busy}
-        />
-        {errors.shortDescription ? <p className={styles.error}>{errors.shortDescription}</p> : null}
-
-        <label className={styles.label} htmlFor="program-long-description">
-          Long Description
-        </label>
-        <textarea
-          id="program-long-description"
-          ref={(element) => {
-            fieldRefs.current.longDescription = element;
-          }}
-          className={`${styles.input} ${errors.longDescription ? styles.inputError : ""}`}
-          value={value.longDescription}
-          onChange={(event) => onChange("longDescription", event.target.value)}
-          rows={5}
-          disabled={busy}
-        />
-        {errors.longDescription ? <p className={styles.error}>{errors.longDescription}</p> : null}
-
-        <label className={styles.label} htmlFor="program-delivery-type">
-          Delivery Type
-        </label>
-        <select
-          id="program-delivery-type"
-          className={styles.select}
-          value={value.deliveryType}
-          onChange={(event) => onChange("deliveryType", event.target.value as ProgramFormValues["deliveryType"])}
-          disabled={busy}
-        >
-          {PROGRAM_DELIVERY_TYPES.map((deliveryType) => (
-            <option key={deliveryType} value={deliveryType}>
-              {PROGRAM_DELIVERY_TYPE_LABELS[deliveryType]}
-            </option>
-          ))}
-        </select>
-
-        <div className={styles.actions}>
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <label className={styles.label} htmlFor="program-duration-value">
-              Duration Value
-            </label>
-            <input
-              id="program-duration-value"
-              ref={(element) => {
-                fieldRefs.current.durationValue = element;
-              }}
-              className={styles.input}
-              value={value.durationValue}
-              onChange={(event) => onChange("durationValue", event.target.value)}
-              inputMode="numeric"
-              disabled={busy}
-            />
-            {errors.durationValue ? <p className={styles.error}>{errors.durationValue}</p> : null}
-          </div>
-
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <label className={styles.label} htmlFor="program-duration-unit">
-              Duration Unit
-            </label>
-            <select
-              id="program-duration-unit"
-              className={styles.select}
-              value={value.durationUnit}
-              onChange={(event) => onChange("durationUnit", event.target.value as ProgramFormValues["durationUnit"])}
-              disabled={busy}
-            >
-              {PROGRAM_DURATION_UNITS.map((durationUnit) => (
-                <option key={durationUnit} value={durationUnit}>
-                  {PROGRAM_DURATION_UNIT_LABELS[durationUnit]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <label className={styles.label} htmlFor="program-details">
-          Details
-        </label>
-        <textarea
-          id="program-details"
-          ref={(element) => {
-            fieldRefs.current.details = element;
-          }}
-          className={`${styles.input} ${errors.details ? styles.inputError : ""}`}
-          value={value.details}
-          onChange={(event) => onChange("details", event.target.value)}
-          rows={4}
-          disabled={busy}
-        />
-        {errors.details ? <p className={styles.error}>{errors.details}</p> : null}
-
-        <div className={styles.actions}>
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <label className={styles.label} htmlFor="program-video-url">
-              Video URL
-            </label>
-            <input
-              id="program-video-url"
-              ref={(element) => {
-                fieldRefs.current.videoUrl = element;
-              }}
-              className={styles.input}
-              value={value.videoUrl}
-              onChange={(event) => onChange("videoUrl", event.target.value)}
-              disabled={busy}
-            />
-            {errors.videoUrl ? <p className={styles.error}>{errors.videoUrl}</p> : null}
-          </div>
-
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <label className={styles.label} htmlFor="program-credits-required">
-              Credits Required
-            </label>
-            <input
-              id="program-credits-required"
-              ref={(element) => {
-                fieldRefs.current.creditsRequired = element;
-              }}
-              className={`${styles.input} ${errors.creditsRequired ? styles.inputError : ""}`}
-              value={value.creditsRequired}
-              onChange={(event) => onChange("creditsRequired", event.target.value)}
-              inputMode="numeric"
-              disabled={busy}
-            />
-            {errors.creditsRequired ? <p className={styles.error}>{errors.creditsRequired}</p> : null}
-          </div>
-        </div>
-
-        <div className={styles.actions}>
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <label className={styles.label} htmlFor="program-available-from">
-              Available From
-            </label>
-            <input
-              id="program-available-from"
-              ref={(element) => {
-                fieldRefs.current.availableFrom = element;
-              }}
-              className={`${styles.input} ${errors.availableFrom ? styles.inputError : ""}`}
-              type="date"
-              value={value.availableFrom}
-              onChange={(event) => onChange("availableFrom", event.target.value)}
-              disabled={busy}
-            />
-            {errors.availableFrom ? <p className={styles.error}>{errors.availableFrom}</p> : null}
-          </div>
-
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <label className={styles.label} htmlFor="program-expires-at">
-              Expires At
-            </label>
-            <input
-              id="program-expires-at"
-              ref={(element) => {
-                fieldRefs.current.expiresAt = element;
-              }}
-              className={`${styles.input} ${errors.expiresAt ? styles.inputError : ""}`}
-              type="date"
-              value={value.expiresAt}
-              onChange={(event) => onChange("expiresAt", event.target.value)}
-              disabled={busy}
-            />
-            {errors.expiresAt ? <p className={styles.error}>{errors.expiresAt}</p> : null}
-          </div>
-        </div>
-
-        <label className={styles.label} htmlFor="program-facilitator-name">
-          Facilitator Name
-        </label>
-        <input
-          id="program-facilitator-name"
-          ref={(element) => {
-            fieldRefs.current.facilitatorName = element;
-          }}
-          className={styles.input}
-          value={value.facilitatorName}
-          onChange={(event) => onChange("facilitatorName", event.target.value)}
-          disabled={busy}
-        />
-
-        <label className={styles.label} htmlFor="program-thumbnail">
-          Thumbnail
-        </label>
-        <input
-          id="program-thumbnail"
-          ref={(element) => {
-            fieldRefs.current.thumbnailUrl = element;
-          }}
-          className={`${styles.input} ${errors.thumbnailUrl ? styles.inputError : ""}`}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={(event) => onThumbnailSelect(event.target.files?.[0] ?? null)}
-          disabled={busy || uploadBusy}
-        />
-        <p className={styles.subtitle}>
-          {thumbnailName
-            ? `Selected thumbnail: ${thumbnailName}`
-            : value.thumbnailUrl
-              ? "Existing thumbnail will be kept unless you upload a replacement."
-              : "Upload a JPG, PNG, or WebP image up to 2MB."}
-        </p>
-        {errors.thumbnailUrl ? <p className={styles.error}>{errors.thumbnailUrl}</p> : null}
-
-        <div className={styles.actions} style={{ alignItems: "center", marginBottom: 12 }}>
-          <label className={styles.radioPill}>
-            <input
-              type="checkbox"
-              ref={(element) => {
-                fieldRefs.current.promoted = element;
-              }}
-              checked={value.promoted}
-              onChange={async (event) => {
-                const isPromoted = event.target.checked;
-
-                if (isPromoted && value.promotionPackageId) {
-                  const creditError = await validatePromotionCredits(value.promotionPackageId);
-                  if (creditError) {
-                    setPromotionCreditError(creditError);
-                    onChange("promoted", false);
-                    onChange("promotionStatus", "none");
-                    return;
-                  }
-                }
-
-                setPromotionCreditError("");
-                onChange("promoted", isPromoted);
-                onChange("promotionStatus", isPromoted ? "requested" : "none");
-                if (!isPromoted) {
-                  onChange("promotionPackageId", "");
-                }
-              }}
-              disabled={busy}
-            />
-            Request Promotion
-          </label>
-          <label className={styles.radioPill}>
-            <input
-              type="checkbox"
-              ref={(element) => {
-                fieldRefs.current.published = element;
-              }}
-              checked={value.published}
-              onChange={(event) => onChange("published", event.target.checked)}
-              disabled={busy}
-            />
-            Publish
-          </label>
-          <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[value.status]}</span>
-        </div>
-        {promotionCreditError ? <p className={styles.error}>{promotionCreditError}</p> : null}
-
-        {value.promoted ? (
-          <>
-            <label className={styles.label} htmlFor="program-promotion-package">
-              Promotion Package
-            </label>
-            <select
-              id="program-promotion-package"
-              ref={(element) => {
-                fieldRefs.current.promotionPackageId = element;
-              }}
-              className={`${styles.select} ${errors.promotionPackageId ? styles.inputError : ""}`}
-              value={value.promotionPackageId}
-              onChange={async (event) => {
-                const nextPackageId = event.target.value;
-                onChange("promotionPackageId", nextPackageId);
-
-                if (!value.promoted || !nextPackageId) {
-                  setPromotionCreditError("");
-                  return;
-                }
-
-                const creditError = await validatePromotionCredits(nextPackageId);
-                if (creditError) {
-                  setPromotionCreditError(creditError);
-                  onChange("promoted", false);
-                  onChange("promotionStatus", "none");
-                  return;
-                }
-
-                setPromotionCreditError("");
-              }}
-              disabled={busy || promotionPackagesLoading || !value.tenantId}
-            >
-              <option value="">
-                {value.tenantId ? "Select promotion package" : "Select tenant first"}
-              </option>
-              {promotionPackages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>
-                  {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
-                </option>
-              ))}
-            </select>
-            {errors.promotionPackageId ? <p className={styles.error}>{errors.promotionPackageId}</p> : null}
-            {!promotionPackagesLoading && value.tenantId && promotionPackages.length === 0 ? (
-              <p className={styles.subtitle}>No active Program promotion packages found for this tenant.</p>
+            {value.published ? (
+              <>
+                <label className={styles.label} htmlFor="program-listing-package">
+                  Listing Package
+                </label>
+                <select
+                  id="program-listing-package"
+                  className={`${styles.select} ${errors.listingPackageId ? styles.inputError : ""}`}
+                  value={value.listingPackageId}
+                  onChange={(event) => onChange("listingPackageId", event.target.value)}
+                  disabled={busy || listingPackagesLoading || !value.tenantId}
+                >
+                  <option value="">
+                    {value.tenantId ? "Select listing package" : "Select tenant first"}
+                  </option>
+                  {listingPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                    </option>
+                  ))}
+                </select>
+                {errors.listingPackageId ? <p className={styles.error}>{errors.listingPackageId}</p> : null}
+                {!listingPackagesLoading && value.tenantId && listingPackages.length === 0 ? (
+                  <p className={styles.subtitle}>No active Program listing packages found for this tenant.</p>
+                ) : null}
+              </>
             ) : null}
-          </>
-        ) : null}
+          </fieldset>
 
-        <label className={styles.label} htmlFor="program-visibility">
-          Visibility
-        </label>
-        <select
-          id="program-visibility"
-          ref={(element) => {
-            fieldRefs.current.visibility = element;
-          }}
-          className={styles.select}
-          value={value.visibility}
-          onChange={(event) => onChange("visibility", event.target.value as ProgramFormValues["visibility"])}
-          disabled={busy}
-        >
-          <option value="public">{PROGRAM_VISIBILITY_LABELS.public}</option>
-          <option value="private">{PROGRAM_VISIBILITY_LABELS.private}</option>
-        </select>
-        {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
+          <fieldset style={{ border: "1px solid #c6dcea", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <legend style={{ fontWeight: 700, padding: "0 6px" }}>Promotion</legend>
 
-        <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
-          <p className={styles.userMeta}>Ownership Scope: platform</p>
-          <p className={styles.userMeta}>Visibility: {PROGRAM_VISIBILITY_LABELS[value.visibility]}</p>
-          <p className={styles.userMeta}>Promotion: {PROGRAM_PROMOTION_STATUS_LABELS[value.promotionStatus]}</p>
-          <p className={styles.userMeta}>Publication workflow is draft or published only in this epic.</p>
-        </div>
+            <div className={styles.actions} style={{ alignItems: "center", marginBottom: 12 }}>
+              <label className={styles.radioPill}>
+                <input
+                  type="checkbox"
+                  ref={(element) => {
+                    fieldRefs.current.promoted = element;
+                  }}
+                  checked={value.promoted}
+                  onChange={async (event) => {
+                    const isPromoted = event.target.checked;
 
-        {errors.form ? <p className={styles.error}>{errors.form}</p> : null}
+                    if (isPromoted && value.promotionPackageId) {
+                      const creditError = await validatePromotionCredits(value.promotionPackageId);
+                      if (creditError) {
+                        setPromotionCreditError(creditError);
+                        onChange("promoted", false);
+                        onChange("promotionStatus", "none");
+                        return;
+                      }
+                    }
+
+                    setPromotionCreditError("");
+                    onChange("promoted", isPromoted);
+                    onChange("promotionStatus", isPromoted ? "requested" : "none");
+                    if (!isPromoted) {
+                      onChange("promotionPackageId", "");
+                    }
+                  }}
+                  disabled={busy}
+                />
+                Promote now
+              </label>
+            </div>
+            {promotionCreditError ? <p className={styles.error}>{promotionCreditError}</p> : null}
+
+            {value.promoted ? (
+              <>
+                <label className={styles.label} htmlFor="program-promotion-package">
+                  Promotion Package
+                </label>
+                <select
+                  id="program-promotion-package"
+                  ref={(element) => {
+                    fieldRefs.current.promotionPackageId = element;
+                  }}
+                  className={`${styles.select} ${errors.promotionPackageId ? styles.inputError : ""}`}
+                  value={value.promotionPackageId}
+                  onChange={async (event) => {
+                    const nextPackageId = event.target.value;
+                    onChange("promotionPackageId", nextPackageId);
+
+                    if (!value.promoted || !nextPackageId) {
+                      setPromotionCreditError("");
+                      return;
+                    }
+
+                    const creditError = await validatePromotionCredits(nextPackageId);
+                    if (creditError) {
+                      setPromotionCreditError(creditError);
+                      onChange("promoted", false);
+                      onChange("promotionStatus", "none");
+                      return;
+                    }
+
+                    setPromotionCreditError("");
+                  }}
+                  disabled={busy || promotionPackagesLoading || !value.tenantId}
+                >
+                  <option value="">
+                    {value.tenantId ? "Select promotion package" : "Select tenant first"}
+                  </option>
+                  {promotionPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} • {pkg.durationValue} {pkg.durationUnit} • {pkg.costCredits} credits
+                    </option>
+                  ))}
+                </select>
+                {errors.promotionPackageId ? <p className={styles.error}>{errors.promotionPackageId}</p> : null}
+                {!promotionPackagesLoading && value.tenantId && promotionPackages.length === 0 ? (
+                  <p className={styles.subtitle}>No active Program promotion packages found for this tenant.</p>
+                ) : null}
+              </>
+            ) : null}
+          </fieldset>
+
+          <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
+            <p className={styles.userMeta}>Ownership Scope: platform</p>
+            <p className={styles.userMeta}>Visibility: {PROGRAM_VISIBILITY_LABELS[value.visibility]}</p>
+            <p className={styles.userMeta}>Promotion: {PROGRAM_PROMOTION_STATUS_LABELS[value.promotionStatus]}</p>
+            <p className={styles.userMeta}>Listing: {PROGRAM_LISTING_STATUS_LABELS[value.listingStatus]}</p>
+          </div>
+
+          {errors.form ? <p className={styles.error}>{errors.form}</p> : null}
         </div>
 
         <div className={styles.actions}>

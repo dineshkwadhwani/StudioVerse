@@ -18,7 +18,12 @@ import {
   uploadEventThumbnail,
   validateEventThumbnailFile,
 } from "@/services/events.service";
+import {
+  chargePromotionRequestOnSubmission,
+  denyEventPromotionRequest,
+} from "@/services/programPromotionRequests.service";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
+import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
   EVENT_PROMOTION_STATUS_LABELS,
@@ -31,6 +36,7 @@ import {
   type EventSaveMode,
 } from "@/types/event";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
+import type { ListingPackageRecord } from "@/types/listingPackage";
 
 type TenantOption = {
   id: string;
@@ -70,6 +76,8 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     promoted: event.promotionStatus === "requested" || event.promotionStatus === "promoted",
     promotionPackageId: event.promotionPackageId ?? "",
     promotionStatus: event.promotionStatus,
+    listingPackageId: event.listingPackageId ?? "",
+    listingStatus: event.listingStatus ?? (event.publicationState === "pending_publication_review" ? "requested" : "none"),
     published: event.publicationState === "published",
     visibility: event.visibility === "private" ? "private" : "public",
     ownershipScope: event.ownershipScope,
@@ -99,6 +107,8 @@ export default function EventsSection({
   const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
   const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
+  const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
+  const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
 
@@ -162,6 +172,29 @@ export default function EventsSection({
     }
 
     void loadPromotionPackagesForForm();
+  }, [formOpen, formValues.tenantId]);
+
+  useEffect(() => {
+    async function loadListingPackagesForForm(): Promise<void> {
+      if (!formOpen || !formValues.tenantId) {
+        setListingPackages([]);
+        setListingPackagesLoading(false);
+        return;
+      }
+
+      setListingPackagesLoading(true);
+      try {
+        const loaded = await listActiveListingPackagesForTenant(formValues.tenantId);
+        setListingPackages(loaded.filter((pkg) => pkg.resourceType === "event"));
+      } catch (loadError) {
+        console.error("Failed to load listing packages for Event form:", loadError);
+        setListingPackages([]);
+      } finally {
+        setListingPackagesLoading(false);
+      }
+    }
+
+    void loadListingPackagesForForm();
   }, [formOpen, formValues.tenantId]);
 
   function openCreate(): void {
@@ -262,6 +295,7 @@ export default function EventsSection({
       // Client-side validation
       const preliminaryErrors = validateEventForm(formValues, mode, {
         hasSelectedThumbnail: Boolean(selectedThumbnail),
+        isSuperAdmin,
       });
       if (Object.keys(preliminaryErrors).length > 0) {
         setFormErrors(preliminaryErrors);
@@ -306,13 +340,29 @@ export default function EventsSection({
       const payload = normalizeEventForm(nextFormValues, mode, isSuperAdmin);
       await saveEvent(payload, mode, isExisting);
 
+      if (payload.promotionStatus === "requested" && nextId) {
+        const operatorId = auth.currentUser?.uid ?? "system";
+        try {
+          await chargePromotionRequestOnSubmission({
+            resourceType: "event",
+            resourceId: nextId,
+            operatorId,
+          });
+        } catch (chargeError) {
+          await denyEventPromotionRequest({ eventId: nextId, operatorId });
+          throw chargeError;
+        }
+      }
+
       setFormValues(nextFormValues);
       setFormOpen(false);
       setSelectedThumbnail(null);
       setFormErrors({});
 
       const action = isExisting ? "updated" : "created";
-      const pubStatus = formValues.published ? " and published" : " as draft";
+      const pubStatus = formValues.published
+        ? (isSuperAdmin ? " and published" : " and submitted for listing approval")
+        : " as draft";
       setMessage(`Event ${action}${pubStatus}.`);
 
       await refreshEvents(selectedTenantId || undefined);
@@ -459,7 +509,9 @@ export default function EventsSection({
 
                   <div className={styles.eventActions}>
                     <span className={styles.statusBadge}>
-                      {EVENT_STATUS_LABELS[event.status]}
+                      {event.publicationState === "pending_publication_review"
+                        ? "Under Review"
+                        : EVENT_STATUS_LABELS[event.status]}
                     </span>
                     <button
                       type="button"
@@ -486,6 +538,8 @@ export default function EventsSection({
           thumbnailName={selectedThumbnail?.name ?? null}
           promotionPackages={promotionPackages}
           promotionPackagesLoading={promotionPackagesLoading}
+          listingPackages={listingPackages}
+          listingPackagesLoading={listingPackagesLoading}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onCancel={closeForm}

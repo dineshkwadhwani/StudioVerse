@@ -25,6 +25,40 @@ Queued for prod rollout once project exists:
 - Treasury wallet architecture (`treasury::<tenantId>`) — `ensureTenantTreasuryWallet`, `backfillTenantTreasuryWallets` callable, `issueRegistrationBonus` callable, `processReferralJoinWithTreasury` callable, `returnDebitsToTreasury` Firestore trigger (creator earnings routing included).
 - Firestore rules update: treasury wallet guard (`isTreasuryWallet`), scoped wallet ID read support (`.*::<uid>`), treasury-blocked client writes.
 
+## MVP Rollout Queue (Open Items)
+
+Use this as the single backlog for features that still need implementation and/or production rollout planning.
+
+### High Priority
+
+- ImageBasedSingleChoice quiz runner (type exists, component/runner not implemented).
+- Listing fee charge flow (listing publish monetization path not implemented).
+- Marketplace purchase flow with commission split (non-owner purchase commission path missing).
+- Creator earnings ledger entries (no dedicated earnings ledger collection yet).
+- Lead unlock monetization flow (paid unlock + transaction records missing).
+- Creator self-assignment commission exemption logic (no bypass flow yet).
+- Super Admin monetization reporting (listing/promotion/commission/lead-unlock revenue views missing).
+- Super Admin monetization settings beyond cashout (listing fee, promotion fee, marketplace commission %, lead unlock fee).
+- Super Admin wallet adjustment/reversal UI (deduction/reversal operations missing).
+- Content moderation/takedown controls (Super Admin unpublish/flag workflow missing for public content).
+
+### Low Priority / Polish
+
+- Tenant-specific SEO metadata exports for landing pages.
+- Analytics instrumentation for funnel and engagement events.
+- Role-specific benefits section content on landing pages.
+- Role-based dashboard widgets (replace placeholder summaries).
+- Assessment versioning/snapshot strategy.
+- Wallet utilization/reconciliation analytics views.
+- Bot-created referral source typing/queryability in Firestore (`source` field consistency).
+
+### Additional Meaningful Gaps (Non-blocking but Important)
+
+- Email notification coverage for key lifecycle flows.
+- In-app/push notification center and unread indicators.
+- Tenant onboarding wizard for first-time tenant/company setup.
+- Referral source analytics split (bot vs manual) as a queryable reporting dimension.
+
 Go-live handoff instruction:
 
 - After `studioverse-prod` is created, execute sections A through F in order.

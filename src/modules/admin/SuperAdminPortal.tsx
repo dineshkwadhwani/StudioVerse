@@ -40,7 +40,7 @@ import ManageCoinsSection from "./ManageCoinsSection";
 import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
-import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
+import { listAllReferrals, processReferralJoinForNewUser, sendReferralReminders } from "@/services/referral.service";
 import { backfillTenantTreasuryWallets, buildWalletId, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
@@ -105,6 +105,11 @@ type TenantRecord = {
     superAdminOpeningCoins?: number;
     registrationFreeCoins?: number;
     referralFreeCoins?: number;
+    cashout?: {
+      creditCost?: number;
+      cashbackPercentage?: number;
+      minimumCredits?: number;
+    };
   };
   mailConfig?: {
     enabled?: boolean;
@@ -153,6 +158,9 @@ type TenantWalletFormState = {
   superAdminOpeningCoins: number;
   registrationFreeCoins: number;
   referralFreeCoins: number;
+  cashoutCreditCost: number;
+  cashoutCashbackPercentage: number;
+  cashoutMinimumCredits: number;
 };
 
 type TenantMailFormState = {
@@ -290,6 +298,9 @@ const EMPTY_TENANT_FORM: TenantFormState = {
     superAdminOpeningCoins: 100000,
     registrationFreeCoins: 10,
     referralFreeCoins: 5,
+    cashoutCreditCost: 25,
+    cashoutCashbackPercentage: 80,
+    cashoutMinimumCredits: 40,
   },
   mailConfig: {
     enabled: false,
@@ -870,6 +881,9 @@ export default function SuperAdminPortal() {
         superAdminOpeningCoins: target.walletConfig?.superAdminOpeningCoins ?? 100000,
         registrationFreeCoins: target.walletConfig?.registrationFreeCoins ?? 10,
         referralFreeCoins: target.walletConfig?.referralFreeCoins ?? 5,
+        cashoutCreditCost: target.walletConfig?.cashout?.creditCost ?? 25,
+        cashoutCashbackPercentage: target.walletConfig?.cashout?.cashbackPercentage ?? 80,
+        cashoutMinimumCredits: target.walletConfig?.cashout?.minimumCredits ?? 40,
       },
       mailConfig: {
         enabled: target.mailConfig?.enabled ?? false,
@@ -1018,6 +1032,21 @@ export default function SuperAdminPortal() {
             }
           });
         }
+
+        if (userForm.userType === "professional" || userForm.userType === "individual") {
+          try {
+            await processReferralJoinForNewUser({
+              userId: userRef.id,
+              fullName: trimmedName,
+              tenantId: normalizedTenantId,
+              userType: userForm.userType,
+              email: normalizedEmail,
+              phoneE164: normalizedPhone,
+            });
+          } catch {
+            // Referral processing is best-effort and should not block user creation.
+          }
+        }
       }
 
       setUserModalOpen(false);
@@ -1086,6 +1115,11 @@ export default function SuperAdminPortal() {
           superAdminOpeningCoins: Math.max(0, Math.floor(tenantForm.walletConfig.superAdminOpeningCoins)),
           registrationFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.registrationFreeCoins)),
           referralFreeCoins: Math.max(0, Math.floor(tenantForm.walletConfig.referralFreeCoins)),
+          cashout: {
+            creditCost: Math.max(0, Number(tenantForm.walletConfig.cashoutCreditCost)),
+            cashbackPercentage: Math.min(100, Math.max(0, Number(tenantForm.walletConfig.cashoutCashbackPercentage))),
+            minimumCredits: Math.max(1, Math.floor(Number(tenantForm.walletConfig.cashoutMinimumCredits))),
+          },
         },
         mailConfig: {
           enabled: tenantForm.mailConfig.enabled,
@@ -2149,7 +2183,7 @@ export default function SuperAdminPortal() {
               <div className={styles.tenantConfigGrid}>
                 <div className={styles.compactField}>
                   <label className={styles.compactLabel} htmlFor="superadmin-opening-coins">
-                    Super Admin Opening Coins
+                      Opening Credit
                   </label>
                   <input
                     id="superadmin-opening-coins"
@@ -2191,13 +2225,57 @@ export default function SuperAdminPortal() {
                     onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, referralFreeCoins: Number(event.target.value) } }))}
                   />
                 </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="cashout-credit-cost">
+                    Cashout Credit (Rs)
+                  </label>
+                  <input
+                    id="cashout-credit-cost"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.walletConfig.cashoutCreditCost}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, cashoutCreditCost: Number(event.target.value) } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="cashout-cashback-percentage">
+                    Cashout Cashback %
+                  </label>
+                  <input
+                    id="cashout-cashback-percentage"
+                    type="number"
+                    min={0}
+                    max={100}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.walletConfig.cashoutCashbackPercentage}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, cashoutCashbackPercentage: Number(event.target.value) } }))}
+                  />
+                </div>
+
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="cashout-minimum-credits">
+                    Cashout Minimum Credits
+                  </label>
+                  <input
+                    id="cashout-minimum-credits"
+                    type="number"
+                    min={1}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.walletConfig.cashoutMinimumCredits}
+                    onChange={(event) => setTenantForm((prev) => ({ ...prev, walletConfig: { ...prev.walletConfig, cashoutMinimumCredits: Number(event.target.value) } }))}
+                  />
+                </div>
               </div>
             </section>
 
             <section className={styles.tenantConfigBlock}>
               <p className={styles.tenantSubLabel}>Mail Configuration</p>
-              <div className={styles.tenantToggleRow}>
-                <label className={styles.tenantToggleLabel}>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
                   <input
                     type="checkbox"
                     checked={tenantForm.mailConfig.enabled}
@@ -2254,16 +2332,16 @@ export default function SuperAdminPortal() {
 
             <section className={styles.tenantConfigBlock}>
               <p className={styles.tenantSubLabel}>Bot Configuration</p>
-              <div className={styles.tenantToggleRow}>
-                <label className={styles.tenantToggleLabel}>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
                   <input type="checkbox" checked={tenantForm.botConfig.visible} onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, visible: e.target.checked } }))} />
                   Bot Visible
                 </label>
-                <label className={styles.tenantToggleLabel}>
+                <label className={styles.radioPill}>
                   <input type="checkbox" checked={tenantForm.botConfig.studioBotEnabled} onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, studioBotEnabled: e.target.checked } }))} />
                   Studio Bot
                 </label>
-                <label className={styles.tenantToggleLabel}>
+                <label className={styles.radioPill}>
                   <input type="checkbox" checked={tenantForm.botConfig.professionalBotEnabled} onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, professionalBotEnabled: e.target.checked } }))} />
                   Professional Bot
                 </label>

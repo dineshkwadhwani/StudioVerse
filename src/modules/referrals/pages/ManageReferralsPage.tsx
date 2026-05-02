@@ -246,10 +246,10 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
           <p className={styles.contextText}>
             {role === "company"
               ? "Track referrals submitted by your professionals and monitor referral-driven growth across your company."
-              : "Refer coaches and individuals to the platform, earn credits for each referral, and track their progress here."}
+              : "Refer coaches and individuals to the platform and track their progress here."}
           </p>
           <p className={styles.note}>
-            Every referral gives you 10 coins now, and you receive 5 extra coins when that referral joins.
+            Referral rewards are issued only when the referred coach or individual actually joins.
           </p>
 
           <div className={styles.formGrid}>

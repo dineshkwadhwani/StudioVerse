@@ -15,6 +15,7 @@ import { db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
 import { createWalletForUser, getTenantRegistrationFreeCoins, getWalletForUserContext } from "@/services/wallet.service";
+import { processReferralJoinForNewUser } from "@/services/referral.service";
 import { getCohortAssignmentPayload } from "@/services/cohorts.service";
 import type { CohortCreatorRole } from "@/types/cohort";
 
@@ -230,6 +231,19 @@ async function provisionAssigneeIfNeeded(args: {
     initialCoins: registrationCoins,
     reason: "Registration bonus",
   });
+
+    try {
+      await processReferralJoinForNewUser({
+        userId: newAssigneeId,
+        fullName: assigneeFullName,
+        tenantId: args.tenantId,
+        userType: "individual",
+        email: assigneeEmail,
+        phoneE164: assigneePhone,
+      });
+    } catch {
+      // Referral processing is best-effort and should not block assignment creation.
+    }
 
   return {
     assigneeId: newAssigneeId,

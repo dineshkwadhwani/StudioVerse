@@ -18,7 +18,12 @@ import {
   uploadProgramThumbnail,
   validateThumbnailFile,
 } from "@/services/programs.service";
+import {
+  chargePromotionRequestOnSubmission,
+  denyProgramPromotionRequest,
+} from "@/services/programPromotionRequests.service";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
+import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
 import {
   PROGRAM_STATUS_LABELS,
@@ -29,6 +34,7 @@ import {
   type ProgramSaveMode,
 } from "@/types/program";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
+import type { ListingPackageRecord } from "@/types/listingPackage";
 
 type TenantOption = {
   id: string;
@@ -67,6 +73,8 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
     promoted: program.promotionStatus === "requested" || program.promotionStatus === "promoted",
     promotionPackageId: program.promotionPackageId ?? "",
     promotionStatus: program.promotionStatus,
+    listingPackageId: program.listingPackageId ?? "",
+    listingStatus: program.listingStatus ?? (program.publicationState === "pending_publication_review" ? "requested" : "none"),
     published: program.publicationState === "published",
     visibility: program.visibility === "private" ? "private" : "public",
     ownershipScope: program.ownershipScope,
@@ -93,6 +101,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
   const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
   const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
+  const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
+  const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
 
@@ -156,6 +166,29 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
     }
 
     void loadPromotionPackagesForForm();
+  }, [formOpen, formValues.tenantId]);
+
+  useEffect(() => {
+    async function loadListingPackagesForForm(): Promise<void> {
+      if (!formOpen || !formValues.tenantId) {
+        setListingPackages([]);
+        setListingPackagesLoading(false);
+        return;
+      }
+
+      setListingPackagesLoading(true);
+      try {
+        const loaded = await listActiveListingPackagesForTenant(formValues.tenantId);
+        setListingPackages(loaded.filter((pkg) => pkg.resourceType === "program"));
+      } catch (loadError) {
+        console.error("Failed to load listing packages for Program form:", loadError);
+        setListingPackages([]);
+      } finally {
+        setListingPackagesLoading(false);
+      }
+    }
+
+    void loadListingPackagesForForm();
   }, [formOpen, formValues.tenantId]);
 
   function openCreate(): void {
@@ -251,6 +284,7 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
 
       const preliminaryErrors = validateProgramForm(formValues, mode, {
         hasSelectedThumbnail: Boolean(selectedThumbnail),
+        isSuperAdmin,
       });
       if (Object.keys(preliminaryErrors).length > 0) {
         setFormErrors(preliminaryErrors);
@@ -296,13 +330,29 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
       const payload = normalizeProgramForm(nextFormValues, mode, isSuperAdmin);
       await saveProgram(payload, mode, isExisting);
 
+      if (payload.promotionStatus === "requested" && nextId) {
+        const operatorId = auth.currentUser?.uid ?? "system";
+        try {
+          await chargePromotionRequestOnSubmission({
+            resourceType: "program",
+            resourceId: nextId,
+            operatorId,
+          });
+        } catch (chargeError) {
+          await denyProgramPromotionRequest({ programId: nextId, operatorId });
+          throw chargeError;
+        }
+      }
+
       setFormValues(nextFormValues);
       setFormOpen(false);
       setSelectedThumbnail(null);
       setFormErrors({});
       
       const action = isExisting ? "updated" : "created";
-      const publicationStatus = formValues.published ? " and published" : " as draft";
+      const publicationStatus = formValues.published
+        ? (isSuperAdmin ? " and published" : " and submitted for listing approval")
+        : " as draft";
       setMessage(`Program ${action}${publicationStatus}.`);
       
       await refreshPrograms(selectedTenantId || undefined);
@@ -437,7 +487,9 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
                   </div>
 
                   <div className={styles.programActions}>
-                    <span className={styles.statusBadge}>{PROGRAM_STATUS_LABELS[program.status]}</span>
+                    <span className={styles.statusBadge}>
+                      {program.publicationState === "pending_publication_review" ? "Under Review" : PROGRAM_STATUS_LABELS[program.status]}
+                    </span>
                     <button type="button" className={styles.rowAction} onClick={() => openEdit(program)}>
                       Edit
                     </button>
@@ -459,6 +511,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
           thumbnailName={selectedThumbnail?.name ?? null}
           promotionPackages={promotionPackages}
           promotionPackagesLoading={promotionPackagesLoading}
+          listingPackages={listingPackages}
+          listingPackagesLoading={listingPackagesLoading}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onCancel={closeForm}

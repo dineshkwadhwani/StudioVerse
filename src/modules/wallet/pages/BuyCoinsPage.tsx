@@ -10,12 +10,15 @@ import { listActiveCoinPackages } from "@/services/coinPackages.service";
 import { createCoinOrder, updateCoinOrderStatus } from "@/services/coinOrders.service";
 import { assignCoins } from "@/services/wallet.service";
 import type { CoinPackageRecord } from "@/types/coinPackage";
+import type { TenantConfig } from "@/types/tenant";
 import type { WalletUserType } from "@/types/wallet";
+import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+import ViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import styles from "./ManageWalletPage.module.css";
 import buyStyles from "./BuyCoinsPage.module.css";
 
 type BuyCoinsPageProps = {
-  tenantId?: string;
+  tenantConfig?: TenantConfig;
 };
 
 type OrderFlow = "browse" | "summary" | "success" | "failed";
@@ -53,8 +56,9 @@ type UserContext = {
   userType: WalletUserType;
 };
 
-export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsPageProps) {
+export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: BuyCoinsPageProps) {
   const router = useRouter();
+  const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
 
   const [userCtx, setUserCtx] = useState<UserContext | null>(null);
@@ -281,6 +285,7 @@ export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsP
   if (loadingInit) {
     return (
       <main className={styles.page}>
+        <ViewAllHeader config={tenantConfig} currentPage="tools" onSignInRegister={() => router.push(basePath)} />
         <div className={styles.shell}>
           <div className={styles.card}>
             <p className={styles.subtitle}>Loading…</p>
@@ -294,6 +299,7 @@ export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsP
   if (flow === "success" && selected) {
     return (
       <main className={styles.page}>
+        <ViewAllHeader config={tenantConfig} currentPage="tools" onSignInRegister={() => router.push(basePath)} />
         <div className={styles.shell}>
           <div className={styles.card}>
             <div className={buyStyles.successBox}>
@@ -322,6 +328,7 @@ export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsP
   if (flow === "failed") {
     return (
       <main className={styles.page}>
+        <ViewAllHeader config={tenantConfig} currentPage="tools" onSignInRegister={() => router.push(basePath)} />
         <div className={styles.shell}>
           <div className={styles.card}>
             <div className={buyStyles.successBox}>
@@ -362,6 +369,7 @@ export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsP
   if (flow === "summary" && selected) {
     return (
       <main className={styles.page}>
+        <ViewAllHeader config={tenantConfig} currentPage="tools" onSignInRegister={() => router.push(basePath)} />
         <div className={styles.shell}>
           <div className={styles.card}>
             <button
@@ -433,6 +441,7 @@ export default function BuyCoinsPage({ tenantId = "coaching-studio" }: BuyCoinsP
   // ── Browse packages ───────────────────────────────────────
   return (
     <main className={styles.page}>
+      <ViewAllHeader config={tenantConfig} currentPage="tools" onSignInRegister={() => router.push(basePath)} />
       <div className={styles.shell}>
         <div className={styles.card}>
           <div style={{ marginBottom: "16px" }}>

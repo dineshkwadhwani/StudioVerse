@@ -10,8 +10,9 @@ import {
 import { getFirestore, collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
-import { ensureWalletExists, issueRegistrationBonusForUser } from '@/services/wallet.service';
+import { ensureWalletExists } from '@/services/wallet.service';
 import { processReferralJoinForNewUser } from '@/services/referral.service';
+import { saveUserProfile } from '@/services/profile.service';
 import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
 import type { WalletUserType } from '@/types/wallet';
 import type { TenantConfig } from '@/types/tenant';
@@ -335,48 +336,28 @@ export default function LoginRegisterModal({
       }
 
       const phoneE164 = currentUser.phoneNumber || normalizePhone(phone);
-      const userId = currentUser.uid;
 
-      // Prepare user data
-      const userData: Record<string, unknown> = {
-        uid: userId,
-        phoneE164,
-        name,
-        email: trimmedEmail,
-        role,
-        userType: role,
+      const savedProfile = await saveUserProfile({
+        userId: currentUser.uid,
         tenantId,
-        createdAt: new Date().toISOString(),
-      };
-
-      if (role === 'company') {
-        userData.companyName = companyName;
-        userData.position = position;
-      }
-
-      // Save to Firestore users collection
-      const userDocRef = doc(db, 'users', userId);
-      await setDoc(userDocRef, userData, { merge: true });
-
-      // Apply onboarding registration bonus via trusted backend callable.
-      try {
-        await issueRegistrationBonusForUser({
-          userId,
-          tenantId,
-        });
-      } catch {
-        // Bonus issuance failed — non-fatal for registration.
-      }
+        userType: role,
+        fullName: name,
+        email: trimmedEmail,
+        phoneE164,
+        companyName: role === 'company' ? companyName : undefined,
+        companyPosition: position || undefined,
+        status: 'active',
+      });
 
       // Check for referral join reward (only on self-registration for Professionals/Individuals, non-fatal if fails)
       if ((role === 'professional' || role === 'individual')) {
         try {
           await processReferralJoinForNewUser({
-            userId,
-            fullName: name,
-            email: trimmedEmail,
-            phoneE164,
-            tenantId,
+            userId: savedProfile.userId,
+            fullName: savedProfile.fullName,
+            email: savedProfile.email,
+            phoneE164: savedProfile.phoneE164,
+            tenantId: savedProfile.tenantId,
             userType: role,
           });
         } catch {
@@ -384,18 +365,18 @@ export default function LoginRegisterModal({
         }
       }
 
-      logFlow('register:success', { userId, role });
+      logFlow('register:success', { userId: savedProfile.userId, role });
       setPhase('success');
       setInfo('Registration successful! You are now logged in.');
 
       // Set session storage
-      sessionStorage.setItem('cs_uid', userId);
-      sessionStorage.setItem('cs_profile_id', userDocRef.id);
+      sessionStorage.setItem('cs_uid', savedProfile.userId);
+      sessionStorage.setItem('cs_profile_id', savedProfile.id);
       sessionStorage.setItem('cs_role', role);
       sessionStorage.setItem('cs_name', name);
       sessionStorage.setItem('cs_email', trimmedEmail);
       sessionStorage.setItem('cs_phone', phoneE164);
-      persistAuthSessionCookies({ uid: userId, role });
+      persistAuthSessionCookies({ uid: savedProfile.userId, role });
 
       // Redirect to dashboard
       setTimeout(() => {

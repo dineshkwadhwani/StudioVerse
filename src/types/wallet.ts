@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase/firestore";
+import type { WalletTransactionSource } from "@/constants/wallet";
 
 export type WalletUserType = "superadmin" | "company" | "professional" | "individual";
 
@@ -34,6 +35,7 @@ export type WalletTransactionRecord = {
   transactionType: WalletTransactionType;
   reason?: string;
   coins: number;
+  source?: WalletTransactionSource;
   assignmentId?: string;
   activityType?: string;
   activityId?: string;

@@ -13,9 +13,10 @@ import { LISTING_RESOURCE_LABELS, type ListingPackageRecord } from "@/types/list
 
 type Props = {
   operatorId: string;
+  onRequestsChanged?: () => void;
 };
 
-export default function ListingRequestsSection({ operatorId }: Props) {
+export default function ListingRequestsSection({ operatorId, onRequestsChanged }: Props) {
   const [requests, setRequests] = useState<ListingRequestRecord[]>([]);
   const [packagesById, setPackagesById] = useState<Record<string, ListingPackageRecord>>({});
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -65,6 +66,7 @@ export default function ListingRequestsSection({ operatorId }: Props) {
       await approveListingRequest({ resourceType: request.resourceType, id: request.id, operatorId });
       setMessage("Listing request approved.");
       await refresh();
+      onRequestsChanged?.();
     } catch (approvalError) {
       setError(approvalError instanceof Error ? approvalError.message : "Failed to approve listing request.");
     } finally {
@@ -80,6 +82,7 @@ export default function ListingRequestsSection({ operatorId }: Props) {
       await denyListingRequest({ resourceType: request.resourceType, id: request.id, operatorId });
       setMessage("Listing request denied.");
       await refresh();
+      onRequestsChanged?.();
     } catch (denyError) {
       setError(denyError instanceof Error ? denyError.message : "Failed to deny listing request.");
     } finally {

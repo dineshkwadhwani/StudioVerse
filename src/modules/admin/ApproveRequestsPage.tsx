@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import styles from "./ManageEarningPackagesPage.module.css";
+import { db } from "@/services/firebase";
+import { listPromotionRequests } from "@/services/programPromotionRequests.service";
+import { listPendingBotHeroRequests } from "@/services/botHero.service";
+import { listListingRequests } from "@/services/listingRequests.service";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import CashoutRequestsSection from "./CashoutRequestsSection";
 import ListingRequestsSection from "./ListingRequestsSection";
@@ -11,15 +16,52 @@ interface ApproveRequestsPageProps {
   operatorId: string;
 }
 
+type TabKey = "promotion" | "cashout" | "listing" | "bot-hero";
+
+type PendingCounts = {
+  promotion: number;
+  cashout: number;
+  listing: number;
+  botHero: number;
+};
+
 const TAB_LIST = [
-  { key: "promotion", label: "Promotion" },
-  { key: "cashout", label: "Cash Out" },
-  { key: "listing", label: "Listing" },
-  { key: "bot-hero", label: "Bot Hero" },
-];
+  { key: "promotion", label: "Promotion", countKey: "promotion" },
+  { key: "cashout", label: "Cash Out", countKey: "cashout" },
+  { key: "listing", label: "Listing", countKey: "listing" },
+  { key: "bot-hero", label: "Bot Hero", countKey: "botHero" },
+] as const;
+
+const EMPTY_COUNTS: PendingCounts = {
+  promotion: 0,
+  cashout: 0,
+  listing: 0,
+  botHero: 0,
+};
 
 export default function ApproveRequestsPage({ operatorId }: ApproveRequestsPageProps) {
-  const [activeTab, setActiveTab] = useState("promotion");
+  const [activeTab, setActiveTab] = useState<TabKey>("promotion");
+  const [counts, setCounts] = useState<PendingCounts>(EMPTY_COUNTS);
+
+  async function refreshPendingCounts() {
+    const [pendingCashoutSnap, pendingPromotionRows, pendingBotHeroRows, pendingListingRows] = await Promise.all([
+      getDocs(query(collection(db, "cashoutRequests"), where("status", "==", "pending"))),
+      listPromotionRequests(),
+      listPendingBotHeroRequests(),
+      listListingRequests(),
+    ]);
+
+    setCounts({
+      promotion: pendingPromotionRows.length,
+      cashout: pendingCashoutSnap.size,
+      listing: pendingListingRows.length,
+      botHero: pendingBotHeroRows.length,
+    });
+  }
+
+  useEffect(() => {
+    void refreshPendingCounts();
+  }, []);
 
   return (
     <section className={styles.layout}>
@@ -36,18 +78,19 @@ export default function ApproveRequestsPage({ operatorId }: ApproveRequestsPageP
               onClick={() => setActiveTab(tab.key)}
               type="button"
             >
-              {tab.label}
+              <span className={styles.tabLabel}>{tab.label}</span>
+              <span className={styles.tabBadge}>{counts[tab.countKey]}</span>
             </button>
           ))}
         </div>
       </section>
       <section className={styles.contentCard}>
         {activeTab === "promotion" && (
-          <PromotionRequestsSection operatorId={operatorId} />
+          <PromotionRequestsSection operatorId={operatorId} onRequestsChanged={refreshPendingCounts} />
         )}
-        {activeTab === "cashout" && <CashoutRequestsSection operatorId={operatorId} />}
-        {activeTab === "listing" && <ListingRequestsSection operatorId={operatorId} />}
-        {activeTab === "bot-hero" && <BotHeroRequestsSection operatorId={operatorId} />}
+        {activeTab === "cashout" && <CashoutRequestsSection operatorId={operatorId} onRequestsChanged={refreshPendingCounts} />}
+        {activeTab === "listing" && <ListingRequestsSection operatorId={operatorId} onRequestsChanged={refreshPendingCounts} />}
+        {activeTab === "bot-hero" && <BotHeroRequestsSection operatorId={operatorId} onRequestsChanged={refreshPendingCounts} />}
       </section>
     </section>
   );

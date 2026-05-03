@@ -84,6 +84,9 @@
   font-weight: 600;
   color: #4f6174;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .tab:hover {
@@ -100,4 +103,28 @@
 .tab:focus-visible {
   outline: 2px solid #17324d;
   outline-offset: 2px;
+}
+
+.tabLabel {
+  display: inline-block;
+}
+
+.tabBadge {
+  display: inline-flex;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(19, 58, 86, 0.12);
+  color: #17324d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tabActive .tabBadge {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }

@@ -11,15 +11,107 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import type { WithFieldValue } from "firebase/firestore";
-import { db } from "@/services/firebase";
+import { auth, db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
 import { createWalletForUser, getTenantRegistrationFreeCoins, getWalletForUserContext } from "@/services/wallet.service";
 import { processReferralJoinForNewUser } from "@/services/referral.service";
 import { getCohortAssignmentPayload } from "@/services/cohorts.service";
+import { sendNotificationEmail } from "@/services/notification.service";
 import type { CohortCreatorRole } from "@/types/cohort";
 
 type AssignmentWriteData = WithFieldValue<Omit<AssignmentRecord, "id">>;
+
+async function resolveAuthenticatedActorIds(tenantId: string): Promise<Set<string>> {
+  const authUid = auth.currentUser?.uid?.trim();
+  if (!authUid) {
+    throw new Error("You must be signed in to perform this action.");
+  }
+
+  const actorIds = new Set<string>([authUid]);
+
+  const directUserSnap = await getDoc(doc(db, "users", authUid));
+  if (directUserSnap.exists()) {
+    const directData = directUserSnap.data() as Record<string, unknown>;
+    const directTenantId = String(directData.tenantId ?? "").trim();
+    if (!directTenantId || directTenantId === tenantId) {
+      actorIds.add(directUserSnap.id);
+      actorIds.add(String(directData.userId ?? "").trim());
+      actorIds.add(String(directData.uid ?? "").trim());
+    }
+  }
+
+  const byUidSnap = await getDocs(
+    query(collection(db, "users"), where("uid", "==", authUid))
+  );
+
+  byUidSnap.docs.forEach((row) => {
+    const data = row.data() as Record<string, unknown>;
+    const rowTenantId = String(data.tenantId ?? "").trim();
+    if (rowTenantId && rowTenantId !== tenantId) {
+      return;
+    }
+
+    actorIds.add(row.id);
+    actorIds.add(String(data.userId ?? "").trim());
+    actorIds.add(String(data.uid ?? "").trim());
+  });
+
+  return new Set(Array.from(actorIds).filter(Boolean));
+}
+
+function ensureActorMatchesAssigner(assignerId: string, actorIds: Set<string>): void {
+  const normalizedAssignerId = assignerId.trim();
+  if (!normalizedAssignerId || !actorIds.has(normalizedAssignerId)) {
+    throw new Error("Unauthorized assigner context.");
+  }
+}
+
+function isWalletOwnedByActor(wallet: { id: string; userId: string }, actorIds: Set<string>): boolean {
+  if (actorIds.has(wallet.userId) || actorIds.has(wallet.id)) {
+    return true;
+  }
+
+  return Array.from(actorIds).some((actorId) => wallet.id.endsWith(`::${actorId}`));
+}
+
+async function notifyAssignmentCreated(args: {
+  tenantId: string;
+  assigneeEmail: string;
+  assigneeName: string;
+  assignerName: string;
+  activityType: ActivityType;
+  activityTitle: string;
+  assignmentId?: string;
+  cohortId?: string;
+}): Promise<void> {
+  const recipientEmail = args.assigneeEmail.trim().toLowerCase();
+  if (!recipientEmail) {
+    return;
+  }
+
+  try {
+    await sendNotificationEmail({
+      tenantId: args.tenantId,
+      notificationType: "assignmentCreated",
+      recipientEmail,
+      recipientName: args.assigneeName.trim() || "User",
+      templateVariables: {
+        recipientName: args.assigneeName,
+        assignerName: args.assignerName,
+        activityType: args.activityType,
+        activityTitle: args.activityTitle,
+      },
+      metadata: {
+        assignmentId: args.assignmentId ?? "",
+        cohortId: args.cohortId ?? "",
+        activityType: args.activityType,
+      },
+    });
+  } catch {
+    // Notification send is best-effort and should not block assignment creation.
+  }
+}
 
 /**
  * Search for users by phone or email
@@ -221,6 +313,27 @@ async function provisionAssigneeIfNeeded(args: {
     { merge: true }
   );
 
+  try {
+    if (assigneeEmail) {
+      await sendNotificationEmail({
+        tenantId: args.tenantId,
+        notificationType: "onboardingActivation",
+        recipientEmail: assigneeEmail,
+        recipientName: assigneeFullName || "User",
+        templateVariables: {
+          recipientName: assigneeFullName || "User",
+          tenantName: args.tenantId,
+        },
+        metadata: {
+          userId: newAssigneeId,
+          source: "assignmentAutoProvision",
+        },
+      });
+    }
+  } catch {
+    // User provisioning should not fail if notification fails.
+  }
+
   const registrationCoins = await getTenantRegistrationFreeCoins(args.tenantId);
   await createWalletForUser({
     userId: newAssigneeId,
@@ -276,6 +389,9 @@ export async function createAssignment(args: {
   status?: AssignmentStatus;
 }): Promise<{ success: boolean; message: string; assignmentId?: string }> {
   try {
+    const actorIds = await resolveAuthenticatedActorIds(args.tenantId);
+    ensureActorMatchesAssigner(args.assignerId, actorIds);
+
     const provisionedAssignee = await provisionAssigneeIfNeeded({
       tenantId: args.tenantId,
       assigneeId: args.assigneeId,
@@ -315,6 +431,16 @@ export async function createAssignment(args: {
 
       await setDoc(assignmentRef, assignmentData);
 
+      await notifyAssignmentCreated({
+        tenantId: args.tenantId,
+        assigneeEmail: effectiveAssigneeEmail,
+        assigneeName: effectiveAssigneeFullName,
+        assignerName: args.assignerName,
+        activityType: args.activityType,
+        activityTitle: args.activityTitle,
+        assignmentId: assignmentRef.id,
+      });
+
       return {
         success: true,
         message: "Assignment created successfully. 0 coins deducted from wallet.",
@@ -324,10 +450,7 @@ export async function createAssignment(args: {
 
     // Get assignor wallet. The assignor spends coins when assigning to another user.
     const wallet = await getWalletForUserContext(
-      [
-        ...(args.assignerLookupIds ?? []),
-        args.assignerId,
-      ],
+      Array.from(actorIds),
       args.tenantId,
     );
     
@@ -335,6 +458,13 @@ export async function createAssignment(args: {
       return {
         success: false,
         message: "Assignor wallet not found. Please ensure your wallet has been set up.",
+      };
+    }
+
+    if (!isWalletOwnedByActor(wallet, actorIds)) {
+      return {
+        success: false,
+        message: "Unauthorized wallet context for assignment.",
       };
     }
 
@@ -409,6 +539,16 @@ export async function createAssignment(args: {
       return assignmentRef.id;
     });
 
+    await notifyAssignmentCreated({
+      tenantId: args.tenantId,
+      assigneeEmail: effectiveAssigneeEmail,
+      assigneeName: effectiveAssigneeFullName,
+      assignerName: args.assignerName,
+      activityType: args.activityType,
+      activityTitle: args.activityTitle,
+      assignmentId: result,
+    });
+
     return {
       success: true,
       message: `Assignment created successfully. ${args.creditsRequired} coins deducted from wallet.`,
@@ -438,6 +578,9 @@ export async function createCohortAssignment(args: {
   status?: AssignmentStatus;
 }): Promise<{ success: boolean; message: string; assignmentCount?: number; cohortAssignmentId?: string }> {
   try {
+    const actorIds = await resolveAuthenticatedActorIds(args.tenantId);
+    ensureActorMatchesAssigner(args.assignerId, actorIds);
+
     const payload = await getCohortAssignmentPayload({
       tenantId: args.tenantId,
       cohortId: args.cohortId,
@@ -456,10 +599,7 @@ export async function createCohortAssignment(args: {
     const totalCost = perMemberCost * payload.members.length;
 
     const wallet = await getWalletForUserContext(
-      [
-        ...(args.assignerLookupIds ?? []),
-        args.assignerId,
-      ],
+      Array.from(actorIds),
       args.tenantId,
     );
 
@@ -467,6 +607,13 @@ export async function createCohortAssignment(args: {
       return {
         success: false,
         message: "Assignor wallet not found. Please ensure your wallet has been set up.",
+      };
+    }
+
+    if (!isWalletOwnedByActor(wallet, actorIds)) {
+      return {
+        success: false,
+        message: "Unauthorized wallet context for cohort assignment.",
       };
     }
 
@@ -556,6 +703,21 @@ export async function createCohortAssignment(args: {
       return cohortAssignmentRef.id;
     });
 
+    await Promise.all(
+      payload.members.map((member) =>
+        notifyAssignmentCreated({
+          tenantId: args.tenantId,
+          assigneeEmail: member.email,
+          assigneeName: member.fullName,
+          assignerName: args.assignerName,
+          activityType: args.activityType,
+          activityTitle: args.activityTitle,
+          cohortId: payload.cohortId,
+          assignmentId: result,
+        })
+      )
+    );
+
     return {
       success: true,
       message: `Assigned to ${payload.members.length} cohort members. ${totalCost} coins deducted from wallet.`,
@@ -639,10 +801,58 @@ export async function updateAssignmentStatus(args: {
   assignmentId: string;
   status: AssignmentStatus;
 }): Promise<void> {
-  await updateDoc(doc(db, "assignments", args.assignmentId), {
+  const assignmentRef = doc(db, "assignments", args.assignmentId);
+  await updateDoc(assignmentRef, {
     status: args.status,
     updatedAt: serverTimestamp(),
   });
+
+  const notificationTypeByStatus: Partial<Record<AssignmentStatus, "assignmentInProgress" | "assignmentCompleted" | "assignmentCancelled">> = {
+    in_progress: "assignmentInProgress",
+    completed: "assignmentCompleted",
+    cancelled: "assignmentCancelled",
+  };
+
+  const notificationType = notificationTypeByStatus[args.status];
+  if (!notificationType) {
+    return;
+  }
+
+  try {
+    const assignmentSnap = await getDoc(assignmentRef);
+    if (!assignmentSnap.exists()) {
+      return;
+    }
+
+    const data = assignmentSnap.data() as Record<string, unknown>;
+    const tenantId = String(data.tenantId ?? "").trim();
+    const assigneeEmail = String(data.assigneeEmail ?? "").trim().toLowerCase();
+    const assigneeName = String(data.assigneeFullName ?? "User").trim() || "User";
+    const activityType = String(data.activityType ?? "activity").trim();
+    const activityTitle = String(data.activityTitle ?? "").trim();
+
+    if (!tenantId || !assigneeEmail) {
+      return;
+    }
+
+    await sendNotificationEmail({
+      tenantId,
+      notificationType,
+      recipientEmail: assigneeEmail,
+      recipientName: assigneeName,
+      templateVariables: {
+        recipientName: assigneeName,
+        activityType,
+        activityTitle,
+      },
+      metadata: {
+        assignmentId: args.assignmentId,
+        status: args.status,
+      },
+    });
+  } catch {
+    // Status updates should not fail if notification send fails.
+  }
 }
 
 export async function getAssignmentById(assignmentId: string): Promise<AssignmentRecord | null> {

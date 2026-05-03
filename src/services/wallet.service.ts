@@ -13,7 +13,9 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
+import { sendAdminAlertToMasterSuperadmin, sendNotificationToUser, sendNotificationEmail } from "@/services/notification.service";
 import { functions } from "@/services/firebase";
+import { isRedeemableSource } from "@/constants/wallet";
 import type {
   AssignCoinsInput,
   WalletRecord,
@@ -114,6 +116,7 @@ function mapWalletTransactionDoc(id: string, data: Record<string, unknown>): Wal
     transactionType: (data.transactionType as WalletTransactionRecord["transactionType"]) ?? "credit",
     reason: typeof data.reason === "string" ? data.reason : undefined,
     coins: toNumber(data.coins),
+    source: typeof data.source === "string" ? (data.source as WalletTransactionRecord["source"]) : undefined,
     assignmentId: typeof data.assignmentId === "string" ? data.assignmentId : undefined,
     activityType: typeof data.activityType === "string" ? data.activityType : undefined,
     activityId: typeof data.activityId === "string" ? data.activityId : undefined,
@@ -166,10 +169,42 @@ export async function issueRegistrationBonusForUser(args: {
   userId: string;
   tenantId: string;
 }): Promise<void> {
-  await issueRegistrationBonusCallable({
+  const result = await issueRegistrationBonusCallable({
     userId: args.userId,
     tenantId: args.tenantId,
   });
+
+  if (result.data?.status === "issued") {
+    try {
+      const userRecord = await resolveUserRecordByAnyId(args.userId);
+      if (userRecord) {
+        const userEmail = String(userRecord.data.email ?? "").trim().toLowerCase();
+        const userName = String(userRecord.data.fullName ?? userRecord.data.name ?? "User").trim();
+
+        if (userEmail) {
+          const bonus = await getTenantRegistrationFreeCoins(args.tenantId);
+          if (bonus > 0) {
+            await sendNotificationEmail({
+              tenantId: args.tenantId,
+              notificationType: "registrationBonusIssued",
+              recipientEmail: userEmail,
+              recipientName: userName,
+              templateVariables: {
+                recipientName: userName,
+                bonusCoins: String(bonus),
+              },
+              metadata: {
+                userId: args.userId,
+                bonusAmount: bonus,
+              },
+            });
+          }
+        }
+      }
+    } catch {
+      // Registration bonus issuance should not fail if notification fails.
+    }
+  }
 }
 
 export async function getWalletByUserAndTenant(args: {
@@ -360,8 +395,11 @@ export async function listWalletTransactionsForUserContext(args: {
   }
 }
 
-export async function listWalletSummary(): Promise<WalletSummary> {
-  const snap = await getDocs(collection(db, "wallets"));
+export async function listWalletSummary(tenantId?: string): Promise<WalletSummary> {
+  const q = tenantId
+    ? query(collection(db, "wallets"), where("tenantId", "==", tenantId))
+    : collection(db, "wallets");
+  const snap = await getDocs(q);
   let totalIssuedCoins = 0;
   let totalUtilizedCoins = 0;
 
@@ -710,6 +748,39 @@ export async function createCashoutRequest(args: {
     throw new Error("Cashout is allowed only for company users and independent coaches.");
   }
 
+  // Calculate redeemable balance from wallet transactions
+  const txQuery = query(
+    collection(db, "walletTransactions"),
+    where("userId", "==", requesterCanonicalUserId),
+    where("tenantId", "==", tenantId),
+    where("transactionType", "==", "credit")
+  );
+  const txSnap = await getDocs(txQuery);
+
+  let redeemableBalance = 0;
+  let nonRedeemableBalance = 0;
+
+  txSnap.docs.forEach((entry) => {
+    const txData = entry.data() as Record<string, unknown>;
+    const coins = toNumber(txData.coins);
+    const source = String(txData.source ?? "");
+
+    if (isRedeemableSource(source)) {
+      redeemableBalance += coins;
+    } else {
+      nonRedeemableBalance += coins;
+    }
+  });
+
+  // Check if requested credits exceed redeemable balance
+  if (redeemableBalance < creditsRequested) {
+    throw new Error(
+      `Insufficient redeemable credits. Requested: ${creditsRequested}, Redeemable balance: ${redeemableBalance}. ` +
+      `Non-redeemable credits (registration, referral bonuses): ${nonRedeemableBalance}. ` +
+      `You can use non-redeemable credits within the platform but they cannot be cashed out.`
+    );
+  }
+
   const grossAmountRs = roundMoney(creditsRequested * cashoutConfig.creditCost);
   const payoutAmountRs = roundMoney(grossAmountRs * (cashoutConfig.cashbackPercentage / 100));
 
@@ -739,7 +810,7 @@ export async function createCashoutRequest(args: {
     const utilizedCoins = toNumber(current.utilizedCoins);
 
     if (availableCoins < creditsRequested) {
-      throw new Error(`Insufficient credits. Requested: ${creditsRequested}, Available: ${availableCoins}.`);
+      throw new Error(`Insufficient wallet balance. Requested: ${creditsRequested}, Available: ${availableCoins}.`);
     }
 
     transaction.set(
@@ -786,6 +857,34 @@ export async function createCashoutRequest(args: {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+  try {
+    await sendNotificationToUser({
+      tenantId,
+      userId: requesterCanonicalUserId,
+      notificationType: "cashoutRequested",
+      templateVariables: {
+        recipientName: requesterName,
+        creditsRequested,
+        payoutAmountRs,
+      },
+      metadata: {
+        requestId: requestRef.id,
+      },
+    });
+
+    await sendAdminAlertToMasterSuperadmin({
+      tenantId,
+      notificationType: "adminCashoutAlert",
+      templateVariables: {
+        tenantName: tenantId,
+      },
+      metadata: {
+        requestId: requestRef.id,
+      },
+    });
+  } catch {
+    // Cashout request creation should not fail if notifications fail.
+  }
   });
 
   return requestRef.id;
@@ -865,6 +964,11 @@ export async function approveCashoutRequest(args: {
   comment?: string;
 }): Promise<void> {
   const requestRef = doc(db, "cashoutRequests", args.requestId);
+  let requesterUserId = "";
+  let tenantId = "";
+  let requesterName = "User";
+  let payoutAmountRs = 0;
+  let payoutReference = "";
 
   await runTransaction(db, async (transaction) => {
     const requestSnap = await transaction.get(requestRef);
@@ -874,6 +978,11 @@ export async function approveCashoutRequest(args: {
 
     const requestData = requestSnap.data() as Record<string, unknown>;
     const status = String(requestData.status ?? "pending");
+    requesterUserId = String(requestData.requesterUserId ?? "").trim();
+    tenantId = String(requestData.tenantId ?? "").trim();
+    requesterName = String(requestData.requesterName ?? "User").trim() || "User";
+    payoutAmountRs = Number(requestData.payoutAmountRs ?? 0);
+    payoutReference = `placeholder_${args.requestId}`;
 
     if (status !== "pending") {
       throw new Error(`Cannot approve request with status: ${status}`);
@@ -886,10 +995,30 @@ export async function approveCashoutRequest(args: {
       approvedAt: serverTimestamp(),
       payoutProvider: "razorpay",
       payoutStatus: "queued_placeholder",
-      payoutReference: `placeholder_${args.requestId}`,
+      payoutReference,
       updatedAt: serverTimestamp(),
     });
   });
+
+  if (tenantId && requesterUserId) {
+    try {
+      await sendNotificationToUser({
+        tenantId,
+        userId: requesterUserId,
+        notificationType: "cashoutApproved",
+        templateVariables: {
+          recipientName: requesterName,
+          payoutAmountRs,
+          payoutReference,
+        },
+        metadata: {
+          requestId: args.requestId,
+        },
+      });
+    } catch {
+      // Approval should not fail if notification fails.
+    }
+  }
 }
 
 export async function denyCashoutRequest(args: {
@@ -903,6 +1032,9 @@ export async function denyCashoutRequest(args: {
   }
 
   const requestRef = doc(db, "cashoutRequests", args.requestId);
+  let requesterUserId = "";
+  let tenantId = "";
+  let requesterName = "User";
 
   await runTransaction(db, async (transaction) => {
     const requestSnap = await transaction.get(requestRef);
@@ -912,21 +1044,24 @@ export async function denyCashoutRequest(args: {
 
     const requestData = requestSnap.data() as Record<string, unknown>;
     const status = String(requestData.status ?? "pending");
+    requesterUserId = String(requestData.requesterUserId ?? "").trim();
+    tenantId = String(requestData.tenantId ?? "").trim();
+    requesterName = String(requestData.requesterName ?? "User").trim() || "User";
     if (status !== "pending") {
       throw new Error(`Cannot deny request with status: ${status}`);
     }
 
-    const tenantId = String(requestData.tenantId ?? "").trim();
-    const requesterUserId = String(requestData.requesterUserId ?? "").trim();
+    const txTenantId = String(requestData.tenantId ?? "").trim();
+    const txRequesterUserId = String(requestData.requesterUserId ?? "").trim();
     const creditsRequested = Math.floor(Number(requestData.creditsRequested ?? 0));
 
-    if (!tenantId || !requesterUserId || creditsRequested <= 0) {
+    if (!txTenantId || !txRequesterUserId || creditsRequested <= 0) {
       throw new Error("Cashout request data is invalid.");
     }
 
-    const scopedWalletId = buildWalletId(requesterUserId, tenantId);
+    const scopedWalletId = buildWalletId(txRequesterUserId, txTenantId);
     const scopedWalletRef = doc(db, "wallets", scopedWalletId);
-    const legacyWalletRef = doc(db, "wallets", requesterUserId);
+    const legacyWalletRef = doc(db, "wallets", txRequesterUserId);
 
     const [scopedSnap, legacySnap] = await Promise.all([
       transaction.get(scopedWalletRef),
@@ -935,7 +1070,7 @@ export async function denyCashoutRequest(args: {
 
     const scopedData = scopedSnap.exists() ? (scopedSnap.data() as Record<string, unknown>) : null;
     const legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
-    const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === tenantId);
+    const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === txTenantId);
     const current = scopedData ?? (useLegacy ? legacyData : null);
 
     if (!current) {
@@ -943,7 +1078,7 @@ export async function denyCashoutRequest(args: {
     }
 
     const targetWalletRef = useLegacy ? legacyWalletRef : scopedWalletRef;
-    const targetWalletId = useLegacy ? requesterUserId : scopedWalletId;
+    const targetWalletId = useLegacy ? txRequesterUserId : scopedWalletId;
     const currentAvailable = toNumber(current.availableCoins);
     const currentUtilized = toNumber(current.utilizedCoins);
 
@@ -961,8 +1096,8 @@ export async function denyCashoutRequest(args: {
     const refundTxRef = doc(collection(db, "walletTransactions"));
     transaction.set(refundTxRef, {
       walletId: targetWalletId,
-      userId: requesterUserId,
-      tenantId,
+      userId: txRequesterUserId,
+      tenantId: txTenantId,
       userType: current.userType,
       userName: String(current.userName ?? requestData.requesterName ?? "User"),
       transactionType: "credit",
@@ -983,6 +1118,25 @@ export async function denyCashoutRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  if (tenantId && requesterUserId) {
+    try {
+      await sendNotificationToUser({
+        tenantId,
+        userId: requesterUserId,
+        notificationType: "cashoutDenied",
+        templateVariables: {
+          recipientName: requesterName,
+          reason,
+        },
+        metadata: {
+          requestId: args.requestId,
+        },
+      });
+    } catch {
+      // Denial should not fail if notification fails.
+    }
+  }
 }
 
 // ========== Coin Request Functions ==========
@@ -1036,6 +1190,23 @@ export async function requestCoins(args: {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  try {
+    await sendNotificationToUser({
+      tenantId: args.tenantId,
+      userId: args.professionalId,
+      notificationType: "coinRequestSubmitted",
+      templateVariables: {
+        recipientName: args.professionalName,
+        amount: args.amount,
+      },
+      metadata: {
+        requestId: docRef.id,
+      },
+    });
+  } catch {
+    // Coin request creation should not fail if notification fails.
+  }
 
   console.log("[wallet.requestCoins] Created request with ID:", docRef.id);
   return docRef.id;
@@ -1130,6 +1301,8 @@ export async function approveCoinRequest(args: {
   const companyId = String(requestData.companyId ?? "");
   const professionalId = String(requestData.requesterProfessionalId ?? "");
   const amount = toNumber(requestData.amount);
+  const tenantId = String(requestData.tenantId ?? "").trim();
+  const requesterName = String(requestData.requesterName ?? "User").trim() || "User";
 
   if (amount <= 0) {
     throw new Error("Invalid coin amount");
@@ -1154,6 +1327,25 @@ export async function approveCoinRequest(args: {
     approvedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  if (tenantId && professionalId) {
+    try {
+      await sendNotificationToUser({
+        tenantId,
+        userId: professionalId,
+        notificationType: "coinRequestApproved",
+        templateVariables: {
+          recipientName: requesterName,
+          amount,
+        },
+        metadata: {
+          requestId: args.requestId,
+        },
+      });
+    } catch {
+      // Approval should not fail if notification fails.
+    }
+  }
 }
 
 export async function denyCoinRequest(args: {
@@ -1170,6 +1362,10 @@ export async function denyCoinRequest(args: {
 
   const requestData = requestSnap.data() as Record<string, unknown>;
   const status = requestData.status as string;
+  const tenantId = String(requestData.tenantId ?? "").trim();
+  const professionalId = String(requestData.requesterProfessionalId ?? "").trim();
+  const requesterName = String(requestData.requesterName ?? "User").trim() || "User";
+  const denialReason = args.reason || "Request denied";
 
   if (status !== "pending") {
     throw new Error(`Cannot deny request with status: ${status}`);
@@ -1178,10 +1374,29 @@ export async function denyCoinRequest(args: {
   await updateDoc(requestRef, {
     status: "denied",
     deniedBy: args.deniedBy,
-    approvalComment: args.reason || "Request denied",
+    approvalComment: denialReason,
     deniedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  if (tenantId && professionalId) {
+    try {
+      await sendNotificationToUser({
+        tenantId,
+        userId: professionalId,
+        notificationType: "coinRequestDenied",
+        templateVariables: {
+          recipientName: requesterName,
+          reason: denialReason,
+        },
+        metadata: {
+          requestId: args.requestId,
+        },
+      });
+    } catch {
+      // Denial should not fail if notification fails.
+    }
+  }
 }
 
 async function transferCoins(args: {

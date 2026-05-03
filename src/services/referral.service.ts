@@ -13,7 +13,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
 import { functions } from "@/services/firebase";
-import { getTenantMailConfig, sendReferralInviteEmail, sendReferralReminderEmail } from "@/services/mail.service";
+import { sendNotificationEmail } from "@/services/notification.service";
 import type {
   ReferredType,
   ReferralRecord,
@@ -130,15 +130,20 @@ export async function createReferral(args: {
     });
   });
 
-  const mailConfig = await getTenantMailConfig(args.tenantId);
-
-  await sendReferralInviteEmail({
-    mailConfig,
-    referredEmail,
-    referredPhone,
-    referredType: args.referredType,
+  await sendNotificationEmail({
     tenantId: args.tenantId,
-    referrerName: args.referrerName,
+    notificationType: "referralInviteSent",
+    recipientEmail: referredEmail,
+    recipientName: referredEmail,
+    templateVariables: {
+      recipientName: referredEmail,
+      referrerName: args.referrerName,
+      referredType: args.referredType,
+      referredPhone,
+    },
+    metadata: {
+      referralId: referralRef.id,
+    },
   });
 
   return referralRef.id;
@@ -232,27 +237,24 @@ export async function sendReferralReminders(args: {
   }
 
   await batch.commit();
-  const mailConfigByTenant = new Map<string, Promise<import("@/services/mail.service").TenantMailConfig>>();
-
   await Promise.all(
-    reminders.map(async (entry) => {
-      let mailConfigPromise = mailConfigByTenant.get(entry.tenantId);
-      if (!mailConfigPromise) {
-        mailConfigPromise = getTenantMailConfig(entry.tenantId);
-        mailConfigByTenant.set(entry.tenantId, mailConfigPromise);
-      }
-
-      const mailConfig = await mailConfigPromise;
-
-      return sendReferralReminderEmail({
-        mailConfig,
-        referralId: entry.id,
-        referredEmail: entry.email,
-        referredPhone: entry.phone,
-        referredType: entry.type,
+    reminders.map((entry) =>
+      sendNotificationEmail({
         tenantId: entry.tenantId,
-      });
-    })
+        notificationType: "referralReminderSent",
+        recipientEmail: entry.email,
+        recipientName: entry.email,
+        templateVariables: {
+          recipientName: entry.email,
+          referralId: entry.id,
+          referredType: entry.type,
+          referredPhone: entry.phone,
+        },
+        metadata: {
+          referralId: entry.id,
+        },
+      })
+    )
   );
 
   return reminders.length;
@@ -266,7 +268,7 @@ export async function processReferralJoinForNewUser(args: {
   email: string;
   phoneE164: string;
 }): Promise<void> {
-  await processReferralJoinCallable({
+  const result = await processReferralJoinCallable({
     userId: args.userId,
     fullName: args.fullName,
     tenantId: args.tenantId,
@@ -274,6 +276,57 @@ export async function processReferralJoinForNewUser(args: {
     email: args.email,
     phoneE164: args.phoneE164,
   });
+
+  if (result.data?.status === "joined") {
+    try {
+      const normalizedPhone = args.phoneE164.trim().replace(/\D/g, "");
+      const normalizedPhoneWithPlus = args.phoneE164.startsWith("+") ? args.phoneE164 : `+${normalizedPhone}`;
+      
+      const byPhoneQuery = query(
+        collection(db, "referrals"),
+        where("tenantId", "==", args.tenantId),
+        where("referredPhone", "==", normalizedPhoneWithPlus),
+        where("status", "==", "joined")
+      );
+      const byPhoneSnap = await getDocs(byPhoneQuery);
+      
+      let referralRec: ReferralRecord | null = null;
+      if (!byPhoneSnap.empty) {
+        referralRec = toReferralRecord(byPhoneSnap.docs[0].id, byPhoneSnap.docs[0].data() as Record<string, unknown>);
+      } else {
+        const normalizedEmail = args.email.trim().toLowerCase();
+        const byEmailQuery = query(
+          collection(db, "referrals"),
+          where("tenantId", "==", args.tenantId),
+          where("referredEmail", "==", normalizedEmail),
+          where("status", "==", "joined")
+        );
+        const byEmailSnap = await getDocs(byEmailQuery);
+        if (!byEmailSnap.empty) {
+          referralRec = toReferralRecord(byEmailSnap.docs[0].id, byEmailSnap.docs[0].data() as Record<string, unknown>);
+        }
+      }
+
+      if (referralRec && referralRec.referrerUserId) {
+        await sendNotificationEmail({
+          tenantId: args.tenantId,
+          notificationType: "referralJoined",
+          recipientEmail: referralRec.referrerUserId,
+          recipientName: referralRec.referrerName || "Referrer",
+          templateVariables: {
+            recipientName: referralRec.referrerName || "Referrer",
+            joinedUserName: args.fullName,
+          },
+          metadata: {
+            referralId: referralRec.id,
+            joinedUserId: args.userId,
+          },
+        });
+      }
+    } catch {
+      // Referral join should not fail if notification fails.
+    }
+  }
 }
 
 export async function updateReferralStatus(args: {

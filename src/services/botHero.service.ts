@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   increment,
   runTransaction,
@@ -12,7 +13,8 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/services/firebase";
+import { auth, db, storage } from "@/services/firebase";
+import { sendAdminAlertToMasterSuperadmin, sendNotificationToUser } from "@/services/notification.service";
 import {
   BOT_HERO_DURATION_UNITS,
   type BotHeroDurationUnit,
@@ -87,6 +89,43 @@ function mapRequest(id: string, data: Record<string, unknown>): BotHeroRequestRe
     createdAt: data.createdAt as BotHeroRequestRecord["createdAt"],
     updatedAt: data.updatedAt as BotHeroRequestRecord["updatedAt"],
   };
+}
+
+async function resolveAuthenticatedProfessionalIds(tenantId: string): Promise<Set<string>> {
+  const authUid = auth.currentUser?.uid?.trim();
+  if (!authUid) {
+    throw new Error("You must be signed in to submit a Bot Hero request.");
+  }
+
+  const professionalIds = new Set<string>([authUid]);
+
+  const directUserSnap = await getDoc(doc(db, "users", authUid));
+  if (directUserSnap.exists()) {
+    const data = directUserSnap.data() as Record<string, unknown>;
+    const userTenantId = toStr(data.tenantId);
+    if (userTenantId === tenantId) {
+      professionalIds.add(directUserSnap.id);
+      professionalIds.add(toStr(data.userId));
+      professionalIds.add(toStr(data.uid));
+    }
+  }
+
+  const byUidSnap = await getDocs(
+    query(collection(db, "users"), where("uid", "==", authUid))
+  );
+
+  byUidSnap.docs.forEach((row) => {
+    const data = row.data() as Record<string, unknown>;
+    if (toStr(data.tenantId) !== tenantId) {
+      return;
+    }
+
+    professionalIds.add(row.id);
+    professionalIds.add(toStr(data.userId));
+    professionalIds.add(toStr(data.uid));
+  });
+
+  return new Set(Array.from(professionalIds).filter(Boolean));
 }
 
 // ── Package CRUD ────────────────────────────────────────────────────────────
@@ -201,13 +240,14 @@ export function calcEndDate(startDateStr: string, durationValue: number, duratio
 
 // ── Request reads ───────────────────────────────────────────────────────────
 
-export async function listPendingBotHeroRequests(): Promise<BotHeroRequestRecord[]> {
+export async function listPendingBotHeroRequests(tenantId?: string): Promise<BotHeroRequestRecord[]> {
   // No orderBy — avoids composite index requirement; sort client-side instead
   const snap = await getDocs(
     query(collection(db, REQUESTS_COLLECTION), where("status", "==", "pending"))
   );
   return snap.docs
     .map((row) => mapRequest(row.id, row.data() as Record<string, unknown>))
+    .filter((row) => !tenantId || row.tenantId === tenantId)
     .sort((a, b) => {
       const aTime = a.createdAt && "toMillis" in a.createdAt ? (a.createdAt as { toMillis: () => number }).toMillis() : 0;
       const bTime = b.createdAt && "toMillis" in b.createdAt ? (b.createdAt as { toMillis: () => number }).toMillis() : 0;
@@ -285,6 +325,11 @@ export async function submitBotHeroRequest(args: {
 }): Promise<void> {
   const { tenantId, professionalId, professionalName, professionalAvatar, pkg, preferredStartDate } = args;
 
+  const actorProfessionalIds = await resolveAuthenticatedProfessionalIds(tenantId);
+  if (!actorProfessionalIds.has(professionalId.trim())) {
+    throw new Error("Unauthorized professional context for Bot Hero request.");
+  }
+
   if (!professionalAvatar.trim()) {
     throw new Error("A profile picture is required to submit a Bot Hero request.");
   }
@@ -351,6 +396,33 @@ export async function submitBotHeroRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  try {
+    await sendNotificationToUser({
+      tenantId,
+      userId: professionalId,
+      notificationType: "botHeroRequested",
+      templateVariables: {
+        recipientName: professionalName,
+      },
+      metadata: {
+        requestId: requestRef.id,
+      },
+    });
+
+    await sendAdminAlertToMasterSuperadmin({
+      tenantId,
+      notificationType: "adminBotHeroAlert",
+      templateVariables: {
+        tenantName: tenantId,
+      },
+      metadata: {
+        requestId: requestRef.id,
+      },
+    });
+  } catch {
+    // Bot Hero request should not fail if notifications fail.
+  }
 }
 
 // ── Approve (admin) ────────────────────────────────────────────────────────
@@ -385,6 +457,24 @@ export async function approveBotHeroRequest(args: {
     approvedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  try {
+    await sendNotificationToUser({
+      tenantId: request.tenantId,
+      userId: request.professionalId,
+      notificationType: "botHeroApproved",
+      templateVariables: {
+        recipientName: request.professionalName,
+        approvedStartDate: startDate,
+        approvedEndDate: endDate,
+      },
+      metadata: {
+        requestId,
+      },
+    });
+  } catch {
+    // Approval should not fail if notification fails.
+  }
 }
 
 // ── Deny (admin) — refund wallet ───────────────────────────────────────────
@@ -439,4 +529,21 @@ export async function denyBotHeroRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  try {
+    await sendNotificationToUser({
+      tenantId: request.tenantId,
+      userId: request.professionalId,
+      notificationType: "botHeroDenied",
+      templateVariables: {
+        recipientName: request.professionalName,
+        reason: reason ?? "Request denied",
+      },
+      metadata: {
+        requestId,
+      },
+    });
+  } catch {
+    // Denial should not fail if notification fails.
+  }
 }

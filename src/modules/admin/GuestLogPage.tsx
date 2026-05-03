@@ -31,6 +31,11 @@ export default function GuestLogPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  function toggleLog(id: string) {
+    setExpandedLogId((prev) => (prev === id ? null : id));
+  }
 
   async function searchLogs(): Promise<void> {
     setLoading(true);
@@ -149,18 +154,30 @@ export default function GuestLogPage() {
                   </div>
                 </div>
 
-                <div className={styles.conversation}>
-                  {log.conversation.map((entry, index) => (
-                    <div key={`${log.id}-${index}`} className={styles.entry}>
-                      <div className={styles.entryMeta}>
-                        <span>{formatCategory(entry.category)}</span>
-                        <span>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}</span>
-                      </div>
-                      <p className={styles.question}><strong>Guest:</strong> {entry.question}</p>
-                      <p className={styles.answer}><strong>Bot:</strong> {entry.answer}</p>
-                    </div>
-                  ))}
+                <div className={styles.logCardFooter}>
+                  <button
+                    type="button"
+                    className={styles.detailsButton}
+                    onClick={() => toggleLog(log.id)}
+                  >
+                    {expandedLogId === log.id ? "Hide Conversation" : "View Conversation"}
+                  </button>
                 </div>
+
+                {expandedLogId === log.id && (
+                  <div className={styles.conversation}>
+                    {log.conversation.map((entry, index) => (
+                      <div key={`${log.id}-${index}`} className={styles.entry}>
+                        <div className={styles.entryMeta}>
+                          <span>{formatCategory(entry.category)}</span>
+                          <span>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}</span>
+                        </div>
+                        <p className={styles.question}><strong>Guest:</strong> {entry.question}</p>
+                        <p className={styles.answer}><strong>Bot:</strong> {entry.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </article>
             ))}
           </div>

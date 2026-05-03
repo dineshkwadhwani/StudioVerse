@@ -10,9 +10,12 @@ import {
 } from "@/services/botHero.service";
 import type { BotHeroRequestRecord } from "@/types/botHero";
 
-type Props = { operatorId: string };
+type Props = {
+  operatorId: string;
+  onRequestsChanged?: () => void;
+};
 
-export default function BotHeroRequestsSection({ operatorId }: Props) {
+export default function BotHeroRequestsSection({ operatorId, onRequestsChanged }: Props) {
   const [requests, setRequests] = useState<BotHeroRequestRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -45,6 +48,7 @@ export default function BotHeroRequestsSection({ operatorId }: Props) {
       const endDate = calcEndDate(startDate, request.durationValue, request.durationUnit);
       setMessage(`Approved. Bot Hero slot: ${startDate} → ${endDate}`);
       await refresh();
+      onRequestsChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve request.");
     } finally {
@@ -60,6 +64,7 @@ export default function BotHeroRequestsSection({ operatorId }: Props) {
       await denyBotHeroRequest({ requestId: request.id, request, operatorId });
       setMessage(`Denied. Credits refunded to ${request.professionalName}.`);
       await refresh();
+      onRequestsChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deny request.");
     } finally {

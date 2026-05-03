@@ -4,6 +4,36 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (May 3, 2026) — Firestore security hardening
+
+Status:
+
+- Firestore rules hardening completed and deployed to `studioverse-test`.
+- Deployment command executed successfully:
+
+  ```bash
+  npx -y firebase-tools@latest deploy --only firestore:rules
+  ```
+
+- Rules compiled successfully and were released to Cloud Firestore in test.
+
+Security hardening included:
+
+- Critical privilege-escalation protection on `users` updates (sensitive authz fields immutable from client writes).
+- Additional guardrails on `users` create to block client-side superadmin/type injection.
+- Wallet update restrictions to prevent client-side balance inflation.
+- Wallet transaction create restrictions to reduce forged transaction risk.
+- Existing tenant-bound checks for assignment and bot-hero request flows retained.
+
+Production rollout state:
+
+- Production deploy remains deferred until explicit go-ahead.
+- Next prod step (when approved):
+
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules
+  ```
+
 ## Deferred production deployment note (Apr 28, 2026)
 
 Production deployment is intentionally deferred because the Firebase production project instance does not exist yet.

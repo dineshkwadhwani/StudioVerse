@@ -15,6 +15,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db } from "@/services/firebase";
 import { storage } from "@/services/firebase";
 import { issueRegistrationBonusForUser } from "@/services/wallet.service";
+import { sendNotificationEmail } from "@/services/notification.service";
 import type {
   ProfileUserType,
   UserProfileRecord,
@@ -491,6 +492,30 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
       });
     } catch {
       // Wallet already exists or creation failed — non-fatal, profile save still succeeds.
+    }
+  }
+
+  if (!current) {
+    const recipientEmail = savedProfile.email.trim().toLowerCase();
+    if (recipientEmail) {
+      try {
+        await sendNotificationEmail({
+          tenantId: savedProfile.tenantId,
+          notificationType: "onboardingWelcome",
+          recipientEmail,
+          recipientName: savedProfile.fullName || "User",
+          templateVariables: {
+            recipientName: savedProfile.fullName || "User",
+            tenantName: savedProfile.tenantId,
+          },
+          metadata: {
+            userId: savedProfile.userId,
+            source: "profileRegistration",
+          },
+        });
+      } catch {
+        // Profile save must not fail if notification send fails.
+      }
     }
   }
 

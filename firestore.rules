@@ -24,6 +24,14 @@ service cloud.firestore {
       return isSignedIn() ? currentUser().uid : null;
     }
 
+    function isActorId(value) {
+      return isSignedIn() && (
+        value == request.auth.uid ||
+        value == currentUserIdValue() ||
+        value == currentUserUidValue()
+      );
+    }
+
     function currentTenantId() {
       return isSignedIn() ? currentUser().tenantId : null;
     }
@@ -56,24 +64,58 @@ service cloud.firestore {
       return walletId.matches("^treasury::.*");
     }
 
+    // Field-level immutability helper: Ensures sensitive fields cannot be modified by client.
+    // blockedFields: list of field names that must not change (e.g., ['userType', 'tenantId'])
+    function hasOnlyAllowedChanges(blockedFields) {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return !changedKeys.hasAny(blockedFields);
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     // Login queries users by phoneE164+tenantId so collection reads must be
     // open to any authenticated user. Writes are scoped to own document.
     // Company/professional can also update profiles of users they manage
     // (createScopedManagedUser, saveCohort run from the client and write
     //  managed user docs directly).
+    // CRITICAL: Sensitive fields (userType, tenantId, role, etc.) are immutable from client.
+    // Only backend Functions (Admin SDK) can modify these fields.
     match /users/{userId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSuperAdmin()
+      allow create: if isSuperAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.userType in ["company", "professional", "individual"]
+                        && request.resource.data.role in ["company", "professional", "individual"]
+                        && request.resource.data.tenantId == currentTenantId()
+                        && request.resource.data.status in ["active", "inactive"]
+                        && request.resource.data.userType != "superadmin"
+                        && request.resource.data.role != "superadmin"
+                        && (
+                             // Self-registration/profile bootstrap
+                             isActorId(userId)
+                             || isActorId(request.resource.data.uid)
+                             || isActorId(request.resource.data.userId)
+                             // Managed users can be created by tenant company/professional
+                           || (isCompanyUser()
+                             && request.resource.data.associatedCompanyId == currentCompanyId()
+                             && request.resource.data.userType in ["professional", "individual"]
+                             && request.resource.data.role in ["professional", "individual"])
+                           || (isProfessionalUser()
+                             && request.resource.data.associatedProfessionalId == request.auth.uid
+                             && request.resource.data.userType == "individual"
+                             && request.resource.data.role == "individual")
+                           ));
+      allow update: if (isSuperAdmin())
                     || (isSignedIn() && (
                          request.auth.uid == userId ||
                          request.auth.uid == resource.data.uid
-                       ))
+                       )
+                       && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
                     || (isCompanyUser() &&
-                         resource.data.associatedCompanyId == currentCompanyId())
+                         resource.data.associatedCompanyId == currentCompanyId()
+                         && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
                     || (isProfessionalUser() &&
-                         resource.data.associatedProfessionalId == request.auth.uid);
+                         resource.data.associatedProfessionalId == request.auth.uid
+                         && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']));
       allow delete: if false;
     }
 
@@ -89,6 +131,7 @@ service cloud.firestore {
     // Regular user wallets use scoped IDs (<tenantId>::<userId>) or legacy
     // userId-only IDs. Company users can update wallets of their associated
     // users for coin request approvals.
+    // SECURITY: User updates are blocked from modifying tenantId, associatedCompanyId, or userId.
     match /wallets/{walletId} {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && !isTreasuryWallet(walletId) && (
@@ -116,9 +159,19 @@ service cloud.firestore {
                          walletId.matches(".*::" + request.auth.uid) ||
                          walletId.matches(".*::" + currentUserIdValue()) ||
                          walletId.matches(".*::" + currentUserUidValue())
-                       ))
+                       )
+                       // Non-superadmin clients can only perform spend-like balance moves.
+                       // They cannot mint/inflate balances via direct wallet writes.
+                       && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
+                       && request.resource.data.availableCoins <= resource.data.availableCoins
+                       && request.resource.data.utilizedCoins >= resource.data.utilizedCoins
+                       && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']))
                     || (isCompanyUser() && !isTreasuryWallet(walletId) &&
-                         resource.data.associatedCompanyId == currentCompanyId());
+                         resource.data.associatedCompanyId == currentCompanyId()
+                         && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
+                         && request.resource.data.availableCoins <= resource.data.availableCoins
+                         && request.resource.data.utilizedCoins >= resource.data.utilizedCoins
+                         && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']));
       allow delete: if false;
     }
 
@@ -142,7 +195,22 @@ service cloud.firestore {
                          resource.data.walletId.matches(".*::" + currentUserIdValue()) ||
                          resource.data.walletId.matches(".*::" + currentUserUidValue())
                        ));
-      allow create: if isSignedIn();
+      allow create: if isSuperAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.tenantId == currentTenantId()
+                        && request.resource.data.transactionType == "debit"
+                        && request.resource.data.coins is number
+                        && request.resource.data.coins > 0
+                        && isActorId(request.resource.data.userId)
+                        && isActorId(request.resource.data.createdBy)
+                        && (
+                             request.resource.data.walletId == request.auth.uid
+                             || request.resource.data.walletId == currentUserIdValue()
+                             || request.resource.data.walletId == currentUserUidValue()
+                             || request.resource.data.walletId.matches(".*::" + request.auth.uid)
+                             || request.resource.data.walletId.matches(".*::" + currentUserIdValue())
+                             || request.resource.data.walletId.matches(".*::" + currentUserUidValue())
+                           ));
       allow update: if isSuperAdmin();
       allow delete: if false;
     }
@@ -205,14 +273,25 @@ service cloud.firestore {
     // ── Assignments ────────────────────────────────────────────────────────
     match /assignments/{assignmentId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.tenantId == currentTenantId()
+                    && (
+                         request.resource.data.assignerId == request.auth.uid
+                         || request.resource.data.assignerId == currentUserIdValue()
+                         || request.resource.data.assignerId == currentUserUidValue()
+                       );
       allow update: if isSuperAdmin()
                     || (isSignedIn() && (
                          resource.data.assignedTo  == request.auth.uid ||
                          resource.data.assignedBy  == request.auth.uid ||
                          resource.data.assignerId  == request.auth.uid ||
                          resource.data.assigneeId  == request.auth.uid
-                       ));
+                       )
+                       && request.resource.data.assignerId == resource.data.assignerId
+                       && request.resource.data.tenantId == resource.data.tenantId
+                       && request.resource.data.activityId == resource.data.activityId
+                       && request.resource.data.activityType == resource.data.activityType
+                       && request.resource.data.coinsDeducted == resource.data.coinsDeducted);
       allow delete: if false;
     }
 
@@ -239,16 +318,37 @@ service cloud.firestore {
     // ── Cohort Assignments ─────────────────────────────────────────────────
     match /cohortAssignments/{cohortAssignmentId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSuperAdmin() || isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.tenantId == currentTenantId()
+                    && (
+                         request.resource.data.assignerId == request.auth.uid
+                         || request.resource.data.assignerId == currentUserIdValue()
+                         || request.resource.data.assignerId == currentUserUidValue()
+                       );
+      allow update: if isSuperAdmin()
+                    || (isSignedIn()
+                        && (
+                             resource.data.assignerId == request.auth.uid
+                             || resource.data.assignerId == currentUserIdValue()
+                             || resource.data.assignerId == currentUserUidValue()
+                           )
+                        && request.resource.data.assignerId == resource.data.assignerId
+                        && request.resource.data.tenantId == resource.data.tenantId
+                        && request.resource.data.cohortId == resource.data.cohortId
+                        && request.resource.data.activityId == resource.data.activityId
+                        && request.resource.data.activityType == resource.data.activityType
+                        && request.resource.data.totalCoinsDeducted == resource.data.totalCoinsDeducted);
       allow delete: if isSuperAdmin();
     }
 
     // ── Referrals ──────────────────────────────────────────────────────────
+    // Users can create and update their referrals, but cannot modify core fields.
+    // SECURITY: Referrer ID, tenant, and referral rewards cannot be modified by users.
     match /referrals/{referralId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow update: if isSignedIn()
+                    && hasOnlyAllowedChanges(['referrerUserId', 'tenantId', 'referredEmail', 'referredPhone', 'referredPhoneE164']);
       allow delete: if isSuperAdmin();
     }
 
@@ -331,6 +431,8 @@ service cloud.firestore {
     }
 
     // ── Coin Orders ────────────────────────────────────────────────────────
+    // Users can create and read their own orders; SuperAdmin can update for approvals.
+    // SECURITY: Users cannot modify userId, status, or amount fields.
     match /coinOrders/{orderId} {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && (
@@ -339,7 +441,8 @@ service cloud.firestore {
                        ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+                    || (isSignedIn() && resource.data.userId == request.auth.uid
+                        && hasOnlyAllowedChanges(['userId', 'status', 'amount', 'createdBy']));
       allow delete: if false;
     }
 
@@ -377,9 +480,10 @@ service cloud.firestore {
     }
 
     // ── Bot Hero Requests ──────────────────────────────────────────────────
-    // Professionals can create their own requests.
+    // Professionals can create their own requests within their tenant only.
     // Professionals can read their own requests; Super Admin reads all.
     // Only Super Admin can update (approve/deny).
+    // SECURITY: tenantId must match user's current tenant to prevent cross-tenant injection.
     match /botHeroRequests/{requestId} {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && (
@@ -388,12 +492,14 @@ service cloud.firestore {
                          resource.data.professionalId == currentUserUidValue()
                        ));
       allow create: if isProfessionalUser()
+                    && request.resource.data.tenantId == currentTenantId()
                     && (
                       request.resource.data.professionalId == request.auth.uid ||
                       request.resource.data.professionalId == currentUserIdValue() ||
                       request.resource.data.professionalId == currentUserUidValue()
                     );
-      allow update: if isSuperAdmin();
+      allow update: if isSuperAdmin()
+                    && hasOnlyAllowedChanges(['professionalId', 'tenantId']);
       allow delete: if false;
     }
 

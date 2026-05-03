@@ -10,6 +10,7 @@ import {
 import { type AssessmentPromotionStatus, type AssessmentRecord } from "@/types/assessment";
 import { db } from "@/services/firebase";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
+import { sendNotificationToUser, sendAdminAlertToMasterSuperadmin } from "@/services/notification.service";
 import { type EventPromotionStatus, type EventRecord } from "@/types/event";
 import { type ProgramPromotionStatus, type ProgramRecord } from "@/types/program";
 
@@ -274,6 +275,8 @@ export async function chargePromotionRequestOnSubmission(args: {
   resourceId: string;
   operatorId: string;
 }): Promise<void> {
+  let resourceDataForNotif: Record<string, unknown> | null = null;
+
   await runTransaction(db, async (transaction) => {
     const collectionName = getPromotionResourceCollection(args.resourceType);
     const resourceLabel = getPromotionResourceLabel(args.resourceType);
@@ -384,7 +387,57 @@ export async function chargePromotionRequestOnSubmission(args: {
       updatedBy: args.operatorId,
       updatedAt: serverTimestamp(),
     });
+
+    resourceDataForNotif = resourceData;
   });
+
+  if (resourceDataForNotif && typeof resourceDataForNotif === "object") {
+    try {
+      const resourceType = args.resourceType;
+      const resourceLabel = getPromotionResourceLabel(resourceType);
+      const data = resourceDataForNotif as Record<string, unknown>;
+      const resourceName = typeof data.name === "string" ? (data.name as string) : "Resource";
+      const tenantIdForNotif = String(data.tenantId ?? "");
+      const requesterIdForNotif = (
+        typeof data.promotionRequestedBy === "string" ? (data.promotionRequestedBy as string)
+        : typeof data.updatedBy === "string" ? (data.updatedBy as string)
+        : typeof data.createdBy === "string" ? (data.createdBy as string)
+        : ""
+      );
+
+      if (tenantIdForNotif && requesterIdForNotif) {
+        await sendNotificationToUser({
+          tenantId: tenantIdForNotif,
+          userId: requesterIdForNotif,
+          notificationType: "promotionRequested",
+          templateVariables: {
+            resourceType: resourceLabel,
+            resourceName,
+          },
+          metadata: {
+            resourceId: args.resourceId,
+            resourceType,
+          },
+        });
+
+        await sendAdminAlertToMasterSuperadmin({
+          tenantId: tenantIdForNotif,
+          notificationType: "adminPromotionAlert",
+          templateVariables: {
+            resourceType: resourceLabel,
+            resourceName,
+            requesterName: "User",
+          },
+          metadata: {
+            resourceId: args.resourceId,
+            resourceType,
+          },
+        });
+      }
+    } catch {
+      // Promotion submission should not fail if notifications fail.
+    }
+  }
 }
 
 function addDurationFrom(startDate: Date, durationValue: number, durationUnit: "days" | "weeks" | "months"): Date {
@@ -420,6 +473,10 @@ export async function approveProgramPromotionRequest(args: {
   operatorId: string;
   promotionStartsAt?: Date;
 }): Promise<void> {
+  let requesterIdForNotification = "";
+  let tenantIdForNotification = "";
+  let resourceNameForNotification = "";
+
   await runTransaction(db, async (transaction) => {
     const programRef = doc(db, "programs", args.programId);
     const programSnap = await transaction.get(programRef);
@@ -475,6 +532,11 @@ export async function approveProgramPromotionRequest(args: {
       : typeof programData.createdBy === "string"
       ? programData.createdBy
       : "";
+
+    requesterIdForNotification = requesterId;
+
+    tenantIdForNotification = String(programData.tenantId ?? "");
+    resourceNameForNotification = String(programData.name ?? "Program");
 
     if (!requesterId) {
       throw new Error("Could not determine requester wallet for this promotion.");
@@ -558,6 +620,26 @@ export async function approveProgramPromotionRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  if (tenantIdForNotification && requesterIdForNotification) {
+    try {
+      await sendNotificationToUser({
+        tenantId: tenantIdForNotification,
+        userId: requesterIdForNotification,
+        notificationType: "promotionApproved",
+        templateVariables: {
+          resourceType: "Program",
+          resourceName: resourceNameForNotification,
+        },
+        metadata: {
+          resourceType: "program",
+          resourceId: args.programId,
+        },
+      });
+    } catch {
+      // Approval should not fail if notification fails.
+    }
+  }
 }
 
 export async function approveEventPromotionRequest(args: {
@@ -565,6 +647,10 @@ export async function approveEventPromotionRequest(args: {
   operatorId: string;
   promotionStartsAt?: Date;
 }): Promise<void> {
+  let requesterIdForNotification = "";
+  let tenantIdForNotification = "";
+  let resourceNameForNotification = "";
+
   await runTransaction(db, async (transaction) => {
     const eventRef = doc(db, "events", args.eventId);
     const eventSnap = await transaction.get(eventRef);
@@ -620,6 +706,11 @@ export async function approveEventPromotionRequest(args: {
       : typeof eventData.createdBy === "string"
       ? eventData.createdBy
       : "";
+
+    requesterIdForNotification = requesterId;
+
+    tenantIdForNotification = String(eventData.tenantId ?? "");
+    resourceNameForNotification = String(eventData.name ?? "Event");
 
     if (!requesterId) {
       throw new Error("Could not determine requester wallet for this promotion.");
@@ -703,6 +794,26 @@ export async function approveEventPromotionRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  if (tenantIdForNotification && requesterIdForNotification) {
+    try {
+      await sendNotificationToUser({
+        tenantId: tenantIdForNotification,
+        userId: requesterIdForNotification,
+        notificationType: "promotionApproved",
+        templateVariables: {
+          resourceType: "Event",
+          resourceName: resourceNameForNotification,
+        },
+        metadata: {
+          resourceType: "event",
+          resourceId: args.eventId,
+        },
+      });
+    } catch {
+      // Approval should not fail if notification fails.
+    }
+  }
 }
 
 export async function approveAssessmentPromotionRequest(args: {
@@ -710,6 +821,10 @@ export async function approveAssessmentPromotionRequest(args: {
   operatorId: string;
   promotionStartsAt?: Date;
 }): Promise<void> {
+  let requesterIdForNotification = "";
+  let tenantIdForNotification = "";
+  let resourceNameForNotification = "";
+
   await runTransaction(db, async (transaction) => {
     const assessmentRef = doc(db, "assessments", args.assessmentId);
     const assessmentSnap = await transaction.get(assessmentRef);
@@ -765,6 +880,11 @@ export async function approveAssessmentPromotionRequest(args: {
       : typeof assessmentData.createdBy === "string"
       ? assessmentData.createdBy
       : "";
+
+    requesterIdForNotification = requesterId;
+
+    tenantIdForNotification = String(assessmentData.tenantId ?? "");
+    resourceNameForNotification = String(assessmentData.name ?? "Assessment");
 
     if (!requesterId) {
       throw new Error("Could not determine requester wallet for this promotion.");
@@ -848,6 +968,26 @@ export async function approveAssessmentPromotionRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  if (tenantIdForNotification && requesterIdForNotification) {
+    try {
+      await sendNotificationToUser({
+        tenantId: tenantIdForNotification,
+        userId: requesterIdForNotification,
+        notificationType: "promotionApproved",
+        templateVariables: {
+          resourceType: "Assessment",
+          resourceName: resourceNameForNotification,
+        },
+        metadata: {
+          resourceType: "assessment",
+          resourceId: args.assessmentId,
+        },
+      });
+    } catch {
+      // Approval should not fail if notification fails.
+    }
+  }
 }
 
 async function denyPromotionRequest(args: {
@@ -855,6 +995,10 @@ async function denyPromotionRequest(args: {
   resourceId: string;
   operatorId: string;
 }): Promise<void> {
+  let requesterIdForNotification = "";
+  let tenantIdForNotification = "";
+  let resourceNameForNotification = "";
+
   await runTransaction(db, async (transaction) => {
     const collectionName = getPromotionResourceCollection(args.resourceType);
     const resourceRef = doc(db, collectionName, args.resourceId);
@@ -864,6 +1008,15 @@ async function denyPromotionRequest(args: {
     }
 
     const resourceData = resourceSnap.data();
+    requesterIdForNotification = typeof resourceData.promotionRequestedBy === "string"
+      ? resourceData.promotionRequestedBy
+      : typeof resourceData.updatedBy === "string"
+      ? resourceData.updatedBy
+      : typeof resourceData.createdBy === "string"
+      ? resourceData.createdBy
+      : "";
+    tenantIdForNotification = String(resourceData.tenantId ?? "");
+    resourceNameForNotification = String(resourceData.name ?? args.resourceId);
     const charge = resourceData.promotionCharge as Record<string, unknown> | undefined;
     const chargeUserId = typeof charge?.userId === "string" ? charge.userId : "";
     const chargeCredits = Number(charge?.creditsDeducted ?? 0);
@@ -922,6 +1075,27 @@ async function denyPromotionRequest(args: {
       updatedAt: serverTimestamp(),
     });
   });
+
+  if (tenantIdForNotification && requesterIdForNotification) {
+    try {
+      await sendNotificationToUser({
+        tenantId: tenantIdForNotification,
+        userId: requesterIdForNotification,
+        notificationType: "promotionDenied",
+        templateVariables: {
+          resourceType: getPromotionResourceLabel(args.resourceType),
+          resourceName: resourceNameForNotification,
+          reason: "Request denied by Super Admin",
+        },
+        metadata: {
+          resourceType: args.resourceType,
+          resourceId: args.resourceId,
+        },
+      });
+    } catch {
+      // Denial should not fail if notification fails.
+    }
+  }
 }
 
 export async function denyProgramPromotionRequest(args: {

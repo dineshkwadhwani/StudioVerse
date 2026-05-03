@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { buildWalletId } from "@/services/wallet.service";
+import { sendNotificationEmail } from "@/services/notification.service";
 import {
   getUserById,
   listManagedUsersForCompany,
@@ -450,11 +451,38 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
   const cohortRef = args.cohortId ? doc(db, "cohorts", args.cohortId) : doc(collection(db, "cohorts"));
 
   const batch = writeBatch(db);
+  let previousMemberIds: string[] = [];
 
   if (args.cohortId) {
+    const existingCohortSnap = await getDoc(cohortRef);
+    if (!existingCohortSnap.exists()) {
+      throw new Error("Cohort not found.");
+    }
+
+    const existingCohort = mapCohort(
+      existingCohortSnap.id,
+      existingCohortSnap.data() as Record<string, unknown>
+    );
+
+    if (existingCohort.tenantId !== args.tenantId) {
+      throw new Error("Cohort does not belong to this tenant.");
+    }
+
+    if (args.creatorRole === "company" && existingCohort.companyId !== companyId) {
+      throw new Error("You do not have access to this cohort.");
+    }
+
+    if (args.creatorRole === "professional" && existingCohort.professionalId !== args.creatorUserId) {
+      throw new Error("You can update only cohorts associated with you.");
+    }
+
     const existingMemberSnap = await getDocs(
       query(collection(db, "cohortMembers"), where("cohortId", "==", args.cohortId))
     );
+
+    previousMemberIds = existingMemberSnap.docs
+      .map((entry) => mapCohortMember(entry.id, entry.data() as Record<string, unknown>).individualUserId)
+      .filter(Boolean);
 
     existingMemberSnap.docs.forEach((entry) => {
       batch.delete(entry.ref);
@@ -523,6 +551,67 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
   });
 
   await batch.commit();
+
+  const previousSet = new Set(dedupeStrings(previousMemberIds));
+  const currentSet = new Set(allMemberIds);
+  const addedMemberIds = allMemberIds.filter((memberId) => !previousSet.has(memberId));
+  const removedMemberIds = Array.from(previousSet).filter((memberId) => !currentSet.has(memberId));
+
+  if (addedMemberIds.length > 0 || removedMemberIds.length > 0) {
+    try {
+      const tenantUsers = await listUsersByTenant(args.tenantId);
+      const userById = new Map(tenantUsers.map((user) => [user.id, user]));
+
+      await Promise.all([
+        ...addedMemberIds.map(async (memberId) => {
+          const user = userById.get(memberId);
+          const recipientEmail = user?.email?.trim().toLowerCase() ?? "";
+          if (!recipientEmail) {
+            return;
+          }
+
+          await sendNotificationEmail({
+            tenantId: args.tenantId,
+            notificationType: "cohortMemberAdded",
+            recipientEmail,
+            recipientName: user?.fullName || "User",
+            templateVariables: {
+              recipientName: user?.fullName || "User",
+              cohortName,
+            },
+            metadata: {
+              cohortId: cohortRef.id,
+              memberId,
+            },
+          });
+        }),
+        ...removedMemberIds.map(async (memberId) => {
+          const user = userById.get(memberId);
+          const recipientEmail = user?.email?.trim().toLowerCase() ?? "";
+          if (!recipientEmail) {
+            return;
+          }
+
+          await sendNotificationEmail({
+            tenantId: args.tenantId,
+            notificationType: "cohortMemberRemoved",
+            recipientEmail,
+            recipientName: user?.fullName || "User",
+            templateVariables: {
+              recipientName: user?.fullName || "User",
+              cohortName,
+            },
+            metadata: {
+              cohortId: cohortRef.id,
+              memberId,
+            },
+          });
+        }),
+      ]);
+    } catch {
+      // Cohort save should not fail if notification sending fails.
+    }
+  }
 
   const detail = await getCohortDetail(cohortRef.id);
   if (!detail) {

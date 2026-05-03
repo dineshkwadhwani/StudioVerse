@@ -1,0 +1,118 @@
+{
+  "onboardingWelcome": {
+    "subject": "Welcome to Coaching Studio",
+    "body": "Dear {{recipientName}},\n\nWelcome to Coaching Studio. Your account is now active and ready to use.\n\nYou can now sign in and begin exploring programs, events, and assessments.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "onboardingActivation": {
+    "subject": "Your Coaching Studio account has been provisioned",
+    "body": "Dear {{recipientName}},\n\nYour Coaching Studio account has been provisioned for {{tenantName}}.\n\nPlease complete your profile after sign-in to activate all workflows.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "managedUserWelcome": {
+    "subject": "Welcome to Coaching Studio",
+    "body": "Dear {{recipientName}},\n\nAn account has been created for you on Coaching Studio.\n\nPlease sign in and complete your profile setup to get started.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "assignmentCreated": {
+    "subject": "New {{activityType}} assigned to you",
+    "body": "Dear {{recipientName}},\n\n{{assignerName}} has assigned a new {{activityType}} to you: {{activityTitle}}.\n\nPlease sign in to Coaching Studio to review and complete it.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "assignmentInProgress": {
+    "subject": "{{activityType}} marked in progress",
+    "body": "Dear {{recipientName}},\n\nYour {{activityType}} has moved to in-progress status: {{activityTitle}}.\n\nPlease continue and submit your completion when ready.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "assignmentCompleted": {
+    "subject": "{{activityType}} completed",
+    "body": "Dear {{recipientName}},\n\nYour {{activityType}} has been marked as completed: {{activityTitle}}.\n\nThank you for completing the assigned activity.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "assignmentCancelled": {
+    "subject": "{{activityType}} assignment cancelled",
+    "body": "Dear {{recipientName}},\n\nThe assigned {{activityType}} has been cancelled: {{activityTitle}}.\n\nNo further action is required from your side for this assignment.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "cohortMemberAdded": {
+    "subject": "You were added to cohort {{cohortName}}",
+    "body": "Dear {{recipientName}},\n\nYou have been added to cohort {{cohortName}}.\n\nPlease sign in to view cohort details and assigned activities.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "cohortMemberRemoved": {
+    "subject": "You were removed from cohort {{cohortName}}",
+    "body": "Dear {{recipientName}},\n\nYou have been removed from cohort {{cohortName}}.\n\nIf this was unexpected, please contact your administrator.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "promotionRequested": {
+    "subject": "Promotion request submitted",
+    "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been submitted.\n\nYou will be notified once it is reviewed.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "promotionApproved": {
+    "subject": "Promotion request approved",
+    "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been approved.\n\nThe promotion is now active as per package rules.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "promotionDenied": {
+    "subject": "Promotion request denied",
+    "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "botHeroRequested": {
+    "subject": "Bot Hero request submitted",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been submitted successfully.\n\nYou will receive an update once reviewed by Super Admin.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "botHeroApproved": {
+    "subject": "Bot Hero request approved",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been approved.\n\nActive period: {{approvedStartDate}} to {{approvedEndDate}}\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "botHeroDenied": {
+    "subject": "Bot Hero request denied",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "botHeroExpiringSoon": {
+    "subject": "Bot Hero period ending soon",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero period is ending soon on {{approvedEndDate}}.\n\nIf needed, submit a new request in advance.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "coinRequestSubmitted": {
+    "subject": "Coin request submitted",
+    "body": "Dear {{recipientName}},\n\nYour coin request for {{amount}} credits has been submitted.\n\nYou will be notified when it is approved or denied.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "coinRequestApproved": {
+    "subject": "Coin request approved",
+    "body": "Dear {{recipientName}},\n\nYour coin request has been approved for {{amount}} credits.\n\nThe credits are now available in your wallet.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "coinRequestDenied": {
+    "subject": "Coin request denied",
+    "body": "Dear {{recipientName}},\n\nYour coin request has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "cashoutRequested": {
+    "subject": "Cashout request submitted",
+    "body": "Dear {{recipientName}},\n\nYour cashout request has been submitted for {{creditsRequested}} credits (Rs {{payoutAmountRs}}).\n\nYou will be notified once reviewed.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "cashoutApproved": {
+    "subject": "Cashout request approved",
+    "body": "Dear {{recipientName}},\n\nYour cashout request has been approved.\n\nPayout amount: Rs {{payoutAmountRs}}\nReference: {{payoutReference}}\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "cashoutDenied": {
+    "subject": "Cashout request denied",
+    "body": "Dear {{recipientName}},\n\nYour cashout request has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "registrationBonusIssued": {
+    "subject": "Registration bonus credited",
+    "body": "Dear {{recipientName}},\n\nYour registration bonus of {{bonusCoins}} credits has been added to your wallet.\n\nYou can start using these credits immediately.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "referralInviteSent": {
+    "subject": "You have been invited to Coaching Studio",
+    "body": "Dear {{recipientName}},\n\n{{referrerName}} has invited you to join Coaching Studio.\n\nPlease complete your registration to get started.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "referralReminderSent": {
+    "subject": "Reminder to complete your Coaching Studio registration",
+    "body": "Dear {{recipientName}},\n\nThis is a reminder to complete your Coaching Studio registration for referral {{referralId}}.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "referralJoined": {
+    "subject": "Your referral has joined Coaching Studio",
+    "body": "Dear {{recipientName}},\n\n{{joinedUserName}} has successfully joined Coaching Studio via your referral.\n\nAny referral rewards will be applied as per tenant settings.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "adminCashoutAlert": {
+    "subject": "Admin Alert: New cashout request",
+    "body": "Dear {{recipientName}},\n\nA new cashout request has been submitted in tenant {{tenantName}}.\n\nPlease review it in Approve Requests.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "adminBotHeroAlert": {
+    "subject": "Admin Alert: New Bot Hero request",
+    "body": "Dear {{recipientName}},\n\nA new Bot Hero request has been submitted in tenant {{tenantName}}.\n\nPlease review it in Approve Requests.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "adminPromotionAlert": {
+    "subject": "Admin Alert: New promotion request",
+    "body": "Dear {{recipientName}},\n\nA new promotion request has been submitted in tenant {{tenantName}}.\n\nPlease review it in Approve Requests.\n\nWarm regards,\nTeam Coaching Studio"
+  }
+}

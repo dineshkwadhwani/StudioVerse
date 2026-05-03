@@ -5,7 +5,6 @@ import type { DetailItem } from "./DetailModal";
 import type { UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
 import { searchUsersByPhoneOrEmail, createAssignment, createRecommendation } from "@/services/assignment.service";
-import { getTenantMailConfig, sendAssignmentEmail } from "@/services/mail.service";
 import styles from "./AssignmentModal.module.css";
 
 type Props = {
@@ -266,19 +265,7 @@ export default function AssignmentModal({
           const activityLabel = getActivityLabel();
           window.alert(`The ${activityLabel} has been recommended`);
 
-          const mailConfig = await getTenantMailConfig(tenantId);
-          const mailResult = await sendAssignmentEmail({
-            tenantId,
-            mailConfig,
-            assignerName,
-            assigneeEmail: selectedUser.email,
-            assigneeName: selectedUser.fullName,
-            activityType,
-            activityTitle: item.title,
-          });
-
-          window.alert(mailResult.message);
-          setMessage(`${result.message} ${mailResult.message}.`);
+          setMessage(result.message);
           setTimeout(() => {
             handleClose();
             onSuccess?.();
@@ -334,19 +321,7 @@ export default function AssignmentModal({
         const activityLabel = getActivityLabel();
         window.alert(`The ${activityLabel} has been assigned`);
 
-        const mailConfig = await getTenantMailConfig(tenantId);
-        const mailResult = await sendAssignmentEmail({
-          tenantId,
-          mailConfig,
-          assignerName,
-          assigneeEmail: selectedUser.email,
-          assigneeName: selectedUser.fullName,
-          activityType,
-          activityTitle: item.title,
-        });
-
-        window.alert(mailResult.message);
-        setMessage(`${result.message} ${mailResult.message}.`);
+        setMessage(result.message);
         setTimeout(() => {
           handleClose();
           onSuccess?.();

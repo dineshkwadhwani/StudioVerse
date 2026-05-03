@@ -1,12 +1,14 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   serverTimestamp,
   updateDoc,
   type DocumentData,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
+import { sendNotificationToUser } from "@/services/notification.service";
 
 export type ListingRequestResourceType = "program" | "event" | "assessment";
 
@@ -109,6 +111,9 @@ export async function approveListingRequest(args: {
   operatorId: string;
 }): Promise<void> {
   const ref = doc(db, getCollection(args.resourceType), args.id);
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+
   await updateDoc(ref, {
     status: "published",
     publicationState: "published",
@@ -117,6 +122,31 @@ export async function approveListingRequest(args: {
     updatedAt: serverTimestamp(),
     publishedAt: serverTimestamp(),
   });
+
+  const tenantId = String(data?.tenantId ?? "").trim();
+  const requesterId = String(data?.updatedBy ?? data?.createdBy ?? "").trim();
+  const resourceName = String(data?.name ?? "Listing").trim() || "Listing";
+
+  if (tenantId && requesterId) {
+    try {
+      await sendNotificationToUser({
+        tenantId,
+        userId: requesterId,
+        notificationType: "promotionApproved",
+        templateVariables: {
+          resourceType: `${args.resourceType} listing`,
+          resourceName,
+        },
+        metadata: {
+          resourceType: args.resourceType,
+          resourceId: args.id,
+          source: "listingApproval",
+        },
+      });
+    } catch {
+      // Listing approval should not fail if notification fails.
+    }
+  }
 }
 
 export async function denyListingRequest(args: {
@@ -125,6 +155,8 @@ export async function denyListingRequest(args: {
   operatorId: string;
 }): Promise<void> {
   const ref = doc(db, getCollection(args.resourceType), args.id);
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? (snap.data() as Record<string, unknown>) : null;
   const rejectedPublicationState = args.resourceType === "assessment" ? "rejected_publication" : "rejected_publication";
 
   await updateDoc(ref, {
@@ -134,4 +166,30 @@ export async function denyListingRequest(args: {
     updatedBy: args.operatorId,
     updatedAt: serverTimestamp(),
   });
+
+  const tenantId = String(data?.tenantId ?? "").trim();
+  const requesterId = String(data?.updatedBy ?? data?.createdBy ?? "").trim();
+  const resourceName = String(data?.name ?? "Listing").trim() || "Listing";
+
+  if (tenantId && requesterId) {
+    try {
+      await sendNotificationToUser({
+        tenantId,
+        userId: requesterId,
+        notificationType: "promotionDenied",
+        templateVariables: {
+          resourceType: `${args.resourceType} listing`,
+          resourceName,
+          reason: "Listing request denied by Super Admin",
+        },
+        metadata: {
+          resourceType: args.resourceType,
+          resourceId: args.id,
+          source: "listingDenial",
+        },
+      });
+    } catch {
+      // Listing denial should not fail if notification fails.
+    }
+  }
 }

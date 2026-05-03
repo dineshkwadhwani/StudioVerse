@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import coachingNotificationTemplates from "@/tenants/coaching-studio/notification-templates.json";
 
 type AppUserType = "company" | "professional" | "individual";
 
@@ -41,6 +42,11 @@ type UserDoc = {
   updatedAt?: FieldValue;
 };
 
+type ResolvedCompanyScope = {
+  companyId: string;
+  companyName: string;
+};
+
 function normalize(value: string): string {
   return value.trim();
 }
@@ -75,6 +81,74 @@ function toErrorMessage(error: unknown): string {
   return "Unknown error.";
 }
 
+function renderTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => values[key] ?? "");
+}
+
+async function isNotificationEnabled(tenantId: string, key: string): Promise<boolean> {
+  const tenantSnap = await adminDb.collection("tenants").doc(tenantId).get();
+  const toggles = (tenantSnap.data()?.notificationSettings?.toggles ?? {}) as Record<string, unknown>;
+  const value = toggles[key];
+  return typeof value === "boolean" ? value : true;
+}
+
+async function sendManagedUserWelcomeEmail(args: {
+  tenantId: string;
+  recipientName: string;
+  recipientEmail: string;
+}): Promise<void> {
+  const recipientEmail = args.recipientEmail.trim().toLowerCase();
+  if (!recipientEmail) {
+    return;
+  }
+
+  const enabled = await isNotificationEnabled(args.tenantId, "managedUserWelcome");
+  if (!enabled) {
+    return;
+  }
+
+  const tenantSnap = await adminDb.collection("tenants").doc(args.tenantId).get();
+  const mailConfig = (tenantSnap.data()?.mailConfig ?? {}) as { enabled?: unknown; fromEmail?: unknown; fromName?: unknown };
+  if (mailConfig.enabled !== true) {
+    return;
+  }
+
+  const fromEmail = String(mailConfig.fromEmail ?? "").trim();
+  const fromName = String(mailConfig.fromName ?? "").trim();
+  if (!fromEmail || !fromName) {
+    return;
+  }
+
+  const template = (coachingNotificationTemplates as Record<string, { subject?: string; body?: string }>).managedUserWelcome;
+  const subject = renderTemplate(template?.subject ?? "Welcome to Coaching Studio", {
+    recipientName: args.recipientName,
+    tenantName: args.tenantId,
+  });
+  const body = renderTemplate(template?.body ?? "Dear {{recipientName}},\n\nWelcome to Coaching Studio.\n\nWarm regards,\nTeam Coaching Studio", {
+    recipientName: args.recipientName,
+    tenantName: args.tenantId,
+  });
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return;
+  }
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: `${fromName} <${fromEmail}>`,
+      to: [recipientEmail],
+      subject,
+      text: body,
+    }),
+  });
+}
+
 async function resolveCreator(authUid: string) {
   const directSnap = await adminDb.collection("users").doc(authUid).get();
   if (directSnap.exists) {
@@ -100,6 +174,71 @@ function mapUserForResponse(id: string, user: UserDoc) {
   return {
     id,
     ...user,
+  };
+}
+
+async function resolveCompanyScopeForCreator(args: {
+  creatorId: string;
+  creatorRole: AppUserType;
+  creator: UserDoc;
+  tenantId: string;
+}): Promise<ResolvedCompanyScope> {
+  if (args.creatorRole === "company") {
+    return {
+      companyId: args.creatorId,
+      companyName: String(args.creator.companyName ?? "").trim(),
+    };
+  }
+
+  const associatedCompanyId = String(args.creator.associatedCompanyId ?? "").trim();
+  if (!associatedCompanyId) {
+    throw new Error("Professional creator is not associated with an active company.");
+  }
+
+  const companySnap = await adminDb.collection("users").doc(associatedCompanyId).get();
+  if (!companySnap.exists) {
+    throw new Error("Associated company could not be verified.");
+  }
+
+  const companyData = companySnap.data() as UserDoc;
+  const companyRole = companyData.userType ?? companyData.profileType ?? companyData.role;
+  if (companyRole !== "company") {
+    throw new Error("Associated company scope is invalid.");
+  }
+
+  if (companyData.tenantId !== args.tenantId) {
+    throw new Error("Associated company belongs to a different tenant.");
+  }
+
+  if (companyData.status === "inactive") {
+    throw new Error("Associated company is inactive.");
+  }
+
+  // Re-fetch by creator id to ensure the active creator record is still scoped to this company.
+  const creatorSnap = await adminDb.collection("users").doc(args.creatorId).get();
+  if (!creatorSnap.exists) {
+    throw new Error("Professional creator profile could not be re-validated.");
+  }
+
+  const refreshedCreator = creatorSnap.data() as UserDoc;
+  const refreshedCreatorRole =
+    refreshedCreator.userType ?? refreshedCreator.profileType ?? refreshedCreator.role;
+
+  if (refreshedCreatorRole !== "professional") {
+    throw new Error("Professional creator role could not be verified.");
+  }
+
+  if (refreshedCreator.tenantId !== args.tenantId) {
+    throw new Error("Professional creator belongs to a different tenant.");
+  }
+
+  if (String(refreshedCreator.associatedCompanyId ?? "").trim() !== associatedCompanyId) {
+    throw new Error("Professional creator is not currently scoped to the associated company.");
+  }
+
+  return {
+    companyId: associatedCompanyId,
+    companyName: String(companyData.companyName ?? companyData.name ?? "").trim(),
   };
 }
 
@@ -154,10 +293,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Creator tenant is missing.", requestId }, { status: 400 });
     }
 
-    const associatedCompanyId =
-      creatorRole === "company"
-        ? creator.id
-        : creator.associatedCompanyId || undefined;
+    const companyScope = await resolveCompanyScopeForCreator({
+      creatorId: creator.id,
+      creatorRole,
+      creator,
+      tenantId,
+    });
+
+    const associatedCompanyId = companyScope.companyId;
 
     let associatedProfessionalId: string | null = null;
 
@@ -245,7 +388,7 @@ export async function POST(request: NextRequest) {
       const updatePayload: Partial<UserDoc> & { updatedAt: FieldValue } = {
         tenantId,
         associatedCompanyId,
-        companyName: creator.companyName ?? existing.companyName ?? "",
+        companyName: companyScope.companyName || creator.companyName || existing.companyName || "",
         updatedAt: FieldValue.serverTimestamp(),
       };
 
@@ -323,7 +466,7 @@ export async function POST(request: NextRequest) {
       role: targetUserType,
       status: "active",
       tenantId,
-      companyName: creator.companyName ?? "",
+      companyName: companyScope.companyName || creator.companyName || "",
       associatedCompanyId,
       associatedProfessionalId,
       createdByUserId: creator.id,
@@ -375,6 +518,16 @@ export async function POST(request: NextRequest) {
     } catch (firestoreError) {
       await adminAuth.deleteUser(authUser.uid);
       throw firestoreError;
+    }
+
+    try {
+      await sendManagedUserWelcomeEmail({
+        tenantId,
+        recipientName: fullName,
+        recipientEmail: email,
+      });
+    } catch {
+      // Managed user creation should not fail if email notification fails.
     }
 
     return NextResponse.json({

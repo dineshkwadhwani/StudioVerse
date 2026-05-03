@@ -119,7 +119,6 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 10px;
   font-size: 0.88rem;
   color: #334155;
 }
@@ -129,8 +128,32 @@
   font-weight: 600;
 }
 
+.logCardFooter {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.detailsButton {
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f766e;
+  background: #f0fdf9;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.detailsButton:hover {
+  background: #ccfbf1;
+}
+
 .conversation {
-  margin-top: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 10px;
 }

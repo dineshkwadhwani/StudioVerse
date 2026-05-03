@@ -11,9 +11,10 @@ import type { CashoutRequest } from "@/types/cashoutRequest";
 
 type Props = {
   operatorId: string;
+  onRequestsChanged?: () => void;
 };
 
-export default function CashoutRequestsSection({ operatorId }: Props) {
+export default function CashoutRequestsSection({ operatorId, onRequestsChanged }: Props) {
   const [requests, setRequests] = useState<CashoutRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export default function CashoutRequestsSection({ operatorId }: Props) {
       });
       setMessage("Cashout request approved and queued for payout placeholder.");
       await refresh();
+      onRequestsChanged?.();
     } catch (approvalError) {
       setError(approvalError instanceof Error ? approvalError.message : "Failed to approve cashout request.");
     } finally {
@@ -93,6 +95,7 @@ export default function CashoutRequestsSection({ operatorId }: Props) {
       });
       setMessage("Cashout request denied and credits returned to requester wallet.");
       await refresh();
+      onRequestsChanged?.();
     } catch (denyError) {
       setError(denyError instanceof Error ? denyError.message : "Failed to deny cashout request.");
     } finally {

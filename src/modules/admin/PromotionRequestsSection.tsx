@@ -22,9 +22,10 @@ type Props = {
   operatorId: string;
   initialTenantId?: string;
   onBack?: () => void;
+  onRequestsChanged?: () => void;
 };
 
-export default function PromotionRequestsSection({ operatorId, initialTenantId, onBack }: Props) {
+export default function PromotionRequestsSection({ operatorId, initialTenantId, onBack, onRequestsChanged }: Props) {
   const [requests, setRequests] = useState<PromotionRequestRecord[]>([]);
   const [packagesById, setPackagesById] = useState<Record<string, PromotionPackageRecord>>({});
   const [selectedTenantId, setSelectedTenantId] = useState(initialTenantId ?? "");
@@ -89,6 +90,7 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
       }
       setMessage("Promotion request approved.");
       await refresh();
+      onRequestsChanged?.();
     } catch (approvalError) {
       setError(approvalError instanceof Error ? approvalError.message : "Failed to approve promotion request.");
     } finally {
@@ -110,6 +112,7 @@ export default function PromotionRequestsSection({ operatorId, initialTenantId, 
       }
       setMessage("Promotion request denied.");
       await refresh();
+      onRequestsChanged?.();
     } catch (denyError) {
       setError(denyError instanceof Error ? denyError.message : "Failed to deny promotion request.");
     } finally {

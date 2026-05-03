@@ -40,6 +40,9 @@ import ManageCoinsSection from "./ManageCoinsSection";
 import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
+import { listPromotionRequests } from "@/services/programPromotionRequests.service";
+import { listPendingBotHeroRequests } from "@/services/botHero.service";
+import { listListingRequests } from "@/services/listingRequests.service";
 import { listAllReferrals, processReferralJoinForNewUser, sendReferralReminders } from "@/services/referral.service";
 import { backfillTenantTreasuryWallets, buildWalletId, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
@@ -51,6 +54,7 @@ import styles from "./SuperAdminPortal.module.css";
 import ManageEarningPackagesPage from "./ManageEarningPackagesPage";
 import ApproveRequestsPage from "./ApproveRequestsPage";
 import GuestLogPage from "./GuestLogPage";
+import ManageNotificationsSection from "./ManageNotificationsSection";
 
 type MenuKey =
   | "dashboard"
@@ -68,7 +72,8 @@ type MenuKey =
   | "earning-packages"
   | "orders"
   | "approve-requests"
-  | "guest-log";
+  | "guest-log"
+  | "notifications";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
 type UsersFilter = "all" | AppUserType;
@@ -202,6 +207,13 @@ type DashboardStats = {
   individuals: number;
   referralsMade: number;
   referralsJoined: number;
+  pendingCashoutRequests: number;
+  pendingPromotionRequests: number;
+  pendingBotHeroRequests: number;
+  pendingListingRequests: number;
+  pendingApprovalItems: number;
+  guestsJoined: number;
+  guestsTotal: number;
 };
 
 type ReferralRoleFilter = "all" | "company" | "professional" | "individual";
@@ -221,6 +233,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "assign-activity", label: "Assign Activity" },
   { key: "earning-packages", label: "Earning Packages" },
   { key: "approve-requests", label: "Approve Requests" },
+  { key: "notifications", label: "Notifications" },
   { key: "guest-log", label: "Guest Log" },
 ];
 
@@ -237,6 +250,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
       "users",
       "tenants",
       "resources",
+      "notifications",
       "earning-packages",
       "orders",
     ],
@@ -329,6 +343,13 @@ const EMPTY_DASHBOARD_STATS: DashboardStats = {
   individuals: 0,
   referralsMade: 0,
   referralsJoined: 0,
+  pendingCashoutRequests: 0,
+  pendingPromotionRequests: 0,
+  pendingBotHeroRequests: 0,
+  pendingListingRequests: 0,
+  pendingApprovalItems: 0,
+  guestsJoined: 0,
+  guestsTotal: 0,
 };
 
 async function ensureSuperadminProfile(firebaseUser: User): Promise<AppUser> {
@@ -419,6 +440,7 @@ export default function SuperAdminPortal() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
   const [promotionRequestsTenantId, setPromotionRequestsTenantId] = useState<string>("");
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
+  const [selectedDashboardTenant, setSelectedDashboardTenant] = useState<string>("");
 
   const [usersFilter, setUsersFilter] = useState<UsersFilter>("all");
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -554,8 +576,8 @@ export default function SuperAdminPortal() {
       return;
     }
 
-    void loadDashboardStats();
-  }, [profile, activeMenu]);
+    void loadDashboardStats(selectedDashboardTenant || undefined);
+  }, [profile, activeMenu, selectedDashboardTenant]);
 
   useEffect(() => {
     if (!profile || activeMenu !== "users") {
@@ -591,7 +613,7 @@ export default function SuperAdminPortal() {
   }, [existingCompaniesForTenant, userForm.companyName, userForm.userType]);
 
   useEffect(() => {
-    if (!profile || (activeMenu !== "tenants" && activeMenu !== "coins" && activeMenu !== "referrals")) {
+    if (!profile || (activeMenu !== "dashboard" && activeMenu !== "tenants" && activeMenu !== "coins" && activeMenu !== "referrals")) {
       return;
     }
 
@@ -724,23 +746,66 @@ export default function SuperAdminPortal() {
     }
   }
 
-  async function loadDashboardStats() {
+  async function loadDashboardStats(tenantId?: string) {
     try {
+      const usersQuery = tenantId
+        ? query(collection(db, "users"), where("tenantId", "==", tenantId))
+        : collection(db, "users");
+      const programsQuery = tenantId
+        ? query(collection(db, "programs"), where("tenantId", "==", tenantId))
+        : collection(db, "programs");
+      const assessmentsQuery = tenantId
+        ? query(collection(db, "assessments"), where("tenantId", "==", tenantId))
+        : collection(db, "assessments");
+      const eventsQuery = tenantId
+        ? query(collection(db, "events"), where("tenantId", "==", tenantId))
+        : collection(db, "events");
+
       const [usersSnap, tenantsSnap, programsSnap, assessmentsSnap, eventsSnap] = await Promise.all([
-        getDocs(collection(db, "users")),
+        getDocs(usersQuery),
         getDocs(collection(db, "tenants")),
-        getDocs(collection(db, "programs")),
-        getDocs(collection(db, "assessments")),
-        getDocs(collection(db, "events")),
+        getDocs(programsQuery),
+        getDocs(assessmentsQuery),
+        getDocs(eventsQuery),
       ]);
       const [walletSummary, allReferrals] = await Promise.all([
-        listWalletSummary(),
-        listAllReferrals(),
+        listWalletSummary(tenantId),
+        listAllReferrals(tenantId ? { tenantId } : undefined),
+      ]);
+      const guestLogsSnap = await getDocs(collection(db, "guestLogs"));
+      const guestLogs = guestLogsSnap.docs.map((row) => row.data() as Record<string, unknown>);
+      const filteredGuestLogs = tenantId
+        ? guestLogs.filter((row) => String(row.tenantId ?? "") === tenantId)
+        : guestLogs;
+      const guestsTotal = filteredGuestLogs.length;
+      const userPhones = new Set(
+        usersSnap.docs
+          .map((entry) => String((entry.data() as Record<string, unknown>).phoneE164 ?? "").replace(/\D/g, ""))
+          .filter(Boolean)
+      );
+      const guestsJoined = filteredGuestLogs.filter((row) => {
+        const phone = String(row.guestPhone ?? "").replace(/\D/g, "");
+        return phone.length > 0 && userPhones.has(phone);
+      }).length;
+
+      const [pendingCashoutSnap, pendingPromotionRows, pendingBotHeroRows, pendingListingRows] = await Promise.all([
+        tenantId
+          ? getDocs(query(collection(db, "cashoutRequests"), where("status", "==", "pending"), where("tenantId", "==", tenantId)))
+          : getDocs(query(collection(db, "cashoutRequests"), where("status", "==", "pending"))),
+        listPromotionRequests(tenantId),
+        listPendingBotHeroRequests(tenantId),
+        listListingRequests(tenantId),
       ]);
 
       const users = usersSnap.docs.map((entry) => entry.data() as Omit<AppUser, "id">);
       const referralsMade = allReferrals.length;
       const referralsJoined = allReferrals.filter((r) => r.status === "joined").length;
+      const pendingCashoutRequests = pendingCashoutSnap.size;
+      const pendingPromotionRequests = pendingPromotionRows.length;
+      const pendingBotHeroRequests = pendingBotHeroRows.length;
+      const pendingListingRequests = pendingListingRows.length;
+      const pendingApprovalItems =
+        pendingCashoutRequests + pendingPromotionRequests + pendingBotHeroRequests;
 
       setDashboardStats({
         tenants: tenantsSnap.size,
@@ -754,6 +819,13 @@ export default function SuperAdminPortal() {
         individuals: users.filter((entry) => entry.userType === "individual").length,
         referralsMade,
         referralsJoined,
+        pendingCashoutRequests,
+        pendingPromotionRequests,
+        pendingBotHeroRequests,
+        pendingListingRequests,
+        pendingApprovalItems,
+        guestsJoined,
+        guestsTotal,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load dashboard stats.";
@@ -1312,11 +1384,28 @@ export default function SuperAdminPortal() {
               <h2>Dashboard</h2>
               <p className={styles.subtitle}>Platform-level overview across tenants, content, and user categories.</p>
 
+              <div className={styles.filterRow}>
+                <label className={styles.filterLabel} htmlFor="dashboard-tenant-filter">View by Tenant</label>
+                <select
+                  id="dashboard-tenant-filter"
+                  className={styles.select}
+                  value={selectedDashboardTenant}
+                  onChange={(e) => setSelectedDashboardTenant(e.target.value)}
+                >
+                  <option value="">All Tenants</option>
+                  {tenants.map((t) => (
+                    <option key={t.id} value={t.id}>{t.tenantName}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className={styles.dashboardGrid}>
-                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("tenants")}>
-                  <p className={styles.statLabel}>No of Tenants</p>
-                  <p className={styles.statValue}>{dashboardStats.tenants}</p>
-                </button>
+                {!selectedDashboardTenant && (
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("tenants")}>
+                    <p className={styles.statLabel}>No of Tenants</p>
+                    <p className={styles.statValue}>{dashboardStats.tenants}</p>
+                  </button>
+                )}
                 <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("programs")}>
                   <p className={styles.statLabel}>Total Programs</p>
                   <p className={styles.statValue}>{dashboardStats.programs}</p>
@@ -1348,6 +1437,14 @@ export default function SuperAdminPortal() {
                 <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("referrals")}>
                   <p className={styles.statLabel}>Referrals Joined / Made</p>
                   <p className={styles.statValue}>{dashboardStats.referralsJoined}/{dashboardStats.referralsMade}</p>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("approve-requests")}>
+                  <p className={styles.statLabel}>Pending Approval Items</p>
+                  <p className={styles.statValue}>{dashboardStats.pendingApprovalItems}</p>
+                </button>
+                <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("guest-log")}>
+                  <p className={styles.statLabel}>Total Guests (Joined / Bot)</p>
+                  <p className={styles.statValue}>{dashboardStats.guestsJoined}/{dashboardStats.guestsTotal}</p>
                 </button>
               </div>
             </article>
@@ -1642,6 +1739,10 @@ export default function SuperAdminPortal() {
           ) : null}
 
           {activeMenu === "guest-log" ? <GuestLogPage /> : null}
+
+          {activeMenu === "notifications" ? (
+            <ManageNotificationsSection tenants={tenants} operatorId={profile.id} />
+          ) : null}
 
           {activeMenu === "orders" ? <ManageOrdersSection /> : null}
 

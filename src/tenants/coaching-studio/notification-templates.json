@@ -47,6 +47,14 @@
     "subject": "Promotion request denied",
     "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Coaching Studio"
   },
+  "promotionExpiringSoon": {
+    "subject": "Promotion ending soon for {{resourceName}}",
+    "body": "Dear {{recipientName}},\n\nYour promotion for {{resourceType}} \"{{resourceName}}\" is ending on {{promotionEndDate}}.\n\nIf you want continued visibility, submit a new promotion request in advance.\n\nWarm regards,\nTeam Coaching Studio"
+  },
+  "listingExpiringSoon": {
+    "subject": "Listing period ending soon for {{resourceName}}",
+    "body": "Dear {{recipientName}},\n\nYour approved listing period for {{resourceType}} \"{{resourceName}}\" is ending on {{listingEndDate}}.\n\nSubmit a new listing request in advance to avoid interruption.\n\nWarm regards,\nTeam Coaching Studio"
+  },
   "botHeroRequested": {
     "subject": "Bot Hero request submitted",
     "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been submitted successfully.\n\nYou will receive an update once reviewed by Super Admin.\n\nWarm regards,\nTeam Coaching Studio"

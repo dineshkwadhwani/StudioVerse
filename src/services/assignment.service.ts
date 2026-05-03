@@ -807,14 +807,7 @@ export async function updateAssignmentStatus(args: {
     updatedAt: serverTimestamp(),
   });
 
-  const notificationTypeByStatus: Partial<Record<AssignmentStatus, "assignmentInProgress" | "assignmentCompleted" | "assignmentCancelled">> = {
-    in_progress: "assignmentInProgress",
-    completed: "assignmentCompleted",
-    cancelled: "assignmentCancelled",
-  };
-
-  const notificationType = notificationTypeByStatus[args.status];
-  if (!notificationType) {
+  if (args.status !== "completed") {
     return;
   }
 
@@ -837,7 +830,7 @@ export async function updateAssignmentStatus(args: {
 
     await sendNotificationEmail({
       tenantId,
-      notificationType,
+      notificationType: "assignmentCompleted",
       recipientEmail: assigneeEmail,
       recipientName: assigneeName,
       templateVariables: {

@@ -43,6 +43,34 @@ import {
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error !== "object" || error === null) {
+    return String(error);
+  }
+
+  const err = error as {
+    message?: string;
+    details?: {
+      issues?: string[];
+      fieldErrors?: Record<string, string>;
+    };
+  };
+
+  const issues = err.details?.issues ?? [];
+  const fieldErrors = err.details?.fieldErrors ?? {};
+  const fieldMessages = Object.entries(fieldErrors).map(([field, message]) => `${field}: ${message}`);
+
+  if (issues.length > 0 || fieldMessages.length > 0) {
+    return [
+      err.message ?? "Assessment validation failed.",
+      ...issues,
+      ...fieldMessages,
+    ].join(" ");
+  }
+
+  return err.message ?? "Unknown error";
+}
+
 type TenantOption = {
   id: string;
   tenantId: string;
@@ -532,8 +560,17 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
         ? (isSuperAdmin ? "published" : "pending_publication_review")
         : (normalizedStatus === "published" ? "published" : "unpublished");
 
-      let assessmentImageUrl = formValues.assessmentImageUrl;
-      let assessmentImagePath = formValues.assessmentImagePath;
+      const existingAssessment = isExisting
+        ? assessments.find((assessment) => assessment.id === assessmentId)
+        : undefined;
+      let assessmentImageUrl =
+        formValues.assessmentImageUrl ||
+        existingAssessment?.assessmentImageUrl ||
+        "";
+      let assessmentImagePath =
+        formValues.assessmentImagePath ||
+        existingAssessment?.assessmentImagePath ||
+        "";
 
       if (selectedAssessmentImage) {
         const extension = sanitizeExtension(selectedAssessmentImage);
@@ -547,7 +584,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
       const promotionStatus = formValues.promoted && formValues.promotionPackageId.trim()
         ? (isSuperAdmin ? "promoted" : "requested")
         : "none";
-      const listingStatus = hasPublishIntent
+      const hasListingPackage = formValues.listingPackageId.trim().length > 0;
+      const listingStatus = hasPublishIntent && hasListingPackage
         ? (isSuperAdmin ? "approved" : "requested")
         : "none";
 
@@ -625,7 +663,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
         : rows;
       setAssessments(filtered);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = getErrorMessage(e);
       setError(`Save failed: ${msg}`);
     } finally {
       setSaving(false);
@@ -843,6 +881,20 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
               />
               {selectedAssessmentImage ? (
                 <p className={styles.info}>Selected image: {selectedAssessmentImage.name}</p>
+              ) : null}
+              {!selectedAssessmentImage && formValues.assessmentImageUrl ? (
+                <button
+                  type="button"
+                  className={styles.ghostButton}
+                  onClick={() => {
+                    setSelectedAssessmentImage(null);
+                    setField("assessmentImageUrl", "");
+                    setField("assessmentImagePath", "");
+                  }}
+                  style={{ marginBottom: 8 }}
+                >
+                  Remove current image
+                </button>
               ) : null}
               {!selectedAssessmentImage && formValues.assessmentImageUrl ? (
                 <div style={{ marginBottom: 12 }}>

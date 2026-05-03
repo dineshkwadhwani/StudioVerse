@@ -171,6 +171,28 @@ function applyComputedFields(profile: UserProfileRecord): UserProfileRecord {
   };
 }
 
+async function sendSelfRegistrationWelcomeNotification(profile: UserProfileRecord): Promise<void> {
+  const recipientEmail = profile.email.trim().toLowerCase();
+  if (!recipientEmail) {
+    return;
+  }
+
+  await sendNotificationEmail({
+    tenantId: profile.tenantId,
+    notificationType: "onboardingWelcome",
+    recipientEmail,
+    recipientName: profile.fullName || "User",
+    templateVariables: {
+      recipientName: profile.fullName || "User",
+      tenantName: profile.tenantId,
+    },
+    metadata: {
+      userId: profile.userId,
+      source: "profileRegistration",
+    },
+  });
+}
+
 function mapUserProfile(id: string, data: ProfileDocData): UserProfileRecord {
   const userType = resolveUserType(data);
   const fullName = normalizeString(data.fullName ?? data.name);
@@ -496,26 +518,10 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
   }
 
   if (!current) {
-    const recipientEmail = savedProfile.email.trim().toLowerCase();
-    if (recipientEmail) {
-      try {
-        await sendNotificationEmail({
-          tenantId: savedProfile.tenantId,
-          notificationType: "onboardingWelcome",
-          recipientEmail,
-          recipientName: savedProfile.fullName || "User",
-          templateVariables: {
-            recipientName: savedProfile.fullName || "User",
-            tenantName: savedProfile.tenantId,
-          },
-          metadata: {
-            userId: savedProfile.userId,
-            source: "profileRegistration",
-          },
-        });
-      } catch {
-        // Profile save must not fail if notification send fails.
-      }
+    try {
+      await sendSelfRegistrationWelcomeNotification(savedProfile);
+    } catch {
+      // Profile save must not fail if notification send fails.
     }
   }
 

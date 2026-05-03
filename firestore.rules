@@ -71,6 +71,46 @@ service cloud.firestore {
       return !changedKeys.hasAny(blockedFields);
     }
 
+    function isValidNotificationType(value) {
+      return value in [
+        "onboardingWelcome",
+        "onboardingActivation",
+        "managedUserWelcome",
+        "assignmentCreated",
+        "assignmentInProgress",
+        "assignmentCompleted",
+        "assignmentCancelled",
+        "cohortMemberAdded",
+        "cohortMemberRemoved",
+        "promotionRequested",
+        "promotionApproved",
+        "promotionDenied",
+        "promotionExpiringSoon",
+        "listingExpiringSoon",
+        "botHeroRequested",
+        "botHeroApproved",
+        "botHeroDenied",
+        "botHeroExpiringSoon",
+        "coinRequestSubmitted",
+        "coinRequestApproved",
+        "coinRequestDenied",
+        "cashoutRequested",
+        "cashoutApproved",
+        "cashoutDenied",
+        "registrationBonusIssued",
+        "referralInviteSent",
+        "referralReminderSent",
+        "referralJoined",
+        "adminCashoutAlert",
+        "adminBotHeroAlert",
+        "adminPromotionAlert",
+      ];
+    }
+
+    function isValidNotificationStatus(value) {
+      return value in ["sent", "blocked", "failed"];
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     // Login queries users by phoneE164+tenantId so collection reads must be
     // open to any authenticated user. Writes are scoped to own document.
@@ -515,6 +555,39 @@ service cloud.firestore {
     match /bot-knowledge/{docId} {
       allow read:  if true;
       allow write: if isSuperAdmin();
+    }
+
+    // ── Notification Logs ──────────────────────────────────────────────────
+    // Append-only audit stream for delivery outcomes.
+    // Client writes are tightly constrained; server writes use Admin SDK.
+    match /notificationLogs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.keys().hasOnly([
+                      'tenantId',
+                      'notificationType',
+                      'recipientEmail',
+                      'recipientName',
+                      'status',
+                      'reason',
+                      'providerMessageId',
+                      'metadata',
+                      'createdAt',
+                    ])
+                    && request.resource.data.tenantId == currentTenantId()
+                    && request.resource.data.notificationType is string
+                    && isValidNotificationType(request.resource.data.notificationType)
+                    && request.resource.data.recipientEmail is string
+                    && request.resource.data.recipientEmail.size() > 3
+                    && request.resource.data.recipientName is string
+                    && request.resource.data.status is string
+                    && isValidNotificationStatus(request.resource.data.status)
+                    && request.resource.data.reason is string
+                    && request.resource.data.providerMessageId is string
+                    && request.resource.data.metadata is map
+                    && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if false;
     }
 
     // ── Audit Logs ─────────────────────────────────────────────────────────

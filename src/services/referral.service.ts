@@ -13,7 +13,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
 import { functions } from "@/services/firebase";
-import { sendNotificationEmail } from "@/services/notification.service";
+import { sendNotificationEmail, sendNotificationToUser } from "@/services/notification.service";
 import type {
   ReferredType,
   ReferralRecord,
@@ -308,11 +308,10 @@ export async function processReferralJoinForNewUser(args: {
       }
 
       if (referralRec && referralRec.referrerUserId) {
-        await sendNotificationEmail({
+        await sendNotificationToUser({
           tenantId: args.tenantId,
+          userId: referralRec.referrerUserId,
           notificationType: "referralJoined",
-          recipientEmail: referralRec.referrerUserId,
-          recipientName: referralRec.referrerName || "Referrer",
           templateVariables: {
             recipientName: referralRec.referrerName || "Referrer",
             joinedUserName: args.fullName,

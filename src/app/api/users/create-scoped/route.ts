@@ -85,6 +85,38 @@ function renderTemplate(template: string, values: Record<string, string>): strin
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => values[key] ?? "");
 }
 
+type NotificationDeliveryStatus = "sent" | "blocked" | "failed";
+type ManagedNotificationType = "managedUserWelcome" | "registrationBonusIssued";
+
+async function logNotificationEvent(args: {
+  tenantId: string;
+  notificationType: ManagedNotificationType;
+  recipientEmail: string;
+  recipientName: string;
+  status: NotificationDeliveryStatus;
+  reason: string;
+  providerMessageId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  console.log(`[DEBUG][notificationLog] Writing log: status=${args.status} type=${args.notificationType} recipient=${args.recipientEmail} reason="${args.reason}"`);
+  try {
+    const docRef = await adminDb.collection("notificationLogs").add({
+      tenantId: args.tenantId,
+      notificationType: args.notificationType,
+      recipientEmail: args.recipientEmail,
+      recipientName: args.recipientName,
+      status: args.status,
+      reason: args.reason,
+      providerMessageId: args.providerMessageId ?? "",
+      metadata: args.metadata ?? {},
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    console.log(`[DEBUG][notificationLog] Written to Firestore id=${docRef.id}`);
+  } catch (err) {
+    console.error("[DEBUG][notificationLog] Firestore write FAILED:", err);
+  }
+}
+
 async function isNotificationEnabled(tenantId: string, key: string): Promise<boolean> {
   const tenantSnap = await adminDb.collection("tenants").doc(tenantId).get();
   const toggles = (tenantSnap.data()?.notificationSettings?.toggles ?? {}) as Record<string, unknown>;
@@ -96,26 +128,66 @@ async function sendManagedUserWelcomeEmail(args: {
   tenantId: string;
   recipientName: string;
   recipientEmail: string;
+  metadata?: Record<string, unknown>;
 }): Promise<void> {
+  console.log(`[DEBUG][managedUserWelcome] Starting for recipient=${args.recipientEmail} tenant=${args.tenantId}`);
   const recipientEmail = args.recipientEmail.trim().toLowerCase();
   if (!recipientEmail) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "managedUserWelcome",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: "Recipient email is missing.",
+      metadata: args.metadata,
+    });
     return;
   }
 
   const enabled = await isNotificationEnabled(args.tenantId, "managedUserWelcome");
+  console.log(`[DEBUG][managedUserWelcome] Toggle enabled=${enabled} for tenant=${args.tenantId}`);
   if (!enabled) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "managedUserWelcome",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "blocked",
+      reason: "Notification toggle disabled for tenant.",
+      metadata: args.metadata,
+    });
     return;
   }
 
   const tenantSnap = await adminDb.collection("tenants").doc(args.tenantId).get();
   const mailConfig = (tenantSnap.data()?.mailConfig ?? {}) as { enabled?: unknown; fromEmail?: unknown; fromName?: unknown };
+  console.log(`[DEBUG][managedUserWelcome] mailConfig.enabled=${mailConfig.enabled} fromEmail=${mailConfig.fromEmail}`);
   if (mailConfig.enabled !== true) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "managedUserWelcome",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "blocked",
+      reason: "Tenant mail sending is disabled.",
+      metadata: args.metadata,
+    });
     return;
   }
 
   const fromEmail = String(mailConfig.fromEmail ?? "").trim();
   const fromName = String(mailConfig.fromName ?? "").trim();
   if (!fromEmail || !fromName) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "managedUserWelcome",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: "Tenant mail sender is not configured.",
+      metadata: args.metadata,
+    });
     return;
   }
 
@@ -131,10 +203,19 @@ async function sendManagedUserWelcomeEmail(args: {
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "managedUserWelcome",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: "RESEND_API_KEY is not configured.",
+      metadata: args.metadata,
+    });
     return;
   }
 
-  await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -146,6 +227,185 @@ async function sendManagedUserWelcomeEmail(args: {
       subject,
       text: body,
     }),
+  });
+
+  let providerMessageId = "";
+  let failureReason = "";
+  try {
+    const payload = (await response.json()) as Record<string, unknown>;
+    providerMessageId = String(payload.id ?? "").trim();
+    failureReason = String(payload.message ?? "").trim();
+  } catch {
+    failureReason = "Unable to parse mail provider response.";
+  }
+
+  console.log(`[DEBUG][managedUserWelcome] Resend response status=${response.status} providerMessageId=${providerMessageId} failureReason="${failureReason}"`);
+  if (!response.ok) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "managedUserWelcome",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: failureReason || `Mail provider returned HTTP ${response.status}.`,
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  await logNotificationEvent({
+    tenantId: args.tenantId,
+    notificationType: "managedUserWelcome",
+    recipientEmail,
+    recipientName: args.recipientName,
+    status: "sent",
+    reason: "Sent via create-scoped managed-user flow.",
+    providerMessageId,
+    metadata: args.metadata,
+  });
+}
+
+async function sendRegistrationBonusIssuedEmail(args: {
+  tenantId: string;
+  recipientName: string;
+  recipientEmail: string;
+  bonusCoins: number;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  console.log(`[DEBUG][registrationBonusIssued] Starting for recipient=${args.recipientEmail} tenant=${args.tenantId} bonus=${args.bonusCoins}`);
+  const recipientEmail = args.recipientEmail.trim().toLowerCase();
+  if (!recipientEmail) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "registrationBonusIssued",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: "Recipient email is missing.",
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  const enabled = await isNotificationEnabled(args.tenantId, "registrationBonusIssued");
+  console.log(`[DEBUG][registrationBonusIssued] Toggle enabled=${enabled} for tenant=${args.tenantId}`);
+  if (!enabled) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "registrationBonusIssued",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "blocked",
+      reason: "Notification toggle disabled for tenant.",
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  const tenantSnap = await adminDb.collection("tenants").doc(args.tenantId).get();
+  const mailConfig = (tenantSnap.data()?.mailConfig ?? {}) as { enabled?: unknown; fromEmail?: unknown; fromName?: unknown };
+  console.log(`[DEBUG][registrationBonusIssued] mailConfig.enabled=${mailConfig.enabled} fromEmail=${mailConfig.fromEmail}`);
+  if (mailConfig.enabled !== true) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "registrationBonusIssued",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "blocked",
+      reason: "Tenant mail sending is disabled.",
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  const fromEmail = String(mailConfig.fromEmail ?? "").trim();
+  const fromName = String(mailConfig.fromName ?? "").trim();
+  if (!fromEmail || !fromName) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "registrationBonusIssued",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: "Tenant mail sender is not configured.",
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  const template = (coachingNotificationTemplates as Record<string, { subject?: string; body?: string }>).registrationBonusIssued;
+  const subject = renderTemplate(template?.subject ?? "Registration bonus credited", {
+    recipientName: args.recipientName,
+    tenantName: args.tenantId,
+    bonusCoins: String(args.bonusCoins),
+  });
+  const body = renderTemplate(template?.body ?? "Dear {{recipientName}},\n\nYour registration bonus of {{bonusCoins}} credits has been added to your wallet.\n\nWarm regards,\nTeam Coaching Studio", {
+    recipientName: args.recipientName,
+    tenantName: args.tenantId,
+    bonusCoins: String(args.bonusCoins),
+  });
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "registrationBonusIssued",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: "RESEND_API_KEY is not configured.",
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: `${fromName} <${fromEmail}>`,
+      to: [recipientEmail],
+      subject,
+      text: body,
+    }),
+  });
+
+  let providerMessageId = "";
+  let failureReason = "";
+  try {
+    const payload = (await response.json()) as Record<string, unknown>;
+    providerMessageId = String(payload.id ?? "").trim();
+    failureReason = String(payload.message ?? "").trim();
+  } catch {
+    failureReason = "Unable to parse mail provider response.";
+  }
+
+  console.log(`[DEBUG][registrationBonusIssued] Resend response status=${response.status} providerMessageId=${providerMessageId} failureReason="${failureReason}"`);
+  if (!response.ok) {
+    await logNotificationEvent({
+      tenantId: args.tenantId,
+      notificationType: "registrationBonusIssued",
+      recipientEmail,
+      recipientName: args.recipientName,
+      status: "failed",
+      reason: failureReason || `Mail provider returned HTTP ${response.status}.`,
+      metadata: args.metadata,
+    });
+    return;
+  }
+
+  await logNotificationEvent({
+    tenantId: args.tenantId,
+    notificationType: "registrationBonusIssued",
+    recipientEmail,
+    recipientName: args.recipientName,
+    status: "sent",
+    reason: "Sent via create-scoped managed-user flow.",
+    providerMessageId,
+    metadata: args.metadata,
   });
 }
 
@@ -410,6 +670,27 @@ export async function POST(request: NextRequest) {
       await existingRow.ref.set(updatePayload, { merge: true });
       const refreshed = (await existingRow.ref.get()).data() as UserDoc;
 
+      // Send welcome email for the re-associated user (best-effort).
+      const associatedEmail = String(existing.email ?? "").trim();
+      const associatedName = String(existing.fullName ?? existing.name ?? `${existing.firstName ?? ""} ${existing.lastName ?? ""}`.trim() ?? "").trim();
+      console.log(`[DEBUG][createScoped] Associated path: sending welcome email to ${associatedEmail} name="${associatedName}" tenant=${tenantId}`);
+      if (associatedEmail) {
+        try {
+          await sendManagedUserWelcomeEmail({
+            tenantId,
+            recipientName: associatedName || associatedEmail,
+            recipientEmail: associatedEmail,
+            metadata: {
+              source: "createScopedAssociated",
+              associatedUserId: existingRow.id,
+              createdByUserId: creator.id,
+            },
+          });
+        } catch {
+          // Email failure must not break the association response.
+        }
+      }
+
       return NextResponse.json({
         requestId,
         operation: "associated",
@@ -478,10 +759,11 @@ export async function POST(request: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     };
 
+    let registrationFreeCoins = 10;
     try {
       // Fetch tenant wallet config to get registration coin amount
       const tenantDocSnap = await adminDb.collection("tenants").doc(tenantId).get();
-      const registrationFreeCoins = Math.max(0, Math.floor(tenantDocSnap.data()?.walletConfig?.registrationFreeCoins ?? 10));
+      registrationFreeCoins = Math.max(0, Math.floor(tenantDocSnap.data()?.walletConfig?.registrationFreeCoins ?? 10));
 
       await adminDb.runTransaction(async (transaction) => {
         const userRef = adminDb.collection("users").doc(authUser.uid);
@@ -525,7 +807,26 @@ export async function POST(request: NextRequest) {
         tenantId,
         recipientName: fullName,
         recipientEmail: email,
+        metadata: {
+          source: "createScopedManagedUser",
+          createdUserId: authUser.uid,
+          createdByUserId: creator.id,
+        },
       });
+
+      if (registrationFreeCoins > 0) {
+        await sendRegistrationBonusIssuedEmail({
+          tenantId,
+          recipientName: fullName,
+          recipientEmail: email,
+          bonusCoins: registrationFreeCoins,
+          metadata: {
+            source: "createScopedManagedUser",
+            createdUserId: authUser.uid,
+            createdByUserId: creator.id,
+          },
+        });
+      }
     } catch {
       // Managed user creation should not fail if email notification fails.
     }

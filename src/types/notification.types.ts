@@ -19,9 +19,17 @@ export type NotificationTemplateMap = Record<string, NotificationTemplate>;
 
 export type NotificationToggleSettings = Record<string, boolean>;
 
+export type NotificationReminderCategory =
+  | "botHeroExpiringSoon"
+  | "promotionExpiringSoon"
+  | "listingExpiringSoon";
+
+export type NotificationReminderDaysSettings = Partial<Record<NotificationReminderCategory, number[]>>;
+
 export type NotificationSettingsRecord = {
   tenantId: string;
   toggles: NotificationToggleSettings;
+  reminderDays: NotificationReminderDaysSettings;
   updatedBy?: string;
   updatedAt?: unknown;
 };

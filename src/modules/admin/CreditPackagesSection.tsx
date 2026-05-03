@@ -81,7 +81,15 @@ export default function CreditPackagesSection({ operatorId }: Props) {
     setSaving(true);
     setError("");
     try {
-      await saveCoinPackage(formValues, operatorId);
+      const nextValues: CoinPackageFormValues = { ...formValues };
+      if (formValues.id) {
+        const existingPackage = packages.find((pkg) => pkg.id === formValues.id);
+        if (existingPackage) {
+          nextValues.imageUrl = nextValues.imageUrl || existingPackage.imageUrl || "";
+        }
+      }
+
+      await saveCoinPackage(nextValues, operatorId);
       setMessage(formValues.id ? "Credit package updated." : "Credit package created.");
       setFormOpen(false);
       await refresh();
@@ -267,6 +275,17 @@ export default function CreditPackagesSection({ operatorId }: Props) {
                 value={formValues.imageUrl}
                 onChange={(e) => setFormValues((prev) => ({ ...prev, imageUrl: e.target.value }))}
               />
+              {formValues.imageUrl ? (
+                <button
+                  type="button"
+                  className={styles.ghostButton}
+                  onClick={() => setFormValues((prev) => ({ ...prev, imageUrl: "" }))}
+                  disabled={saving}
+                  style={{ marginBottom: "12px" }}
+                >
+                  Remove current image
+                </button>
+              ) : null}
               {formErrors.imageUrl ? <p className={styles.error}>{formErrors.imageUrl}</p> : null}
 
               {formValues.imageUrl ? (

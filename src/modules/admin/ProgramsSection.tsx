@@ -237,6 +237,16 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
     setSelectedThumbnail(file);
   }
 
+  function removeCurrentThumbnail(): void {
+    setSelectedThumbnail(null);
+    setFormValues((previous) => ({
+      ...previous,
+      thumbnailUrl: "",
+      thumbnailPath: "",
+    }));
+    setFormErrors((previous) => ({ ...previous, thumbnailUrl: undefined }));
+  }
+
   async function validatePromotionCreditsForRequester(values: ProgramFormValues): Promise<string | null> {
     if (!values.promoted || !values.promotionPackageId) {
       return null;
@@ -306,8 +316,17 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
       // because formValues.id is only set when the form was opened via Edit.
       const isExisting = Boolean(formValues.id);
       const nextId = formValues.id ?? buildProgramId();
-      let nextThumbnailUrl = formValues.thumbnailUrl;
-      let nextThumbnailPath = formValues.thumbnailPath;
+      const existingProgram = isExisting
+        ? programs.find((program) => program.id === nextId)
+        : undefined;
+      let nextThumbnailUrl =
+        formValues.thumbnailUrl ||
+        existingProgram?.thumbnailUrl ||
+        "";
+      let nextThumbnailPath =
+        formValues.thumbnailPath ||
+        existingProgram?.thumbnailPath ||
+        "";
 
       if (selectedThumbnail) {
         setUploadBusy(true);
@@ -515,6 +534,7 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
           listingPackagesLoading={listingPackagesLoading}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
+          onRemoveThumbnail={removeCurrentThumbnail}
           onCancel={closeForm}
           onSave={() => void submit()}
         />

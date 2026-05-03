@@ -247,6 +247,16 @@ export default function EventsSection({
     setSelectedThumbnail(file);
   }
 
+  function removeCurrentThumbnail(): void {
+    setSelectedThumbnail(null);
+    setFormValues((previous) => ({
+      ...previous,
+      thumbnailUrl: "",
+      thumbnailPath: "",
+    }));
+    setFormErrors((previous) => ({ ...previous, thumbnailUrl: undefined }));
+  }
+
   async function validatePromotionCreditsForRequester(values: EventFormValues): Promise<string | null> {
     if (!values.promoted || !values.promotionPackageId) {
       return null;
@@ -316,8 +326,17 @@ export default function EventsSection({
       // isExisting must be captured BEFORE generating a new id
       const isExisting = Boolean(formValues.id);
       const nextId = formValues.id ?? buildEventId();
-      let nextThumbnailUrl = formValues.thumbnailUrl;
-      let nextThumbnailPath = formValues.thumbnailPath;
+      const existingEvent = isExisting
+        ? events.find((event) => event.id === nextId)
+        : undefined;
+      let nextThumbnailUrl =
+        formValues.thumbnailUrl ||
+        existingEvent?.thumbnailUrl ||
+        "";
+      let nextThumbnailPath =
+        formValues.thumbnailPath ||
+        existingEvent?.thumbnailPath ||
+        "";
 
       if (selectedThumbnail) {
         setUploadBusy(true);
@@ -542,6 +561,7 @@ export default function EventsSection({
           listingPackagesLoading={listingPackagesLoading}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
+          onRemoveThumbnail={removeCurrentThumbnail}
           onCancel={closeForm}
           onSave={() => void submit()}
         />

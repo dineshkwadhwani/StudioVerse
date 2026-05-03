@@ -34,6 +34,31 @@ Production rollout state:
   npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules
   ```
 
+## Latest rollout update (May 3, 2026) — Tenant-configurable expiry reminders
+
+Status:
+
+- Expiry reminder windows are now tenant-configurable in Notification Settings for all three scheduler-backed reminder types:
+  - `botHeroExpiringSoon`
+  - `promotionExpiringSoon`
+  - `listingExpiringSoon`
+- Reminder day values are stored under `tenants/{tenantId}.notificationSettings.reminderDays`.
+- Scheduler now reads per-tenant reminder-day values (instead of hardcoded windows) with fallback defaults of `[3,1]`.
+- Changes were built and deployed successfully to `studioverse-test` with:
+
+  ```bash
+  npx -y firebase-tools@latest deploy --only firestore:rules,functions
+  ```
+
+Production rollout state:
+
+- Production deploy remains deferred until explicit go-ahead.
+- Next prod step (when approved):
+
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules,functions
+  ```
+
 ## Deferred production deployment note (Apr 28, 2026)
 
 Production deployment is intentionally deferred because the Firebase production project instance does not exist yet.

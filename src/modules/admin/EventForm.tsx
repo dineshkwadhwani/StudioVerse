@@ -40,6 +40,7 @@ type EventFormProps = {
   listingPackagesLoading: boolean;
   onChange: <K extends keyof EventFormValues>(field: K, nextValue: EventFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
+  onRemoveThumbnail: () => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -58,6 +59,7 @@ export default function EventForm({
   listingPackagesLoading,
   onChange,
   onThumbnailSelect,
+  onRemoveThumbnail,
   onCancel,
   onSave,
 }: EventFormProps) {
@@ -289,6 +291,16 @@ export default function EventForm({
                   ? "Existing thumbnail will be kept unless you upload a replacement."
                   : "Upload a JPG, PNG, or WebP image up to 2MB."}
             </p>
+            {value.thumbnailUrl && !thumbnailName ? (
+              <button
+                type="button"
+                className={styles.ghostButton}
+                onClick={onRemoveThumbnail}
+                disabled={busy || uploadBusy}
+              >
+                Remove current thumbnail
+              </button>
+            ) : null}
             {errors.thumbnailUrl ? <p className={styles.error}>{errors.thumbnailUrl}</p> : null}
 
             <label className={styles.label} htmlFor="event-video-url">Video / Meeting URL</label>

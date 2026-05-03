@@ -10,6 +10,16 @@ import styles from "./GuestLogPage.module.css";
 
 type CategoryFilter = "all" | GuestLogCategory;
 
+type GuestLogTenantOption = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+};
+
+type GuestLogPageProps = {
+  tenants: GuestLogTenantOption[];
+};
+
 function formatDate(value: Date | null): string {
   if (!value) {
     return "-";
@@ -22,7 +32,8 @@ function formatCategory(value: GuestLogCategory): string {
   return value === "coaching-studio" ? "Coaching Studio" : "General";
 }
 
-export default function GuestLogPage() {
+export default function GuestLogPage({ tenants }: GuestLogPageProps) {
+  const [tenantId, setTenantId] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("all");
@@ -43,6 +54,7 @@ export default function GuestLogPage() {
 
     try {
       const records = await listGuestLogs({
+        tenantId,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         category,
@@ -68,6 +80,22 @@ export default function GuestLogPage() {
         </p>
 
         <div className={styles.filterGrid}>
+          <label className={styles.filterField}>
+            <span className={styles.filterLabel}>Tenant</span>
+            <select
+              className={styles.filterSelect}
+              value={tenantId}
+              onChange={(event) => setTenantId(event.target.value)}
+            >
+              <option value="all">All</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.tenantId}>
+                  {tenant.tenantName}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className={styles.filterField}>
             <span className={styles.filterLabel}>From Date</span>
             <input
@@ -114,7 +142,7 @@ export default function GuestLogPage() {
 
           <div className={styles.searchActions}>
             <button type="button" className={styles.searchButton} onClick={() => void searchLogs()} disabled={loading}>
-              {loading ? "Searching..." : "Search Logs"}
+              {loading ? "Searching..." : "Search"}
             </button>
           </div>
         </div>

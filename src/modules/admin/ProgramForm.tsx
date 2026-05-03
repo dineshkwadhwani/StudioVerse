@@ -41,6 +41,7 @@ type ProgramFormProps = {
   listingPackagesLoading: boolean;
   onChange: <K extends keyof ProgramFormValues>(field: K, nextValue: ProgramFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
+  onRemoveThumbnail: () => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -59,6 +60,7 @@ export default function ProgramForm({
   listingPackagesLoading,
   onChange,
   onThumbnailSelect,
+  onRemoveThumbnail,
   onCancel,
   onSave,
 }: ProgramFormProps) {
@@ -317,6 +319,16 @@ export default function ProgramForm({
                   ? "Existing thumbnail will be kept unless you upload a replacement."
                   : "Upload a JPG, PNG, or WebP image up to 2MB."}
             </p>
+            {value.thumbnailUrl && !thumbnailName ? (
+              <button
+                type="button"
+                className={styles.ghostButton}
+                onClick={onRemoveThumbnail}
+                disabled={busy || uploadBusy}
+              >
+                Remove current thumbnail
+              </button>
+            ) : null}
             {errors.thumbnailUrl ? <p className={styles.error}>{errors.thumbnailUrl}</p> : null}
 
             <div className={styles.actions}>

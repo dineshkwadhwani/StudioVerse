@@ -32,6 +32,7 @@ export type GuestLogRecord = {
 };
 
 export type GuestLogFilters = {
+  tenantId?: string | "all";
   fromDate?: string;
   toDate?: string;
   category?: "all" | GuestLogCategory;
@@ -89,6 +90,10 @@ function mapLog(id: string, data: DocumentData): GuestLogRecord {
 export async function listGuestLogs(filters: GuestLogFilters): Promise<GuestLogRecord[]> {
   const guestLogsRef = collection(db, "guestLogs");
   const constraints: Array<ReturnType<typeof where> | ReturnType<typeof orderBy>> = [];
+
+  if (filters.tenantId && filters.tenantId !== "all") {
+    constraints.push(where("tenantId", "==", filters.tenantId));
+  }
 
   if (filters.fromDate) {
     const start = new Date(`${filters.fromDate}T00:00:00`);

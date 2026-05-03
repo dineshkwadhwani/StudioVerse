@@ -1,4 +1,9 @@
-import type { NotificationDomain, NotificationToggleSettings } from "@/types/notification.types";
+import type {
+  NotificationDomain,
+  NotificationReminderCategory,
+  NotificationReminderDaysSettings,
+  NotificationToggleSettings,
+} from "@/types/notification.types";
 
 export type { NotificationDomain };
 
@@ -15,6 +20,8 @@ export const NOTIFICATION_CATEGORY_DEFINITIONS = [
   { key: "promotionRequested", label: "Promotion: Requested", domain: "promotion", description: "Send confirmation email to the requester and alert email to Super Admin when a promotion request is submitted." },
   { key: "promotionApproved", label: "Promotion: Approved", domain: "promotion", description: "Send decision email to the requester when a promotion request is approved." },
   { key: "promotionDenied", label: "Promotion: Denied", domain: "promotion", description: "Send decision email to the requester when a promotion request is denied." },
+  { key: "promotionExpiringSoon", label: "Promotion: Expiring Soon", domain: "promotion", description: "Send reminder email before an approved promotion period ends." },
+  { key: "listingExpiringSoon", label: "Listing: Expiring Soon", domain: "promotion", description: "Send reminder email before an approved listing period ends." },
   { key: "botHeroRequested", label: "Bot Hero: Requested", domain: "botHero", description: "Send confirmation email to the requester and alert email to Super Admin when a Bot Hero request is submitted." },
   { key: "botHeroApproved", label: "Bot Hero: Approved", domain: "botHero", description: "Send decision email to the requesting professional when a Bot Hero request is approved." },
   { key: "botHeroDenied", label: "Bot Hero: Denied", domain: "botHero", description: "Send decision email to the requesting professional when a Bot Hero request is denied." },
@@ -43,9 +50,22 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORY_DEFINITIONS)[nu
 
 export const NOTIFICATION_CATEGORIES = NOTIFICATION_CATEGORY_DEFINITIONS.map((item) => item.key) as NotificationCategory[];
 
+export const NOTIFICATION_REMINDER_DAY_DEFAULTS: Record<NotificationReminderCategory, number[]> = {
+  botHeroExpiringSoon: [3, 1],
+  promotionExpiringSoon: [3, 1],
+  listingExpiringSoon: [3, 1],
+};
+
 export function createDefaultNotificationSettings(): NotificationToggleSettings {
   return NOTIFICATION_CATEGORIES.reduce<NotificationToggleSettings>((acc, key) => {
     acc[key] = true;
+    return acc;
+  }, {});
+}
+
+export function createDefaultNotificationReminderDays(): NotificationReminderDaysSettings {
+  return (Object.entries(NOTIFICATION_REMINDER_DAY_DEFAULTS) as Array<[NotificationReminderCategory, number[]]>).reduce<NotificationReminderDaysSettings>((acc, [key, days]) => {
+    acc[key] = [...days];
     return acc;
   }, {});
 }

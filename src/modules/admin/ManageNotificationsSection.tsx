@@ -4,15 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Timestamp } from "firebase/firestore";
 import styles from "./SuperAdminPortal.module.css";
 import {
+  createDefaultNotificationReminderDays,
   NOTIFICATION_CATEGORY_DEFINITIONS,
   createDefaultNotificationSettings,
   type NotificationCategory,
   type NotificationDomain,
 } from "@/constants/notifications";
 import {
-  getTenantNotificationSettings,
+  getTenantNotificationConfig,
   saveTenantNotificationSettings,
 } from "@/services/notification-settings.service";
+import type { NotificationReminderCategory, NotificationReminderDaysSettings } from "@/types/notification.types";
 
 type TenantRecord = {
   id: string;
@@ -34,6 +36,46 @@ type ManageNotificationsSectionProps = {
   operatorId: string;
 };
 
+const REMINDER_DAY_CATEGORY_SET = new Set<NotificationReminderCategory>([
+  "botHeroExpiringSoon",
+  "promotionExpiringSoon",
+  "listingExpiringSoon",
+]);
+
+type ReminderInputState = Record<NotificationReminderCategory, string>;
+
+function formatReminderDaysInput(reminderDays: NotificationReminderDaysSettings): ReminderInputState {
+  const defaults = createDefaultNotificationReminderDays();
+
+  return {
+    botHeroExpiringSoon: (reminderDays.botHeroExpiringSoon ?? defaults.botHeroExpiringSoon ?? []).join(","),
+    promotionExpiringSoon: (reminderDays.promotionExpiringSoon ?? defaults.promotionExpiringSoon ?? []).join(","),
+    listingExpiringSoon: (reminderDays.listingExpiringSoon ?? defaults.listingExpiringSoon ?? []).join(","),
+  };
+}
+
+function parseReminderDaysInput(value: string): number[] {
+  const entries = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (entries.length === 0) {
+    throw new Error("Reminder days are required.");
+  }
+
+  const parsed = entries.map((item) => Number(item));
+  if (parsed.some((item) => !Number.isInteger(item) || item <= 0)) {
+    throw new Error("Reminder days must be positive whole numbers separated by commas.");
+  }
+
+  return Array.from(new Set(parsed.map((item) => Math.floor(item)))).sort((a, b) => b - a);
+}
+
+function isReminderDayCategory(key: NotificationCategory): key is NotificationReminderCategory {
+  return REMINDER_DAY_CATEGORY_SET.has(key as NotificationReminderCategory);
+}
+
 export default function ManageNotificationsSection({
   tenants,
   operatorId,
@@ -44,6 +86,7 @@ export default function ManageNotificationsSection({
   );
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
   const [toggles, setToggles] = useState(createDefaultNotificationSettings());
+  const [reminderDays, setReminderDays] = useState<ReminderInputState>(formatReminderDaysInput(createDefaultNotificationReminderDays()));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -58,6 +101,7 @@ export default function ManageNotificationsSection({
   useEffect(() => {
     if (!selectedTenantId) {
       setToggles(createDefaultNotificationSettings());
+      setReminderDays(formatReminderDaysInput(createDefaultNotificationReminderDays()));
       return;
     }
 
@@ -68,15 +112,17 @@ export default function ManageNotificationsSection({
       setInfo("");
 
       try {
-        const settings = await getTenantNotificationSettings(selectedTenantId);
+        const settings = await getTenantNotificationConfig(selectedTenantId);
         if (!cancelled) {
-          setToggles(settings);
+          setToggles(settings.toggles);
+          setReminderDays(formatReminderDaysInput(settings.reminderDays));
         }
       } catch (loadError) {
         if (!cancelled) {
           const message = loadError instanceof Error ? loadError.message : "Failed to load tenant notification settings.";
           setError(message);
           setToggles(createDefaultNotificationSettings());
+          setReminderDays(formatReminderDaysInput(createDefaultNotificationReminderDays()));
         }
       } finally {
         if (!cancelled) {
@@ -102,11 +148,19 @@ export default function ManageNotificationsSection({
     setInfo("");
 
     try {
+      const normalizedReminderDays: NotificationReminderDaysSettings = {
+        botHeroExpiringSoon: parseReminderDaysInput(reminderDays.botHeroExpiringSoon),
+        promotionExpiringSoon: parseReminderDaysInput(reminderDays.promotionExpiringSoon),
+        listingExpiringSoon: parseReminderDaysInput(reminderDays.listingExpiringSoon),
+      };
+
       await saveTenantNotificationSettings({
         tenantId: selectedTenantId,
         toggles,
+        reminderDays: normalizedReminderDays,
         updatedBy: operatorId,
       });
+      setReminderDays(formatReminderDaysInput(normalizedReminderDays));
       setInfo("Notification settings saved.");
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Failed to save notification settings.";
@@ -118,6 +172,10 @@ export default function ManageNotificationsSection({
 
   function updateToggle(key: NotificationCategory, value: boolean): void {
     setToggles((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateReminderDays(key: NotificationReminderCategory, value: string): void {
+    setReminderDays((prev) => ({ ...prev, [key]: value }));
   }
 
   const groupedByDomain = useMemo(() => {
@@ -192,25 +250,45 @@ export default function ManageNotificationsSection({
                 {domainLabels[domain] || domain}
               </h3>
               <div className={styles.userStack}>
-                {domainItems.map((entry) => (
-                  <section key={entry.key} className={styles.userItem}>
-                    <div>
-                      <p className={styles.userName}>{entry.label}</p>
-                      <p className={styles.userMeta}>{entry.description}</p>
-                    </div>
-                    <div className={styles.userActions}>
-                      <label className={styles.radioPill}>
-                        <input
-                          type="checkbox"
-                          checked={toggles[entry.key] !== false}
-                          onChange={(event) => updateToggle(entry.key, event.target.checked)}
-                          disabled={loading || saving || !selectedTenantId}
-                        />
-                        Enabled
-                      </label>
-                    </div>
-                  </section>
-                ))}
+                {domainItems.map((entry) => {
+                  const reminderKey = isReminderDayCategory(entry.key) ? entry.key : null;
+
+                  return (
+                    <section key={entry.key} className={styles.userItem}>
+                      <div>
+                        <p className={styles.userName}>{entry.label}</p>
+                        <p className={styles.userMeta}>{entry.description}</p>
+                        {reminderKey ? (
+                          <div style={{ marginTop: 10, maxWidth: 260 }}>
+                            <label className={styles.label} htmlFor={`${reminderKey}-reminder-days`} style={{ marginBottom: 6, fontSize: 12 }}>
+                              Expiry Reminder Days
+                            </label>
+                            <input
+                              id={`${reminderKey}-reminder-days`}
+                              className={styles.input}
+                              value={reminderDays[reminderKey]}
+                              onChange={(event) => updateReminderDays(reminderKey, event.target.value)}
+                              disabled={loading || saving || !selectedTenantId}
+                              placeholder="1,2,3"
+                            />
+                            <p className={styles.userMeta}>Comma-separated days before expiry, for example 1,2,3.</p>
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className={styles.userActions}>
+                        <label className={styles.radioPill}>
+                          <input
+                            type="checkbox"
+                            checked={toggles[entry.key] !== false}
+                            onChange={(event) => updateToggle(entry.key, event.target.checked)}
+                            disabled={loading || saving || !selectedTenantId}
+                          />
+                          Enabled
+                        </label>
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
             </div>
           );
@@ -218,7 +296,15 @@ export default function ManageNotificationsSection({
       </div>
 
       <div className={styles.actions}>
-        <button type="button" className={styles.ghostButton} onClick={() => setToggles(createDefaultNotificationSettings())} disabled={saving || loading}>
+        <button
+          type="button"
+          className={styles.ghostButton}
+          onClick={() => {
+            setToggles(createDefaultNotificationSettings());
+            setReminderDays(formatReminderDaysInput(createDefaultNotificationReminderDays()));
+          }}
+          disabled={saving || loading}
+        >
           Reset Defaults
         </button>
         <button type="button" className={styles.button} onClick={() => void saveSettings()} disabled={saving || loading || !selectedTenantId}>

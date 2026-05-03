@@ -54,8 +54,9 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./SuperAdminPortal.module.css";
 import ManageEarningPackagesPage from "./ManageEarningPackagesPage";
 import ApproveRequestsPage from "./ApproveRequestsPage";
-import GuestLogPage from "./GuestLogPage";
+import LogsPage from "./LogsPage";
 import ManageNotificationsSection from "./ManageNotificationsSection";
+import AssignActivitiesPage from "@/modules/activities/pages/AssignActivitiesPage";
 
 type MenuKey =
   | "dashboard"
@@ -73,7 +74,7 @@ type MenuKey =
   | "earning-packages"
   | "orders"
   | "approve-requests"
-  | "guest-log"
+  | "logs"
   | "notifications";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
@@ -261,7 +262,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "earning-packages", label: "Earning Packages" },
   { key: "approve-requests", label: "Approve Requests" },
   { key: "notifications", label: "Notifications" },
-  { key: "guest-log", label: "Guest Log" },
+  { key: "logs", label: "Logs" },
 ];
 
 const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = [
@@ -285,7 +286,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "actions",
     label: "Actions",
-    itemKeys: ["assigned-activities", "assign-activity", "approve-requests", "guest-log"],
+    itemKeys: ["assigned-activities", "assign-activity", "approve-requests", "logs"],
   },
 ];
 
@@ -527,6 +528,7 @@ export default function SuperAdminPortal() {
   const [promotionRequestsTenantId, setPromotionRequestsTenantId] = useState<string>("");
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
   const [selectedDashboardTenant, setSelectedDashboardTenant] = useState<string>("");
+  const [selectedAssignTenant, setSelectedAssignTenant] = useState<string>("");
 
   const [usersFilter, setUsersFilter] = useState<UsersFilter>("all");
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -552,6 +554,17 @@ export default function SuperAdminPortal() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
+
+  useEffect(() => {
+    if (selectedAssignTenant || tenants.length === 0) {
+      return;
+    }
+
+    const firstTenant = tenants[0]?.tenantId?.trim() ?? "";
+    if (firstTenant) {
+      setSelectedAssignTenant(firstTenant);
+    }
+  }, [tenants, selectedAssignTenant]);
 
   const userInitials = useMemo(() => {
     if (!profile?.name) {
@@ -1770,7 +1783,7 @@ export default function SuperAdminPortal() {
                     <p className={styles.statLabel}>Referrals Joined / Made</p>
                     <p className={styles.statValue}>{dashboardStats.referralsJoined}/{dashboardStats.referralsMade}</p>
                   </button>
-                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("guest-log")}>
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("logs")}>
                     <p className={styles.statLabel}>Total Guests (Joined / Bot)</p>
                     <p className={styles.statValue}>{dashboardStats.guestsJoined}/{dashboardStats.guestsTotal}</p>
                   </button>
@@ -2192,7 +2205,7 @@ export default function SuperAdminPortal() {
             profile && <ApproveRequestsPage operatorId={profile.id} initialTab={approvalTab} />
           ) : null}
 
-          {activeMenu === "guest-log" ? <GuestLogPage /> : null}
+          {activeMenu === "logs" ? <LogsPage tenants={tenants} /> : null}
 
           {activeMenu === "notifications" ? (
             <ManageNotificationsSection tenants={tenants} operatorId={profile.id} />
@@ -2347,9 +2360,37 @@ export default function SuperAdminPortal() {
           {activeMenu === "assign-activity" ? (
             <article className={styles.card}>
               <h2>Assign Activity</h2>
-              <p className={styles.subtitle}>
-                Use the assessment, program, and event modules to assign activities across the platform.
-              </p>
+              <p className={styles.subtitle}>Assign published public resources across the selected tenant.</p>
+
+              <div className={styles.filterRow}>
+                <label className={styles.filterLabel} htmlFor="assign-tenant-filter">Select Tenant</label>
+                <select
+                  id="assign-tenant-filter"
+                  className={styles.select}
+                  value={selectedAssignTenant}
+                  onChange={(event) => setSelectedAssignTenant(event.target.value)}
+                >
+                  <option value="">Choose tenant</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.tenantId}>
+                      {tenant.tenantName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedAssignTenant ? (
+                <AssignActivitiesPage
+                  tenantId={selectedAssignTenant}
+                  role="superadmin"
+                  actorUserId={profile?.id ?? authUser?.uid ?? ""}
+                  actorName={profile?.name ?? "Super Admin"}
+                  showHeader={false}
+                  embedded
+                />
+              ) : (
+                <p className={styles.subtitle}>Select a tenant to continue.</p>
+              )}
             </article>
           ) : null}
 

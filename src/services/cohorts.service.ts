@@ -563,28 +563,33 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
       const userById = new Map(tenantUsers.map((user) => [user.id, user]));
 
       await Promise.all([
-        ...addedMemberIds.map(async (memberId) => {
-          const user = userById.get(memberId);
-          const recipientEmail = user?.email?.trim().toLowerCase() ?? "";
-          if (!recipientEmail) {
-            return;
-          }
+        ...(addedMemberIds.length > 0 && resolvedProfessionalId
+          ? [
+              (async () => {
+                const coach = userById.get(resolvedProfessionalId);
+                const recipientEmail = coach?.email?.trim().toLowerCase() ?? "";
+                if (!recipientEmail) {
+                  return;
+                }
 
-          await sendNotificationEmail({
-            tenantId: args.tenantId,
-            notificationType: "cohortMemberAdded",
-            recipientEmail,
-            recipientName: user?.fullName || "User",
-            templateVariables: {
-              recipientName: user?.fullName || "User",
-              cohortName,
-            },
-            metadata: {
-              cohortId: cohortRef.id,
-              memberId,
-            },
-          });
-        }),
+                await sendNotificationEmail({
+                  tenantId: args.tenantId,
+                  notificationType: "cohortMemberAdded",
+                  recipientEmail,
+                  recipientName: coach?.fullName || "User",
+                  templateVariables: {
+                    recipientName: coach?.fullName || "User",
+                    cohortName,
+                  },
+                  metadata: {
+                    cohortId: cohortRef.id,
+                    professionalId: resolvedProfessionalId,
+                    addedMemberCount: addedMemberIds.length,
+                  },
+                });
+              })(),
+            ]
+          : []),
         ...removedMemberIds.map(async (memberId) => {
           const user = userById.get(memberId);
           const recipientEmail = user?.email?.trim().toLowerCase() ?? "";

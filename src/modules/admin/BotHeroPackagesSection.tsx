@@ -93,6 +93,15 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
     setError("");
     try {
       const nextValues: BotHeroPackageFormValues = { ...formValues };
+      const existingPackage = formValues.id
+        ? packages.find((pkg) => pkg.id === formValues.id)
+        : undefined;
+
+      if (!selectedImage && existingPackage) {
+        nextValues.imageUrl = nextValues.imageUrl || existingPackage.imageUrl || "";
+        nextValues.imagePath = nextValues.imagePath || existingPackage.imagePath || "";
+      }
+
       if (selectedImage) {
         setUploadingImage(true);
         const packageId = formValues.id ?? crypto.randomUUID();
@@ -235,6 +244,17 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
                     ? "Existing image kept unless you upload a replacement."
                     : "Upload a JPG, PNG, or WebP image up to 2MB."}
               </p>
+              {formValues.imageUrl && !selectedImage ? (
+                <button
+                  type="button"
+                  className={styles.ghostButton}
+                  onClick={() => setFormValues((prev) => ({ ...prev, imageUrl: "", imagePath: "" }))}
+                  disabled={saving || uploadingImage}
+                  style={{ marginBottom: "12px" }}
+                >
+                  Remove current image
+                </button>
+              ) : null}
               {formErrors.imageUrl ? <p className={styles.error}>{formErrors.imageUrl}</p> : null}
               {formValues.imageUrl ? (
                 <div style={{ marginBottom: "12px" }}>

@@ -371,6 +371,23 @@
   cursor: pointer;
 }
 
+.dashboardSection {
+  margin-top: 20px;
+}
+
+.dashboardSection:first-child {
+  margin-top: 0;
+}
+
+.dashboardSectionTitle {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
 .dashboardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -449,6 +466,19 @@
   background: #f4fbff;
   padding: 12px;
   margin-bottom: 12px;
+}
+
+.referralFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .checkboxRow {

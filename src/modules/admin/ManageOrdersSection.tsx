@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import styles from "./SuperAdminPortal.module.css";
+import styles from "./ManageOrdersSection.module.css";
 import { listAllCoinOrders } from "@/services/coinOrders.service";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/services/firebase";
 import type { CoinOrderRecord, CoinOrderStatus } from "@/types/coinOrder";
 
 function statusBadgeStyle(status: CoinOrderStatus): string {
   if (status === "completed") return styles.badgeActive;
   if (status === "failed") return styles.badgeInactive;
-  return styles.badgePending ?? styles.badgeInactive;
+  return styles.badgePending;
 }
 
 function formatDate(ts: CoinOrderRecord["createdAt"]): string {
@@ -18,15 +20,45 @@ function formatDate(ts: CoinOrderRecord["createdAt"]): string {
 
 export default function ManageOrdersSection() {
   const [orders, setOrders] = useState<CoinOrderRecord[]>([]);
+  const [tenants, setTenants] = useState<Array<{ tenantId: string; tenantName: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<CoinOrderStatus | "all">("all");
+  const [appliedFilters, setAppliedFilters] = useState<{
+    tenantId: string;
+    fromDate: string;
+    toDate: string;
+    status: CoinOrderStatus | "all";
+  }>({
+    tenantId: "all",
+    fromDate: "",
+    toDate: "",
+    status: "all",
+  });
 
   async function refresh() {
     setLoading(true);
     setError("");
     try {
-      setOrders(await listAllCoinOrders());
+      const [coinOrders, tenantsSnap] = await Promise.all([
+        listAllCoinOrders(),
+        getDocs(collection(db, "tenants")),
+      ]);
+      setOrders(coinOrders);
+      setTenants(
+        tenantsSnap.docs
+          .map((row) => {
+            const data = row.data() as Record<string, unknown>;
+            return {
+              tenantId: String(data.tenantId ?? row.id),
+              tenantName: String(data.tenantName ?? data.tenantId ?? row.id),
+            };
+          })
+          .sort((a, b) => a.tenantName.localeCompare(b.tenantName))
+      );
     } catch {
       setError("Failed to load orders.");
     } finally {
@@ -36,86 +68,161 @@ export default function ManageOrdersSection() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const filtered = statusFilter === "all"
-    ? orders
-    : orders.filter((o) => o.status === statusFilter);
+  function runSearch(): void {
+    setAppliedFilters({
+      tenantId: tenantFilter,
+      fromDate,
+      toDate,
+      status: statusFilter,
+    });
+  }
+
+  const filtered = orders.filter((order) => {
+    if (appliedFilters.tenantId !== "all" && order.tenantId !== appliedFilters.tenantId) {
+      return false;
+    }
+
+    if (appliedFilters.status !== "all" && order.status !== appliedFilters.status) {
+      return false;
+    }
+
+    if (appliedFilters.fromDate && order.createdAt && "toDate" in order.createdAt) {
+      const from = new Date(`${appliedFilters.fromDate}T00:00:00`);
+      if (order.createdAt.toDate() < from) {
+        return false;
+      }
+    }
+
+    if (appliedFilters.toDate && order.createdAt && "toDate" in order.createdAt) {
+      const to = new Date(`${appliedFilters.toDate}T23:59:59.999`);
+      if (order.createdAt.toDate() > to) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
-    <div className={styles.sectionWrap}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <h2 className={styles.sectionTitle}>Coin Orders</h2>
-          <p className={styles.sectionSub}>
+    <section className={styles.layout}>
+      <article className={styles.heroCard}>
+        <div className={styles.heroHeader}>
+          <div>
+            <h2 className={styles.title}>Coin Orders</h2>
+            <p className={styles.contextText}>
             All coin purchase orders placed by users across the platform.
-          </p>
-        </div>
-        <button type="button" className={styles.secondaryButton} onClick={refresh} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-      </div>
-
-      {error ? <p className={styles.errorMsg}>{error}</p> : null}
-
-      <div style={{ display: "flex", gap: "10px", margin: "16px 0", flexWrap: "wrap" }}>
-        {(["all", "pending", "completed", "failed"] as const).map((s) => (
+            </p>
+          </div>
           <button
-            key={s}
             type="button"
-            onClick={() => setStatusFilter(s)}
-            style={{
-              padding: "6px 16px",
-              borderRadius: "20px",
-              border: "1.5px solid",
-              borderColor: statusFilter === s ? "#01696f" : "#c6dcea",
-              background: statusFilter === s ? "#01696f" : "#fff",
-              color: statusFilter === s ? "#fff" : "#133a56",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: "0.88rem",
-              fontFamily: "inherit",
-            }}
+            className={styles.refreshIconButton}
+            onClick={refresh}
+            disabled={loading}
+            title="Refresh orders"
+            aria-label="Refresh orders"
           >
-            {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-            {" "}
-            ({s === "all" ? orders.length : orders.filter((o) => o.status === s).length})
+            {loading ? "…" : "↻"}
           </button>
-        ))}
-      </div>
+        </div>
 
-      {loading ? (
-        <p className={styles.emptyState}>Loading orders…</p>
-      ) : filtered.length === 0 ? (
-        <p className={styles.emptyState}>No orders found.</p>
-      ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
+        {error ? <p className={styles.errorText}>{error}</p> : null}
+
+        <div className={styles.filterGrid}>
+          <label className={styles.filterField}>
+          <span className={styles.filterLabel}>Tenant</span>
+          <select
+            className={styles.filterSelect}
+            value={tenantFilter}
+            onChange={(event) => setTenantFilter(event.target.value)}
+          >
+            <option value="all">All Tenants</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.tenantId} value={tenant.tenantId}>
+                {tenant.tenantName}
+              </option>
+            ))}
+          </select>
+          </label>
+
+          <label className={styles.filterField}>
+          <span className={styles.filterLabel}>From Date</span>
+          <input
+            type="date"
+            className={styles.filterInput}
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+          />
+          </label>
+
+          <label className={styles.filterField}>
+          <span className={styles.filterLabel}>To Date</span>
+          <input
+            type="date"
+            className={styles.filterInput}
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+          />
+          </label>
+
+          <label className={styles.filterField}>
+          <span className={styles.filterLabel}>Status</span>
+          <select
+            className={styles.filterSelect}
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as CoinOrderStatus | "all")}
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
+          </label>
+
+          <div className={styles.searchActions}>
+            <button type="button" className={styles.searchButton} onClick={runSearch} disabled={loading}>
+              Search
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <article className={styles.contentCard}>
+        <h3 className={styles.contentHeading}>Order Results</h3>
+
+        {loading ? (
+          <p className={styles.infoText}>Loading orders...</p>
+        ) : filtered.length === 0 ? (
+          <p className={styles.infoText}>No orders found.</p>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
             <thead>
               <tr>
-                <th className={styles.th}>Date</th>
-                <th className={styles.th}>User</th>
-                <th className={styles.th}>Tenant</th>
-                <th className={styles.th}>Package</th>
-                <th className={styles.th}>Credits</th>
-                <th className={styles.th}>Amount (₹)</th>
-                <th className={styles.th}>Status</th>
+                <th>Date</th>
+                <th>User</th>
+                <th>Tenant</th>
+                <th>Package</th>
+                <th>Credits</th>
+                <th>Amount (₹)</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((order) => (
-                <tr key={order.id} className={styles.tr}>
-                  <td className={styles.td} style={{ whiteSpace: "nowrap" }}>
+                <tr key={order.id}>
+                  <td style={{ whiteSpace: "nowrap" }}>
                     {formatDate(order.createdAt)}
                   </td>
-                  <td className={styles.td}>
+                  <td>
                     <strong>{order.userName}</strong>
                     <br />
-                    <span style={{ fontSize: "0.78rem", color: "#4d6e86" }}>{order.userType}</span>
+                    <span className={styles.userType}>{order.userType}</span>
                   </td>
-                  <td className={styles.td}>{order.tenantId}</td>
-                  <td className={styles.td}>{order.packageName}</td>
-                  <td className={styles.td}>{order.credits}</td>
-                  <td className={styles.td}>₹{order.priceInr.toLocaleString("en-IN")}</td>
-                  <td className={styles.td}>
+                  <td>{order.tenantId}</td>
+                  <td>{order.packageName}</td>
+                  <td>{order.credits}</td>
+                  <td>₹{order.priceInr.toLocaleString("en-IN")}</td>
+                  <td>
                     <span className={statusBadgeStyle(order.status)}>
                       {order.status}
                     </span>
@@ -123,9 +230,10 @@ export default function ManageOrdersSection() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+            </table>
+          </div>
+        )}
+      </article>
+    </section>
   );
 }

@@ -14,6 +14,7 @@ import BotHeroRequestsSection from "./BotHeroRequestsSection";
 
 interface ApproveRequestsPageProps {
   operatorId: string;
+  initialTab?: TabKey;
 }
 
 type TabKey = "promotion" | "cashout" | "listing" | "bot-hero";
@@ -39,8 +40,8 @@ const EMPTY_COUNTS: PendingCounts = {
   botHero: 0,
 };
 
-export default function ApproveRequestsPage({ operatorId }: ApproveRequestsPageProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>("promotion");
+export default function ApproveRequestsPage({ operatorId, initialTab }: ApproveRequestsPageProps) {
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "promotion");
   const [counts, setCounts] = useState<PendingCounts>(EMPTY_COUNTS);
 
   async function refreshPendingCounts() {

@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid guest log payload." }, { status: 400, headers: rateLimit.headers });
     }
 
+    // Validate tenantId against the tenants collection before writing.
+    // This prevents arbitrary tenantId injection from external callers.
+    const tenantSnap = await adminDb.collection("tenants").doc(tenantId).get();
+    if (!tenantSnap.exists) {
+      return NextResponse.json({ error: "Invalid tenant." }, { status: 400, headers: rateLimit.headers });
+    }
+
     const logId = `${tenantId}__${guestPhone}`;
     const nowIso = new Date().toISOString();
     const entry = {

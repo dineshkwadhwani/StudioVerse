@@ -120,6 +120,30 @@
   font-weight: 800;
 }
 
+.transactionFilterRow {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.transactionFilterLabel {
+  font-size: 0.9rem;
+  color: #46607a;
+  font-weight: 700;
+}
+
+.transactionFilterSelect {
+  min-width: 160px;
+  border: 1px solid #c8ddee;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1b2b3a;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
 .list {
   margin-top: 16px;
   display: grid;

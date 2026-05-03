@@ -36,6 +36,34 @@ Three overlapping security layers:
 2. Firestore Security Rules — document-level ownership enforcement
 3. Firebase Functions Validation — caller identity + input schema + scope check
 
+### 10.1 Current security decisions (3 May 2026)
+
+- Trust-sensitive guest/public writes are server-mediated (backend route handlers / Admin SDK), not direct client Firestore writes.
+- Treasury and wallet-sensitive operations are restricted to trusted callables/triggers and transactional write paths.
+- SuperAdmin privileged operations remain role-gated and tenant-context validated.
+- Protected collections maintain deny-by-default client-write posture.
+- Retry-safe idempotency markers are required for treasury return / creator-earnings return operations.
+
+### 10.2 OWASP requirements mapping
+
+| OWASP Top 10 | StudioVerse Requirement | Current Decision |
+|---|---|---|
+| A01 Broken Access Control | Enforce role and tenant scope at every protected operation | userContext + role checks + superadmin gatekeeping |
+| A04 Insecure Design | Keep business rules out of client components | Functions/services remain system of record for mutation logic |
+| A05 Security Misconfiguration | Restrict dangerous client writes by default | Firestore rules block protected writes and allow only governed transitions |
+| A07 Identification and Authentication Failures | Require authenticated caller identity for protected flows | Firebase Auth token validation on protected API/callable paths |
+| A08 Software and Data Integrity Failures | Prevent duplicate side effects under retries | Transactional writes + idempotency markers for treasury/earnings operations |
+| A09 Security Logging and Monitoring Failures | Preserve auditable mutation trails | Function logging + audit/event records for critical actions |
+
+### 10.3 Security requirements for implementation and review
+
+1. No protected collection write from guest/public browser context.
+2. No direct treasury mutation from frontend components.
+3. All wallet/treasury credit/debit logic must be idempotent and transactional.
+4. Any new admin endpoint must enforce explicit superadmin and tenant checks.
+5. New external integration secrets must remain server-side and never ship in client bundles.
+6. New critical mutation paths must emit structured logs for monitoring and incident tracing.
+
 Firestore Rules Principles:
 
 - userContexts: readable only by owning userId; writable only by Functions

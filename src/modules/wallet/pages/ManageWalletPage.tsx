@@ -49,6 +49,31 @@ function formatDate(value: WalletTransactionRecord["createdAt"]): string {
   return value.toDate().toLocaleString();
 }
 
+type TransactionFlowFilter = "all" | "debit" | "credit";
+
+function getTransactionFlowType(transactionType: WalletTransactionRecord["transactionType"]): Exclude<TransactionFlowFilter, "all"> {
+  return transactionType === "debit" || transactionType === "sent" ? "debit" : "credit";
+}
+
+function getTransactionComment(item: WalletTransactionRecord): string {
+  const reason = item.reason?.trim();
+
+  if (reason) {
+    return reason;
+  }
+
+  if (item.source) {
+    const normalizedSource = item.source.replace(/-/g, " ");
+    return `Wallet transaction from ${normalizedSource}.`;
+  }
+
+  if (item.transactionType === "credit" || item.transactionType === "received") {
+    return "Credits added to wallet.";
+  }
+
+  return "Credits deducted from wallet.";
+}
+
 type ManageWalletPageProps = {
   tenantConfig?: TenantConfig;
 };
@@ -81,6 +106,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   const [cashoutBusy, setCashoutBusy] = useState(false);
   const [cashoutError, setCashoutError] = useState("");
   const [cashoutSuccess, setCashoutSuccess] = useState("");
+  const [transactionFlowFilter, setTransactionFlowFilter] = useState<TransactionFlowFilter>("all");
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -296,6 +322,16 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
     }, {});
   }, [cashoutRequests]);
 
+  const isBusinessWalletRole = role === "company" || role === "professional";
+
+  const visibleTransactions = useMemo(() => {
+    if (!isBusinessWalletRole || transactionFlowFilter === "all") {
+      return transactions;
+    }
+
+    return transactions.filter((item) => getTransactionFlowType(item.transactionType) === transactionFlowFilter);
+  }, [isBusinessWalletRole, transactionFlowFilter, transactions]);
+
   function handleCashoutButtonClick() {
     if (busy || !wallet || !cashoutConfig) {
       return;
@@ -436,13 +472,31 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
             </div>
           ) : null}
 
-          {!busy && transactions.length === 0 ? (
-            <div className={styles.empty}>No wallet transaction records found yet.</div>
+          {!busy && isBusinessWalletRole && transactions.length > 0 ? (
+            <div className={styles.transactionFilterRow}>
+              <label className={styles.transactionFilterLabel} htmlFor="wallet-transaction-flow-filter">
+                Transaction Type
+              </label>
+              <select
+                id="wallet-transaction-flow-filter"
+                className={styles.transactionFilterSelect}
+                value={transactionFlowFilter}
+                onChange={(event) => setTransactionFlowFilter(event.target.value as TransactionFlowFilter)}
+              >
+                <option value="all">All</option>
+                <option value="debit">Debit</option>
+                <option value="credit">Credit</option>
+              </select>
+            </div>
           ) : null}
 
-          {!busy && transactions.length > 0 ? (
+          {!busy && visibleTransactions.length === 0 ? (
+            <div className={styles.empty}>No wallet transaction records found for the selected filter.</div>
+          ) : null}
+
+          {!busy && visibleTransactions.length > 0 ? (
             <div className={styles.list}>
-              {transactions.map((item) => (
+              {visibleTransactions.map((item) => (
                 <article key={item.id} className={styles.item}>
                   <div className={styles.badgeRow}>
                     <span className={styles.badge}>{item.transactionType.toUpperCase()}</span>
@@ -451,7 +505,8 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
                       <span className={styles.badge}>CASHOUT {String(cashoutStatusByWalletTransactionId[item.id]).toUpperCase()}</span>
                     ) : null}
                   </div>
-                  <h2 className={styles.itemTitle}>{item.reason || "Wallet transaction"}</h2>
+                  <h2 className={styles.itemTitle}>Wallet transaction</h2>
+                  <p className={styles.itemMeta}>Comment: {getTransactionComment(item)}</p>
                   <p className={styles.itemMeta}>Credits: {item.coins}</p>
                   <p className={styles.itemMeta}>User: {item.userName}</p>
                   <p className={styles.itemMeta}>Created on: {formatDate(item.createdAt)}</p>

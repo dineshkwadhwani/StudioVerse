@@ -122,7 +122,11 @@ service cloud.firestore {
     // ── Tenants ────────────────────────────────────────────────────────────
     match /tenants/{tenantId} {
       allow read:  if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSuperAdmin()
+                   && (
+                     request.resource.data.status != "active"
+                     || request.resource.data.activationChecklist.completed == true
+                   );
     }
 
     // ── Wallets ────────────────────────────────────────────────────────────
@@ -344,9 +348,13 @@ service cloud.firestore {
     // ── Referrals ──────────────────────────────────────────────────────────
     // Users can create and update their referrals, but cannot modify core fields.
     // SECURITY: Referrer ID, tenant, and referral rewards cannot be modified by users.
+    // SECURITY: create enforces referrerUserId == caller and tenantId == caller's tenant,
+    //           preventing attribution fraud and cross-tenant injection.
     match /referrals/{referralId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isActorId(request.resource.data.referrerUserId)
+                    && request.resource.data.tenantId == currentTenantId();
       allow update: if isSignedIn()
                     && hasOnlyAllowedChanges(['referrerUserId', 'tenantId', 'referredEmail', 'referredPhone', 'referredPhoneE164']);
       allow delete: if isSuperAdmin();

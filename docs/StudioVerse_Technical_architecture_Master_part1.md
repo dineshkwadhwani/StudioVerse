@@ -6,6 +6,33 @@
 
 This document supersedes all previous versions of the CoachingStudio Technical Architecture Specification. It reflects the full architectural evolution of the platform to the StudioVerse model — a single-codebase, multi-tenant, configuration-driven SaaS engine that powers multiple independently branded Studio products.
 
+## Addendum — Current Architecture Decisions (3 May 2026)
+
+This addendum captures implementation decisions now treated as active architecture constraints.
+
+1. SuperAdmin dashboard is an operational control surface (not a static summary page), with tenant-aware aggregation and deep links into governed modules.
+2. Approvals domain uses typed tab targeting (`promotion`, `cashout`, `listing`, `bot-hero`) for deterministic navigation from dashboard actions.
+3. Admin filtering behavior is explicit-apply for heavy lists (Referrals and Orders): filter edits do not auto-trigger fetches until Search is executed.
+4. Wallet domain includes tenant treasury as a first-class entity in admin operations and visibility.
+5. Treasury wallet lifecycle normalization (backfill + ensure) is part of runtime operations for legacy tenant compatibility.
+
+## Addendum — Security and OWASP Alignment (3 May 2026)
+
+Security-sensitive flows are implemented with server trust boundaries:
+
+- Guest-origin writes for protected data are routed through trusted backend handlers.
+- Treasury-affecting mutations are callable/trigger mediated and transactional.
+- Client-side write permissions for protected collections remain denied by rule design.
+
+OWASP-aligned controls in current architecture:
+
+- A01: tenant and role isolation enforced across API/function boundaries.
+- A04: no trust-sensitive business rules in UI.
+- A05: conservative rules and server-side transition control.
+- A07: authenticated identity prerequisite for protected operations.
+- A08: idempotent processing and transaction-safe wallet/treasury updates.
+- A09: backend logging and auditability on critical mutation paths.
+
 ## Section 1 — System Overview
 
 ### 1.1 What StudioVerse Is

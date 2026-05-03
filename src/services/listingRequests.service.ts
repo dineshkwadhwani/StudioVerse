@@ -3,12 +3,18 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  query,
+  runTransaction,
   serverTimestamp,
   updateDoc,
+  where,
   type DocumentData,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { sendNotificationToUser } from "@/services/notification.service";
+import { buildWalletId } from "@/services/wallet.service";
+import type { WalletUserType } from "@/types/wallet";
 
 export type ListingRequestResourceType = "program" | "event" | "assessment";
 
@@ -23,6 +29,30 @@ export type ListingRequestRecord = {
   publicationState: string;
   resourceType: ListingRequestResourceType;
 };
+
+function toSafeNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function resolveRequesterRole(requesterId: string): Promise<WalletUserType | null> {
+  const directSnap = await getDoc(doc(db, "users", requesterId));
+  if (directSnap.exists()) {
+    return String((directSnap.data() as Record<string, unknown>).userType ?? "") as WalletUserType;
+  }
+
+  const byUserIdSnap = await getDocs(query(collection(db, "users"), where("userId", "==", requesterId), limit(1)));
+  if (!byUserIdSnap.empty) {
+    return String((byUserIdSnap.docs[0].data() as Record<string, unknown>).userType ?? "") as WalletUserType;
+  }
+
+  const byUidSnap = await getDocs(query(collection(db, "users"), where("uid", "==", requesterId), limit(1)));
+  if (!byUidSnap.empty) {
+    return String((byUidSnap.docs[0].data() as Record<string, unknown>).userType ?? "") as WalletUserType;
+  }
+
+  return null;
+}
 
 function toListingStatus(value: unknown, publicationState: unknown): ListingRequestRecord["listingStatus"] {
   if (value === "none" || value === "requested" || value === "approved" || value === "rejected") {
@@ -114,17 +144,106 @@ export async function approveListingRequest(args: {
   const snap = await getDoc(ref);
   const data = snap.exists() ? (snap.data() as Record<string, unknown>) : null;
 
-  await updateDoc(ref, {
-    status: "published",
-    publicationState: "published",
-    listingStatus: "approved",
-    updatedBy: args.operatorId,
-    updatedAt: serverTimestamp(),
-    publishedAt: serverTimestamp(),
-  });
-
   const tenantId = String(data?.tenantId ?? "").trim();
   const requesterId = String(data?.updatedBy ?? data?.createdBy ?? "").trim();
+  const requesterRole = requesterId ? await resolveRequesterRole(requesterId) : null;
+  const isRequesterSuperAdmin = requesterRole === "superadmin";
+
+  if (!isRequesterSuperAdmin) {
+    const listingPackageId = String(data?.listingPackageId ?? "").trim();
+    if (!tenantId || !requesterId || !listingPackageId) {
+      throw new Error("Missing listing request context for wallet debit.");
+    }
+
+    const listingPackageSnap = await getDoc(doc(db, "listingPackages", listingPackageId));
+    if (!listingPackageSnap.exists()) {
+      throw new Error("Listing package not found for this approval request.");
+    }
+
+    const listingCostCredits = toSafeNumber((listingPackageSnap.data() as Record<string, unknown>).costCredits);
+
+    await runTransaction(db, async (transaction) => {
+      const scopedWalletId = buildWalletId(requesterId, tenantId);
+      const scopedWalletRef = doc(db, "wallets", scopedWalletId);
+      const legacyWalletRef = doc(db, "wallets", requesterId);
+      const walletTxRef = doc(collection(db, "walletTransactions"));
+
+      const [scopedWalletSnap, legacyWalletSnap] = await Promise.all([
+        transaction.get(scopedWalletRef),
+        transaction.get(legacyWalletRef),
+      ]);
+
+      const scopedData = scopedWalletSnap.exists() ? (scopedWalletSnap.data() as Record<string, unknown>) : null;
+      const legacyData = legacyWalletSnap.exists() ? (legacyWalletSnap.data() as Record<string, unknown>) : null;
+      const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === tenantId);
+      const walletData = scopedData ?? (useLegacy ? legacyData : null);
+
+      if (!walletData) {
+        throw new Error("Requester wallet not found for listing approval charge.");
+      }
+
+      const availableCoins = toSafeNumber(walletData.availableCoins);
+      const utilizedCoins = toSafeNumber(walletData.utilizedCoins);
+
+      if (listingCostCredits > availableCoins) {
+        throw new Error(`Insufficient wallet balance for listing approval. Required ${listingCostCredits}, available ${availableCoins}.`);
+      }
+
+      const targetWalletRef = useLegacy ? legacyWalletRef : scopedWalletRef;
+      const targetWalletId = useLegacy ? requesterId : scopedWalletId;
+      const walletUserType = String(walletData.userType ?? "individual") as WalletUserType;
+      const walletUserName = String(walletData.userName ?? "User");
+
+      transaction.set(
+        targetWalletRef,
+        {
+          availableCoins: availableCoins - listingCostCredits,
+          utilizedCoins: utilizedCoins + listingCostCredits,
+          updatedBy: args.operatorId,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      if (listingCostCredits > 0) {
+        transaction.set(walletTxRef, {
+          walletId: targetWalletId,
+          userId: requesterId,
+          tenantId,
+          userType: walletUserType,
+          userName: walletUserName,
+          transactionType: "debit",
+          reason: `Listing approval charge (${args.resourceType})`,
+          coins: listingCostCredits,
+          createdBy: args.operatorId,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      transaction.set(
+        ref,
+        {
+          status: "published",
+          publicationState: "published",
+          listingStatus: "approved",
+          updatedBy: args.operatorId,
+          updatedAt: serverTimestamp(),
+          publishedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+  } else {
+    await updateDoc(ref, {
+      status: "published",
+      publicationState: "published",
+      listingStatus: "approved",
+      updatedBy: args.operatorId,
+      updatedAt: serverTimestamp(),
+      publishedAt: serverTimestamp(),
+    });
+  }
+
   const resourceName = String(data?.name ?? "Listing").trim() || "Listing";
 
   if (tenantId && requesterId) {

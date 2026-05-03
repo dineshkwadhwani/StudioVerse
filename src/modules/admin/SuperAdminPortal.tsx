@@ -130,6 +130,15 @@ type TenantRecord = {
       personaAvatar?: string;
     messageCap?: number;
   };
+  activationChecklist?: {
+    mailConfigReady?: boolean;
+    walletConfigReady?: boolean;
+    botConfigReady?: boolean;
+    contentPublished?: boolean;
+    completed?: boolean;
+    updatedBy?: string;
+    updatedAt?: Timestamp;
+  };
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 };
@@ -194,6 +203,12 @@ type TenantFormState = {
   walletConfig: TenantWalletFormState;
   mailConfig: TenantMailFormState;
   botConfig: TenantBotFormState;
+  activationChecklist: {
+    mailConfigReady: boolean;
+    walletConfigReady: boolean;
+    botConfigReady: boolean;
+    contentPublished: boolean;
+  };
 };
 
 type DashboardStats = {
@@ -205,6 +220,8 @@ type DashboardStats = {
   programsAssigned: number;
   assessmentsCompleted: number;
   assessmentsAssigned: number;
+  totalActivitiesCompleted: number;
+  totalActivitiesAssigned: number;
   totalIssuedCoins: number;
   totalUtilizedCoins: number;
   companies: number;
@@ -228,6 +245,7 @@ type DashboardStats = {
 type ReferralRoleFilter = "all" | "company" | "professional" | "individual";
 type ReferralTypeFilter = "all" | ReferredType;
 type ReferralStatusFilter = "all" | ReferralStatus;
+type TenantManageView = "tenants" | "checklist";
 
 const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -302,7 +320,7 @@ const EMPTY_TENANT_FORM: TenantFormState = {
   tenantName: "",
   domainName: "",
   rootContext: "",
-  status: "active",
+  status: "inactive",
   landingConfig: {
     sectionPrograms: true,
     sectionTools: true,
@@ -338,7 +356,55 @@ const EMPTY_TENANT_FORM: TenantFormState = {
       personaAvatar: "",
     messageCap: 5,
   },
+  activationChecklist: {
+    mailConfigReady: false,
+    walletConfigReady: false,
+    botConfigReady: false,
+    contentPublished: false,
+  },
 };
+
+function isChecklistComplete(checklist: TenantFormState["activationChecklist"]): boolean {
+  return (
+    checklist.mailConfigReady
+    && checklist.walletConfigReady
+    && checklist.botConfigReady
+    && checklist.contentPublished
+  );
+}
+
+function isRecordInTenantScope(data: Record<string, unknown>, tenantId: string): boolean {
+  const directTenantId = String(data.tenantId ?? "").trim();
+  if (directTenantId === tenantId) {
+    return true;
+  }
+
+  const scopedTenants = Array.isArray(data.tenantIds)
+    ? data.tenantIds.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+
+  return scopedTenants.includes(tenantId);
+}
+
+function toSafeNumber(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : NaN;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+  return NaN;
+}
+
+function toActivationChecklist(target?: TenantRecord): TenantFormState["activationChecklist"] {
+  return {
+    mailConfigReady: target?.activationChecklist?.mailConfigReady ?? false,
+    walletConfigReady: target?.activationChecklist?.walletConfigReady ?? false,
+    botConfigReady: target?.activationChecklist?.botConfigReady ?? false,
+    contentPublished: target?.activationChecklist?.contentPublished ?? false,
+  };
+}
 
 const EMPTY_DASHBOARD_STATS: DashboardStats = {
   tenants: 0,
@@ -349,6 +415,8 @@ const EMPTY_DASHBOARD_STATS: DashboardStats = {
   programsAssigned: 0,
   assessmentsCompleted: 0,
   assessmentsAssigned: 0,
+  totalActivitiesCompleted: 0,
+  totalActivitiesAssigned: 0,
   totalIssuedCoins: 0,
   totalUtilizedCoins: 0,
   companies: 0,
@@ -475,6 +543,10 @@ export default function SuperAdminPortal() {
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const [userForm, setUserForm] = useState<UserFormState>(EMPTY_USER_FORM);
   const [tenantForm, setTenantForm] = useState<TenantFormState>(EMPTY_TENANT_FORM);
+  const [tenantManageView, setTenantManageView] = useState<TenantManageView>("tenants");
+  const [selectedChecklistTenantId, setSelectedChecklistTenantId] = useState<string>("");
+  const [checklistForm, setChecklistForm] = useState<TenantFormState["activationChecklist"]>(toActivationChecklist());
+  const [checklistAutoLoading, setChecklistAutoLoading] = useState(false);
 
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -534,6 +606,11 @@ export default function SuperAdminPortal() {
       users.find((entry) => entry.phoneE164 === normalizedUserPhone && entry.id !== userForm.id) ?? null
     );
   }, [normalizedUserPhone, userForm.id, users]);
+
+  const selectedChecklistTenant = useMemo(
+    () => tenants.find((tenant) => tenant.tenantId === selectedChecklistTenantId),
+    [selectedChecklistTenantId, tenants]
+  );
 
   function openDashboardMenu(menuKey: MenuKey, nextUsersFilter?: AppUserType, nextApprovalTab?: "promotion" | "cashout" | "listing" | "bot-hero") {
     if (nextUsersFilter) {
@@ -842,6 +919,8 @@ export default function SuperAdminPortal() {
       const programsCompleted = programAssignments.filter((entry) => String(entry.status ?? "") === "completed").length;
       const assessmentsAssigned = assessmentAssignments.length;
       const assessmentsCompleted = assessmentAssignments.filter((entry) => String(entry.status ?? "") === "completed").length;
+      const totalActivitiesAssigned = assignments.length;
+      const totalActivitiesCompleted = assignments.filter((entry) => String(entry.status ?? "") === "completed").length;
       const referralsMade = allReferrals.length;
       const referralsJoined = allReferrals.filter((r) => r.status === "joined").length;
       const pendingCashoutRequests = pendingCashoutSnap.size;
@@ -866,6 +945,8 @@ export default function SuperAdminPortal() {
         programsAssigned,
         assessmentsCompleted,
         assessmentsAssigned,
+        totalActivitiesCompleted,
+        totalActivitiesAssigned,
         totalIssuedCoins: walletSummary.totalIssuedCoins,
         totalUtilizedCoins: walletSummary.totalUtilizedCoins,
         companies: users.filter((entry) => entry.userType === "company").length,
@@ -977,7 +1058,103 @@ export default function SuperAdminPortal() {
 
   function openAddTenantModal() {
     setTenantForm({ ...EMPTY_TENANT_FORM });
+    setTenantManageView("tenants");
     setTenantModalOpen(true);
+  }
+
+  async function detectChecklistFromSystem(tenantId: string): Promise<TenantFormState["activationChecklist"]> {
+    const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
+    const tenantData = tenantSnap.exists() ? (tenantSnap.data() as Record<string, unknown>) : {};
+
+    const mailConfig = (tenantData.mailConfig as Record<string, unknown> | undefined) ?? {};
+    const walletConfig = (tenantData.walletConfig as Record<string, unknown> | undefined) ?? {};
+    const cashoutConfig = (walletConfig.cashout as Record<string, unknown> | undefined) ?? {};
+    const botConfig = (tenantData.botConfig as Record<string, unknown> | undefined) ?? {};
+
+    const mailConfigReady = Boolean(
+      mailConfig.enabled === true
+      && String(mailConfig.fromEmail ?? "").trim()
+      && String(mailConfig.fromName ?? "").trim()
+    );
+
+    const walletConfigReady = Boolean(
+      Number.isFinite(toSafeNumber(walletConfig.superAdminOpeningCoins))
+      && Number.isFinite(toSafeNumber(walletConfig.registrationFreeCoins))
+      && Number.isFinite(toSafeNumber(walletConfig.referralFreeCoins))
+      && Number.isFinite(toSafeNumber(cashoutConfig.creditCost))
+      && Number.isFinite(toSafeNumber(cashoutConfig.cashbackPercentage))
+      && Number.isFinite(toSafeNumber(cashoutConfig.minimumCredits))
+      && toSafeNumber(cashoutConfig.cashbackPercentage) >= 0
+      && toSafeNumber(cashoutConfig.cashbackPercentage) <= 100
+      && toSafeNumber(cashoutConfig.minimumCredits) >= 1
+    );
+
+    const botConfigReady = Boolean(
+      (botConfig.visible === true || botConfig.studioBotEnabled === true || botConfig.professionalBotEnabled === true)
+      && String(botConfig.personaName ?? "").trim()
+      && toSafeNumber(botConfig.messageCap) >= 1
+    );
+
+    const publishedQueries = await Promise.all([
+      getDocs(query(collection(db, "programs"), where("status", "==", "published"), limit(60))),
+      getDocs(query(collection(db, "events"), where("status", "==", "published"), limit(60))),
+      getDocs(query(collection(db, "assessments"), where("status", "==", "published"), limit(60))),
+    ]);
+
+    const contentPublished = publishedQueries.some((snap) =>
+      snap.docs.some((entry) => isRecordInTenantScope(entry.data() as Record<string, unknown>, tenantId))
+    );
+
+    return {
+      mailConfigReady,
+      walletConfigReady,
+      botConfigReady,
+      contentPublished,
+    };
+  }
+
+  async function hydrateChecklistFromSystem(tenantId: string): Promise<void> {
+    if (!tenantId) {
+      setChecklistForm(toActivationChecklist());
+      return;
+    }
+
+    setChecklistAutoLoading(true);
+    try {
+      const systemChecklist = await detectChecklistFromSystem(tenantId);
+      const existingChecklist = toActivationChecklist(tenants.find((tenant) => tenant.tenantId === tenantId));
+
+      setChecklistForm({
+        mailConfigReady: existingChecklist.mailConfigReady || systemChecklist.mailConfigReady,
+        walletConfigReady: existingChecklist.walletConfigReady || systemChecklist.walletConfigReady,
+        botConfigReady: existingChecklist.botConfigReady || systemChecklist.botConfigReady,
+        contentPublished: existingChecklist.contentPublished || systemChecklist.contentPublished,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to auto-evaluate tenant checklist.";
+      setAuthError(message);
+    } finally {
+      setChecklistAutoLoading(false);
+    }
+  }
+
+  function openChecklistManager() {
+    setTenantManageView("checklist");
+    if (!selectedChecklistTenantId && tenants.length > 0) {
+      const first = tenants[0];
+      setSelectedChecklistTenantId(first.tenantId);
+      void hydrateChecklistFromSystem(first.tenantId);
+      return;
+    }
+
+    if (selectedChecklistTenantId) {
+      void hydrateChecklistFromSystem(selectedChecklistTenantId);
+    }
+  }
+
+  function handleChecklistTenantChange(tenantId: string) {
+    setSelectedChecklistTenantId(tenantId);
+    void hydrateChecklistFromSystem(tenantId);
   }
 
   function openEditTenantModal(target: TenantRecord) {
@@ -1028,6 +1205,12 @@ export default function SuperAdminPortal() {
           personaAvatar: target.botConfig?.personaAvatar ?? "",
         messageCap: target.botConfig?.messageCap ?? 5,
       },
+      activationChecklist: {
+        mailConfigReady: target.activationChecklist?.mailConfigReady ?? false,
+        walletConfigReady: target.activationChecklist?.walletConfigReady ?? false,
+        botConfigReady: target.activationChecklist?.botConfigReady ?? false,
+        contentPublished: target.activationChecklist?.contentPublished ?? false,
+      },
     });
     setTenantModalOpen(true);
   }
@@ -1050,6 +1233,42 @@ export default function SuperAdminPortal() {
       setInfo("Profile updated.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update profile.";
+      setAuthError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveTenantChecklist() {
+    if (!profile || !selectedChecklistTenantId) {
+      return;
+    }
+
+    setBusy(true);
+    setAuthError("");
+    setInfo("");
+
+    try {
+      const checklistCompleted = isChecklistComplete(checklistForm);
+      if (selectedChecklistTenant?.status === "active" && !checklistCompleted) {
+        throw new Error("Active tenant checklist cannot be marked incomplete. Set tenant status to inactive first.");
+      }
+
+      await updateDoc(doc(db, "tenants", selectedChecklistTenantId), {
+        activationChecklist: {
+          ...checklistForm,
+          completed: checklistCompleted,
+          updatedBy: profile.id,
+          updatedAt: serverTimestamp(),
+        },
+        updatedAt: serverTimestamp(),
+        updatedBy: profile.id,
+      });
+
+      setInfo("Tenant checklist saved.");
+      await loadTenants();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save tenant checklist.";
       setAuthError(message);
     } finally {
       setBusy(false);
@@ -1207,6 +1426,12 @@ export default function SuperAdminPortal() {
 
     try {
       const tenantId = tenantForm.tenantId.trim().toLowerCase();
+      const checklistCompleted = isChecklistComplete(tenantForm.activationChecklist);
+
+      if (tenantForm.status === "active" && !checklistCompleted) {
+        throw new Error("Tenant checklist must be fully completed before setting tenant status to active.");
+      }
+
       const payload = {
         tenantId,
         tenantName: tenantForm.tenantName.trim(),
@@ -1263,6 +1488,15 @@ export default function SuperAdminPortal() {
           personaName: tenantForm.botConfig.personaName.trim(),
                     personaAvatar: tenantForm.botConfig.personaAvatar.trim(),
           messageCap: Math.max(1, Math.min(20, tenantForm.botConfig.messageCap)),
+        },
+        activationChecklist: {
+          mailConfigReady: tenantForm.activationChecklist.mailConfigReady,
+          walletConfigReady: tenantForm.activationChecklist.walletConfigReady,
+          botConfigReady: tenantForm.activationChecklist.botConfigReady,
+          contentPublished: tenantForm.activationChecklist.contentPublished,
+          completed: checklistCompleted,
+          updatedBy: profile.id,
+          updatedAt: serverTimestamp(),
         },
         updatedAt: serverTimestamp(),
         updatedBy: profile.id,
@@ -1509,6 +1743,10 @@ export default function SuperAdminPortal() {
                     <p className={styles.statLabel}>Cashout Credits / Requests</p>
                     <p className={styles.statValue}>{dashboardStats.cashoutCredits ?? 0}/{dashboardStats.totalCashoutRequests ?? 0}</p>
                   </button>
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("orders")}>
+                    <p className={styles.statLabel}>Cashout Credits/Credits Purchased</p>
+                    <p className={styles.statValue}>{dashboardStats.cashoutCredits ?? 0}/{dashboardStats.creditsPurchased ?? 0}</p>
+                  </button>
                 </div>
               </div>
 
@@ -1554,6 +1792,10 @@ export default function SuperAdminPortal() {
                   <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("events")}>
                     <p className={styles.statLabel}>Total Events</p>
                     <p className={styles.statValue}>{dashboardStats.events}</p>
+                  </button>
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("assigned-activities")}>
+                    <p className={styles.statLabel}>Activities (Complete / Assigned)</p>
+                    <p className={styles.statValue}>{dashboardStats.totalActivitiesCompleted}/{dashboardStats.totalActivitiesAssigned}</p>
                   </button>
                   <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("assigned-activities")}>
                     <p className={styles.statLabel}>Programs (Complete / Assigned)</p>
@@ -1806,10 +2048,104 @@ export default function SuperAdminPortal() {
                   <button type="button" className={styles.button} onClick={openAddTenantModal}>
                     Create Tenant
                   </button>
+                  <button
+                    type="button"
+                    className={tenantManageView === "checklist" ? styles.button : styles.ghostButton}
+                    onClick={openChecklistManager}
+                  >
+                    Manage Checklist
+                  </button>
                 </div>
               </div>
 
-              {tenants.length === 0 ? (
+              {tenantManageView === "checklist" ? (
+                tenants.length === 0 ? (
+                  <div className={styles.emptyCard}>No tenants found.</div>
+                ) : (
+                  <section className={styles.controlCard}>
+                    <label className={styles.label} htmlFor="checklist-tenant-select">
+                      Tenant
+                    </label>
+                    <select
+                      id="checklist-tenant-select"
+                      className={styles.select}
+                      value={selectedChecklistTenantId}
+                      onChange={(event) => handleChecklistTenantChange(event.target.value)}
+                    >
+                      <option value="">Select tenant</option>
+                      {tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.tenantId}>
+                          {tenant.tenantName}
+                        </option>
+                      ))}
+                    </select>
+
+                    {checklistAutoLoading ? (
+                      <p className={styles.subtitle}>Scanning tenant setup and published content to auto-check items...</p>
+                    ) : null}
+
+                    {selectedChecklistTenantId ? (
+                      <>
+                        <div className={styles.radioRow}>
+                          <label className={styles.radioPill}>
+                            <input
+                              type="checkbox"
+                              checked={checklistForm.mailConfigReady}
+                              onChange={(event) =>
+                                setChecklistForm((prev) => ({ ...prev, mailConfigReady: event.target.checked }))
+                              }
+                            />
+                            Mail configuration validated
+                          </label>
+                          <label className={styles.radioPill}>
+                            <input
+                              type="checkbox"
+                              checked={checklistForm.walletConfigReady}
+                              onChange={(event) =>
+                                setChecklistForm((prev) => ({ ...prev, walletConfigReady: event.target.checked }))
+                              }
+                            />
+                            Wallet configuration validated
+                          </label>
+                          <label className={styles.radioPill}>
+                            <input
+                              type="checkbox"
+                              checked={checklistForm.botConfigReady}
+                              onChange={(event) =>
+                                setChecklistForm((prev) => ({ ...prev, botConfigReady: event.target.checked }))
+                              }
+                            />
+                            Bot configuration validated
+                          </label>
+                          <label className={styles.radioPill}>
+                            <input
+                              type="checkbox"
+                              checked={checklistForm.contentPublished}
+                              onChange={(event) =>
+                                setChecklistForm((prev) => ({ ...prev, contentPublished: event.target.checked }))
+                              }
+                            />
+                            At least one content item published
+                          </label>
+                        </div>
+
+                        <p className={styles.subtitle}>
+                          Checklist status: {isChecklistComplete(checklistForm) ? "Complete" : "Incomplete"}
+                        </p>
+
+                        <div className={styles.actions}>
+                          <button type="button" className={styles.button} onClick={saveTenantChecklist} disabled={busy}>
+                            Save Checklist
+                          </button>
+                          <button type="button" className={styles.ghostButton} onClick={() => selectedChecklistTenant && openEditTenantModal(selectedChecklistTenant)}>
+                            Open Tenant Edit
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </section>
+                )
+              ) : tenants.length === 0 ? (
                 <div className={styles.emptyCard}>No tenants found.</div>
               ) : (
                 <div className={styles.userStack}>
@@ -2248,6 +2584,84 @@ export default function SuperAdminPortal() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+
+            {!isChecklistComplete(tenantForm.activationChecklist) ? (
+              <p className={styles.subtitle}>Activation is blocked until all checklist items are complete.</p>
+            ) : null}
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Tenant Activation Checklist</p>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.activationChecklist.mailConfigReady}
+                    onChange={(event) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        activationChecklist: {
+                          ...prev.activationChecklist,
+                          mailConfigReady: event.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  Mail configuration validated
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.activationChecklist.walletConfigReady}
+                    onChange={(event) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        activationChecklist: {
+                          ...prev.activationChecklist,
+                          walletConfigReady: event.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  Wallet configuration validated
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.activationChecklist.botConfigReady}
+                    onChange={(event) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        activationChecklist: {
+                          ...prev.activationChecklist,
+                          botConfigReady: event.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  Bot configuration validated
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.activationChecklist.contentPublished}
+                    onChange={(event) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        activationChecklist: {
+                          ...prev.activationChecklist,
+                          contentPublished: event.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  At least one content item published
+                </label>
+              </div>
+
+              <p className={styles.subtitle}>
+                Checklist status: {isChecklistComplete(tenantForm.activationChecklist) ? "Complete" : "Incomplete"}
+              </p>
+            </section>
 
             <section className={styles.tenantConfigBlock}>
               <h4 className={styles.tenantConfigTitle}>Landing Page Configuration</h4>

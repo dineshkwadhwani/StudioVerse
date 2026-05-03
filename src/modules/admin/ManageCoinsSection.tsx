@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import {
   assignCoins,
+  backfillTenantTreasuryWallets,
   getWalletByUserAndTenant,
   listCashoutRequestsForUserContext,
   listWalletTransactionsForUserContext,
@@ -41,9 +42,11 @@ const USER_TYPES: Array<{ value: WalletUserType; label: string }> = [
 ];
 
 export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssigned }: ManageCoinsSectionProps) {
+  type WalletFilterType = "all" | WalletUserType | "treasury";
+
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [selectedUserType, setSelectedUserType] = useState<WalletUserType>("company");
-  const [walletFilterType, setWalletFilterType] = useState<"all" | WalletUserType>("all");
+  const [walletFilterType, setWalletFilterType] = useState<WalletFilterType>("all");
   const [users, setUsers] = useState<UserOption[]>([]);
   const [wallets, setWallets] = useState<WalletRecord[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -58,9 +61,18 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   const [error, setError] = useState("");
   const [walletSnapshot, setWalletSnapshot] = useState<{ issued: number; utilized: number; available: number } | null>(null);
 
+  const isTreasuryWallet = (wallet: WalletRecord): boolean =>
+    wallet.id.startsWith("treasury::") || wallet.userName === "Tenant Treasury";
+
+  const treasuryWallets = useMemo(() => wallets.filter((wallet) => isTreasuryWallet(wallet)), [wallets]);
+
   const filteredWallets = useMemo(() => {
     if (walletFilterType === "all") {
       return wallets;
+    }
+
+    if (walletFilterType === "treasury") {
+      return wallets.filter((wallet) => isTreasuryWallet(wallet));
     }
 
     return wallets.filter((wallet) => wallet.userType === walletFilterType);
@@ -120,7 +132,15 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   }
 
   useEffect(() => {
-    void refreshWallets().catch((loadError) => {
+    void (async () => {
+      try {
+        await backfillTenantTreasuryWallets();
+      } catch {
+        // Keep wallet view working even if treasury backfill is unavailable.
+      }
+
+      await refreshWallets();
+    })().catch((loadError) => {
       const message = loadError instanceof Error ? loadError.message : "Unknown error";
       setError(`Could not load wallets. ${message}`);
     });
@@ -314,9 +334,21 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
 
         {/* Right panel — wallet list with filter */}
         <div className={styles.controlCard}>
-          <p className={styles.subtitle}>All wallets</p>
+          <p className={styles.subtitle}>All wallets (including Treasury)</p>
+
+          {treasuryWallets.length > 0 ? (
+            <div className={styles.emptyCard} style={{ marginBottom: "12px" }}>
+              <strong>Treasury Wallets</strong>
+              {treasuryWallets.map((wallet) => (
+                <p key={wallet.id} style={{ margin: "6px 0 0" }}>
+                  {wallet.tenantId || "-"}: Available {wallet.availableCoins} / Issued {wallet.totalIssuedCoins}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
           <div className={styles.radioRow}>
-            {(["all", "company", "professional", "individual"] as const).map((value) => (
+            {(["all", "treasury", "company", "professional", "individual"] as const).map((value) => (
               <label key={value} className={styles.radioPill}>
                 <input
                   type="radio"
@@ -324,7 +356,11 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
                   checked={walletFilterType === value}
                   onChange={() => setWalletFilterType(value)}
                 />
-                {value === "all" ? "All" : value.charAt(0).toUpperCase() + value.slice(1)}
+                {value === "all"
+                  ? "All"
+                  : value === "treasury"
+                    ? "Treasury"
+                    : value.charAt(0).toUpperCase() + value.slice(1)}
               </label>
             ))}
           </div>
@@ -339,7 +375,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
                     <p className={styles.userName}>{wallet.userName}</p>
                     <p className={styles.userMeta}>User ID: {wallet.userId}</p>
                     <p className={styles.userMeta}>Tenant: {wallet.tenantId || "-"}</p>
-                    <p className={styles.userMeta}>Type: {wallet.userType}</p>
+                    <p className={styles.userMeta}>Type: {isTreasuryWallet(wallet) ? "treasury" : wallet.userType}</p>
                   </div>
                   <div className={styles.userActions}>
                     <span className={styles.statusBadge}>Available {wallet.availableCoins}</span>

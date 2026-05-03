@@ -69,6 +69,34 @@ The repository has active work across:
 
 This context file should not try to reproduce every implementation detail. Those details belong in the deeper domain docs and feature docs.
 
+## Latest architecture and security decisions (3 May 2026)
+
+### Architecture decisions now treated as current baseline
+
+- SuperAdmin portal uses sectioned dashboard metrics with tenant-aware filtering and deep links into operational modules.
+- Approvals workflow supports direct tab targeting from dashboard tiles (promotion, cashout, listing, bot hero).
+- Orders and Referrals admin screens use search-driven filter bars (explicit apply) rather than auto-fetch on every filter field change.
+- Wallet management includes explicit treasury visibility in SuperAdmin Manage Wallet.
+- Treasury wallets are backfilled on admin wallet load so legacy tenants are normalized into the current treasury model.
+
+### Security decisions now treated as mandatory
+
+- Guest and public flows never write directly to Firestore from the browser for trust-sensitive data.
+- Bot referral and guest log writes are server-mediated through trusted API routes / Admin SDK paths.
+- Treasury-affecting operations (registration bonus, referral reward, treasury backfill, debit return routing) run in trusted backend callables/triggers.
+- Firestore rules enforce blocked client writes for protected collections and superadmin-only read where applicable.
+- Idempotency markers are used for treasury/earnings return flows to prevent duplicate credits during retries.
+- All secrets remain server-side (`functions` env). Client only receives safe `NEXT_PUBLIC_*` values.
+
+### OWASP-aligned controls (implemented)
+
+- A01 Broken Access Control: tenant scoping, role checks, and superadmin-only admin operations.
+- A04 Insecure Design: business logic is centralized in services + Functions, not UI components.
+- A05 Security Misconfiguration: restrictive Firestore rules for sensitive collections and transitions.
+- A07 Identification and Authentication Failures: Firebase Auth token-based user identity required for protected operations.
+- A08 Software and Data Integrity Failures: transactional writes and idempotent treasury/earnings markers.
+- A09 Security Logging and Monitoring Failures: function-side logs and audit/event tracking on critical flows.
+
 ## Latest implementation progress (30 April 2026)
 
 ### Bot Hero Monetization Feature — full delivery

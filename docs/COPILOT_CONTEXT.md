@@ -5,6 +5,33 @@
 Status: Working instruction file for AI-assisted code generation in this repository.  
 Read this before generating or modifying code.
 
+## Latest architecture and security decisions (3 May 2026)
+
+### Architecture baseline updates
+
+- SuperAdmin dashboard is now a sectioned operational console with tenant-aware metrics and deep-link navigation into actions, wallet, users, and resources flows.
+- Dashboard approval tiles are split by request type and deep-link into Approve Requests with the target tab preselected.
+- SuperAdmin admin search/filter UX is standardized for Referrals and Orders around explicit Search actions.
+- Manage Wallet now includes explicit treasury visibility and treasury filtering in the wallet list.
+- Treasury wallet presence is normalized by running treasury backfill before wallet listing in SuperAdmin wallet management.
+
+### Security and trust-boundary decisions
+
+- Sensitive writes from guest/public contexts are backend-mediated; no direct client Firestore writes for protected flows.
+- Bot referral and guest-log persistence run on trusted server routes using Admin SDK.
+- Treasury and reward flows are callable/trigger based and remain server-controlled.
+- Firestore rules continue to enforce deny-by-default posture for protected writes.
+- Treasury/earnings mutation paths use idempotency markers to prevent double-credit side effects.
+
+### OWASP control mapping (current enforcement)
+
+- A01 Broken Access Control: strict tenant scoping and role-gated superadmin operations.
+- A04 Insecure Design: business logic in Functions/services, not in component event handlers.
+- A05 Security Misconfiguration: restrictive Firestore rules and explicit state-transition checks.
+- A07 Identification and Authentication Failures: Firebase Auth-backed identity for protected routes/actions.
+- A08 Software and Data Integrity Failures: transactions and idempotent processing in wallet/treasury flows.
+- A09 Security Logging and Monitoring Failures: backend logging and audit/event traceability for critical operations.
+
 ## Latest implementation progress (30 April 2026) — Bot Hero Monetization Feature
 
 ### Bot Hero feature — full delivery + post-delivery fixes

@@ -692,7 +692,6 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
             <CollapsibleSection
               title="Coach Profile Details"
               description="Use structured selections for cleaner matching and fewer errors."
-              badge="Matching Ready"
             >
               <div className={styles.formGrid}>
                 <label className={styles.field}>
@@ -820,7 +819,6 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
             <CollapsibleSection
               title="Individual Matching Profile"
               description="Keep your preferences structured so recommendations are more accurate."
-              badge="Matching Ready"
             >
               <div className={styles.formGrid}>
                 <label className={styles.field}>

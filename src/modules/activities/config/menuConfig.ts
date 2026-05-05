@@ -66,9 +66,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       key: "actions",
       label: "Actions",
       items: [
-        { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/assign-activity") },
-        { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
-        { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "activities", label: "Activities", href: buildPath(basePath, "/activities") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },
@@ -100,9 +98,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       key: "actions",
       label: "Actions",
       items: [
-        { key: "assign-activity", label: "Assign Activity", href: buildPath(basePath, "/assign-activity") },
-        { key: "assigned-activities", label: "Assigned Activities", href: buildPath(basePath, "/assigned-activities") },
-        { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "activities", label: "Activities", href: buildPath(basePath, "/activities") },
         { key: "promote-coach", label: "Promote Coach", href: buildPath(basePath, "/promote-coach") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],

@@ -24,6 +24,8 @@ type UserRole = StudioUserRole;
 
 type AssignedActivitiesPageProps = {
   tenantConfig?: TenantConfig;
+  showHeader?: boolean;
+  embedded?: boolean;
 };
 
 function isUserRole(value: unknown): value is UserRole {
@@ -75,7 +77,11 @@ type CoachFilterOption = {
   assignerIds: string[];
 };
 
-export default function AssignedActivitiesPage({ tenantConfig = coachingTenantConfig }: AssignedActivitiesPageProps) {
+export default function AssignedActivitiesPage({
+  tenantConfig = coachingTenantConfig,
+  showHeader = true,
+  embedded = false,
+}: AssignedActivitiesPageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
@@ -209,7 +215,8 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
   }
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${embedded ? styles.embeddedRoot : ""}`}>
+      {showHeader ? (
       <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image
@@ -274,6 +281,7 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
           </div>
         </div>
       </header>
+      ) : null}
 
       <div className={styles.shell}>
         <section className={styles.card}>

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 export type GroqMessageRole = "system" | "user" | "assistant";
 
 export type GroqMessage = {
@@ -48,6 +50,10 @@ type FetchErrorLike = Error & {
   port?: number;
 };
 
+type FetchInitWithDispatcher = RequestInit & {
+  dispatcher?: unknown;
+};
+
 function getGroqApiKey(): string {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
@@ -83,6 +89,31 @@ function describeFetchFailure(error: unknown): {
   };
 }
 
+function isCertificateError(details: ReturnType<typeof describeFetchFailure>): boolean {
+  const combined = `${details.message} ${details.code ?? ""}`.toUpperCase();
+  return (
+    combined.includes("UNABLE_TO_GET_ISSUER_CERT_LOCALLY") ||
+    combined.includes("SELF_SIGNED_CERT") ||
+    combined.includes("CERT_HAS_EXPIRED") ||
+    combined.includes("UNABLE_TO_VERIFY_LEAF_SIGNATURE")
+  );
+}
+
+async function getOptionalGroqDispatcher(): Promise<unknown | undefined> {
+  const caPath = process.env.GROQ_CA_CERT_PATH?.trim();
+  if (!caPath) {
+    return undefined;
+  }
+
+  const { Agent } = await import("undici");
+  const ca = await readFile(caPath, "utf8");
+  return new Agent({
+    connect: {
+      ca,
+    },
+  });
+}
+
 export async function requestGroqChatCompletion(
   messages: GroqMessage[],
   options: GroqChatOptions = {}
@@ -92,6 +123,7 @@ export async function requestGroqChatCompletion(
   }
 
   const apiKey = getGroqApiKey();
+  const dispatcher = await getOptionalGroqDispatcher();
 
   let response: Response;
   try {
@@ -109,7 +141,8 @@ export async function requestGroqChatCompletion(
         top_p: options.topP,
         response_format: options.responseFormat,
       }),
-    });
+      dispatcher,
+    } as FetchInitWithDispatcher);
   } catch (error) {
     const details = describeFetchFailure(error);
     const proxyConfigured = Boolean(
@@ -126,13 +159,18 @@ export async function requestGroqChatCompletion(
       details.hostname ? `host=${details.hostname}` : "",
       details.port != null ? `port=${String(details.port)}` : "",
       `proxyConfigured=${String(proxyConfigured)}`,
+      `customCaConfigured=${String(Boolean(process.env.GROQ_CA_CERT_PATH?.trim()))}`,
       `node=${process.version}`,
     ].filter(Boolean);
+
+    const remediation = isCertificateError(details)
+      ? " Certificate trust failed while connecting to Groq. If your network uses a custom/intercepting CA, set NODE_EXTRA_CA_CERTS or GROQ_CA_CERT_PATH to that PEM certificate bundle."
+      : "";
 
     throw new Error(
       `Groq network request failed: ${details.message}${
         diagnosticParts.length ? ` [${diagnosticParts.join(", ")}]` : ""
-      }`
+      }${remediation}`
     );
   }
 

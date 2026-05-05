@@ -34,7 +34,7 @@ function getInitials(name: string): string {
 }
 
 function isAssignmentAction(key: string): boolean {
-  return key === "assign-activity";
+  return key === "assign-activity" || key === "activities";
 }
 
 function getInitialMenuItem(role: UserRole): StudioMenuItem | null {
@@ -355,7 +355,7 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
                   <p>Pending: <strong>{assignedBySummary.pending}</strong></p>
                   <p>Completed: <strong>{assignedBySummary.completed}</strong></p>
                 </div>
-                <Link href={`${basePath}/assigned-activities`} className={styles.summaryAction}>
+                <Link href={`${basePath}/activities?tab=assigned-activities`} className={styles.summaryAction}>
                   View All
                 </Link>
               </article>
@@ -369,7 +369,7 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
                 <p>Recommended: <strong>{activitySummary.recommended}</strong></p>
                 <p>Completed: <strong>{activitySummary.completed}</strong></p>
               </div>
-              <Link href={`${basePath}/my-activities`} className={styles.summaryAction}>
+              <Link href={role === "company" || role === "professional" ? `${basePath}/activities?tab=my-activities` : `${basePath}/my-activities`} className={styles.summaryAction}>
                 Complete now
               </Link>
             </article>

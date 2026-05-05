@@ -28,6 +28,12 @@
   overflow-x: hidden;
 }
 
+.embeddedRoot {
+  min-height: 0;
+  background: transparent;
+  padding: 0;
+}
+
 .shell {
   max-width: 1180px;
   margin: 0 auto;

@@ -32,7 +32,7 @@ function getInitials(name: string): string {
 }
 
 function isAssignmentAction(key: string): boolean {
-  return key === "assign-activity";
+  return key === "assign-activity" || key === "activities";
 }
 
 function getInitialMenuItem(role: UserRole): StudioMenuItem | null {
@@ -290,7 +290,7 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
                 <p>Recommended: <strong>{activitySummary.recommended}</strong></p>
                 <p>Completed: <strong>{activitySummary.completed}</strong></p>
               </div>
-              <Link href={`${basePath}/my-activities`} className={styles.summaryAction}>
+              <Link href={role === "company" || role === "professional" ? `${basePath}/activities?tab=my-activities` : `${basePath}/my-activities`} className={styles.summaryAction}>
                 Complete now
               </Link>
             </article>

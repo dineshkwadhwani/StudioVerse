@@ -69,13 +69,14 @@ type MenuKey =
   | "resources"
   | "coins"
   | "referrals"
-  | "assigned-activities"
-  | "assign-activity"
+  | "activities"
   | "earning-packages"
   | "orders"
   | "approve-requests"
   | "logs"
   | "notifications";
+
+type SuperAdminActivitiesTab = "my-activities" | "assign-activity" | "assigned-activities";
 
 type AppUserType = "superadmin" | "company" | "professional" | "individual";
 type UsersFilter = "all" | AppUserType;
@@ -257,8 +258,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "coins", label: "Wallet" },
   { key: "orders", label: "Orders" },
   { key: "referrals", label: "References" },
-  { key: "assigned-activities", label: "Assigned Activities" },
-  { key: "assign-activity", label: "Assign Activity" },
+  { key: "activities", label: "Activities" },
   { key: "earning-packages", label: "Earning Packages" },
   { key: "approve-requests", label: "Approve Requests" },
   { key: "notifications", label: "Notifications" },
@@ -286,7 +286,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
   {
     key: "actions",
     label: "Actions",
-    itemKeys: ["assigned-activities", "assign-activity", "approve-requests", "logs"],
+    itemKeys: ["activities", "approve-requests", "logs"],
   },
 ];
 
@@ -524,6 +524,7 @@ export default function SuperAdminPortal() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
+  const [activitiesTab, setActivitiesTab] = useState<SuperAdminActivitiesTab>("my-activities");
   const [approvalTab, setApprovalTab] = useState<"promotion" | "cashout" | "listing" | "bot-hero">("promotion");
   const [promotionRequestsTenantId, setPromotionRequestsTenantId] = useState<string>("");
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
@@ -625,12 +626,20 @@ export default function SuperAdminPortal() {
     [selectedChecklistTenantId, tenants]
   );
 
-  function openDashboardMenu(menuKey: MenuKey, nextUsersFilter?: AppUserType, nextApprovalTab?: "promotion" | "cashout" | "listing" | "bot-hero") {
+  function openDashboardMenu(
+    menuKey: MenuKey,
+    nextUsersFilter?: AppUserType,
+    nextApprovalTab?: "promotion" | "cashout" | "listing" | "bot-hero",
+    nextActivitiesTab?: SuperAdminActivitiesTab
+  ) {
     if (nextUsersFilter) {
       setUsersFilter(nextUsersFilter);
     }
     if (nextApprovalTab) {
       setApprovalTab(nextApprovalTab);
+    }
+    if (nextActivitiesTab) {
+      setActivitiesTab(nextActivitiesTab);
     }
     setMenuOpen(false);
     setActiveMenu(menuKey);
@@ -732,7 +741,7 @@ export default function SuperAdminPortal() {
   }, [profile, activeMenu]);
 
   useEffect(() => {
-    if (!profile || activeMenu !== "assigned-activities") {
+    if (!profile || activeMenu !== "activities") {
       return;
     }
 
@@ -1806,15 +1815,15 @@ export default function SuperAdminPortal() {
                     <p className={styles.statLabel}>Total Events</p>
                     <p className={styles.statValue}>{dashboardStats.events}</p>
                   </button>
-                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("assigned-activities")}>
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("activities", undefined, undefined, "assigned-activities")}>
                     <p className={styles.statLabel}>Activities (Complete / Assigned)</p>
                     <p className={styles.statValue}>{dashboardStats.totalActivitiesCompleted}/{dashboardStats.totalActivitiesAssigned}</p>
                   </button>
-                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("assigned-activities")}>
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("activities", undefined, undefined, "assigned-activities")}>
                     <p className={styles.statLabel}>Programs (Complete / Assigned)</p>
                     <p className={styles.statValue}>{dashboardStats.programsCompleted}/{dashboardStats.programsAssigned}</p>
                   </button>
-                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("assigned-activities")}>
+                  <button type="button" className={styles.statTileButton} onClick={() => openDashboardMenu("activities", undefined, undefined, "assigned-activities")}>
                     <p className={styles.statLabel}>Assessments (Complete / Assigned)</p>
                     <p className={styles.statValue}>{dashboardStats.assessmentsCompleted}/{dashboardStats.assessmentsAssigned}</p>
                   </button>
@@ -2357,73 +2366,97 @@ export default function SuperAdminPortal() {
             </article>
           ) : null}
 
-          {activeMenu === "assign-activity" ? (
+          {activeMenu === "activities" ? (
             <article className={styles.card}>
-              <h2>Assign Activity</h2>
-              <p className={styles.subtitle}>Assign published public resources across the selected tenant.</p>
+              <h2>Activities</h2>
+              <p className={styles.subtitle}>Use one workflow to review your activities, assign new activities, and track assigned outcomes.</p>
 
               <div className={styles.filterRow}>
-                <label className={styles.filterLabel} htmlFor="assign-tenant-filter">Select Tenant</label>
-                <select
-                  id="assign-tenant-filter"
-                  className={styles.select}
-                  value={selectedAssignTenant}
-                  onChange={(event) => setSelectedAssignTenant(event.target.value)}
-                >
-                  <option value="">Choose tenant</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant.id} value={tenant.tenantId}>
-                      {tenant.tenantName}
-                    </option>
-                  ))}
-                </select>
+                {([
+                  { key: "my-activities", label: "My Activities" },
+                  { key: "assign-activity", label: "Assign Activities" },
+                  { key: "assigned-activities", label: "Assigned Activities" },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`${styles.filterPill} ${activitiesTab === tab.key ? styles.filterPillActive : ""}`}
+                    onClick={() => setActivitiesTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              {selectedAssignTenant ? (
-                <AssignActivitiesPage
-                  tenantId={selectedAssignTenant}
-                  role="superadmin"
-                  actorUserId={profile?.id ?? authUser?.uid ?? ""}
-                  actorName={profile?.name ?? "Super Admin"}
-                  showHeader={false}
-                  embedded
-                />
-              ) : (
-                <p className={styles.subtitle}>Select a tenant to continue.</p>
-              )}
-            </article>
-          ) : null}
-
-          {activeMenu === "assigned-activities" ? (
-            <article className={styles.card}>
-              <h2>Assigned Activities</h2>
-              <p className={styles.subtitle}>Track activities assigned by your superadmin account and open reports where available.</p>
-
-              {assignedActivities.length === 0 ? (
-                <div className={styles.emptyCard}>No assigned activities found.</div>
-              ) : (
-                <div className={styles.userStack}>
-                  {assignedActivities.map((item) => (
-                    <section key={item.id} className={styles.userItem}>
-                      <div>
-                        <p className={styles.userName}>{item.activityTitle}</p>
-                        <p className={styles.userMeta}>Type: {item.activityType}</p>
-                        <p className={styles.userMeta}>Assigned to: {item.assigneeFullName || "-"}</p>
-                        <p className={styles.userMeta}>Status: {item.status}</p>
-                        <p className={styles.userMeta}>Assigned on: {formatAssignedAt(item.createdAt)}</p>
-                      </div>
-
-                      <div className={styles.userActions}>
-                        {item.activityType === "assessment" ? (
-                          <Link href={`/${item.tenantId}/my-activities/assessment-report/${item.id}`} className={styles.rowAction}>
-                            Open Report
-                          </Link>
-                        ) : null}
-                      </div>
-                    </section>
-                  ))}
+              {activitiesTab === "my-activities" ? (
+                <div className={styles.emptyCard}>
+                  Super Admin accounts are global operators and do not receive direct assignments. Use Assign Activities and Assigned Activities tabs for tenant activity workflows.
                 </div>
-              )}
+              ) : null}
+
+              {activitiesTab === "assign-activity" ? (
+                <>
+                  <div className={styles.filterRow}>
+                    <label className={styles.filterLabel} htmlFor="assign-tenant-filter">Select Tenant</label>
+                    <select
+                      id="assign-tenant-filter"
+                      className={styles.select}
+                      value={selectedAssignTenant}
+                      onChange={(event) => setSelectedAssignTenant(event.target.value)}
+                    >
+                      <option value="">Choose tenant</option>
+                      {tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.tenantId}>
+                          {tenant.tenantName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedAssignTenant ? (
+                    <AssignActivitiesPage
+                      tenantId={selectedAssignTenant}
+                      role="superadmin"
+                      actorUserId={profile?.id ?? authUser?.uid ?? ""}
+                      actorName={profile?.name ?? "Super Admin"}
+                      showHeader={false}
+                      embedded
+                    />
+                  ) : (
+                    <p className={styles.subtitle}>Select a tenant to continue.</p>
+                  )}
+                </>
+              ) : null}
+
+              {activitiesTab === "assigned-activities" ? (
+                <>
+                  {assignedActivities.length === 0 ? (
+                    <div className={styles.emptyCard}>No assigned activities found.</div>
+                  ) : (
+                    <div className={styles.userStack}>
+                      {assignedActivities.map((item) => (
+                        <section key={item.id} className={styles.userItem}>
+                          <div>
+                            <p className={styles.userName}>{item.activityTitle}</p>
+                            <p className={styles.userMeta}>Type: {item.activityType}</p>
+                            <p className={styles.userMeta}>Assigned to: {item.assigneeFullName || "-"}</p>
+                            <p className={styles.userMeta}>Status: {item.status}</p>
+                            <p className={styles.userMeta}>Assigned on: {formatAssignedAt(item.createdAt)}</p>
+                          </div>
+
+                          <div className={styles.userActions}>
+                            {item.activityType === "assessment" ? (
+                              <Link href={`/${item.tenantId}/my-activities/assessment-report/${item.id}`} className={styles.rowAction}>
+                                Open Report
+                              </Link>
+                            ) : null}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : null}
             </article>
           ) : null}
         </section>

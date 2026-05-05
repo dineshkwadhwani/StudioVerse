@@ -165,9 +165,15 @@ function openProgramVideoPopup(videoUrl: string, activityTitle: string): boolean
 
 type MyActivitiesPageProps = {
   tenantConfig?: TenantConfig;
+  showHeader?: boolean;
+  embedded?: boolean;
 };
 
-export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }: MyActivitiesPageProps) {
+export default function MyActivitiesPage({
+  tenantConfig = coachingTenantConfig,
+  showHeader = true,
+  embedded = false,
+}: MyActivitiesPageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
@@ -358,7 +364,8 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
   }
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${embedded ? styles.embeddedRoot : ""}`}>
+      {showHeader ? (
       <header className={styles.toolbar}>
         <Link href={basePath} className={landingStyles.brand}>
           <Image
@@ -423,6 +430,7 @@ export default function MyActivitiesPage({ tenantConfig = coachingTenantConfig }
           </div>
         </div>
       </header>
+      ) : null}
 
       <div className={styles.shell}>
         <section className={styles.card}>

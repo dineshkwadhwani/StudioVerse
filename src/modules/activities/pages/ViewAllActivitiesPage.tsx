@@ -10,7 +10,6 @@ import type { ActivityType } from "@/types/assignment";
 import { auth, db } from "@/services/firebase";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents } from "@/services/events.service";
-import { getUserById } from "@/services/manage-users.service";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import AssignmentModal from "@/modules/activities/components/AssignmentModal";
 import DetailModal from "@/modules/activities/components/DetailModal";
@@ -19,12 +18,6 @@ import shellStyles from "@/modules/resources/pages/ManageResourcesPage.module.cs
 import styles from "./AssignActivitiesPage.module.css";
 
 type ResourceTab = "programs" | "events" | "assessments";
-type SupportedRole = "individual";
-
-type OwnershipContext = {
-  role: SupportedRole;
-  userId: string;
-};
 
 type ActivityCardItem = {
   id: string;

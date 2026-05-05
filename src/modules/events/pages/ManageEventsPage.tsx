@@ -172,7 +172,6 @@ export default function ManageEventsPage({ config, showHeader = true, searchQuer
         item.eventTime,
         item.locationCity,
         item.locationAddress,
-        item.facilitatorName,
         item.status,
         item.visibility,
       ]

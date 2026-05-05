@@ -137,7 +137,6 @@ export default function ManageAssessmentsPage({ config, showHeader = true, searc
         item.name,
         item.shortDescription,
         item.longDescription,
-        item.details,
         item.assessmentType,
         item.assessmentContext,
         item.assessmentBenefit,

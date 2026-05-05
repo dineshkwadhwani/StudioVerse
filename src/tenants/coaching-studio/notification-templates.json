@@ -99,6 +99,10 @@
     "subject": "Registration bonus credited",
     "body": "Dear {{recipientName}},\n\nYour registration bonus of {{bonusCoins}} credits has been added to your wallet.\n\nYou can start using these credits immediately.\n\nWarm regards,\nTeam Coaching Studio"
   },
+  "profileCompletionRewardIssued": {
+    "subject": "Congratulations on completing your profile",
+    "body": "Dear {{recipientName}},\n\nCongratulations on completing your profile to 100%.\n\nWe have added {{bonusCoins}} credits to your wallet as a reward.\n\nYou can start using these credits immediately.\n\nWarm regards,\nTeam Coaching Studio"
+  },
   "referralInviteSent": {
     "subject": "You have been invited to Coaching Studio",
     "body": "Dear {{recipientName}},\n\n{{referrerName}} has invited you to join Coaching Studio.\n\nPlease complete your registration to get started.\n\nWarm regards,\nTeam Coaching Studio"

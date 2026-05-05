@@ -14,7 +14,7 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db } from "@/services/firebase";
 import { storage } from "@/services/firebase";
-import { issueRegistrationBonusForUser } from "@/services/wallet.service";
+import { issueProfileCompletionRewardForUser, issueRegistrationBonusForUser } from "@/services/wallet.service";
 import { sendNotificationEmail } from "@/services/notification.service";
 import type {
   ProfileUserType,
@@ -96,6 +96,7 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
       profile.fullName,
       profile.userType,
       profile.companyName,
+      profile.companyType,
       profile.city,
       profile.phoneE164,
       profile.email,
@@ -103,6 +104,8 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
       profile.state,
       profile.country,
       profile.postalCode,
+      profile.companyLegalName,
+      profile.companyDisplayName,
       profile.companyDescription,
       profile.industry,
       profile.employeeCountRange,
@@ -133,6 +136,16 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
       profile.trainingExperienceYears,
       profile.industryFocus,
       profile.languagesSpoken,
+      profile.coachExperienceSummary,
+      profile.coachIndustryExperience,
+      profile.coachExpertiseAreas,
+      profile.coachCoachingAreas,
+      profile.coachMethods,
+      profile.coachTargetAudience,
+      profile.coachSessionFormats,
+      profile.coachCredentials,
+      profile.coachOutcomeFocus,
+      profile.coachAvailability,
     ];
   }
 
@@ -151,6 +164,17 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
     profile.bio,
     profile.skills,
     profile.linkedinUrl,
+      profile.individualPortalPurpose,
+      profile.individualExperienceLevel,
+      profile.individualExpertiseLevel,
+      profile.individualDevelopmentAreas,
+      profile.individualLearningPreferences,
+      profile.individualTargetAudience,
+      profile.individualGoals,
+      profile.individualTimeCommitment,
+      profile.individualPreferredSessionFormat,
+      profile.individualTargetOutcomes,
+      profile.individualCurrentChallenges,
   ];
 }
 
@@ -228,14 +252,45 @@ function mapUserProfile(id: string, data: ProfileDocData): UserProfileRecord {
     bio: normalizeString(data.bio),
     skills: normalizeStringArray(data.skills),
     linkedinUrl: normalizeString(data.linkedinUrl),
+    instagramHandle: normalizeString(data.instagramHandle),
+    youtubeChannel: normalizeString(data.youtubeChannel),
     websiteUrl: normalizeString(data.websiteUrl),
     professionalHeadline: normalizeString(data.professionalHeadline),
-    expertiseAreas: normalizeStringArray(data.expertiseAreas),
+    expertiseAreas: (() => {
+      const primary = normalizeStringArray(data.expertiseAreas);
+      if (primary.length > 0) {
+        return primary;
+      }
+      return normalizeStringArray(data.coachExpertiseAreas);
+    })(),
     certifications: normalizeStringArray(data.certifications),
     coachingExperienceYears: normalizeString(data.coachingExperienceYears),
     trainingExperienceYears: normalizeString(data.trainingExperienceYears),
     industryFocus: normalizeString(data.industryFocus),
     languagesSpoken: normalizeStringArray(data.languagesSpoken),
+    coachExperienceSummary: normalizeString(data.coachExperienceSummary),
+    coachPrimaryIndustry: normalizeString(data.coachPrimaryIndustry),
+    coachIndustryExperience: normalizeString(data.coachIndustryExperience),
+    coachExpertiseAreas: normalizeStringArray(data.coachExpertiseAreas),
+    coachCoachingAreas: normalizeStringArray(data.coachCoachingAreas),
+    coachMethods: normalizeStringArray(data.coachMethods),
+    coachTargetAudience: normalizeStringArray(data.coachTargetAudience),
+    coachSessionFormats: normalizeStringArray(data.coachSessionFormats),
+    coachServicesOther: normalizeString(data.coachServicesOther),
+    coachCredentials: normalizeStringArray(data.coachCredentials),
+    coachOutcomeFocus: normalizeString(data.coachOutcomeFocus),
+    coachAvailability: normalizeString(data.coachAvailability),
+    individualPortalPurpose: normalizeString(data.individualPortalPurpose),
+    individualExperienceLevel: normalizeString(data.individualExperienceLevel),
+    individualExpertiseLevel: normalizeString(data.individualExpertiseLevel),
+    individualDevelopmentAreas: normalizeStringArray(data.individualDevelopmentAreas),
+    individualLearningPreferences: normalizeStringArray(data.individualLearningPreferences),
+    individualTargetAudience: normalizeStringArray(data.individualTargetAudience),
+    individualGoals: normalizeString(data.individualGoals),
+    individualTimeCommitment: normalizeString(data.individualTimeCommitment),
+    individualPreferredSessionFormat: normalizeString(data.individualPreferredSessionFormat),
+    individualTargetOutcomes: normalizeStringArray(data.individualTargetOutcomes),
+    individualCurrentChallenges: normalizeString(data.individualCurrentChallenges),
     publicProfileReady: Boolean(data.publicProfileReady),
     companyLegalName: normalizeString(data.companyLegalName),
     companyDisplayName: normalizeString(data.companyDisplayName ?? companyName),
@@ -326,6 +381,8 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     bio: normalizeString(input.bio ?? current?.bio),
     skills: input.skills ?? current?.skills ?? [],
     linkedinUrl: normalizeString(input.linkedinUrl ?? current?.linkedinUrl),
+    instagramHandle: normalizeString(input.instagramHandle ?? current?.instagramHandle),
+    youtubeChannel: normalizeString(input.youtubeChannel ?? current?.youtubeChannel),
     websiteUrl: normalizeString(input.websiteUrl ?? current?.websiteUrl),
     professionalHeadline: normalizeString(input.professionalHeadline ?? current?.professionalHeadline),
     expertiseAreas: input.expertiseAreas ?? current?.expertiseAreas ?? [],
@@ -338,6 +395,48 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     ),
     industryFocus: normalizeString(input.industryFocus ?? current?.industryFocus),
     languagesSpoken: input.languagesSpoken ?? current?.languagesSpoken ?? [],
+    coachExperienceSummary: normalizeString(
+      input.coachExperienceSummary ?? current?.coachExperienceSummary,
+    ),
+    coachPrimaryIndustry: normalizeString(input.coachPrimaryIndustry ?? current?.coachPrimaryIndustry),
+    coachIndustryExperience: normalizeString(
+      input.coachIndustryExperience ?? current?.coachIndustryExperience,
+    ),
+    coachExpertiseAreas: input.coachExpertiseAreas ?? current?.coachExpertiseAreas ?? [],
+    coachCoachingAreas: input.coachCoachingAreas ?? current?.coachCoachingAreas ?? [],
+    coachMethods: input.coachMethods ?? current?.coachMethods ?? [],
+    coachTargetAudience: input.coachTargetAudience ?? current?.coachTargetAudience ?? [],
+    coachSessionFormats: input.coachSessionFormats ?? current?.coachSessionFormats ?? [],
+    coachServicesOther: normalizeString(input.coachServicesOther ?? current?.coachServicesOther),
+    coachCredentials: input.coachCredentials ?? current?.coachCredentials ?? [],
+    coachOutcomeFocus: normalizeString(input.coachOutcomeFocus ?? current?.coachOutcomeFocus),
+    coachAvailability: normalizeString(input.coachAvailability ?? current?.coachAvailability),
+    individualPortalPurpose: normalizeString(
+      input.individualPortalPurpose ?? current?.individualPortalPurpose,
+    ),
+    individualExperienceLevel: normalizeString(
+      input.individualExperienceLevel ?? current?.individualExperienceLevel,
+    ),
+    individualExpertiseLevel: normalizeString(
+      input.individualExpertiseLevel ?? current?.individualExpertiseLevel,
+    ),
+    individualDevelopmentAreas:
+      input.individualDevelopmentAreas ?? current?.individualDevelopmentAreas ?? [],
+    individualLearningPreferences:
+      input.individualLearningPreferences ?? current?.individualLearningPreferences ?? [],
+    individualTargetAudience:
+      input.individualTargetAudience ?? current?.individualTargetAudience ?? [],
+    individualGoals: normalizeString(input.individualGoals ?? current?.individualGoals),
+    individualTimeCommitment: normalizeString(
+      input.individualTimeCommitment ?? current?.individualTimeCommitment,
+    ),
+    individualPreferredSessionFormat: normalizeString(
+      input.individualPreferredSessionFormat ?? current?.individualPreferredSessionFormat,
+    ),
+    individualTargetOutcomes: input.individualTargetOutcomes ?? current?.individualTargetOutcomes ?? [],
+    individualCurrentChallenges: normalizeString(
+      input.individualCurrentChallenges ?? current?.individualCurrentChallenges,
+    ),
     publicProfileReady: input.publicProfileReady ?? current?.publicProfileReady ?? false,
     companyLegalName: normalizeString(input.companyLegalName ?? current?.companyLegalName),
     companyDisplayName: normalizeString(
@@ -386,6 +485,8 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     bio: profile.bio,
     skills: profile.skills,
     linkedinUrl: profile.linkedinUrl,
+    instagramHandle: profile.instagramHandle,
+    youtubeChannel: profile.youtubeChannel,
     websiteUrl: profile.websiteUrl,
     professionalHeadline: profile.professionalHeadline,
     expertiseAreas: profile.expertiseAreas,
@@ -394,6 +495,29 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     trainingExperienceYears: profile.trainingExperienceYears,
     industryFocus: profile.industryFocus,
     languagesSpoken: profile.languagesSpoken,
+    coachExperienceSummary: profile.coachExperienceSummary,
+    coachPrimaryIndustry: profile.coachPrimaryIndustry,
+    coachIndustryExperience: profile.coachIndustryExperience,
+    coachExpertiseAreas: profile.expertiseAreas,
+    coachCoachingAreas: profile.coachCoachingAreas,
+    coachMethods: profile.coachMethods,
+    coachTargetAudience: profile.coachTargetAudience,
+    coachSessionFormats: profile.coachSessionFormats,
+    coachServicesOther: profile.coachServicesOther,
+    coachCredentials: profile.coachCredentials,
+    coachOutcomeFocus: profile.coachOutcomeFocus,
+    coachAvailability: profile.coachAvailability,
+    individualPortalPurpose: profile.individualPortalPurpose,
+    individualExperienceLevel: profile.individualExperienceLevel,
+    individualExpertiseLevel: profile.individualExpertiseLevel,
+    individualDevelopmentAreas: profile.individualDevelopmentAreas,
+    individualLearningPreferences: profile.individualLearningPreferences,
+    individualTargetAudience: profile.individualTargetAudience,
+    individualGoals: profile.individualGoals,
+    individualTimeCommitment: profile.individualTimeCommitment,
+    individualPreferredSessionFormat: profile.individualPreferredSessionFormat,
+    individualTargetOutcomes: profile.individualTargetOutcomes,
+    individualCurrentChallenges: profile.individualCurrentChallenges,
     publicProfileReady: profile.publicProfileReady,
     companyLegalName: profile.companyLegalName,
     companyDisplayName: profile.companyDisplayName,
@@ -410,7 +534,11 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
   };
 }
 
-export function splitProfileList(value: string): string[] {
+export function splitProfileList(value: unknown): string[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
   return value
     .split(",")
     .map((item) => item.trim())
@@ -501,6 +629,8 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
 
   const savedSnapshot = await getDoc(targetRef);
   const savedProfile = mapUserProfile(savedSnapshot.id, savedSnapshot.data() as ProfileDocData);
+  const previousCompletionPercent = current?.profileCompletionPercent ?? 0;
+  let profileCompletionRewardStatus: UserProfileRecord["profileCompletionRewardStatus"];
 
   // Auto-create the wallet for brand-new registrations with the tenant's configured signup bonus.
   // Only runs when current is undefined (first save, not a profile update).
@@ -525,5 +655,18 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
     }
   }
 
-  return savedProfile;
+  if (savedProfile.profileCompletionPercent === 100 && previousCompletionPercent < 100) {
+    try {
+      profileCompletionRewardStatus = await issueProfileCompletionRewardForUser({
+        userId: savedProfile.userId,
+        tenantId: savedProfile.tenantId,
+      });
+    } catch {
+      // Profile save must not fail if reward issuance fails.
+    }
+  }
+
+  return profileCompletionRewardStatus
+    ? { ...savedProfile, profileCompletionRewardStatus }
+    : savedProfile;
 }

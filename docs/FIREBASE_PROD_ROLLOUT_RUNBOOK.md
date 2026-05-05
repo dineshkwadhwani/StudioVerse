@@ -4,6 +4,35 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (May 5, 2026) — Profile completion wallet reward callable
+
+Status:
+
+- Backend reward flow for profile completion reached production-ready state in test.
+- New callable deployed in `studioverse-test`: `issueProfileCompletionReward` (region: `asia-south1`).
+- Callable behavior mirrors existing treasury-backed bonus patterns:
+  - awards 5 credits when profile completion reaches 100%,
+  - debits tenant treasury wallet,
+  - credits target user wallet,
+  - writes matching wallet ledger entries,
+  - remains idempotent via transaction-source checks.
+- `functions` dependency baseline was refreshed: `firebase-functions` upgraded to latest and redeployed successfully in test.
+
+Validation completed in test:
+
+- Functions TypeScript build passed.
+- Functions deploy completed successfully to `studioverse-test`.
+- No deploy-time warning remained for outdated `firebase-functions` after the upgrade.
+
+Production rollout state:
+
+- Production deploy remains deferred until explicit go-ahead.
+- Next prod step (when approved):
+
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only functions
+  ```
+
 ## Latest rollout update (May 3, 2026) — Firestore security hardening
 
 Status:

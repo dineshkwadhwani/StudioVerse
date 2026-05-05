@@ -33,6 +33,7 @@ export const NOTIFICATION_CATEGORY_DEFINITIONS = [
   { key: "cashoutApproved", label: "Wallet: Cashout Approved", domain: "wallet", description: "Send decision email to the requester when a cashout is approved." },
   { key: "cashoutDenied", label: "Wallet: Cashout Denied", domain: "wallet", description: "Send decision email to the requester when a cashout is denied." },
   { key: "registrationBonusIssued", label: "Wallet: Registration Bonus Issued", domain: "wallet", description: "Send wallet email to the user who received the registration bonus." },
+  { key: "profileCompletionRewardIssued", label: "Wallet: Profile Completion Reward Issued", domain: "wallet", description: "Send wallet email to the user who received the 100% profile completion reward." },
   { key: "referralInviteSent", label: "Referrals: Invite Sent", domain: "referrals", description: "Send invite email to the referred contact." },
   { key: "referralReminderSent", label: "Referrals: Reminder Sent", domain: "referrals", description: "Send reminder email to the referred contact." },
   { key: "referralJoined", label: "Referrals: Joined", domain: "referrals", description: "Send update email to the referrer when the referred user joins." },

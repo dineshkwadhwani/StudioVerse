@@ -32,6 +32,8 @@ export type UserProfileRecord = {
   bio: string;
   skills: string[];
   linkedinUrl: string;
+  instagramHandle: string;
+  youtubeChannel: string;
   websiteUrl: string;
   professionalHeadline: string;
   expertiseAreas: string[];
@@ -40,6 +42,29 @@ export type UserProfileRecord = {
   trainingExperienceYears: string;
   industryFocus: string;
   languagesSpoken: string[];
+  coachExperienceSummary: string;
+  coachPrimaryIndustry: string;
+  coachIndustryExperience: string;
+  coachExpertiseAreas: string[];
+  coachCoachingAreas: string[];
+  coachMethods: string[];
+  coachTargetAudience: string[];
+  coachSessionFormats: string[];
+  coachServicesOther: string;
+  coachCredentials: string[];
+  coachOutcomeFocus: string;
+  coachAvailability: string;
+  individualPortalPurpose: string;
+  individualExperienceLevel: string;
+  individualExpertiseLevel: string;
+  individualDevelopmentAreas: string[];
+  individualLearningPreferences: string[];
+  individualTargetAudience: string[];
+  individualGoals: string;
+  individualTimeCommitment: string;
+  individualPreferredSessionFormat: string;
+  individualTargetOutcomes: string[];
+  individualCurrentChallenges: string;
   publicProfileReady: boolean;
   companyLegalName: string;
   companyDisplayName: string;
@@ -51,6 +76,7 @@ export type UserProfileRecord = {
   primaryContactName: string;
   mandatoryProfileCompleted: boolean;
   profileCompletionPercent: number;
+  profileCompletionRewardStatus?: "credited" | "already-credited" | "skipped";
   assignmentEligible: boolean;
   status: ProfileStatus;
   createdAt?: Timestamp;
@@ -81,6 +107,8 @@ export type UserProfileSaveInput = {
   bio?: string;
   skills?: string[];
   linkedinUrl?: string;
+  instagramHandle?: string;
+  youtubeChannel?: string;
   websiteUrl?: string;
   professionalHeadline?: string;
   expertiseAreas?: string[];
@@ -89,6 +117,29 @@ export type UserProfileSaveInput = {
   trainingExperienceYears?: string;
   industryFocus?: string;
   languagesSpoken?: string[];
+  coachExperienceSummary?: string;
+  coachPrimaryIndustry?: string;
+  coachIndustryExperience?: string;
+  coachExpertiseAreas?: string[];
+  coachCoachingAreas?: string[];
+  coachMethods?: string[];
+  coachTargetAudience?: string[];
+  coachSessionFormats?: string[];
+  coachServicesOther?: string;
+  coachCredentials?: string[];
+  coachOutcomeFocus?: string;
+  coachAvailability?: string;
+  individualPortalPurpose?: string;
+  individualExperienceLevel?: string;
+  individualExpertiseLevel?: string;
+  individualDevelopmentAreas?: string[];
+  individualLearningPreferences?: string[];
+  individualTargetAudience?: string[];
+  individualGoals?: string;
+  individualTimeCommitment?: string;
+  individualPreferredSessionFormat?: string;
+  individualTargetOutcomes?: string[];
+  individualCurrentChallenges?: string;
   publicProfileReady?: boolean;
   companyLegalName?: string;
   companyDisplayName?: string;
@@ -121,6 +172,8 @@ export type UserProfileFormValues = {
   currentRole: string;
   bio: string;
   linkedinUrl: string;
+  instagramHandle: string;
+  youtubeChannel: string;
   websiteUrl: string;
   professionalHeadline: string;
   expertiseAreas: string;
@@ -129,6 +182,29 @@ export type UserProfileFormValues = {
   trainingExperienceYears: string;
   industryFocus: string;
   languagesSpoken: string;
+  coachExperienceSummary: string;
+  coachPrimaryIndustry: string;
+  coachIndustryExperience: string;
+  coachExpertiseAreas: string;
+  coachCoachingAreas: string;
+  coachMethods: string;
+  coachTargetAudience: string;
+  coachSessionFormats: string;
+  coachServicesOther: string;
+  coachCredentials: string;
+  coachOutcomeFocus: string;
+  coachAvailability: string;
+  individualPortalPurpose: string;
+  individualExperienceLevel: string;
+  individualExpertiseLevel: string;
+  individualDevelopmentAreas: string;
+  individualLearningPreferences: string;
+  individualTargetAudience: string;
+  individualGoals: string;
+  individualTimeCommitment: string;
+  individualPreferredSessionFormat: string;
+  individualTargetOutcomes: string;
+  individualCurrentChallenges: string;
   companyLegalName: string;
   companyDisplayName: string;
   companyType: string;
@@ -158,6 +234,8 @@ export const DEFAULT_PROFILE_FORM_VALUES: UserProfileFormValues = {
   currentRole: "",
   bio: "",
   linkedinUrl: "",
+  instagramHandle: "",
+  youtubeChannel: "",
   websiteUrl: "",
   professionalHeadline: "",
   expertiseAreas: "",
@@ -166,6 +244,29 @@ export const DEFAULT_PROFILE_FORM_VALUES: UserProfileFormValues = {
   trainingExperienceYears: "",
   industryFocus: "",
   languagesSpoken: "",
+  coachExperienceSummary: "",
+  coachPrimaryIndustry: "",
+  coachIndustryExperience: "",
+  coachExpertiseAreas: "",
+  coachCoachingAreas: "",
+  coachMethods: "",
+  coachTargetAudience: "",
+  coachSessionFormats: "",
+  coachServicesOther: "",
+  coachCredentials: "",
+  coachOutcomeFocus: "",
+  coachAvailability: "",
+  individualPortalPurpose: "",
+  individualExperienceLevel: "",
+  individualExpertiseLevel: "",
+  individualDevelopmentAreas: "",
+  individualLearningPreferences: "",
+  individualTargetAudience: "",
+  individualGoals: "",
+  individualTimeCommitment: "",
+  individualPreferredSessionFormat: "",
+  individualTargetOutcomes: "",
+  individualCurrentChallenges: "",
   companyLegalName: "",
   companyDisplayName: "",
   companyType: "",

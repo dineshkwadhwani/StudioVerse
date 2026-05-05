@@ -131,6 +131,43 @@
   padding: 24px;
 }
 
+.accordionCard {
+  padding: 0;
+}
+
+.accordionSummary {
+  list-style: none;
+  cursor: pointer;
+  padding: 24px;
+}
+
+.accordionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.accordionCard .cardHeader {
+  margin-bottom: 0;
+  position: relative;
+  padding-right: 28px;
+}
+
+.accordionCard .cardHeader::after {
+  content: "+";
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: 1.3rem;
+  color: #1f5c9c;
+}
+
+.accordionCard[open] .cardHeader::after {
+  content: "-";
+}
+
+.accordionBody {
+  padding: 0 24px 24px;
+}
+
 .cardHeader {
   display: flex;
   align-items: flex-start;
@@ -174,11 +211,12 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .field {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .field span {
@@ -186,6 +224,7 @@
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   border: 1px solid #c6dcea;
@@ -197,9 +236,55 @@
 }
 
 .field input:disabled,
+.field select:disabled,
 .field input[readonly] {
   background: #eef4f8;
   color: #527085;
+}
+
+.multiSelectField {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.chipGroup {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.chip,
+.chipActive {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c6dcea;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  background: #ffffff;
+  color: #133a56;
+  width: 100%;
+}
+
+.chipActive {
+  border-color: #1f5c9c;
+  background: #e8f2ff;
+}
+
+.chip input,
+.chipActive input {
+  width: auto;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .chipGroup {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field textarea {
@@ -208,6 +293,10 @@
 
 .field small {
   color: #4d6e86;
+  min-height: 1.2rem;
+  display: block;
+  margin-bottom: 10px;
+  line-height: 1.45;
 }
 
 .fieldWide {
@@ -312,6 +401,14 @@
   .identityGrid,
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .accordionSummary {
+    padding: 18px;
+  }
+
+  .accordionBody {
+    padding: 0 18px 18px;
   }
 
   .fieldWide {

@@ -161,6 +161,9 @@
   grid-template-columns: 1.1fr 1fr;
   gap: 28px;
   padding: 44px 28px 28px;
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .heroLeft h1 {
@@ -268,6 +271,9 @@
 
 .section {
   padding: 34px 28px 20px;
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .sectionHeader {
@@ -433,6 +439,9 @@
   border-top: 1px solid var(--line);
   color: var(--ink-soft);
   text-align: center;
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .altTimeline {
@@ -456,7 +465,7 @@
   justify-content: center;
   gap: 22px;
   flex-wrap: wrap;
-  max-width: 1320px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 

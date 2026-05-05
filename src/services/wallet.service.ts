@@ -15,7 +15,7 @@ import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
 import { sendAdminAlertToMasterSuperadmin, sendNotificationToUser, sendNotificationEmail } from "@/services/notification.service";
 import { functions } from "@/services/firebase";
-import { isRedeemableSource } from "@/constants/wallet";
+import { isRedeemableSource, PROFILE_COMPLETION_REWARD_COINS } from "@/constants/wallet";
 import type {
   AssignCoinsInput,
   WalletRecord,
@@ -41,6 +41,11 @@ const issueRegistrationBonusCallable = httpsCallable<
   { userId: string; tenantId: string },
   { status: string; reason?: string }
 >(functions, "issueRegistrationBonus");
+
+const issueProfileCompletionRewardCallable = httpsCallable<
+  { userId: string; tenantId: string },
+  { status: "credited" | "already-credited" | "skipped"; reason?: string; rewardCoins?: number }
+>(functions, "issueProfileCompletionReward");
 
 const backfillTenantTreasuryWalletsCallable = httpsCallable<
   { tenantId?: string },
@@ -205,6 +210,49 @@ export async function issueRegistrationBonusForUser(args: {
       // Registration bonus issuance should not fail if notification fails.
     }
   }
+}
+
+export async function issueProfileCompletionRewardForUser(args: {
+  userId: string;
+  tenantId: string;
+}): Promise<"credited" | "already-credited" | "skipped"> {
+  const result = await issueProfileCompletionRewardCallable({
+    userId: args.userId,
+    tenantId: args.tenantId,
+  });
+
+  const status = result.data?.status ?? "skipped";
+
+  if (status === "credited") {
+    try {
+      const userRecord = await resolveUserRecordByAnyId(args.userId);
+      if (userRecord) {
+        const userEmail = String(userRecord.data.email ?? "").trim().toLowerCase();
+        const userName = String(userRecord.data.fullName ?? userRecord.data.name ?? "User").trim();
+
+        if (userEmail) {
+          await sendNotificationEmail({
+            tenantId: args.tenantId,
+            notificationType: "profileCompletionRewardIssued",
+            recipientEmail: userEmail,
+            recipientName: userName,
+            templateVariables: {
+              recipientName: userName,
+              bonusCoins: String(result.data?.rewardCoins ?? PROFILE_COMPLETION_REWARD_COINS),
+            },
+            metadata: {
+              userId: args.userId,
+              bonusAmount: result.data?.rewardCoins ?? PROFILE_COMPLETION_REWARD_COINS,
+            },
+          });
+        }
+      }
+    } catch {
+      // Reward issuance should not fail if notification fails.
+    }
+  }
+
+  return status;
 }
 
 export async function getWalletByUserAndTenant(args: {

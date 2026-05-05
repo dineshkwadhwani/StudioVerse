@@ -98,7 +98,6 @@ async function logNotificationEvent(args: {
   providerMessageId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  console.log(`[DEBUG][notificationLog] Writing log: status=${args.status} type=${args.notificationType} recipient=${args.recipientEmail} reason="${args.reason}"`);
   try {
     const docRef = await adminDb.collection("notificationLogs").add({
       tenantId: args.tenantId,
@@ -111,9 +110,8 @@ async function logNotificationEvent(args: {
       metadata: args.metadata ?? {},
       createdAt: FieldValue.serverTimestamp(),
     });
-    console.log(`[DEBUG][notificationLog] Written to Firestore id=${docRef.id}`);
   } catch (err) {
-    console.error("[DEBUG][notificationLog] Firestore write FAILED:", err);
+    console.error("[notificationLog] Firestore write FAILED:", err);
   }
 }
 
@@ -130,7 +128,6 @@ async function sendManagedUserWelcomeEmail(args: {
   recipientEmail: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  console.log(`[DEBUG][managedUserWelcome] Starting for recipient=${args.recipientEmail} tenant=${args.tenantId}`);
   const recipientEmail = args.recipientEmail.trim().toLowerCase();
   if (!recipientEmail) {
     await logNotificationEvent({
@@ -146,7 +143,6 @@ async function sendManagedUserWelcomeEmail(args: {
   }
 
   const enabled = await isNotificationEnabled(args.tenantId, "managedUserWelcome");
-  console.log(`[DEBUG][managedUserWelcome] Toggle enabled=${enabled} for tenant=${args.tenantId}`);
   if (!enabled) {
     await logNotificationEvent({
       tenantId: args.tenantId,
@@ -162,7 +158,6 @@ async function sendManagedUserWelcomeEmail(args: {
 
   const tenantSnap = await adminDb.collection("tenants").doc(args.tenantId).get();
   const mailConfig = (tenantSnap.data()?.mailConfig ?? {}) as { enabled?: unknown; fromEmail?: unknown; fromName?: unknown };
-  console.log(`[DEBUG][managedUserWelcome] mailConfig.enabled=${mailConfig.enabled} fromEmail=${mailConfig.fromEmail}`);
   if (mailConfig.enabled !== true) {
     await logNotificationEvent({
       tenantId: args.tenantId,
@@ -239,7 +234,6 @@ async function sendManagedUserWelcomeEmail(args: {
     failureReason = "Unable to parse mail provider response.";
   }
 
-  console.log(`[DEBUG][managedUserWelcome] Resend response status=${response.status} providerMessageId=${providerMessageId} failureReason="${failureReason}"`);
   if (!response.ok) {
     await logNotificationEvent({
       tenantId: args.tenantId,
@@ -272,7 +266,6 @@ async function sendRegistrationBonusIssuedEmail(args: {
   bonusCoins: number;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  console.log(`[DEBUG][registrationBonusIssued] Starting for recipient=${args.recipientEmail} tenant=${args.tenantId} bonus=${args.bonusCoins}`);
   const recipientEmail = args.recipientEmail.trim().toLowerCase();
   if (!recipientEmail) {
     await logNotificationEvent({
@@ -288,7 +281,6 @@ async function sendRegistrationBonusIssuedEmail(args: {
   }
 
   const enabled = await isNotificationEnabled(args.tenantId, "registrationBonusIssued");
-  console.log(`[DEBUG][registrationBonusIssued] Toggle enabled=${enabled} for tenant=${args.tenantId}`);
   if (!enabled) {
     await logNotificationEvent({
       tenantId: args.tenantId,
@@ -304,7 +296,6 @@ async function sendRegistrationBonusIssuedEmail(args: {
 
   const tenantSnap = await adminDb.collection("tenants").doc(args.tenantId).get();
   const mailConfig = (tenantSnap.data()?.mailConfig ?? {}) as { enabled?: unknown; fromEmail?: unknown; fromName?: unknown };
-  console.log(`[DEBUG][registrationBonusIssued] mailConfig.enabled=${mailConfig.enabled} fromEmail=${mailConfig.fromEmail}`);
   if (mailConfig.enabled !== true) {
     await logNotificationEvent({
       tenantId: args.tenantId,
@@ -383,7 +374,6 @@ async function sendRegistrationBonusIssuedEmail(args: {
     failureReason = "Unable to parse mail provider response.";
   }
 
-  console.log(`[DEBUG][registrationBonusIssued] Resend response status=${response.status} providerMessageId=${providerMessageId} failureReason="${failureReason}"`);
   if (!response.ok) {
     await logNotificationEvent({
       tenantId: args.tenantId,
@@ -673,7 +663,6 @@ export async function POST(request: NextRequest) {
       // Send welcome email for the re-associated user (best-effort).
       const associatedEmail = String(existing.email ?? "").trim();
       const associatedName = String(existing.fullName ?? existing.name ?? `${existing.firstName ?? ""} ${existing.lastName ?? ""}`.trim() ?? "").trim();
-      console.log(`[DEBUG][createScoped] Associated path: sending welcome email to ${associatedEmail} name="${associatedName}" tenant=${tenantId}`);
       if (associatedEmail) {
         try {
           await sendManagedUserWelcomeEmail({

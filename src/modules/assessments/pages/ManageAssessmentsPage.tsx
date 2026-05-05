@@ -18,6 +18,7 @@ import styles from "@/modules/programs/pages/ManageProgramsPage.module.css";
 type Props = {
   config: TenantConfig;
   showHeader?: boolean;
+  searchQuery?: string;
 };
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
@@ -38,7 +39,7 @@ function isInTenantScope(record: Pick<AssessmentRecord, "tenantId" | "tenantIds"
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
-export default function ManageAssessmentsPage({ config, showHeader = true }: Props) {
+export default function ManageAssessmentsPage({ config, showHeader = true, searchQuery = "" }: Props) {
   const router = useRouter();
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
@@ -122,11 +123,35 @@ export default function ManageAssessmentsPage({ config, showHeader = true }: Pro
   }, [assessments]);
 
   const visibleAssessments = useMemo(() => {
-    if (selectedType === "all") {
-      return assessments;
+    const typedAssessments = selectedType === "all"
+      ? assessments
+      : assessments.filter((item) => item.assessmentType === selectedType);
+
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedSearchQuery) {
+      return typedAssessments;
     }
-    return assessments.filter((item) => item.assessmentType === selectedType);
-  }, [assessments, selectedType]);
+
+    return typedAssessments.filter((item) => {
+      const searchableText = [
+        item.name,
+        item.shortDescription,
+        item.longDescription,
+        item.details,
+        item.assessmentType,
+        item.assessmentContext,
+        item.assessmentBenefit,
+        item.status,
+        item.visibility,
+        item.createdBy,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    });
+  }, [assessments, selectedType, searchQuery]);
 
   const heroImage =
     config.landingContent?.heroImages?.tools ||
@@ -174,6 +199,9 @@ export default function ManageAssessmentsPage({ config, showHeader = true }: Pro
           {error ? <p className={styles.error}>{error}</p> : null}
           {isLoading ? <p className={styles.emptyCard}>Loading assessments...</p> : null}
           {!isLoading && assessments.length === 0 ? <p className={styles.emptyCard}>No assessments found for your scope.</p> : null}
+          {!isLoading && assessments.length > 0 && visibleAssessments.length === 0 ? (
+            <p className={styles.emptyCard}>No assessments matched the current search or filter.</p>
+          ) : null}
 
           {!isLoading && visibleAssessments.length > 0 ? (
             <div className={styles.grid}>

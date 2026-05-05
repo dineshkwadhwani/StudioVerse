@@ -10,7 +10,7 @@ import type { ActivityType } from "@/types/assignment";
 import { auth, db } from "@/services/firebase";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents } from "@/services/events.service";
-import { getUserById, listManagedUsersForCompany } from "@/services/manage-users.service";
+import { getUserById } from "@/services/manage-users.service";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import AssignmentModal from "@/modules/activities/components/AssignmentModal";
 import DetailModal from "@/modules/activities/components/DetailModal";
@@ -19,23 +19,11 @@ import shellStyles from "@/modules/resources/pages/ManageResourcesPage.module.cs
 import styles from "./AssignActivitiesPage.module.css";
 
 type ResourceTab = "programs" | "events" | "assessments";
-type SupportedRole = "superadmin" | "company" | "professional";
+type SupportedRole = "individual";
 
 type OwnershipContext = {
   role: SupportedRole;
-  companyIds: Set<string>;
-  professionalIds: Set<string>;
-  coachIds: Set<string>;
-};
-
-type Props = {
-  tenantId: string;
-  config?: TenantConfig;
-  role?: SupportedRole;
-  actorUserId?: string;
-  actorName?: string;
-  showHeader?: boolean;
-  embedded?: boolean;
+  userId: string;
 };
 
 type ActivityCardItem = {
@@ -76,91 +64,6 @@ function getSearchableText(item: ActivityCardItem): string {
     .filter((value): value is string => Boolean(value && value.trim()))
     .join(" ")
     .toLowerCase();
-}
-
-function normalizeSessionRole(raw: string): SupportedRole | null {
-  const value = raw.trim();
-  if (value === "superadmin" || value === "company" || value === "professional") {
-    return value;
-  }
-  if (value === "coach") {
-    return "professional";
-  }
-  return null;
-}
-
-const TAB_CONTEXT: Record<ResourceTab, string> = {
-  programs: "Assign published public programs to a learner or register immediately.",
-  events: "Register for public events or recommend them to another learner.",
-  assessments: "Let learners try public assessments now or assign assessments directly.",
-};
-
-function toIdCandidates(values: Array<string | null | undefined>): Set<string> {
-  const next = new Set<string>();
-  values.forEach((entry) => {
-    const value = typeof entry === "string" ? entry.trim() : "";
-    if (value) {
-      next.add(value);
-    }
-  });
-  return next;
-}
-
-function isInTenantScope(primaryTenantId: string | undefined, tenantIds: string[] | undefined, tenantId: string): boolean {
-  const primary = (primaryTenantId ?? "").trim();
-  if (primary === tenantId) {
-    return true;
-  }
-
-  return Array.isArray(tenantIds) && tenantIds.includes(tenantId);
-}
-
-function isPublishedPublic(status: string | undefined, publicationState: string | undefined, visibility: string | undefined): boolean {
-  const isPublished = (status ?? "") === "published" || (publicationState ?? "") === "published";
-  return isPublished && (visibility ?? "") === "public";
-}
-
-function canAccessByOwnership(scope: string | undefined, ownerEntityId: string | null | undefined, createdBy: string | undefined, context: OwnershipContext): boolean {
-  if (context.role === "superadmin") {
-    return true;
-  }
-
-  const owner = (ownerEntityId ?? "").trim();
-  const creator = (createdBy ?? "").trim();
-
-  const isCompanyOwned = Boolean(owner) && context.companyIds.has(owner);
-  const isProfessionalOwned = Boolean(owner) && context.professionalIds.has(owner);
-  const isCoachOwned = Boolean(owner) && context.coachIds.has(owner);
-  const isCreatedByCompany = Boolean(creator) && context.companyIds.has(creator);
-  const isCreatedByProfessional = Boolean(creator) && context.professionalIds.has(creator);
-  const isCreatedByCoach = Boolean(creator) && context.coachIds.has(creator);
-
-  // Tenant-scoped resources with no specific owner are accessible to all tenant members.
-  const isUnownedTenantResource = !owner && (scope === "tenant" || scope === "company");
-
-  if (context.role === "company") {
-    if (scope === "platform" || isUnownedTenantResource) {
-      return true;
-    }
-    if (scope === "company" || scope === "tenant") {
-      return isCompanyOwned || isCreatedByCompany;
-    }
-    if (scope === "professional") {
-      return isCoachOwned || isCreatedByCoach;
-    }
-    return isCompanyOwned || isCoachOwned || isCreatedByCompany || isCreatedByCoach;
-  }
-
-  if (scope === "platform" || isUnownedTenantResource) {
-    return true;
-  }
-  if (scope === "professional") {
-    return isProfessionalOwned || isCreatedByProfessional;
-  }
-  if (scope === "company" || scope === "tenant") {
-    return isCompanyOwned || isCreatedByCompany;
-  }
-  return isProfessionalOwned || isCompanyOwned || isCreatedByProfessional || isCreatedByCompany;
 }
 
 function toProgramCard(item: ProgramRecord): ActivityCardItem {
@@ -237,14 +140,27 @@ function toAssessmentCard(item: AssessmentRecord, fallbackImage: string): Activi
   };
 }
 
-export default function AssignActivitiesPage({
+function isPublishedPublic(status: string | undefined, publicationState: string | undefined, visibility: string | undefined): boolean {
+  const isPublished = (status ?? "") === "published" || (publicationState ?? "") === "published";
+  return isPublished && (visibility ?? "") === "public";
+}
+
+type Props = {
+  tenantId: string;
+  config?: TenantConfig;
+  showHeader?: boolean;
+};
+
+const TAB_CONTEXT: Record<ResourceTab, string> = {
+  programs: "Browse and register for programs.",
+  events: "Browse and recommend events to others.",
+  assessments: "Browse and try assessments.",
+};
+
+export default function ViewAllActivitiesPage({
   tenantId,
   config,
-  role,
-  actorUserId,
-  actorName,
   showHeader = true,
-  embedded = false,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ResourceTab>("programs");
   const [isLoading, setIsLoading] = useState(true);
@@ -261,18 +177,9 @@ export default function AssignActivitiesPage({
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
-
-  const [refreshSeed, setRefreshSeed] = useState(0);
-
-  const sessionRole = useMemo(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    const roleFromSession = sessionStorage.getItem("cs_role") ?? "";
-    const legacyRole = sessionStorage.getItem("cs_user_type") ?? "";
-    return normalizeSessionRole(roleFromSession) ?? normalizeSessionRole(legacyRole);
-  }, []);
+  const [searchInput, setSearchInput] = useState("");
 
   const sessionUserId = useMemo(() => {
     if (typeof window === "undefined") {
@@ -284,21 +191,6 @@ export default function AssignActivitiesPage({
       ""
     ).trim();
   }, []);
-
-  const sessionUserName = useMemo(() => {
-    if (typeof window === "undefined") {
-      return "User";
-    }
-    return (
-      sessionStorage.getItem("cs_name") ||
-      sessionStorage.getItem("cs_user_name") ||
-      "User"
-    ).trim() || "User";
-  }, []);
-
-  const effectiveRole: SupportedRole | null = role ?? sessionRole;
-  const effectiveUserId = (actorUserId ?? sessionUserId).trim();
-  const effectiveUserName = (actorName ?? sessionUserName).trim() || "User";
 
   const heroImage = useMemo(() => {
     const tenantToken = (config?.id || tenantId || "coaching-studio").trim();
@@ -317,16 +209,11 @@ export default function AssignActivitiesPage({
       return;
     }
 
-    if (
-      (effectiveRole !== "superadmin" && effectiveRole !== "company" && effectiveRole !== "professional")
-      || !effectiveUserId
-    ) {
-      setError("Assign Activities is available for Super Admin, Company, and Coach roles.");
+    if (!sessionUserId) {
+      setError("You must be signed in to view activities.");
       setIsLoading(false);
       return;
     }
-
-    const resolvedRole: SupportedRole = effectiveRole;
 
     let cancelled = false;
 
@@ -335,55 +222,6 @@ export default function AssignActivitiesPage({
       setError("");
 
       try {
-        const context: OwnershipContext = {
-          role: resolvedRole,
-          companyIds: new Set<string>(),
-          professionalIds: new Set<string>(),
-          coachIds: new Set<string>(),
-        };
-
-        if (resolvedRole === "superadmin") {
-          context.companyIds = new Set<string>();
-          context.professionalIds = toIdCandidates([effectiveUserId]);
-        } else {
-          const userRecord = await getUserById(effectiveUserId);
-          if (!userRecord) {
-            throw new Error("Unable to resolve your profile.");
-          }
-
-          if (resolvedRole === "company") {
-            context.companyIds = toIdCandidates([
-              userRecord.id,
-              userRecord.userId,
-              userRecord.uid,
-              effectiveUserId,
-            ]);
-
-            const managedUsers = await listManagedUsersForCompany({
-              tenantId,
-              companyId: userRecord.id,
-            });
-            const coachCandidates: string[] = [];
-            managedUsers
-              .filter((entry) => entry.userType === "professional")
-              .forEach((entry) => {
-                coachCandidates.push(entry.id, entry.userId, entry.uid || "");
-              });
-            context.coachIds = toIdCandidates(coachCandidates);
-            context.professionalIds = toIdCandidates([effectiveUserId]);
-          }
-
-          if (resolvedRole === "professional") {
-            context.professionalIds = toIdCandidates([
-              userRecord.id,
-              userRecord.userId,
-              userRecord.uid,
-              effectiveUserId,
-            ]);
-            context.companyIds = toIdCandidates([userRecord.associatedCompanyId]);
-          }
-        }
-
         const [programRows, eventRows, assessmentSnap] = await Promise.all([
           listPrograms(tenantId),
           listEvents(tenantId),
@@ -394,16 +232,15 @@ export default function AssignActivitiesPage({
           return;
         }
 
+        // Filter public published activities
         const nextPrograms = programRows
-          .filter((item) => isInTenantScope(item.tenantId, item.tenantIds, tenantId))
+          .filter((item) => item.tenantId === tenantId || (Array.isArray(item.tenantIds) && item.tenantIds.includes(tenantId)))
           .filter((item) => isPublishedPublic(item.status, item.publicationState, item.visibility))
-          .filter((item) => canAccessByOwnership(item.ownershipScope, item.ownerEntityId, item.createdBy, context))
           .map(toProgramCard);
 
         const nextEvents = eventRows
-          .filter((item) => isInTenantScope(item.tenantId, item.tenantIds, tenantId))
+          .filter((item) => item.tenantId === tenantId || (Array.isArray(item.tenantIds) && item.tenantIds.includes(tenantId)))
           .filter((item) => isPublishedPublic(item.status, item.publicationState, item.visibility))
-          .filter((item) => canAccessByOwnership(item.ownershipScope, item.ownerEntityId, item.createdBy, context))
           .map(toEventCard);
 
         const assessmentRows = assessmentSnap.docs.map((row) => ({
@@ -412,16 +249,15 @@ export default function AssignActivitiesPage({
         }));
 
         const nextAssessments = assessmentRows
-          .filter((item) => isInTenantScope(item.tenantId, item.tenantIds, tenantId))
+          .filter((item) => item.tenantId === tenantId || (Array.isArray(item.tenantIds) && item.tenantIds.includes(tenantId)))
           .filter((item) => isPublishedPublic(item.status, item.publicationState, item.visibility))
-          .filter((item) => canAccessByOwnership(item.ownershipScope, item.ownerEntityId, item.createdBy, context))
           .map((item) => toAssessmentCard(item, heroImage));
 
         setPrograms(nextPrograms);
         setEvents(nextEvents);
         setAssessments(nextAssessments);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load assignable activities.");
+        setError(loadError instanceof Error ? loadError.message : "Failed to load activities.");
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -434,11 +270,12 @@ export default function AssignActivitiesPage({
     return () => {
       cancelled = true;
     };
-    }, [tenantId, effectiveRole, effectiveUserId, refreshSeed]);
+  }, [tenantId, sessionUserId, heroImage]);
 
   const activityType: ActivityType = activeTab === "assessments" ? "assessment" : activeTab === "events" ? "event" : "program";
 
   const currentItems = activeTab === "programs" ? programs : activeTab === "events" ? events : assessments;
+
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const filteredItems = useMemo(() => {
@@ -449,18 +286,25 @@ export default function AssignActivitiesPage({
     return currentItems.filter((item) => getSearchableText(item).includes(normalizedSearchQuery));
   }, [currentItems, normalizedSearchQuery]);
 
+  const handleActionClick = (item: DetailItem, action: "assign" | "recommend") => {
+    setSelectedItem(item);
+    setModalAction(action);
+    setSelfAssign(true);
+    setModalOpen(true);
+  };
+
   return (
-    <div className={embedded ? styles.embeddedRoot : shellStyles.wrapper}>
+    <div className={shellStyles.wrapper}>
       {showHeader && config ? (
         <TenantViewAllHeader config={config} currentPage="programs" onSignInRegister={() => undefined} />
       ) : null}
 
       <div className={shellStyles.shell}>
         <section className={shellStyles.heroCard}>
-          <h1 className={shellStyles.title}>Assign Activities</h1>
+          <h1 className={shellStyles.title}>View All Activities</h1>
           <p className={shellStyles.subtitle}>{TAB_CONTEXT[activeTab]}</p>
 
-          <div className={shellStyles.tabBar} role="tablist" aria-label="Assignable activity types">
+          <div className={shellStyles.tabBar} role="tablist" aria-label="Activity types">
             <button
               type="button"
               className={`${shellStyles.tab} ${activeTab === "programs" ? shellStyles.active : ""}`}
@@ -485,23 +329,29 @@ export default function AssignActivitiesPage({
           </div>
 
           <div className={styles.searchRow}>
-            <label htmlFor="assign-activities-search" className={styles.searchLabel}>
+            <label htmlFor="view-all-activities-search" className={styles.searchLabel}>
               Search displayed {activeTab}
             </label>
             <div className={styles.searchControls}>
               <input
-                id="assign-activities-search"
+                id="view-all-activities-search"
                 type="search"
                 className={styles.searchInput}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    setSearchQuery(searchInput);
+                  }
+                }}
                 placeholder={`Search by title, description, facilitator, city, and more...`}
                 aria-label={`Search ${activeTab}`}
               />
               <button
                 type="button"
                 className={styles.searchButton}
-                onClick={() => setSearchQuery((prev) => prev.trim())}
+                onClick={() => setSearchQuery(searchInput)}
               >
                 Search
               </button>
@@ -518,8 +368,8 @@ export default function AssignActivitiesPage({
               {filteredItems.length === 0 ? (
                 <div className={styles.state}>
                   {normalizedSearchQuery
-                    ? `No ${activeTab} matched "${searchQuery.trim()}".`
-                    : "No published public items available for this scope."}
+                    ? `No ${activeTab} matched "${searchInput.trim()}".`
+                    : "No published public items available."}
                 </div>
               ) : (
                 filteredItems.map((item) => (
@@ -546,6 +396,36 @@ export default function AssignActivitiesPage({
                       >
                         Find Out More
                       </button>
+
+                      {activeTab === "programs" && (
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          onClick={() => handleActionClick(item.detailItem, "assign")}
+                        >
+                          Register Now
+                        </button>
+                      )}
+
+                      {activeTab === "events" && (
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          onClick={() => handleActionClick(item.detailItem, "recommend")}
+                        >
+                          Recommend
+                        </button>
+                      )}
+
+                      {activeTab === "assessments" && (
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          onClick={() => handleActionClick(item.detailItem, "assign")}
+                        >
+                          Try Now
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))
@@ -560,15 +440,14 @@ export default function AssignActivitiesPage({
         onClose={() => setModalOpen(false)}
         item={selectedItem}
         activityType={activityType}
-        assigneeId={effectiveUserId}
-        assignerName={effectiveUserName}
-        assignerRole={effectiveRole ?? undefined}
+        assigneeId={sessionUserId}
+        assignerName={sessionUserId}
+        assignerRole="individual"
         tenantId={tenantId}
         actionType={modalAction}
         selfAssign={selfAssign}
         onSuccess={() => {
           setModalOpen(false);
-          setRefreshSeed((prev) => prev + 1);
         }}
       />
 
@@ -576,12 +455,11 @@ export default function AssignActivitiesPage({
         item={selectedDetailItem}
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
-        userType={effectiveRole === "professional" ? "coach" : "learner"}
+        userType="learner"
         isLoggedIn={true}
-        userId={effectiveUserId}
-        userName={effectiveUserName}
-        userRole={effectiveRole ?? undefined}
+        userId={sessionUserId}
         tenantId={tenantId}
+        userRole="individual"
       />
     </div>
   );

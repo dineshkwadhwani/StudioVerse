@@ -10,10 +10,13 @@
 
   background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
   color: var(--ink-strong);
-  min-height: 100vh;  padding-top: 80px;
+  min-height: 100vh;
+  padding-top: 80px;
   padding-left: 32px;
   padding-right: 32px;
-  padding-bottom: 32px;}
+  padding-bottom: 32px;
+  overflow-x: hidden;
+}
 
 .nav {
   position: fixed;
@@ -632,6 +635,13 @@
 }
 
 @media (max-width: 767px) {
+  .page {
+    padding-top: 60px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 20px;
+  }
+
   .desktopNav {
     display: none;
   }

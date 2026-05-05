@@ -71,17 +71,6 @@ export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }
         setCompanyId(companyRecord.uid || companyRecord.userId || companyRecord.id);
         setCompanyName(companyRecord.companyName || companyRecord.fullName || "Your Company");
         setError("");
-        
-        // DEBUG
-        console.log("[RequestCoinsPage] Resolved company:", {
-          associatedCompanyId,
-          companyRecord: {
-            id: companyRecord.id,
-            uid: companyRecord.uid,
-            userId: companyRecord.userId,
-          },
-          extracted: companyRecord.uid || companyRecord.userId || companyRecord.id,
-        });
       } catch (loadError) {
         const messageText = loadError instanceof Error ? loadError.message : "Failed to load profile";
         setError(messageText);

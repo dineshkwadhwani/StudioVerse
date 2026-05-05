@@ -6,30 +6,6 @@
 
 ---
 
-## RECENTLY COMPLETED (May 2026 audit)
-
-- ✅ SelectAndMove quiz runner — implemented as `GamifiedDragDropQuiz`
-- ✅ AI question generation UI — fully wired in AssessmentsSection via `/api/assessments/generate-questions`
-- ✅ Cash-out readiness data model — `CashoutRequestStatus`, `payoutProvider`, `payoutStatus` all implemented
-- ✅ Buy Coins page — real Razorpay order + signature verification flow complete
-- ✅ Bot rate limiting — `consumeRateLimit()` enforced on chat and retrieve routes
-- ✅ Bot knowledge base caching — in-memory `chunkCacheByTenant` map in place
-- ✅ Creator-owned Programs/Events — `ownershipScope` and `ownerEntityId` fields in types
-- ✅ Audit fields and transaction traceability — `createdBy`, `reason`, `source`, timestamps on wallet and cashout records
-- ✅ Security Vuln 1 fixed — Firestore `assignments` create rule now enforces `assignerId == auth.uid`
-- ✅ Security Vuln 2 fixed — `saveCohort()` ownership check added before batch member delete
-- ✅ Security Vuln 3 fixed — Bot hero requests Firestore rule now validates `tenantId == currentTenantId()`
-- ✅ Security Vuln 4 fixed — `create-scoped` API re-validates professional's `associatedCompanyId` via admin SDK
-- ✅ Notification service scaffolded — `notification.service.ts`, `notification-settings.service.ts`, templates JSON
-- ✅ SuperAdmin dashboard overhauled — sections (Actions, Wallet, Users, Resources), tenant dropdown, 4 separate action tiles
-- ✅ Role Responsibility Matrix — created as `docs/ROLE_RESPONSIBILITY_MATRIX.md` and `.pdf`
-- ✅ Security Vuln 5 fixed — `/api/bot/guest-log` now validates incoming `tenantId` against the `tenants` collection before writing. Arbitrary tenant injection is no longer possible.
-- ✅ Security Vuln 6 fixed — `referrals` create rule now enforces `isActorId(referrerUserId)` and `tenantId == currentTenantId()`. Attribution fraud and cross-tenant referral injection are no longer possible.
-- ✅ Tenant activation checklist flow — each tenant now has a SuperAdmin checklist (`mail`, `wallet`, `bot`, `content published`), new tenants default to `inactive`, and activation is blocked until checklist completion.
-- ✅ Notification audit logs enabled — `notificationLogs` collection is now explicitly supported with constrained Firestore rules, and managed-user welcome emails now write delivery outcomes for audit tracking.
-- ✅ SuperAdmin Logs page — added under Actions menu with tabbed views for Guest Log, Notification Log, and Audit Log. Audit Log supports tenant/date/action-type filters and actor search; all log tabs use explicit Search actions.
-- ✅ Tenant-configurable expiry reminders — Bot Hero, promotion, and listing expiry reminder windows are scheduler-backed and configurable per tenant in the Notifications settings section.
-- ✅ Email notifications flow completion — activity assigned, assignment completed, cohort member added, approval granted/denied, referral invite, and referral joined confirmation to referrer are now wired.
 
 ---
 
@@ -126,7 +102,6 @@ tests/
 
 ### Dashboard — Missing Tiles
 
-- ✅ **Assignments Created / Completed tile** — `Activities (Complete / Assigned)` tile now live in RESOURCES section on SuperAdmin dashboard.
 - ⏳ **Coin Requests in ACTIONS** — professional-to-company coin requests are not surfaced in the Actions section. Promotion, Cashout, Listing, Bot requests are shown — Coin Requests is missing.
 
 ### E8 — Assign Activity Menu Item

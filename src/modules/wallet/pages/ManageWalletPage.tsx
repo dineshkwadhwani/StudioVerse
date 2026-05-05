@@ -164,12 +164,6 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
           new Set([firebaseUser.uid, profile?.userId].filter(Boolean) as string[])
         );
 
-        // DEBUG
-        console.log("[ManageWalletPage] Company context:", {
-          firebaseUser_uid: firebaseUser.uid,
-          profile_userId: profile?.userId,
-          companyIds,
-        });
         const results = await Promise.allSettled([
           getWalletForUserContext(userIds, tenantId),
           listWalletTransactionsForUserContext({ userIds, tenantId }),

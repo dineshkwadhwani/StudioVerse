@@ -46,6 +46,7 @@ type TenantOption = {
 type ProgramsSectionProps = {
   tenants?: TenantOption[];
   isSuperAdmin?: boolean;
+  searchQuery?: string;
 };
 
 function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
@@ -86,7 +87,7 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
   });
 }
 
-export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: ProgramsSectionProps) {
+export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, searchQuery = "" }: ProgramsSectionProps) {
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -105,6 +106,38 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
   const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const visiblePrograms = programs.filter((program) => {
+    if (selectedPublicationState !== "all" && program.publicationState !== selectedPublicationState) {
+      return false;
+    }
+    if (selectedPromoted === "true" && !program.promoted) {
+      return false;
+    }
+    if (!normalizedSearchQuery) {
+      return true;
+    }
+
+    const searchableText = [
+      program.name,
+      program.shortDescription,
+      program.longDescription,
+      program.details,
+      program.facilitatorName,
+      program.deliveryType,
+      typeof program.durationValue === "number" ? String(program.durationValue) : "",
+      program.durationUnit,
+      program.visibility,
+      program.publicationState,
+      program.status,
+    ]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(normalizedSearchQuery);
+  });
 
   async function loadTenants(): Promise<void> {
     try {
@@ -474,18 +507,11 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
             </button>
           </div>
 
-          <div className={styles.programGrid}>
-            {programs
-              .filter((program) => {
-                if (selectedPublicationState !== "all" && program.publicationState !== selectedPublicationState) {
-                  return false;
-                }
-                if (selectedPromoted === "true" && !program.promoted) {
-                  return false;
-                }
-                return true;
-              })
-              .map((program) => (
+          {visiblePrograms.length === 0 ? (
+            <div className={styles.emptyCard}>No Programs matched the current search/filter.</div>
+          ) : (
+            <div className={styles.programGrid}>
+              {visiblePrograms.map((program) => (
                 <article key={program.id} className={styles.programTile}>
                   <div className={styles.programImageWrap}>
                     <img
@@ -515,7 +541,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin }: 
                   </div>
                 </article>
               ))}
-          </div>
+            </div>
+          )}
         </>
       )}
 

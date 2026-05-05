@@ -81,6 +81,7 @@ type TenantOption = {
 type AssessmentsSectionProps = {
   tenants?: TenantOption[];
   isSuperAdmin?: boolean;
+  searchQuery?: string;
 };
 
 type AssessmentFormValuesWithCreatedBy = AssessmentFormValues & {
@@ -182,7 +183,7 @@ function matchesTenantScope(args: {
   return args.tenantIds.includes(args.selectedTenantId);
 }
 
-export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin }: AssessmentsSectionProps) {
+export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin, searchQuery = "" }: AssessmentsSectionProps) {
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -201,6 +202,42 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
   const [error, setError] = useState("");
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const visibleAssessments = assessments.filter((a) => {
+    if (selectedPublicationState === "published" && a.publicationState !== "published") {
+      return false;
+    }
+    if (selectedPublicationState === "draft" && a.publicationState !== "unpublished") {
+      return false;
+    }
+    if (selectedPromoted === "true" && a.promotionStatus !== "promoted") {
+      return false;
+    }
+    if (!normalizedSearchQuery) {
+      return true;
+    }
+
+    const searchableText = [
+      a.name,
+      a.shortDescription,
+      a.longDescription,
+      a.assessmentContext,
+      a.assessmentBenefit,
+      a.assessmentType,
+      a.renderStyle,
+      a.visibility,
+      a.publicationState,
+      a.status,
+      a.promotionStatus,
+      a.listingStatus,
+    ]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(normalizedSearchQuery);
+  });
   const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
   const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
@@ -743,27 +780,11 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
             </button>
           </div>
 
-          <div className={styles.assessmentGrid}>
-            {assessments
-              .filter((a) => {
-                if (
-                  selectedPublicationState === "published" &&
-                  a.publicationState !== "published"
-                ) {
-                  return false;
-                }
-                if (
-                  selectedPublicationState === "draft" &&
-                  a.publicationState !== "unpublished"
-                ) {
-                  return false;
-                }
-                if (selectedPromoted === "true" && a.promotionStatus !== "promoted") {
-                  return false;
-                }
-                return true;
-              })
-              .map((a) => (
+          {visibleAssessments.length === 0 ? (
+            <div className={styles.emptyCard}>No assessments matched the current search/filter.</div>
+          ) : (
+            <div className={styles.assessmentGrid}>
+              {visibleAssessments.map((a) => (
                 <article key={a.id} className={styles.assessmentTile}>
                   <div className={styles.assessmentImageWrap}>
                     <img
@@ -796,7 +817,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin 
                   </div>
                 </article>
               ))}
-          </div>
+            </div>
+          )}
         </>
       )}
 

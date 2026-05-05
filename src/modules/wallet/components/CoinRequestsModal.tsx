@@ -31,9 +31,7 @@ export default function CoinRequestsModal({
       setError("");
 
       try {
-        console.log("[CoinRequestsModal] Opening with companyIds:", companyIds);
         const fetchedRequests = await getCoinRequestsForCompanyContext(companyIds);
-        console.log("[CoinRequestsModal] Loaded requests:", fetchedRequests.length);
         setRequests(fetchedRequests);
         onPendingCountChange?.(fetchedRequests.filter((request) => request.status === "pending").length);
       } catch (loadError) {

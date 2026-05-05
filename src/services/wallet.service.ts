@@ -424,12 +424,6 @@ export async function listUsersForCoinAssignment(args: {
     where("tenantId", "==", args.tenantId)
   );
   const snap = await getDocs(q);
-  console.log("[listUsersForCoinAssignment] selected", {
-    tenantId: args.tenantId,
-    userType: args.userType,
-    tenantQueryDocs: snap.size,
-  });
-
   let candidates = snap.docs.map((entry) => ({
     id: entry.id,
     ...(entry.data() as Omit<AdminSelectableUser, "id">),
@@ -442,9 +436,6 @@ export async function listUsersForCoinAssignment(args: {
       id: entry.id,
       ...(entry.data() as Omit<AdminSelectableUser, "id">),
     }));
-    console.log("[listUsersForCoinAssignment] fallback to full users scan", {
-      totalUsers: allUsersSnap.size,
-    });
   }
 
   const results = candidates
@@ -456,17 +447,6 @@ export async function listUsersForCoinAssignment(args: {
     )
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-  console.log("[listUsersForCoinAssignment] filtered", {
-    count: results.length,
-    selectedTenantCanonical: selectedTenant,
-    users: results.map((u) => ({
-      id: u.id,
-      name: u.name,
-      tenantId: u.tenantId,
-      tenantIdCanonical: normalizeTenantKey(u.tenantId),
-      userType: u.userType,
-    })),
-  });
   return results;
 }
 
@@ -1175,8 +1155,6 @@ export async function requestCoins(args: {
     throw new Error("Coin amount must be greater than 0");
   }
 
-  console.log("[wallet.requestCoins] Writing coin request with companyId:", args.companyId);
-
   const coinRequestRef = collection(db, "coinRequests");
   const docRef = await addDoc(coinRequestRef, {
     tenantId: args.tenantId,
@@ -1208,7 +1186,6 @@ export async function requestCoins(args: {
     // Coin request creation should not fail if notification fails.
   }
 
-  console.log("[wallet.requestCoins] Created request with ID:", docRef.id);
   return docRef.id;
 }
 
@@ -1233,9 +1210,6 @@ export async function getCoinRequestsForCompany(companyId: string): Promise<Coin
 
 export async function getCoinRequestsForCompanyContext(companyIds: string[]): Promise<CoinRequest[]> {
   const normalizedIds = Array.from(new Set(companyIds.map((id) => id.trim()).filter(Boolean)));
-  
-  console.log("[getCoinRequestsForCompanyContext] Querying with companyIds:", normalizedIds);
-  
   if (normalizedIds.length === 0) {
     return [];
   }
@@ -1260,8 +1234,6 @@ export async function getCoinRequestsForCompanyContext(companyIds: string[]): Pr
       return toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt);
     });
 
-  console.log("[getCoinRequestsForCompanyContext] Found", results.length, "requests:", results.map((r) => ({ id: r.id, companyId: r.companyId, status: r.status })));
-  
   return results;
 }
 

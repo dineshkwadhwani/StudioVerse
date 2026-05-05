@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
@@ -20,6 +20,7 @@ import styles from "./ManageProgramsPage.module.css";
 type Props = {
   config: TenantConfig;
   showHeader?: boolean;
+  searchQuery?: string;
 };
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
@@ -49,7 +50,7 @@ function isInTenantScope(
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
-export default function ManageProgramsPage({ config, showHeader = true }: Props) {
+export default function ManageProgramsPage({ config, showHeader = true, searchQuery = "" }: Props) {
   const router = useRouter();
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
@@ -153,7 +154,33 @@ export default function ManageProgramsPage({ config, showHeader = true }: Props)
     setIsDetailModalOpen(true);
   };
 
-  const visiblePrograms = programs;
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const visiblePrograms = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return programs;
+    }
+
+    return programs.filter((item) => {
+      const searchableText = [
+        item.name,
+        item.shortDescription,
+        item.longDescription,
+        item.details,
+        item.facilitatorName,
+        item.deliveryType,
+        typeof item.durationValue === "number" ? String(item.durationValue) : "",
+        item.durationUnit,
+        item.status,
+        item.visibility,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    });
+  }, [programs, normalizedSearchQuery]);
 
   const programsSubtitle =
     userRole === "company"
@@ -206,6 +233,10 @@ export default function ManageProgramsPage({ config, showHeader = true }: Props)
           {isLoading ? <p className={styles.emptyCard}>Loading programs...</p> : null}
           {!isLoading && programs.length === 0 ? (
             <p className={styles.emptyCard}>No programs found for your roles and scope.</p>
+          ) : null}
+
+          {!isLoading && programs.length > 0 && visiblePrograms.length === 0 ? (
+            <p className={styles.emptyCard}>No programs matched the current search.</p>
           ) : null}
 
           {!isLoading && visiblePrograms.length > 0 ? (

@@ -229,12 +229,16 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
               </div>
             ) : null}
 
-            <Link href={`${basePath}/tools`} onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
-            <Link href={`${basePath}/programs`} onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>
-            <Link href={`${basePath}/events`} onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
+            <div className={styles.landingPageSection}>
+              <p className={styles.landingPageSectionLabel}>Browse Activities</p>
+              <Link href={`${basePath}/tools`} className={styles.landingPageLink} onClick={() => setIsMobileMenuOpen(false)}>{toolsLabel}</Link>
+              <Link href={`${basePath}/programs`} className={styles.landingPageLink} onClick={() => setIsMobileMenuOpen(false)}>Programs</Link>
+              <Link href={`${basePath}/events`} className={styles.landingPageLink} onClick={() => setIsMobileMenuOpen(false)}>Events</Link>
+            </div>
 
             {isLoggedIn ? (
               <>
+                <div className={styles.mobileMenuDivider} />
                 <div className={styles.mobileMenuUser}>
                   <p className={styles.mobileMenuName}>{name}</p>
                   <p className={styles.mobileMenuRole}>{getRoleLabel(role, {

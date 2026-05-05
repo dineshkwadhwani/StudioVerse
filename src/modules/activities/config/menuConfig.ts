@@ -126,6 +126,7 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       key: "actions",
       label: "Actions",
       items: [
+        { key: "view-all-activities", label: "View All Activities", href: buildPath(basePath, "/view-all-activities") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],

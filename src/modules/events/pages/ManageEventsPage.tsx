@@ -20,6 +20,7 @@ import styles from "@/modules/programs/pages/ManageProgramsPage.module.css";
 type Props = {
   config: TenantConfig;
   showHeader?: boolean;
+  searchQuery?: string;
 };
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
@@ -49,7 +50,7 @@ function isInTenantScope(
   return (record.tenantIds ?? []).some((value) => normalizeTenantToken(value) === target);
 }
 
-export default function ManageEventsPage({ config, showHeader = true }: Props) {
+export default function ManageEventsPage({ config, showHeader = true, searchQuery = "" }: Props) {
   const router = useRouter();
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
@@ -151,11 +152,37 @@ export default function ManageEventsPage({ config, showHeader = true }: Props) {
     setIsDetailModalOpen(true);
   };
 
-  const visibleEvents = showHeader
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const typedEvents = showHeader
     ? selectedEventType === "all"
       ? events
       : events.filter((item) => item.eventType === selectedEventType)
     : events;
+
+  const visibleEvents = normalizedSearchQuery
+    ? typedEvents.filter((item) => {
+      const searchableText = [
+        item.name,
+        item.shortDescription,
+        item.longDescription,
+        item.details,
+        item.eventType,
+        item.eventDate,
+        item.eventTime,
+        item.locationCity,
+        item.locationAddress,
+        item.facilitatorName,
+        item.status,
+        item.visibility,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    })
+    : typedEvents;
 
   const eventTypeOptions = Array.from(new Set(events.map((item) => item.eventType)))
     .sort((a, b) =>
@@ -230,8 +257,8 @@ export default function ManageEventsPage({ config, showHeader = true }: Props) {
           {!isLoading && events.length === 0 ? (
             <p className={styles.emptyCard}>No events found for your roles and scope.</p>
           ) : null}
-          {!isLoading && showHeader && events.length > 0 && visibleEvents.length === 0 ? (
-            <p className={styles.emptyCard}>No events found for the selected event type.</p>
+          {!isLoading && events.length > 0 && visibleEvents.length === 0 ? (
+            <p className={styles.emptyCard}>No events matched the current search or selected event type.</p>
           ) : null}
 
           {!isLoading && visibleEvents.length > 0 ? (

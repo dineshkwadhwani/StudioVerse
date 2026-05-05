@@ -12,6 +12,7 @@
   color: var(--ink-strong);
   min-height: 100vh;
   padding-top: 80px;
+  overflow-x: hidden;
 }
 
 .nav {

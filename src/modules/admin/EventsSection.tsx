@@ -48,6 +48,7 @@ type TenantOption = {
 type EventsSectionProps = {
   tenants?: TenantOption[];
   isSuperAdmin?: boolean;
+  searchQuery?: string;
 };
 
 function mapEventToForm(event: EventRecord): EventFormValues {
@@ -92,6 +93,7 @@ function mapEventToForm(event: EventRecord): EventFormValues {
 export default function EventsSection({
   tenants: propTenants,
   isSuperAdmin,
+  searchQuery = "",
 }: EventsSectionProps) {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>(propTenants ?? []);
@@ -111,6 +113,41 @@ export default function EventsSection({
   const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const visibleEvents = events.filter((event) => {
+    if (selectedPublicationState !== "all" && event.publicationState !== selectedPublicationState) {
+      return false;
+    }
+    if (selectedPromoted === "true" && !event.promoted) {
+      return false;
+    }
+    if (!normalizedSearchQuery) {
+      return true;
+    }
+
+    const searchableText = [
+      event.name,
+      event.shortDescription,
+      event.longDescription,
+      event.details,
+      event.eventType,
+      event.eventSource,
+      event.eventDate,
+      event.eventTime,
+      event.locationCity,
+      event.locationAddress,
+      event.visibility,
+      event.publicationState,
+      event.status,
+      event.promotionStatus,
+    ]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(normalizedSearchQuery);
+  });
 
   async function loadTenants(): Promise<void> {
     try {
@@ -484,18 +521,11 @@ export default function EventsSection({
             </button>
           </div>
 
-          <div className={styles.eventGrid}>
-            {events
-              .filter((event) => {
-                if (selectedPublicationState !== "all" && event.publicationState !== selectedPublicationState) {
-                  return false;
-                }
-                if (selectedPromoted === "true" && !event.promoted) {
-                  return false;
-                }
-                return true;
-              })
-              .map((event) => (
+          {visibleEvents.length === 0 ? (
+            <div className={styles.emptyCard}>No Events matched the current search/filter.</div>
+          ) : (
+            <div className={styles.eventGrid}>
+              {visibleEvents.map((event) => (
                 <article key={event.id} className={styles.eventTile}>
                   <div className={styles.eventImageWrap}>
                     <img
@@ -542,7 +572,8 @@ export default function EventsSection({
                   </div>
                 </article>
               ))}
-          </div>
+            </div>
+          )}
         </>
       )}
 

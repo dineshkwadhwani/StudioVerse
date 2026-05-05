@@ -193,14 +193,11 @@ export async function getLatestAssessmentReportByAssignmentId(
   assignmentId: string
 ): Promise<AssessmentReportRecord | null> {
   try {
-    console.log("[getLatestAssessmentReportByAssignmentId] Fetching report for assignmentId:", assignmentId);
-    
     const reportSnap = await getDocs(
       query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId))
     );
 
     if (reportSnap.empty) {
-      console.warn("[getLatestAssessmentReportByAssignmentId] No reports found for assignmentId:", assignmentId);
       return null;
     }
 
@@ -210,13 +207,6 @@ export async function getLatestAssessmentReportByAssignmentId(
     }));
 
     reports.sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-    
-    console.log("[getLatestAssessmentReportByAssignmentId] Found report:", {
-      reportId: reports[0]?.id,
-      assignmentId,
-      documentCount: reports.length,
-    });
-    
     return reports[0] ?? null;
   } catch (error) {
     console.error("[getLatestAssessmentReportByAssignmentId] Error fetching report", {

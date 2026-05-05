@@ -6,6 +6,7 @@
   padding-left: 32px;
   padding-right: 32px;
   padding-bottom: 32px;
+  overflow-x: hidden;
 }
 
 .shell {
@@ -148,7 +149,14 @@
 }
 
 @media (max-width: 700px) {
+  .page {
+    padding-top: 60px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 20px;
+  }
+
   .shell {
-    width: min(96vw, 1100px);
+    width: 100%;
   }
 }

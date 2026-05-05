@@ -28,6 +28,12 @@ const TAB_CONTEXT: Record<ResourceTab, string> = {
 
 export default function ResourcesSection({ tenants, isSuperAdmin }: ResourcesSectionProps) {
   const [activeTab, setActiveTab] = useState<ResourceTab>("programs");
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
+
+  function handleSearch(): void {
+    setAppliedSearchQuery(searchInput.trim());
+  }
 
   return (
     <div className={styles.layout}>
@@ -70,6 +76,32 @@ export default function ResourcesSection({ tenants, isSuperAdmin }: ResourcesSec
             Assessments
           </button>
         </div>
+
+        <div className={styles.searchRow}>
+          <label htmlFor="resources-search" className={styles.searchLabel}>
+            Search displayed {activeTab}
+          </label>
+          <div className={styles.searchControls}>
+            <input
+              id="resources-search"
+              type="search"
+              className={styles.searchInput}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSearch();
+                }
+              }}
+              placeholder="Search by title, description, facilitator, city, and more..."
+              aria-label={`Search ${activeTab}`}
+            />
+            <button type="button" className={styles.searchButton} onClick={handleSearch}>
+              Search
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className={styles.contentCard}>
@@ -80,7 +112,7 @@ export default function ResourcesSection({ tenants, isSuperAdmin }: ResourcesSec
               id="resources-panel-programs"
               aria-labelledby="resources-tab-programs"
             >
-              <ProgramsSection tenants={tenants} isSuperAdmin={isSuperAdmin} />
+              <ProgramsSection tenants={tenants} isSuperAdmin={isSuperAdmin} searchQuery={appliedSearchQuery} />
             </div>
           )}
           {activeTab === "events" && (
@@ -89,7 +121,7 @@ export default function ResourcesSection({ tenants, isSuperAdmin }: ResourcesSec
               id="resources-panel-events"
               aria-labelledby="resources-tab-events"
             >
-              <EventsSection tenants={tenants} isSuperAdmin={isSuperAdmin} />
+              <EventsSection tenants={tenants} isSuperAdmin={isSuperAdmin} searchQuery={appliedSearchQuery} />
             </div>
           )}
           {activeTab === "assessments" && (
@@ -98,7 +130,7 @@ export default function ResourcesSection({ tenants, isSuperAdmin }: ResourcesSec
               id="resources-panel-assessments"
               aria-labelledby="resources-tab-assessments"
             >
-              <AssessmentsSection tenants={tenants} isSuperAdmin={isSuperAdmin} />
+              <AssessmentsSection tenants={tenants} isSuperAdmin={isSuperAdmin} searchQuery={appliedSearchQuery} />
             </div>
           )}
         </div>

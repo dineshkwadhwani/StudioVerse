@@ -5,6 +5,7 @@
   padding-left: 32px;
   padding-right: 32px;
   padding-bottom: 32px;
+  overflow-x: hidden;
 }
 
 .toolbar {
@@ -214,6 +215,12 @@
 }
 
 @media (max-width: 920px) {
+  .page {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: 70px;
+  }
+
   .grid {
     grid-template-columns: 1fr;
   }

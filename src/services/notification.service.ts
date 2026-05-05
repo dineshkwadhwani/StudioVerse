@@ -69,7 +69,6 @@ async function logNotificationEvent(args: {
   providerMessageId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  console.log(`[DEBUG][notificationLog] Writing: status=${args.status} type=${args.notificationType} recipient=${args.recipientEmail} reason="${args.reason ?? ""}"`);
   try {
     const docRef = await addDoc(collection(db, "notificationLogs"), {
       tenantId: args.tenantId,
@@ -82,22 +81,19 @@ async function logNotificationEvent(args: {
       metadata: args.metadata ?? {},
       createdAt: serverTimestamp(),
     });
-    console.log(`[DEBUG][notificationLog] Written to Firestore id=${docRef.id}`);
   } catch (err) {
-    console.error("[DEBUG][notificationLog] Firestore write FAILED:", err);
+    console.error("[notificationLog] Firestore write FAILED:", err);
     // Logging is best-effort and must never block user workflow.
   }
 }
 
 export async function sendNotificationEmail(args: SendNotificationEmailArgs): Promise<SendNotificationEmailResult> {
   const tenantId = normalizeTenantId(args.tenantId);
-  console.log(`[DEBUG][sendNotificationEmail] type=${args.notificationType} tenant=${tenantId} recipient=${args.recipientEmail}`);
   if (!tenantId) {
     return { success: false, message: "tenantId is required." };
   }
 
   const mailConfig = await getTenantMailConfig(tenantId);
-  console.log(`[DEBUG][sendNotificationEmail] mailConfig.enabled=${mailConfig.enabled}`);
   if (!mailConfig.enabled) {
     await logNotificationEvent({
       tenantId,

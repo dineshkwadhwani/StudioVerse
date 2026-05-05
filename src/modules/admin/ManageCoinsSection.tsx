@@ -122,12 +122,10 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   }
 
   function handleTenantChange(nextTenantId: string): void {
-    console.log("[ManageCoins] tenant changed", { nextTenantId });
     setSelectedTenantId(nextTenantId);
   }
 
   function handleUserTypeChange(nextUserType: WalletUserType): void {
-    console.log("[ManageCoins] user type changed", { nextUserType, selectedTenantId });
     setSelectedUserType(nextUserType);
   }
 
@@ -147,17 +145,11 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   }, []);
 
   useEffect(() => {
-    console.log("[ManageCoins] fetching users", {
-      selectedTenantId,
-      selectedUserType,
-    });
-
     setUsers([]);
     setSelectedUserId("");
     setWalletSnapshot(null);
 
     if (!selectedTenantId) {
-      console.log("[ManageCoins] fetch skipped: tenant not selected");
       return;
     }
 
@@ -167,7 +159,6 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
     listUsersForCoinAssignment({ tenantId: selectedTenantId, userType: selectedUserType })
       .then((rows) => {
         if (cancelled) return;
-        console.log("[ManageCoins] users loaded", { count: rows.length, userIds: rows.map((r) => r.id) });
         setUsers(rows);
         setSelectedUserId(rows[0]?.id ?? "");
       })

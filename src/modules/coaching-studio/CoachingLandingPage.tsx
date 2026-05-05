@@ -685,18 +685,22 @@ export default function CoachingLandingPage({ config }: Props) {
         <>
           <div className={styles.mobileMenuBackdrop} ref={mobileMenuRef} onClick={() => setIsMobileMenuOpen(false)} />
           <div className={styles.mobileMenu}>
-            <a href="#tools" onClick={() => setIsMobileMenuOpen(false)}>
-              {sectionMeta.tools.navLabel}
-            </a>
-            <a href="#programs" onClick={() => setIsMobileMenuOpen(false)}>
-              Programs
-            </a>
-            <a href="#events" onClick={() => setIsMobileMenuOpen(false)}>
-              Events
-            </a>
+            <div className={headerStyles.landingPageSection}>
+              <p className={headerStyles.landingPageSectionLabel}>Browse Activities</p>
+              <a href="#tools" className={headerStyles.landingPageLink} onClick={() => setIsMobileMenuOpen(false)}>
+                {sectionMeta.tools.navLabel}
+              </a>
+              <a href="#programs" className={headerStyles.landingPageLink} onClick={() => setIsMobileMenuOpen(false)}>
+                Programs
+              </a>
+              <a href="#events" className={headerStyles.landingPageLink} onClick={() => setIsMobileMenuOpen(false)}>
+                Events
+              </a>
+            </div>
 
             {isLoggedIn ? (
               <>
+                <div className={headerStyles.mobileMenuDivider} />
                 <div className={headerStyles.mobileMenuUser}>
                   <p className={headerStyles.mobileMenuName}>{name}</p>
                   <p className={headerStyles.mobileMenuRole}>{getRoleLabel(role, {

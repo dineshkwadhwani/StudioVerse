@@ -1,6 +1,6 @@
 import { getApps, initializeApp, cert, applicationDefault } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getAuth, type Auth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 function resolveProjectId(): string | undefined {
   return (
@@ -43,14 +43,14 @@ function resolveAdminApp() {
   );
 }
 
-let adminApp: any;
+let adminApp: ReturnType<typeof initializeApp> | null = null;
 try {
   adminApp = resolveAdminApp();
 } catch (err) {
   console.warn("⚠️ Firebase Admin initialization failed (this is OK for dev):", err);
-  // Return a dummy app in dev mode to allow server to continue
-  adminApp = null;
 }
 
-export const adminAuth = adminApp ? getAuth(adminApp) : null;
-export const adminDb = adminApp ? getFirestore(adminApp) : null;
+// Cast as non-nullable: if adminApp is null, routes will throw at runtime and
+// their existing catch blocks will return a 500 response.
+export const adminAuth = (adminApp ? getAuth(adminApp) : null) as Auth;
+export const adminDb = (adminApp ? getFirestore(adminApp) : null) as Firestore;

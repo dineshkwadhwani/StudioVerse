@@ -117,8 +117,10 @@ service cloud.firestore {
     // Company/professional can also update profiles of users they manage
     // (createScopedManagedUser, saveCohort run from the client and write
     //  managed user docs directly).
-    // CRITICAL: Sensitive fields (userType, tenantId, role, etc.) are immutable from client.
-    // Only backend Functions (Admin SDK) can modify these fields.
+    // CRITICAL: Privilege-escalation fields (userType, role, status) are immutable
+    // from client writes for all non-superadmin callers.
+    // Association fields (tenantId, associatedCompanyId, associatedProfessionalId)
+    // are writable by authorised company/professional managers via hasOnlyAllowedManagerChanges.
     //
     // Self-registration (new user creating their own profile for the first time)
     // must NOT call currentUser() — that document doesn't exist yet and would
@@ -132,6 +134,13 @@ service cloud.firestore {
         && request.resource.data.userType != "superadmin"
         && request.resource.data.role != "superadmin"
         && request.resource.data.status in ["active", "inactive"];
+    }
+
+    // Used for manager-level updates (company/professional associating users to coaches).
+    // Only blocks true privilege-escalation fields; allows association fields to be written.
+    function hasOnlyAllowedManagerChanges() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return !changedKeys.hasAny(['userType', 'role', 'status']);
     }
 
     match /users/{userId} {
@@ -156,17 +165,24 @@ service cloud.firestore {
                                && request.resource.data.role == "individual")
                            ));
       allow update: if (isSuperAdmin())
-                    || (isSignedIn() && (
-                         request.auth.uid == userId ||
-                         request.auth.uid == resource.data.uid
-                       )
-                       && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
-                    || (isCompanyUser() &&
-                         resource.data.associatedCompanyId == currentCompanyId()
-                         && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
-                    || (isProfessionalUser() &&
-                         resource.data.associatedProfessionalId == request.auth.uid
-                         && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']));
+                    // Own-profile updates: user can edit their own doc but cannot change
+                    // role, tenant, or association fields (those are manager/admin only).
+                    || (isSignedIn()
+                        && (request.auth.uid == userId || request.auth.uid == resource.data.uid)
+                        && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
+                    // Company managers can update professionals/individuals within their
+                    // tenant, including writing association fields. userType/role/status remain blocked.
+                    || (isCompanyUser()
+                        && resource.data.get('tenantId', null) in [null, currentTenantId()]
+                        && resource.data.userType in ['professional', 'individual']
+                        && hasOnlyAllowedManagerChanges())
+                    // Professional managers can associate individuals to themselves within
+                    // the same tenant. associatedProfessionalId must be set to their own uid.
+                    || (isProfessionalUser()
+                        && resource.data.get('tenantId', null) == currentTenantId()
+                        && resource.data.userType == 'individual'
+                        && request.resource.data.get('associatedProfessionalId', null) == request.auth.uid
+                        && hasOnlyAllowedManagerChanges());
       allow delete: if false;
     }
 

@@ -1,22 +1,62 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // This rule allows anyone with your Storage bucket reference to view, edit,
-    // and delete all data in your Storage bucket. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Storage bucket will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Storage bucket will be denied until you Update
-    // your rules
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == "superadmin";
+    }
+
+    // Profile photos — each user can write only their own, any authenticated user can read
+    match /profiles/{tenantId}/{userId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Assessment cover images — superadmin write, authenticated read
+    match /assessments/{tenantId}/{assessmentId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Program thumbnails — superadmin write, authenticated read
+    match /programs/{tenantId}/{programId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Event thumbnails — superadmin write, authenticated read
+    match /events/{tenantId}/{eventId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Bot hero package images — superadmin write, authenticated read
+    match /botHeroPackages/{packageId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Promotion package images — superadmin write, authenticated read
+    match /promotionPackages/{tenantId}/{packageId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Listing package images — superadmin write, authenticated read
+    match /listingPackages/{tenantId}/{packageId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Deny all unmatched paths
     match /{allPaths=**} {
-      allow read, write: if request.time < timestamp.date(2026, 4, 30);
+      allow read, write: if false;
     }
   }
 }

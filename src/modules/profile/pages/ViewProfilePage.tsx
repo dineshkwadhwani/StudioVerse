@@ -295,7 +295,7 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Target Audience</h2>
+            <h2 className={styles.sectionTitle}>{profile.userType === "individual" ? "Desired Coach" : "Target Audience"}</h2>
             {renderChips(profile.coachTargetAudience)}
           </section>
 

@@ -4,6 +4,118 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (May 9, 2026) — Firestore rules fix: individual-to-coach association write
+
+Status:
+
+- Firestore rules updated and deployed to `studioverse-test`.
+- Deployment command executed successfully:
+
+  ```bash
+  firebase deploy --only firestore:rules
+  ```
+
+Problem fixed:
+
+- Company/professional users got "missing or insufficient permissions" when associating an individual to a coach via the Manage Users page.
+- Root cause: the `allow update` rule on `users` used `hasOnlyAllowedChanges` with a blocklist that included `associatedProfessionalId`, `associatedCompanyId`, and `tenantId` for ALL callers — including company/professional managers who legitimately need to write those fields.
+- The old company arm also required `resource.data.associatedCompanyId == currentCompanyId()`, which fails for users who have no `associatedCompanyId` yet (first-time association).
+
+Fix applied:
+
+- Added `hasOnlyAllowedManagerChanges()` helper that only blocks `userType`, `role`, and `status` (true privilege-escalation fields). Association fields (`tenantId`, `associatedCompanyId`, `associatedProfessionalId`) are allowed through for manager writes.
+- Company update arm now allows updates to users whose `tenantId` is either null (not yet assigned) or matches the company's tenant. Blocks `userType`/`role`/`status` changes.
+- Professional update arm now allows updates to individuals in the same tenant, enforcing that `associatedProfessionalId` is set to the professional's own uid. Blocks `userType`/`role`/`status` changes.
+- Own-profile update arm retains the strict blocklist (users cannot change their own associations or role).
+
+Production rollout state:
+
+- Production deploy remains deferred until explicit go-ahead.
+- Only `firestore:rules` needs to be deployed for this fix.
+- Next prod step (when approved):
+
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules
+  ```
+
+## Latest rollout update (May 9, 2026) — Storage rules: replaced expired open rule with least-privilege rules
+
+Status:
+
+- `storage.rules` temporary open rule expired April 30, 2026, blocking all Storage reads and writes.
+- New least-privilege rules written and deployed to `studioverse-test`.
+- Deployment command executed successfully:
+
+  ```bash
+  firebase deploy --only storage
+  ```
+
+- Rules compiled successfully and were released to Firebase Storage in test.
+
+Problem fixed:
+
+- Users uploading profile photos received `storage/unauthorized` because the blanket `allow read, write: if request.time < timestamp.date(2026, 4, 30)` rule had expired.
+
+Rules now in place (all 7 known upload paths covered):
+
+| Path pattern | Read | Write |
+|---|---|---|
+| `profiles/{tenantId}/{userId}/{filename}` | authenticated | user owns `userId` (`request.auth.uid == userId`) |
+| `assessments/{tenantId}/{assessmentId}/{filename}` | authenticated | superadmin |
+| `programs/{tenantId}/{programId}/{filename}` | authenticated | superadmin |
+| `events/{tenantId}/{eventId}/{filename}` | authenticated | superadmin |
+| `botHeroPackages/{packageId}/{filename}` | authenticated | superadmin |
+| `promotionPackages/{tenantId}/{packageId}/{filename}` | authenticated | superadmin |
+| `listingPackages/{tenantId}/{packageId}/{filename}` | authenticated | superadmin |
+| all other paths | denied | denied |
+
+Superadmin check uses `firestore.get(/databases/(default)/documents/users/{uid}).data.userType == "superadmin"`.
+
+Production rollout state:
+
+- Production deploy remains deferred until explicit go-ahead.
+- Next prod step (when approved):
+
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only storage
+  ```
+
+## Latest rollout update (May 9, 2026) — Firestore rules fix: new user self-registration
+
+Status:
+
+- Firestore rules bug fixed and deployed to `studioverse-test`.
+- Deployment command executed successfully:
+
+  ```bash
+  firebase deploy --only firestore:rules
+  ```
+
+- Rules compiled successfully and were released to Cloud Firestore in test.
+
+Problem fixed:
+
+- New users completing OTP verification received "missing or insufficient permissions" when submitting name + email during registration.
+- Root cause: the `users` collection `allow create` rule called `currentTenantId()` → `currentUser()` → `get(users/{uid})`, but that document does not exist yet for a first-time registrant. Firestore's `get()` on a non-existent doc caused the rule to evaluate to false.
+
+Fix applied:
+
+- Added `isSelfRegistering(userId)` helper function in `firestore.rules` (above the `users` match block).
+- This function validates the write directly against `request.auth.uid` and `request.resource.data` without calling `currentUser()`.
+- Checks enforced: `userId == request.auth.uid`, `uid == request.auth.uid`, valid non-superadmin `userType`/`role`, valid `status`.
+- The `isSelfRegistering` path is tried first in `allow create`; the existing `currentTenantId()`-based path is still used for managed-user creation (company/professional creating users on behalf of others).
+- No changes to `allow update`, `allow read`, or `allow delete` rules.
+
+Production rollout state:
+
+- Production deploy remains deferred until explicit go-ahead.
+- Only `firestore:rules` needs to be deployed for this fix (no functions, no indexes).
+- Next prod step (when approved):
+
+  ```bash
+  npx -y firebase-tools@latest deploy --project studioverse-prod --only firestore:rules
+  ```
+
 ## Latest rollout update (May 5, 2026) — Profile completion wallet reward callable
 
 Status:

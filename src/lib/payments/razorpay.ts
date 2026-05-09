@@ -29,8 +29,7 @@ function resolveEnvMode(): "test" | "live" {
   const appEnv = (
     process.env.APP_ENV ||
     process.env.NEXT_PUBLIC_APP_ENV ||
-    process.env.NODE_ENV ||
-    "development"
+    ""
   )
     .trim()
     .toLowerCase();

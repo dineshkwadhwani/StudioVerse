@@ -8,7 +8,7 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "@/services/firebase";
+import { db, auth } from "@/services/firebase";
 import type {
   AssessmentAnswerRecord,
   AssessmentAttemptRecord,
@@ -193,9 +193,15 @@ export async function getLatestAssessmentReportByAssignmentId(
   assignmentId: string
 ): Promise<AssessmentReportRecord | null> {
   try {
-    const reportSnap = await getDocs(
-      query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId))
-    );
+    const currentUid = auth.currentUser?.uid;
+    const reportQuery = currentUid
+      ? query(
+          collection(db, "assessmentReports"),
+          where("assignmentId", "==", assignmentId),
+          where("userId", "==", currentUid)
+        )
+      : query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId));
+    const reportSnap = await getDocs(reportQuery);
 
     if (reportSnap.empty) {
       return null;

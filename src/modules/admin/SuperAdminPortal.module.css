@@ -843,6 +843,23 @@
   font-weight: 800;
 }
 
+.userNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.engagementBadge {
+  border-radius: 999px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
 .userMeta {
   margin: 2px 0 0;
   color: var(--ink-soft);

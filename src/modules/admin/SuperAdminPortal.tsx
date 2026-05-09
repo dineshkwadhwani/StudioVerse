@@ -41,6 +41,7 @@ import PromotionPackagesSection from "./PromotionPackagesSection";
 import PromotionRequestsSection from "./PromotionRequestsSection";
 import ManageOrdersSection from "./ManageOrdersSection";
 import { listAllCoinOrders } from "@/services/coinOrders.service";
+import { calculateEngagementIndex, type EngagementIndexResult } from "@/services/engagement-index.service";
 import { listPromotionRequests } from "@/services/programPromotionRequests.service";
 import { listPendingBotHeroRequests } from "@/services/botHero.service";
 import { listListingRequests } from "@/services/listingRequests.service";
@@ -559,6 +560,7 @@ export default function SuperAdminPortal() {
 
   const [usersFilter, setUsersFilter] = useState<UsersFilter>("all");
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [engagementIndices, setEngagementIndices] = useState<Record<string, EngagementIndexResult>>({});
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [assignedActivities, setAssignedActivities] = useState<AssignmentRecord[]>([]);
   const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
@@ -621,6 +623,27 @@ export default function SuperAdminPortal() {
 
     return users.filter((entry) => entry.userType === usersFilter);
   }, [users, usersFilter]);
+
+  useEffect(() => {
+    const individuals = users.filter((u) => u.userType === "individual");
+    if (individuals.length === 0) return;
+
+    const loadIndices = async () => {
+      const results: Record<string, EngagementIndexResult> = {};
+      await Promise.all(
+        individuals.map(async (u) => {
+          try {
+            results[u.id] = await calculateEngagementIndex(u.id);
+          } catch {
+            // silently skip on error
+          }
+        })
+      );
+      setEngagementIndices(results);
+    };
+
+    loadIndices();
+  }, [users]);
 
   const existingCompaniesForTenant = useMemo(() => {
     if (!userForm.tenantId) {
@@ -2089,7 +2112,14 @@ export default function SuperAdminPortal() {
                     {filteredUsers.map((item) => (
                       <section key={item.id} className={styles.userItem}>
                         <div>
-                          <p className={styles.userName}>{item.name}</p>
+                          <div className={styles.userNameRow}>
+                            <p className={styles.userName}>{item.name}</p>
+                            {item.userType === "individual" && engagementIndices[item.id] !== undefined ? (
+                              <span className={styles.engagementBadge}>
+                                {Math.round((engagementIndices[item.id].score / 230) * 100)}%
+                              </span>
+                            ) : null}
+                          </div>
                           <p className={styles.userMeta}>{item.email}</p>
                           <p className={styles.userMeta}>{item.phoneE164}</p>
                         </div>

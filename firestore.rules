@@ -119,9 +119,25 @@ service cloud.firestore {
     //  managed user docs directly).
     // CRITICAL: Sensitive fields (userType, tenantId, role, etc.) are immutable from client.
     // Only backend Functions (Admin SDK) can modify these fields.
+    //
+    // Self-registration (new user creating their own profile for the first time)
+    // must NOT call currentUser() — that document doesn't exist yet and would
+    // cause a permissions failure. We validate the write data directly instead.
+    function isSelfRegistering(userId) {
+      return isSignedIn()
+        && userId == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.userType in ["company", "professional", "individual"]
+        && request.resource.data.role in ["company", "professional", "individual"]
+        && request.resource.data.userType != "superadmin"
+        && request.resource.data.role != "superadmin"
+        && request.resource.data.status in ["active", "inactive"];
+    }
+
     match /users/{userId} {
       allow read:   if isSignedIn();
       allow create: if isSuperAdmin()
+                    || isSelfRegistering(userId)
                     || (isSignedIn()
                         && request.resource.data.userType in ["company", "professional", "individual"]
                         && request.resource.data.role in ["company", "professional", "individual"]
@@ -130,19 +146,14 @@ service cloud.firestore {
                         && request.resource.data.userType != "superadmin"
                         && request.resource.data.role != "superadmin"
                         && (
-                             // Self-registration/profile bootstrap
-                             isActorId(userId)
-                             || isActorId(request.resource.data.uid)
-                             || isActorId(request.resource.data.userId)
-                             // Managed users can be created by tenant company/professional
-                           || (isCompanyUser()
-                             && request.resource.data.associatedCompanyId == currentCompanyId()
-                             && request.resource.data.userType in ["professional", "individual"]
-                             && request.resource.data.role in ["professional", "individual"])
+                             (isCompanyUser()
+                               && request.resource.data.associatedCompanyId == currentCompanyId()
+                               && request.resource.data.userType in ["professional", "individual"]
+                               && request.resource.data.role in ["professional", "individual"])
                            || (isProfessionalUser()
-                             && request.resource.data.associatedProfessionalId == request.auth.uid
-                             && request.resource.data.userType == "individual"
-                             && request.resource.data.role == "individual")
+                               && request.resource.data.associatedProfessionalId == request.auth.uid
+                               && request.resource.data.userType == "individual"
+                               && request.resource.data.role == "individual")
                            ));
       allow update: if (isSuperAdmin())
                     || (isSignedIn() && (

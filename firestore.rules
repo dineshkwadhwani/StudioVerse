@@ -205,27 +205,7 @@ service cloud.firestore {
     // SECURITY: User updates are blocked from modifying tenantId, associatedCompanyId, or userId.
     match /wallets/{walletId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && !isTreasuryWallet(walletId) && (
-                         request.auth.uid == walletId ||
-                         walletId == currentUserIdValue() ||
-                         walletId == currentUserUidValue() ||
-                         resource.data.userId == request.auth.uid ||
-                         resource.data.userId == currentUserIdValue() ||
-                         resource.data.userId == currentUserUidValue() ||
-                         walletId.matches(".*::" + request.auth.uid) ||
-                         walletId.matches(".*::" + currentUserIdValue()) ||
-                         walletId.matches(".*::" + currentUserUidValue())
-                       ))
-                    // Company can read wallets of associated coaches/individuals.
-                    // Membership is verified via the user document, since wallet
-                    // docs do not store associatedCompanyId.
-                    || (isCompanyUser() && !isTreasuryWallet(walletId)
-                         && exists(/databases/$(database)/documents/users/$(resource.data.userId))
-                         && (
-                              get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid
-                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserIdValue()
-                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserUidValue()
-                            ));
+                    || (isSignedIn() && !isTreasuryWallet(walletId));
       allow create: if isSignedIn() && !isTreasuryWallet(walletId);
       allow update: if isSuperAdmin()
                     || (isSignedIn() && !isTreasuryWallet(walletId) && (

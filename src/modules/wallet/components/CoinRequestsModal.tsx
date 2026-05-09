@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { auth } from "@/services/firebase";
 import { getCoinRequestsForCompanyContext, approveCoinRequest, denyCoinRequest } from "@/services/wallet.service";
 import type { CoinRequest } from "@/types/coinRequest";
 import styles from "../pages/ManageWalletPage.module.css";
@@ -53,7 +54,7 @@ export default function CoinRequestsModal({
     try {
       await approveCoinRequest({
         requestId,
-        approvedBy: "company",
+        approvedBy: auth.currentUser?.uid ?? "company",
         comment: "Approved",
       });
 
@@ -78,7 +79,7 @@ export default function CoinRequestsModal({
     try {
       await denyCoinRequest({
         requestId,
-        deniedBy: "company",
+        deniedBy: auth.currentUser?.uid ?? "company",
         reason: "Denied by company",
       });
 

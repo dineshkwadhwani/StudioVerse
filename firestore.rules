@@ -235,19 +235,20 @@ service cloud.firestore {
                     // an associated coach's wallet. Only availableCoins may go up;
                     // totalIssuedCoins and utilizedCoins must stay the same so balances
                     // cannot be minted out of thin air on the recipient side.
-                    // Recipient is verified via the user document (wallet docs do not
-                    // store associatedCompanyId).
+                    // Recipient is verified via the user document. Both paths are tried
+                    // so legacy wallets (walletId == userId, no userId field) and scoped
+                    // wallets (walletId == tenant::userId, userId field present) work.
                     || (isCompanyUser() && !isTreasuryWallet(walletId)
-                         && resource.data.userId != request.auth.uid
-                         && exists(/databases/$(database)/documents/users/$(resource.data.userId))
+                         && resource.data.get('userId', walletId) != request.auth.uid
+                         && exists(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId)))
                          && (
-                              get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid
-                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserIdValue()
-                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserUidValue()
+                              get(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId))).data.associatedCompanyId == request.auth.uid
+                              || get(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId))).data.associatedCompanyId == currentUserIdValue()
+                              || get(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId))).data.associatedCompanyId == currentUserUidValue()
                             )
-                         && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
-                         && request.resource.data.utilizedCoins == resource.data.utilizedCoins
-                         && request.resource.data.availableCoins >= resource.data.availableCoins
+                         && request.resource.data.get('totalIssuedCoins', 0) == resource.data.get('totalIssuedCoins', 0)
+                         && request.resource.data.get('utilizedCoins', 0) == resource.data.get('utilizedCoins', 0)
+                         && request.resource.data.get('availableCoins', 0) >= resource.data.get('availableCoins', 0)
                          && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']));
       allow delete: if false;
     }

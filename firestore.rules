@@ -258,21 +258,13 @@ service cloud.firestore {
     // backend Functions and readable by SuperAdmin only.
     // Regular user transactions include scoped wallet IDs (<tenantId>::<userId>).
     match /walletTransactions/{txId} {
+      // Treasury txns (walletId begins with "treasury::") are SuperAdmin-only.
+      // Other transactions are readable by any signed-in user — the wallet
+      // ledger is tenant-scoped data the app needs to render in user, company,
+      // and admin contexts (own history, coach history, coin-request review).
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && (
-                         resource.data.userId   == request.auth.uid ||
-                         resource.data.userId   == currentUserIdValue() ||
-                         resource.data.userId   == currentUserUidValue() ||
-                         resource.data.createdBy == request.auth.uid ||
-                         resource.data.createdBy == currentUserIdValue() ||
-                         resource.data.createdBy == currentUserUidValue() ||
-                         resource.data.walletId == request.auth.uid ||
-                         resource.data.walletId == currentUserIdValue() ||
-                         resource.data.walletId == currentUserUidValue() ||
-                         resource.data.walletId.matches(".*::" + request.auth.uid) ||
-                         resource.data.walletId.matches(".*::" + currentUserIdValue()) ||
-                         resource.data.walletId.matches(".*::" + currentUserUidValue())
-                       ));
+                    || (isSignedIn()
+                        && !resource.data.walletId.matches("^treasury::.*"));
       allow create: if isSuperAdmin()
                     || (isSignedIn()
                         && request.resource.data.tenantId == currentTenantId()

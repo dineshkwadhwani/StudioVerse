@@ -4,6 +4,30 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (May 9, 2026) — Firestore rules fix: walletTransactions read for coin-request modal
+
+Status:
+
+- Applied to `studioverse-test` (`firebase deploy --only firestore:rules`).
+- **Pending for `studioverse-prod`**.
+
+Problem:
+
+- After the company-credit transfer fix, opening **Manage Wallet → Coin Requests** as a company user threw `Missing or insufficient permissions` from `listWalletTransactionsForUserContext` (`src/services/wallet.service.ts:441`).
+- The `walletTransactions` read rule required `userId | createdBy | walletId` to match one of `request.auth.uid`, `currentUserIdValue()`, or `currentUserUidValue()`. The page's context query passes a *set* of identifiers (auth uid, stored uid, profile id, profile.userId). Firestore's query pre-check could not statically prove the where-clause value satisfied the OR chain, so the entire query was rejected.
+
+Changes:
+
+- `firestore.rules` → `walletTransactions` **read** — relaxed to any signed-in user for non-treasury transactions (mirrors the earlier `wallets` read relaxation). Treasury txns (`walletId` starting with `treasury::`) remain SuperAdmin-only. Create / update / delete rules are unchanged, so write-side abuse protections still apply.
+
+Rules-only change — no app rebuild required.
+
+Production deploy steps:
+
+1. `firebase use studioverse-prod`.
+2. `firebase deploy --only firestore:rules`.
+3. Smoke test: as a company user, open Manage Wallet → the coin requests modal should load without permission errors and show pending requests.
+
 ## Latest rollout update (May 9, 2026) — Firestore rules fix: company → coach credit transfer
 
 Status:

@@ -22,8 +22,8 @@ export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }
 
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [companyOptions, setCompanyOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState("");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(true);
@@ -57,19 +57,43 @@ export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }
         const userDocSnap = await getDoc(doc(db, "users", firebaseUser.uid));
         const userData = userDocSnap.data() as Record<string, unknown> | undefined;
 
-        if (!userData?.associatedCompanyId) {
+        const primaryCompanyId =
+          typeof userData?.associatedCompanyId === "string" ? userData.associatedCompanyId.trim() : "";
+        const additionalCompanyIds = Array.isArray(userData?.associatedCompanyIds)
+          ? (userData?.associatedCompanyIds as unknown[])
+              .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+              .filter((entry) => entry.length > 0)
+          : [];
+
+        const allCompanyIds = Array.from(
+          new Set([primaryCompanyId, ...additionalCompanyIds].filter(Boolean))
+        );
+
+        if (allCompanyIds.length === 0) {
           throw new Error("Not associated with a company");
         }
 
-        const associatedCompanyId = String(userData.associatedCompanyId);
-        const companyRecord = await getUserById(associatedCompanyId);
+        const resolvedCompanies = await Promise.all(
+          allCompanyIds.map(async (id) => {
+            const record = await getUserById(id);
+            if (!record) return null;
+            return {
+              id: record.uid || record.userId || record.id,
+              name: record.companyName || record.fullName || "Your Company",
+            };
+          })
+        );
 
-        if (!companyRecord) {
+        const validCompanies = resolvedCompanies.filter(
+          (entry): entry is { id: string; name: string } => entry !== null && Boolean(entry.id)
+        );
+
+        if (validCompanies.length === 0) {
           throw new Error("Associated company could not be resolved");
         }
 
-        setCompanyId(companyRecord.uid || companyRecord.userId || companyRecord.id);
-        setCompanyName(companyRecord.companyName || companyRecord.fullName || "Your Company");
+        setCompanyOptions(validCompanies);
+        setCompanyId(validCompanies[0].id);
         setError("");
       } catch (loadError) {
         const messageText = loadError instanceof Error ? loadError.message : "Failed to load profile";
@@ -101,12 +125,17 @@ export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }
     setSuccess("");
 
     try {
+      const selectedCompany = companyOptions.find((entry) => entry.id === companyId);
+      if (!selectedCompany) {
+        throw new Error("Please select a company");
+      }
+
       const requestId = await requestCoins({
         tenantId: tenantConfig.id,
         professionalId: userId,
         professionalName: userName,
-        companyId,
-        companyName,
+        companyId: selectedCompany.id,
+        companyName: selectedCompany.name,
         amount: coinAmount,
         message: message.trim(),
       });
@@ -188,20 +217,44 @@ export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }
 
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", fontWeight: 700, marginBottom: "8px" }}>Requesting From</label>
-            <input
-              type="text"
-              value={companyName}
-              disabled
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #c6dcea",
-                borderRadius: "8px",
-                background: "#f8fcff",
-                color: "#4d6e86",
-                boxSizing: "border-box",
-              }}
-            />
+            {companyOptions.length > 1 ? (
+              <select
+                value={companyId ?? ""}
+                onChange={(e) => setCompanyId(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #c6dcea",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  background: "#fff",
+                  color: "#133a56",
+                  boxSizing: "border-box",
+                }}
+              >
+                {companyOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={companyOptions[0]?.name ?? ""}
+                disabled
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #c6dcea",
+                  borderRadius: "8px",
+                  background: "#f8fcff",
+                  color: "#4d6e86",
+                  boxSizing: "border-box",
+                }}
+              />
+            )}
           </div>
 
           <div style={{ marginBottom: "16px" }}>

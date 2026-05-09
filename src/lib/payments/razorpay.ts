@@ -38,12 +38,6 @@ function resolveEnvMode(): "test" | "live" {
 }
 
 function resolveRazorpayKeys(): { keyId: string; keySecret: string } {
-  const explicitKeyId = (process.env.RAZORPAY_KEY_ID || "").trim();
-  const explicitKeySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
-  if (explicitKeyId || explicitKeySecret) {
-    return { keyId: explicitKeyId, keySecret: explicitKeySecret };
-  }
-
   const mode = resolveEnvMode();
   const keyId = (
     mode === "live"

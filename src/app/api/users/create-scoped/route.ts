@@ -535,7 +535,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (creatorRole === "professional" && targetUserType !== "individual") {
-      return NextResponse.json({ error: "Professional can create only Individual users.", requestId }, { status: 403 });
+      return NextResponse.json({ error: `Professional can create only Individual users. [api creatorRole=${creatorRole} target=${targetUserType} creatorId=${creator.id}]`, requestId }, { status: 403 });
     }
 
     const tenantId = creator.tenantId;

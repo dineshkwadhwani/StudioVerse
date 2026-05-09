@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:reset:test": "node scripts/reset-firestore-test.mjs",
+    "db:reset:test:confirm": "node scripts/reset-firestore-test.mjs --confirm"
   },
   "dependencies": {
     "firebase": "^12.11.0",

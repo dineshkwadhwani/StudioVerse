@@ -32,6 +32,7 @@ export type ManagedUserRecord = {
   companyName?: string;
   associatedProfessionalId?: string | null;
   associatedCompanyId?: string;
+  associatedCompanyIds?: string[];
   createdByUserId?: string;
   createdByRole?: string;
   createdAt?: Timestamp;
@@ -109,6 +110,11 @@ function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserR
     companyName: toStringValue(data.companyName) || undefined,
     associatedProfessionalId: toStringValue(data.associatedProfessionalId) || null,
     associatedCompanyId: toStringValue(data.associatedCompanyId) || undefined,
+    associatedCompanyIds: Array.isArray(data.associatedCompanyIds)
+      ? (data.associatedCompanyIds as unknown[])
+          .map((entry) => toStringValue(entry))
+          .filter((entry) => entry.length > 0)
+      : undefined,
     createdByUserId: toStringValue(data.createdByUserId) || undefined,
     createdByRole: toStringValue(data.createdByRole) || undefined,
     createdAt: data.createdAt as Timestamp | undefined,
@@ -230,7 +236,7 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
   }
 
   if (creatorRole === "professional" && targetUserType !== "individual") {
-    throw new Error("Professional can create only Individual users.");
+    throw new Error(`Professional can create only Individual users. [svc creatorRole=${creatorRole} target=${targetUserType} creatorId=${creator.id}]`);
   }
 
   const tenantId = creator.tenantId;

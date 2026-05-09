@@ -258,13 +258,16 @@ service cloud.firestore {
     // backend Functions and readable by SuperAdmin only.
     // Regular user transactions include scoped wallet IDs (<tenantId>::<userId>).
     match /walletTransactions/{txId} {
-      // Treasury txns (walletId begins with "treasury::") are SuperAdmin-only.
-      // Other transactions are readable by any signed-in user — the wallet
-      // ledger is tenant-scoped data the app needs to render in user, company,
-      // and admin contexts (own history, coach history, coin-request review).
-      allow read:   if isSuperAdmin()
-                    || (isSignedIn()
-                        && !resource.data.walletId.matches("^treasury::.*"));
+      // Wallet ledger is tenant-scoped data the app needs to render in user,
+      // company, and admin contexts (own history, coach history, coin-request
+      // review). Any signed-in user can read.
+      // NOTE: We cannot exclude treasury txns via `resource.data.walletId` here
+      // because the page's list queries filter on `userId` / `createdBy`, and
+      // Firestore's query pre-check cannot statically prove a negated regex on
+      // a different field. Treasury wallet *documents* remain SuperAdmin-only
+      // via the /wallets rule; treasury writes are performed exclusively by
+      // trusted backend Functions (Admin SDK) and bypass rules.
+      allow read:   if isSignedIn();
       allow create: if isSuperAdmin()
                     || (isSignedIn()
                         && request.resource.data.tenantId == currentTenantId()
@@ -448,7 +451,10 @@ service cloud.firestore {
       allow create: if isProfessionalUser()
         && request.resource.data.requesterProfessionalId == request.auth.uid
         && request.resource.data.tenantId == currentTenantId()
-        && request.resource.data.companyId == currentCompanyId()
+        && (
+             request.resource.data.companyId == currentCompanyId()
+             || request.resource.data.companyId in currentUser().get('associatedCompanyIds', [])
+           )
         && request.resource.data.status == "pending"
         && request.resource.data.amount is number
         && request.resource.data.amount > 0;

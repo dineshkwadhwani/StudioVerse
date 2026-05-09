@@ -4,6 +4,31 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (May 9, 2026) — Firestore rules + UI: multi-company coin requests
+
+Status:
+
+- Applied to `studioverse-test` (`firebase deploy --only firestore:rules`).
+- **Pending for `studioverse-prod`**.
+
+Problem:
+
+- A coach can be associated to multiple companies, but the coin-request flow only allowed picking the single primary `associatedCompanyId`. Coaches with two companies had no way to direct the request to the secondary one.
+
+Changes:
+
+- `src/services/manage-users.service.ts` — added optional `associatedCompanyIds?: string[]` to `ManagedUserRecord` and the doc mapper. Backwards compatible: legacy users keep `associatedCompanyId` as primary; the array is treated as additional memberships.
+- `src/modules/wallet/pages/RequestCoinsPage.tsx` — loads `associatedCompanyId` plus all entries of `associatedCompanyIds`, dedupes, resolves each company's display name, and renders a dropdown when there are 2+ options. Single-company coaches keep the existing disabled-input UX.
+- `firestore.rules` → `coinRequests` create — accepts `companyId == currentCompanyId()` *or* `companyId in currentUser().associatedCompanyIds`. The read/update arms already permit company actors via `resource.data.companyId == request.auth.uid`, so no change there.
+
+**Code change requires app rebuild/redeploy** for the request-coins UI changes.
+
+Production deploy steps:
+
+1. `firebase use studioverse-prod`.
+2. `firebase deploy --only firestore:rules`.
+3. Smoke test: as a coach with `associatedCompanyIds = [companyA, companyB]`, open Request Coins → dropdown should show both → submitting against either should succeed and show up in that company's review modal.
+
 ## Latest rollout update (May 9, 2026) — Firestore rules fix: walletTransactions read for coin-request modal
 
 Status:

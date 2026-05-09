@@ -354,7 +354,7 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
     }
 
     if (creator.role === "professional" && targetUserType !== "individual") {
-      setError(`${professionalLabel} can create only ${individualLabel} users.`);
+      setError(`${professionalLabel} can create only ${individualLabel} users. [page creator.role=${creator.role} target=${targetUserType}]`);
       return;
     }
 

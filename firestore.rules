@@ -242,6 +242,19 @@ service cloud.firestore {
                          && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
                          && request.resource.data.availableCoins <= resource.data.availableCoins
                          && request.resource.data.utilizedCoins >= resource.data.utilizedCoins
+                         && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']))
+                    // Company-credit arm: company user crediting (transferring coins to)
+                    // an associated coach's wallet. Only availableCoins may go up;
+                    // totalIssuedCoins and utilizedCoins must stay the same so balances
+                    // cannot be minted out of thin air on the recipient side.
+                    || (isCompanyUser() && !isTreasuryWallet(walletId) &&
+                         resource.data.associatedCompanyId == currentCompanyId()
+                         && resource.data.userId != request.auth.uid
+                         && resource.data.userId != currentUserIdValue()
+                         && resource.data.userId != currentUserUidValue()
+                         && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
+                         && request.resource.data.utilizedCoins == resource.data.utilizedCoins
+                         && request.resource.data.availableCoins >= resource.data.availableCoins
                          && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']));
       allow delete: if false;
     }
@@ -281,7 +294,18 @@ service cloud.firestore {
                              || request.resource.data.walletId.matches(".*::" + request.auth.uid)
                              || request.resource.data.walletId.matches(".*::" + currentUserIdValue())
                              || request.resource.data.walletId.matches(".*::" + currentUserUidValue())
-                           ));
+                           ))
+                    // Company-credit transfer ledger: company user records the
+                    // matching "sent"/"received" pair when crediting a coach.
+                    // createdBy must be the company user; transferred coin amount
+                    // must be positive.
+                    || (isCompanyUser()
+                        && request.resource.data.tenantId == currentTenantId()
+                        && (request.resource.data.transactionType == "sent"
+                            || request.resource.data.transactionType == "received")
+                        && request.resource.data.coins is number
+                        && request.resource.data.coins > 0
+                        && isActorId(request.resource.data.createdBy));
       allow update: if isSuperAdmin();
       allow delete: if false;
     }
@@ -313,7 +337,13 @@ service cloud.firestore {
     // ── Assessment Reports ─────────────────────────────────────────────────
     match /assessmentReports/{reportId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || (isSignedIn()
+                        && exists(/databases/$(database)/documents/assignments/$(resource.data.assignmentId))
+                        && (
+                          get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assigneeId == request.auth.uid
+                          || get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assignerId == request.auth.uid
+                        ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
       allow delete: if false;

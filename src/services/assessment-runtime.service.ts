@@ -133,10 +133,13 @@ export async function saveAssessmentCompletion(
   const reportRef = doc(collection(db, "assessmentReports"));
   const assignmentRef = doc(db, "assignments", args.assignment.id);
 
+  const completingUid = auth.currentUser?.uid;
+  const reportUserId = completingUid || args.assignment.assigneeId;
+
   const attemptDoc: Omit<AssessmentAttemptRecord, "id"> = {
     assessmentId: args.assessment.id,
     tenantId: args.assignment.tenantId,
-    userId: args.assignment.assigneeId,
+    userId: reportUserId,
     assignmentId: args.assignment.id,
     questionsServed: args.questionsServed,
     answersSubmitted: args.answersSubmitted,
@@ -155,7 +158,7 @@ export async function saveAssessmentCompletion(
     assessmentId: args.assessment.id,
     attemptId: attemptRef.id,
     tenantId: args.assignment.tenantId,
-    userId: args.assignment.assigneeId,
+    userId: reportUserId,
     assignmentId: args.assignment.id,
     reportStyle: args.reportStyle,
     aiProvider: args.aiProvider,
@@ -193,15 +196,9 @@ export async function getLatestAssessmentReportByAssignmentId(
   assignmentId: string
 ): Promise<AssessmentReportRecord | null> {
   try {
-    const currentUid = auth.currentUser?.uid;
-    const reportQuery = currentUid
-      ? query(
-          collection(db, "assessmentReports"),
-          where("assignmentId", "==", assignmentId),
-          where("userId", "==", currentUid)
-        )
-      : query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId));
-    const reportSnap = await getDocs(reportQuery);
+    const reportSnap = await getDocs(
+      query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId))
+    );
 
     if (reportSnap.empty) {
       return null;

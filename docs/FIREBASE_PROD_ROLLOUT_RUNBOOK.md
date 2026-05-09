@@ -4,6 +4,62 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (May 9, 2026) — Firestore rules fix: company → coach credit transfer
+
+Status:
+
+- Applied to `studioverse-test` (`firebase deploy --only firestore:rules`).
+- **Pending for `studioverse-prod`**.
+
+Problem:
+
+- Company users approving a coach (professional) coin request hit `permission-denied` inside `transferCoins()`.
+- Two rule violations:
+  1. `wallets` update rule only allowed *spend-like* moves (`availableCoins <= resource.data.availableCoins`). Crediting the recipient coach's wallet (which **increases** `availableCoins`) was rejected.
+  2. `walletTransactions` create rule only allowed `transactionType == "debit"`. The transfer writes a `"sent"` record (company side) and a `"received"` record (coach side), both of which were rejected.
+
+Changes:
+
+- `firestore.rules` → `wallets` update — added a **company-credit arm** that allows a `companyUser` to update a wallet whose `associatedCompanyId == currentCompanyId()` and whose `userId` is **not** the company user themselves. On this arm `availableCoins` may increase, while `totalIssuedCoins` and `utilizedCoins` must remain unchanged (so the company cannot mint coins or fake utilization).
+- `firestore.rules` → `walletTransactions` create — added a clause permitting a `companyUser` to create transactions of type `"sent"` or `"received"` when `tenantId == currentTenantId()`, `coins > 0`, and `createdBy` is the company user. This covers the ledger pair written by the transfer.
+
+Production deploy steps:
+
+1. `firebase use studioverse-prod`.
+2. `firebase deploy --only firestore:rules`.
+3. Smoke test: as a company user, approve a coach's coin request — both wallets should update and two ledger entries (sent + received) should appear.
+
+## Latest rollout update (May 9, 2026) — Firestore rules + service fix: assessment report read access
+
+Status:
+
+- Applied to `studioverse-test` (`firebase deploy --only firestore:rules`).
+- **Pending for `studioverse-prod`** — must be deployed alongside the next app build.
+
+Problem:
+
+- Individual users opening their assessment report saw "Unable to load report" with `permission-denied` on the `assessmentReports` query.
+- Two underlying causes:
+  1. The `assessmentReports` rule required `resource.data.userId == request.auth.uid`, but the client query (`where("assignmentId", "==", X)`) did not constrain `userId`, so Firestore's static rule check rejected the query.
+  2. `report.userId` was being stamped from `assignment.assigneeId`, which for auto-provisioned ("notfound-") assignees is a Firestore-generated ID — not the Firebase Auth UID — so even after the user self-registers, their `auth.uid` never matches.
+
+Changes:
+
+- `firestore.rules` — broadened the `assessmentReports` read rule to additionally allow access when the related `/assignments/{assignmentId}` document's `assigneeId` or `assignerId` equals `request.auth.uid`. Handles legacy reports and coach/manager views.
+- `src/services/assessment-runtime.service.ts` (`saveAssessmentCompletion`) — `report.userId` and `attempt.userId` now stamped with `auth.currentUser.uid` (falling back to `assignment.assigneeId`). Guarantees future reports match the actual completing user's auth UID.
+- Query in `getLatestAssessmentReportByAssignmentId` left as the simple `assignmentId` filter — the broadened rule now allows it.
+
+Production deploy steps:
+
+1. Switch active project: `firebase use studioverse-prod`.
+2. Deploy rules: `firebase deploy --only firestore:rules`.
+3. Push the new app build (Vercel) so the updated `assessment-runtime.service.ts` write logic ships.
+4. Smoke test: an individual user completes an assessment, then opens the report — should load without permission errors.
+
+Notes:
+
+- Legacy reports created before this fix may still have `userId` set to a non-auth ID. Those load via the assignment-based fallback in the new rule.
+
 ## Latest rollout update (May 9, 2026) — Firestore rules fix: individual-to-coach association write
 
 Status:

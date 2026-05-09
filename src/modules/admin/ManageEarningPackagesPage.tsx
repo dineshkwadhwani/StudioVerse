@@ -6,6 +6,7 @@ import CreditPackagesSection from "./CreditPackagesSection";
 import PromotionPackagesSection from "./PromotionPackagesSection";
 import ListingPackagesSection from "./ListingPackagesSection";
 import BotHeroPackagesSection from "./BotHeroPackagesSection";
+import LeadFeesSection from "./LeadFeesSection";
 
 interface ManageEarningPackagesPageProps {
   operatorId: string;
@@ -16,6 +17,7 @@ const TAB_LIST = [
   { key: "promotion", label: "Promotion Packages" },
   { key: "listing", label: "Listing Packages" },
   { key: "bot-hero", label: "Bot Hero" },
+  { key: "lead-fees", label: "Lead Fees" },
 ];
 
 export default function ManageEarningPackagesPage({ operatorId }: ManageEarningPackagesPageProps) {
@@ -26,7 +28,7 @@ export default function ManageEarningPackagesPage({ operatorId }: ManageEarningP
       <section className={styles.heroCard}>
         <h2 className={styles.title}>Manage Earning Packages</h2>
         <p className={styles.contextText}>
-          Create, edit, and manage credit, promotion, and listing earning packages for all tenants. Use the tabs below to switch between package types.
+          Create, edit, and manage credit, promotion, listing, and lead visibility fees for all tenants. Use the tabs below to switch between package types.
         </p>
         <div className={styles.tabBar}>
           {TAB_LIST.map((tab) => (
@@ -46,6 +48,7 @@ export default function ManageEarningPackagesPage({ operatorId }: ManageEarningP
         {activeTab === "promotion" && <PromotionPackagesSection operatorId={operatorId} />}
         {activeTab === "listing" && <ListingPackagesSection operatorId={operatorId} />}
         {activeTab === "bot-hero" && <BotHeroPackagesSection operatorId={operatorId} />}
+        {activeTab === "lead-fees" && <LeadFeesSection operatorId={operatorId} />}
       </section>
     </section>
   );

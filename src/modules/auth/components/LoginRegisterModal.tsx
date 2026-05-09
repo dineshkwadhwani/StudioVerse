@@ -7,7 +7,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
 } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp from '@/services/firebase';
 import { ensureWalletExists } from '@/services/wallet.service';
@@ -277,7 +277,13 @@ export default function LoginRegisterModal({
         if (typeof userData.uid !== 'string' || userData.uid !== result.user.uid) {
           await updateDoc(doc(db, 'users', userDoc.id), {
             uid: result.user.uid,
+            lastLoginAt: serverTimestamp(),
             updatedAt: new Date().toISOString(),
+          });
+        } else {
+          // User already has uid set, just update lastLoginAt
+          await updateDoc(doc(db, 'users', userDoc.id), {
+            lastLoginAt: serverTimestamp(),
           });
         }
 

@@ -33,6 +33,11 @@ export function createProfileFormValues(profile?: UserProfileRecord | null): Use
     return { ...DEFAULT_PROFILE_FORM_VALUES };
   }
 
+  const combinedCertifications = Array.from(new Set([
+    ...profile.certifications,
+    ...profile.coachCredentials,
+  ]));
+
   return {
     fullName: profile.fullName,
     userType: profile.userType,
@@ -58,7 +63,7 @@ export function createProfileFormValues(profile?: UserProfileRecord | null): Use
     websiteUrl: profile.websiteUrl,
     professionalHeadline: profile.professionalHeadline,
     expertiseAreas: (profile.expertiseAreas.length > 0 ? profile.expertiseAreas : profile.coachExpertiseAreas).join(", "),
-    certifications: profile.certifications.join(", "),
+    certifications: combinedCertifications.join(", "),
     coachingExperienceYears: profile.coachingExperienceYears,
     trainingExperienceYears: profile.trainingExperienceYears,
     industryFocus: profile.industryFocus,
@@ -119,6 +124,15 @@ export function validateProfileForm(values: UserProfileFormValues): ProfileFormE
 
   if (values.userType === "company" && !values.companyName.trim()) {
     errors.companyName = "Company name is required for company profiles.";
+  }
+
+  const numberOnlyPattern = /^\d+$/;
+  if (values.coachingExperienceYears.trim() && !numberOnlyPattern.test(values.coachingExperienceYears.trim())) {
+    errors.coachingExperienceYears = "Enter a valid number of years.";
+  }
+
+  if (values.trainingExperienceYears.trim() && !numberOnlyPattern.test(values.trainingExperienceYears.trim())) {
+    errors.trainingExperienceYears = "Enter a valid number of years.";
   }
 
   return errors;

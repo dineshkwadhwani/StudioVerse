@@ -24,6 +24,15 @@ import type {
 
 type ProfileDocData = Record<string, unknown>;
 
+const IMMUTABLE_USER_FIELDS = [
+  "userType",
+  "role",
+  "tenantId",
+  "associatedCompanyId",
+  "associatedProfessionalId",
+  "status",
+] as const;
+
 function normalizeString(value: unknown): string {
   return String(value ?? "").trim();
 }
@@ -129,6 +138,9 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
       profile.currentRole,
       profile.bio,
       profile.linkedinUrl,
+      profile.instagramHandle,
+      profile.youtubeChannel,
+      profile.websiteUrl,
       profile.professionalHeadline,
       profile.expertiseAreas,
       profile.certifications,
@@ -138,8 +150,6 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
       profile.languagesSpoken,
       profile.coachExperienceSummary,
       profile.coachIndustryExperience,
-      profile.coachExpertiseAreas,
-      profile.coachCoachingAreas,
       profile.coachMethods,
       profile.coachTargetAudience,
       profile.coachSessionFormats,
@@ -162,11 +172,16 @@ function getTrackedFieldValues(profile: UserProfileRecord): unknown[] {
     profile.yearsOfExperience,
     profile.currentRole,
     profile.bio,
-    profile.skills,
     profile.linkedinUrl,
+    profile.instagramHandle,
+    profile.youtubeChannel,
+    profile.websiteUrl,
       profile.individualPortalPurpose,
       profile.individualExperienceLevel,
       profile.individualExpertiseLevel,
+      profile.industryFocus,
+      profile.expertiseAreas,
+      profile.languagesSpoken,
       profile.individualDevelopmentAreas,
       profile.individualLearningPreferences,
       profile.individualTargetAudience,
@@ -534,6 +549,21 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
   };
 }
 
+function preserveImmutableUserFields(payload: ProfileDocData, existingData?: ProfileDocData): ProfileDocData {
+  if (!existingData) {
+    return payload;
+  }
+
+  const next = { ...payload };
+  for (const field of IMMUTABLE_USER_FIELDS) {
+    if (field in existingData) {
+      next[field] = existingData[field];
+    }
+  }
+
+  return next;
+}
+
 export function splitProfileList(value: unknown): string[] {
   if (typeof value !== "string") {
     return [];
@@ -615,7 +645,10 @@ export async function saveUserProfile(input: UserProfileSaveInput): Promise<User
   const targetRef: DocumentReference = existingSnapshot
     ? doc(db, "users", existingSnapshot.id)
     : doc(db, "users", input.userId);
-  const payload = toProfileDocData(input, current);
+  const payload = preserveImmutableUserFields(
+    toProfileDocData(input, current),
+    existingSnapshot ? (existingSnapshot.data() as ProfileDocData) : undefined,
+  );
 
   await setDoc(
     targetRef,

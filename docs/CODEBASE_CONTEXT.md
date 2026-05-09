@@ -1,6 +1,6 @@
 # StudioVerse — Codebase Context
 
-**Last updated:** April 2026  
+**Last updated:** May 2026  
 **Purpose:** Authoritative implementation snapshot across all epics. Code is source of truth; this document reflects it.
 
 ---
@@ -283,6 +283,49 @@ One codebase, three studio deployments (Coaching, Training, Recruitment), shared
 
 ---
 
+### E13 — Credit Packages / Earning Packages (~80% complete)
+
+**What is built:**
+
+- SuperAdmin Manage Earning Packages page: `src/modules/admin/ManageEarningPackagesPage.tsx`
+- Tabbed layout: Credit Packages · Promotion Packages · Listing Packages · Bot Hero · Lead Fees
+- Credit package CRUD: `CreditPackagesSection.tsx`
+- Promotion package CRUD: `PromotionPackagesSection.tsx`
+- Listing package CRUD: `ListingPackagesSection.tsx`
+- Bot Hero package CRUD + approval queue: `BotHeroPackagesSection.tsx`, `BotHeroRequestsSection.tsx`
+- Lead Fees tab: `LeadFeesSection.tsx`
+
+**Gaps:**
+
+- No user-facing "buy credits" purchase flow connected to packages
+- No package activation enforced at assignment time
+
+---
+
+### E14 — Revenue Models / Monetization (In Progress)
+
+**What is built:**
+
+- **Treasury wallet model** — per-tenant treasury wallet (`treasury::<tenantId>`), auto top-up, opening balance from `walletConfig.superAdminOpeningCoins`
+- **Creator earnings routing** — `returnDebitsToTreasury` Firestore trigger routes debit returns: platform-owned → treasury, creator-owned non-self → creator wallet, self-assignment → treasury; idempotent via marker document
+- **Company-coach earnings rule** — `resolveEarningsRecipientForUser` in `functions/src/wallets/treasury.ts`: earnings route to associated company wallet if coach has `associatedCompanyId`
+- **Standardised transaction labels** — all wallet transactions use: `registration`, `profile-completion`, `referral`, `assignment`, `promotion`, `manual_offline_allocation`, `cashout`
+- **SuperAdmin dashboard monetization tiles** (May 3, 2026) — action tiles for Promotion/Cashout/Listing/Bot Requests; wallet metric tiles show credit purchase and cashout ratios
+- **Bot Hero feature** — coach pays credits to become bot persona for a period; `botHeroPackages` + `botHeroRequests` Firestore collections; admin approval with date overlap check and refund on denial; bot widget overrides name/avatar when active; `src/modules/admin/BotHeroPackagesSection.tsx`, `BotHeroRequestsSection.tsx`, `src/modules/coaching-studio/PromoteCoachPage.tsx`
+- **Lead Fees configuration** (May 6, 2026) — per-tenant lead toggle and fee config stored in `tenants.leadConfig`; `LeadFeesSection.tsx` in Manage Earning Packages; fields: `enableCompanyLead`, `enableCoachLead`, `enableIndividualLead`, `companyLeadFee`, `coachLeadFee`, `individualLeadFee`; fee 0 = no paid unlock required
+
+**Gaps / TODO:**
+
+- Listing fee charge on public content publish
+- Marketplace commission split (platform % + creator remainder; current is 100% to creator)
+- Lead unlock flow (deduct credits on contact detail access)
+- Creator earnings wallet UI (balance/history for coach/company)
+- Advanced monetization reporting dashboard
+- Cash-out data model + Razorpay payout integration
+- Monetization settings config UI in SuperAdmin portal
+
+---
+
 ## Registration Flow Summary
 
 Two auth implementations exist:
@@ -326,6 +369,8 @@ Single component: `src/modules/admin/SuperAdminPortal.tsx`
 - `events` → `EventsSection` — create/edit events, multi-tenant publish
 - `coins` → `ManageCoinsSection` — issue coins, view wallet summaries
 - `referrals` — view all referrals, filter by tenant/role/type/status, send reminders
+- `earning-packages` → `ManageEarningPackagesPage` — tabbed: Credit Packages, Promotion Packages, Listing Packages, Bot Hero, Lead Fees
+- `approve-requests` → approval queues: Promotion Requests, Bot Hero Requests, Cashout Requests, Listing Requests
 
 **Tenant dropdown on referrals:** Added April 2026. Loads tenants via `loadTenants()` when referrals menu activates. Passes `tenantId` to `listAllReferrals()`.
 

@@ -43,7 +43,14 @@ function resolveAdminApp() {
   );
 }
 
-const adminApp = resolveAdminApp();
+let adminApp: any;
+try {
+  adminApp = resolveAdminApp();
+} catch (err) {
+  console.warn("⚠️ Firebase Admin initialization failed (this is OK for dev):", err);
+  // Return a dummy app in dev mode to allow server to continue
+  adminApp = null;
+}
 
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
+export const adminAuth = adminApp ? getAuth(adminApp) : null;
+export const adminDb = adminApp ? getFirestore(adminApp) : null;

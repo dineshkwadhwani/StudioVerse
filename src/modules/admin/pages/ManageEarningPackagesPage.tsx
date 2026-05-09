@@ -1,0 +1,56 @@
+"use client";
+import { useState } from "react";
+import styles from "./ManageEarningPackagesPage.module.css";
+import CreditPackagesSection from "../CreditPackagesSection";
+import PromotionPackagesSection from "../PromotionPackagesSection";
+import ListingPackagesSection from "../ListingPackagesSection";
+import LeadFeesSection from "../LeadFeesSection";
+import BotHeroPackagesSection from "../BotHeroPackagesSection";
+
+const TAB_LIST = [
+  { key: "credit", label: "Credit Packages" },
+  { key: "promotion", label: "Promotion Packages" },
+  { key: "listing", label: "Listing Packages" },
+  { key: "bot-hero", label: "Bot Hero" },
+  { key: "lead-fees", label: "Lead Fees" },
+];
+
+interface ManageEarningPackagesPageProps {
+  operatorId?: string;
+}
+
+export default function ManageEarningPackagesPage({ operatorId = "system" }: ManageEarningPackagesPageProps) {
+  const [activeTab, setActiveTab] = useState("credit");
+
+  return (
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <section className={styles.heroCard}>
+          <h1 className={styles.title}>Manage Earning Packages</h1>
+          <p className={styles.contextText}>
+            Create, edit, and manage credit, promotion, listing, and lead visibility fees for all tenants. Use the tabs below to switch between package types.
+          </p>
+          <div className={styles.tabs}>
+            {TAB_LIST.map((tab) => (
+              <button
+                key={tab.key}
+                className={activeTab === tab.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
+                onClick={() => setActiveTab(tab.key)}
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className={styles.contentCard}>
+          {activeTab === "credit" && <CreditPackagesSection operatorId={operatorId} />}
+          {activeTab === "promotion" && <PromotionPackagesSection operatorId={operatorId} />}
+          {activeTab === "listing" && <ListingPackagesSection operatorId={operatorId} />}
+          {activeTab === "bot-hero" && <BotHeroPackagesSection operatorId={operatorId} />}
+          {activeTab === "lead-fees" && <LeadFeesSection operatorId={operatorId} />}
+        </section>
+      </div>
+    </main>
+  );
+}

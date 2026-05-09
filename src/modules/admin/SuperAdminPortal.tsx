@@ -132,6 +132,14 @@ type TenantRecord = {
       personaAvatar?: string;
     messageCap?: number;
   };
+  leadConfig?: {
+    enableCompanyLead?: boolean;
+    enableCoachLead?: boolean;
+    enableIndividualLead?: boolean;
+    companyLeadFee?: number;
+    coachLeadFee?: number;
+    individualLeadFee?: number;
+  };
   activationChecklist?: {
     mailConfigReady?: boolean;
     walletConfigReady?: boolean;
@@ -195,6 +203,15 @@ type TenantBotFormState = {
   messageCap: number;
 };
 
+type TenantLeadFormState = {
+  enableCompanyLead: boolean;
+  enableCoachLead: boolean;
+  enableIndividualLead: boolean;
+  companyLeadFee: number;
+  coachLeadFee: number;
+  individualLeadFee: number;
+};
+
 type TenantFormState = {
   tenantId: string;
   tenantName: string;
@@ -205,6 +222,7 @@ type TenantFormState = {
   walletConfig: TenantWalletFormState;
   mailConfig: TenantMailFormState;
   botConfig: TenantBotFormState;
+  leadConfig: TenantLeadFormState;
   activationChecklist: {
     mailConfigReady: boolean;
     walletConfigReady: boolean;
@@ -356,6 +374,14 @@ const EMPTY_TENANT_FORM: TenantFormState = {
     personaName: "",
       personaAvatar: "",
     messageCap: 5,
+  },
+  leadConfig: {
+    enableCompanyLead: false,
+    enableCoachLead: false,
+    enableIndividualLead: false,
+    companyLeadFee: 0,
+    coachLeadFee: 0,
+    individualLeadFee: 0,
   },
   activationChecklist: {
     mailConfigReady: false,
@@ -1227,6 +1253,14 @@ export default function SuperAdminPortal() {
           personaAvatar: target.botConfig?.personaAvatar ?? "",
         messageCap: target.botConfig?.messageCap ?? 5,
       },
+      leadConfig: {
+        enableCompanyLead: target.leadConfig?.enableCompanyLead ?? false,
+        enableCoachLead: target.leadConfig?.enableCoachLead ?? false,
+        enableIndividualLead: target.leadConfig?.enableIndividualLead ?? false,
+        companyLeadFee: Math.max(0, Math.floor(Number(target.leadConfig?.companyLeadFee ?? 0))),
+        coachLeadFee: Math.max(0, Math.floor(Number(target.leadConfig?.coachLeadFee ?? 0))),
+        individualLeadFee: Math.max(0, Math.floor(Number(target.leadConfig?.individualLeadFee ?? 0))),
+      },
       activationChecklist: {
         mailConfigReady: target.activationChecklist?.mailConfigReady ?? false,
         walletConfigReady: target.activationChecklist?.walletConfigReady ?? false,
@@ -1510,6 +1544,20 @@ export default function SuperAdminPortal() {
           personaName: tenantForm.botConfig.personaName.trim(),
                     personaAvatar: tenantForm.botConfig.personaAvatar.trim(),
           messageCap: Math.max(1, Math.min(20, tenantForm.botConfig.messageCap)),
+        },
+        leadConfig: {
+          enableCompanyLead: tenantForm.leadConfig.enableCompanyLead,
+          enableCoachLead: tenantForm.leadConfig.enableCoachLead,
+          enableIndividualLead: tenantForm.leadConfig.enableIndividualLead,
+          companyLeadFee: tenantForm.leadConfig.enableCompanyLead
+            ? Math.max(0, Math.floor(tenantForm.leadConfig.companyLeadFee))
+            : 0,
+          coachLeadFee: tenantForm.leadConfig.enableCoachLead
+            ? Math.max(0, Math.floor(tenantForm.leadConfig.coachLeadFee))
+            : 0,
+          individualLeadFee: tenantForm.leadConfig.enableIndividualLead
+            ? Math.max(0, Math.floor(tenantForm.leadConfig.individualLeadFee))
+            : 0,
         },
         activationChecklist: {
           mailConfigReady: tenantForm.activationChecklist.mailConfigReady,
@@ -3097,6 +3145,66 @@ export default function SuperAdminPortal() {
                     onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, messageCap: Number(e.target.value) } }))}
                   />
                 </div>
+              </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Leads</p>
+              <p className={styles.subtitle}>
+                Enable lead types for this tenant. Lead fees are managed from the Lead Fees tab in Manage Earning Packages.
+              </p>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.leadConfig.enableCompanyLead}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        leadConfig: {
+                          ...prev.leadConfig,
+                          enableCompanyLead: e.target.checked,
+                          companyLeadFee: e.target.checked ? prev.leadConfig.companyLeadFee : 0,
+                        },
+                      }))
+                    }
+                  />
+                  Enable Company Lead
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.leadConfig.enableCoachLead}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        leadConfig: {
+                          ...prev.leadConfig,
+                          enableCoachLead: e.target.checked,
+                          coachLeadFee: e.target.checked ? prev.leadConfig.coachLeadFee : 0,
+                        },
+                      }))
+                    }
+                  />
+                  Enable Coach Lead
+                </label>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.leadConfig.enableIndividualLead}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        leadConfig: {
+                          ...prev.leadConfig,
+                          enableIndividualLead: e.target.checked,
+                          individualLeadFee: e.target.checked ? prev.leadConfig.individualLeadFee : 0,
+                        },
+                      }))
+                    }
+                  />
+                  Enable Individual Lead
+                </label>
               </div>
             </section>
 

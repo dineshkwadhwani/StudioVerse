@@ -22,13 +22,19 @@ import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import {
   AVAILABILITY_OPTIONS,
+  COACH_PURPOSE_OPTIONS,
+  COACH_OUTCOME_FOCUS_GROUPS,
   COACHING_METHOD_OPTIONS,
+  COMPANY_PURPOSE_OPTIONS,
   COMPETENCY_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
   EXPERIENCE_YEARS_OPTIONS,
   EXPERTISE_LEVEL_OPTIONS,
   FIELD_OF_STUDY_OPTIONS,
   HIGHEST_DEGREE_OPTIONS,
+  INDIVIDUAL_CHALLENGES_OPTIONS,
+  INDIVIDUAL_IDENTITY_OPTIONS,
+  INDIVIDUAL_PURPOSE_OPTIONS,
   INDUSTRY_OPTIONS,
   LANGUAGE_OPTIONS,
   PURPOSE_OPTIONS,
@@ -174,9 +180,51 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
     });
   }
 
+  // The order here must match the order fields appear in the form DOM.
+  const ERROR_FIELD_ORDER: (keyof typeof errors)[] = [
+    "email",
+    "city",
+    "companyName",
+    "coachingExperienceYears",
+    "trainingExperienceYears",
+    "linkedinUrl",
+    "youtubeChannel",
+    "websiteUrl",
+    "profilePhotoUrl",
+  ];
+
+  function scrollToFirstError(nextErrors: ProfileFormErrors) {
+    if (typeof window === "undefined") return;
+
+    const firstKey = ERROR_FIELD_ORDER.find((key) => Boolean(nextErrors[key]));
+    if (!firstKey) return;
+
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById(`profile-field-${firstKey}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus({ preventScroll: true });
+    });
+  }
+
   function updateField<Key extends keyof UserProfileFormValues>(field: Key, value: UserProfileFormValues[Key]) {
     setFormValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
+    setPageError("");
+    setInfo("");
+  }
+
+  const URL_FIELDS: (keyof UserProfileFormValues)[] = ["linkedinUrl", "youtubeChannel", "websiteUrl", "profilePhotoUrl"];
+
+  function updateUrlField(field: keyof UserProfileFormValues, value: string) {
+    const trimmed = value.trim();
+    const isValidUrl = !trimmed || /^https?:\/\//i.test(trimmed);
+    setFormValues((current) => ({ ...current, [field]: value }));
+    setErrors((current) => ({
+      ...current,
+      [field]: trimmed && !isValidUrl ? "Enter a valid URL starting with http:// or https://" : undefined,
+      form: undefined,
+    }));
     setPageError("");
     setInfo("");
   }
@@ -186,7 +234,6 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
     const nextValues = currentValues.includes(option)
       ? currentValues.filter((item) => item !== option)
       : [...currentValues, option];
-
     updateField(field, joinMultiSelectValue(nextValues) as UserProfileFormValues[keyof UserProfileFormValues]);
   }
 
@@ -201,6 +248,7 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
   ) {
     return (
       <div className={styles.multiSelectField}>
+        <small className={styles.multiSelectHelper}>{helperText}</small>
         <div className={styles.chipGroup}>
           {options.map((option) => {
             const checked = isMultiSelectChecked(field, option);
@@ -216,7 +264,38 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
             );
           })}
         </div>
-        <small>{helperText}</small>
+      </div>
+    );
+  }
+
+  function renderGroupedMultiSelect(
+    field: keyof UserProfileFormValues,
+    groups: readonly { title: string; options: readonly string[] }[],
+    helperText: string,
+  ) {
+    return (
+      <div className={styles.multiSelectField}>
+        <small className={styles.multiSelectHelper}>{helperText}</small>
+        {groups.map((group) => (
+          <div key={group.title} className={styles.multiSelectGroup}>
+            <p className={styles.multiSelectGroupTitle}>{group.title}</p>
+            <div className={styles.chipGroup}>
+              {group.options.map((option) => {
+                const checked = isMultiSelectChecked(field, option);
+                return (
+                  <label key={option} className={checked ? styles.chipActive : styles.chip}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleMultiSelectField(field, option)}
+                    />
+                    <span>{option}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -275,7 +354,7 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
       coachTargetAudience: splitProfileList(nextValues.coachTargetAudience),
       coachSessionFormats: selectedServices,
       coachServicesOther,
-      coachCredentials: splitProfileList(nextValues.coachCredentials),
+      coachCredentials: splitProfileList(nextValues.certifications),
       coachOutcomeFocus: nextValues.coachOutcomeFocus,
       coachAvailability: joinMultiSelectValue(splitProfileList(nextValues.coachAvailability)),
       individualPortalPurpose: nextValues.individualPortalPurpose,
@@ -313,6 +392,10 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
     const nextErrors = validateProfileForm(formValues);
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      // Keep validation feedback close to each field to avoid users missing errors in long forms.
+      setPageError("");
+      setInfo("");
+      scrollToFirstError(nextErrors);
       return;
     }
 
@@ -516,13 +599,15 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
               <label className={styles.field}>
                 <span>Email Address</span>
                 <input
+                  id="profile-field-email"
+                  className={errors.email ? styles.inputError : undefined}
                   value={formValues.email}
                   onChange={(event) => updateField("email", event.target.value)}
                   disabled={isEmailLocked}
                   readOnly={isEmailLocked}
                   placeholder={isEmailLocked ? "Email address" : "Enter your email address"}
                 />
-                <small>
+                <small className={errors.email ? styles.fieldError : undefined}>
                   {errors.email
                     ?? (isEmailLocked
                       ? "Identity-controlled and not editable once saved."
@@ -533,21 +618,25 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
               <label className={styles.field}>
                 <span>City</span>
                 <input
+                  id="profile-field-city"
+                  className={errors.city ? styles.inputError : undefined}
                   value={formValues.city}
                   onChange={(event) => updateField("city", event.target.value)}
                   placeholder="Enter your city"
                 />
-                <small>{errors.city ?? "Required before assignments can be enabled."}</small>
+                <small className={errors.city ? styles.fieldError : undefined}>{errors.city ?? "Required before assignments can be enabled."}</small>
               </label>
 
               <label className={styles.field}>
                 <span>Name of Company</span>
                 <input
+                  id="profile-field-companyName"
+                  className={errors.companyName ? styles.inputError : undefined}
                   value={formValues.companyName}
                   onChange={(event) => updateField("companyName", event.target.value)}
                   placeholder={profile.userType === "company" ? "Required for company profiles" : "Optional"}
                 />
-                <small>{errors.companyName ?? (profile.userType === "company" ? "Required for company profiles." : "Add your organization if relevant.")}</small>
+                <small className={errors.companyName ? styles.fieldError : undefined}>{errors.companyName ?? (profile.userType === "company" ? "Required for company profiles." : "Add your organization if relevant.")}</small>
               </label>
             </div>
           </section>
@@ -642,11 +731,13 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
               <label className={styles.field}>
                 <span>LinkedIn URL</span>
                 <input
+                  id="profile-field-linkedinUrl"
+                  className={errors.linkedinUrl ? styles.inputError : undefined}
                   value={formValues.linkedinUrl}
-                  onChange={(event) => updateField("linkedinUrl", event.target.value)}
+                  onChange={(event) => updateUrlField("linkedinUrl", event.target.value)}
                   placeholder="https://linkedin.com/in/..."
                 />
-                <small>{errors.linkedinUrl ?? "Add your public LinkedIn profile if you want to strengthen discoverability."}</small>
+                <small className={errors.linkedinUrl ? styles.fieldError : undefined}>{errors.linkedinUrl ?? "Add your public LinkedIn profile if you want to strengthen discoverability."}</small>
               </label>
               <label className={styles.field}>
                 <span>Instagram Handle</span>
@@ -660,20 +751,24 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
               <label className={styles.field}>
                 <span>YouTube Channel URL</span>
                 <input
+                  id="profile-field-youtubeChannel"
+                  className={errors.youtubeChannel ? styles.inputError : undefined}
                   value={formValues.youtubeChannel}
-                  onChange={(event) => updateField("youtubeChannel", event.target.value)}
+                  onChange={(event) => updateUrlField("youtubeChannel", event.target.value)}
                   placeholder="https://youtube.com/@yourchannel"
                 />
-                <small>{errors.youtubeChannel ?? "Share your YouTube channel if you publish coaching content."}</small>
+                <small className={errors.youtubeChannel ? styles.fieldError : undefined}>{errors.youtubeChannel ?? "Share your YouTube channel if you publish coaching content."}</small>
               </label>
               <label className={styles.field}>
                 <span>Website / Portfolio URL</span>
                 <input
+                  id="profile-field-websiteUrl"
+                  className={errors.websiteUrl ? styles.inputError : undefined}
                   value={formValues.websiteUrl}
-                  onChange={(event) => updateField("websiteUrl", event.target.value)}
+                  onChange={(event) => updateUrlField("websiteUrl", event.target.value)}
                   placeholder="https://example.com"
                 />
-                <small>{errors.websiteUrl ?? "Share your personal site, portfolio, or company page if relevant."}</small>
+                <small className={errors.websiteUrl ? styles.fieldError : undefined}>{errors.websiteUrl ?? "Share your personal site, portfolio, or company page if relevant."}</small>
               </label>
               {profile.userType === "professional" ? (
                 <label className={`${styles.field} ${styles.fieldWide}`}>
@@ -695,17 +790,37 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
             >
               <div className={styles.formGrid}>
                 <label className={styles.field}>
-                  <span>Certifications</span>
+                  <span>Coaching Experience (Years)</span>
+                  <input
+                    id="profile-field-coachingExperienceYears"
+                    className={errors.coachingExperienceYears ? styles.inputError : undefined}
+                    value={formValues.coachingExperienceYears}
+                    onChange={(event) => updateField("coachingExperienceYears", event.target.value)}
+                    placeholder="e.g. 5"
+                    inputMode="numeric"
+                  />
+                  <small className={errors.coachingExperienceYears ? styles.fieldError : undefined}>{errors.coachingExperienceYears ?? "Enter numeric years only."}</small>
+                </label>
+                <label className={styles.field}>
+                  <span>Coach Experience Summary</span>
+                  <input value={formValues.coachExperienceSummary} onChange={(event) => updateField("coachExperienceSummary", event.target.value)} placeholder="e.g. 250+ 1:1 coaching hours" />
+                </label>
+                <label className={styles.field}>
+                  <span>Training Experience (Years)</span>
+                  <input
+                    id="profile-field-trainingExperienceYears"
+                    className={errors.trainingExperienceYears ? styles.inputError : undefined}
+                    value={formValues.trainingExperienceYears}
+                    onChange={(event) => updateField("trainingExperienceYears", event.target.value)}
+                    placeholder="e.g. 3"
+                    inputMode="numeric"
+                  />
+                  <small className={errors.trainingExperienceYears ? styles.fieldError : undefined}>{errors.trainingExperienceYears ?? "Enter numeric years only."}</small>
+                </label>
+                <label className={styles.field}>
+                  <span>Certifications / Credentials</span>
                   <input value={formValues.certifications} onChange={(event) => updateField("certifications", event.target.value)} placeholder="Comma-separated values" />
-                  <small>Formal certificates from institutions (for example ICF ACC/PCC, SHRM, PMP).</small>
-                </label>
-                <label className={styles.field}>
-                  <span>Coaching Experience</span>
-                  <input value={formValues.coachingExperienceYears} onChange={(event) => updateField("coachingExperienceYears", event.target.value)} placeholder="e.g. 5 years" />
-                </label>
-                <label className={styles.field}>
-                  <span>Training Experience</span>
-                  <input value={formValues.trainingExperienceYears} onChange={(event) => updateField("trainingExperienceYears", event.target.value)} placeholder="e.g. 3 years" />
+                  <small>Include certifications, licenses, memberships, and recognized practice affiliations.</small>
                 </label>
                 <label className={styles.field}>
                   <span>Industry Focus</span>
@@ -723,19 +838,6 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
                   </select>
                 </label>
                 <label className={styles.field}>
-                  <span>Coach Experience Summary</span>
-                  <input value={formValues.coachExperienceSummary} onChange={(event) => updateField("coachExperienceSummary", event.target.value)} placeholder="e.g. 250+ 1:1 coaching hours" />
-                </label>
-                <label className={styles.field}>
-                  <span>Primary Industry</span>
-                  <input
-                    value={formValues.industryFocus || formValues.coachPrimaryIndustry}
-                    readOnly
-                    disabled
-                    placeholder="Derived from Industry Focus"
-                  />
-                </label>
-                <label className={styles.field}>
                   <span>Industry Experience</span>
                   <input value={formValues.coachIndustryExperience} onChange={(event) => updateField("coachIndustryExperience", event.target.value)} placeholder="e.g. 12 years" />
                 </label>
@@ -747,21 +849,28 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
                     "Select the coaching methods you actively use.",
                   )}
                 </label>
-                <label className={styles.field}>
-                  <span>Credentials</span>
-                  <input value={formValues.coachCredentials} onChange={(event) => updateField("coachCredentials", event.target.value)} placeholder="ICF PCC, NLP Practitioner" />
-                  <small>Broader credentials like licenses, memberships, and recognized practice affiliations.</small>
+                <label className={`${styles.field} ${styles.fieldWide} ${styles.sectionBlock}`}>
+                  <span>Purpose on Coaching Studio</span>
+                  {renderMultiSelect(
+                    "individualPortalPurpose",
+                    COACH_PURPOSE_OPTIONS,
+                    "Select all purposes that apply to your coaching practice.",
+                  )}
                 </label>
-                <label className={styles.field}>
+                <label className={`${styles.field} ${styles.fieldWide} ${styles.sectionBlock}`}>
                   <span>Outcome Focus</span>
-                  <input value={formValues.coachOutcomeFocus} onChange={(event) => updateField("coachOutcomeFocus", event.target.value)} placeholder="Promotion readiness, leadership confidence" />
+                  {renderGroupedMultiSelect(
+                    "coachOutcomeFocus",
+                    COACH_OUTCOME_FOCUS_GROUPS,
+                    "Select all outcome focus areas relevant to your coaching practice.",
+                  )}
                 </label>
-                <label className={`${styles.field} ${styles.fieldWide}`}>
+                <label className={`${styles.field} ${styles.fieldWide} ${styles.sectionBlock}`}>
                   <span>Availability Preferences</span>
                   {renderMultiSelect(
                     "coachAvailability",
                     AVAILABILITY_OPTIONS,
-                    "Pick all preferred coaching slots (includes US Eastern Time to support international assignments).",
+                    "Choose all availability preferences that apply.",
                   )}
                 </label>
 
@@ -821,14 +930,13 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
               description="Keep your preferences structured so recommendations are more accurate."
             >
               <div className={styles.formGrid}>
-                <label className={styles.field}>
-                  <span>Purpose on StudioVerse</span>
-                  <select value={formValues.individualPortalPurpose} onChange={(event) => updateField("individualPortalPurpose", event.target.value)}>
-                    <option value="">Select your purpose</option>
-                    {PURPOSE_OPTIONS.map((purposeOption) => (
-                      <option key={purposeOption} value={purposeOption}>{purposeOption}</option>
-                    ))}
-                  </select>
+                <label className={`${styles.field} ${styles.fieldWide}`}>
+                  <span>Purpose on Coaching Studio</span>
+                  {renderMultiSelect(
+                    "individualPortalPurpose",
+                    INDIVIDUAL_PURPOSE_OPTIONS,
+                    "Select all purposes that apply to you.",
+                  )}
                 </label>
                 <label className={styles.field}>
                   <span>Experience Level</span>
@@ -868,28 +976,60 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
                   <input value={formValues.individualDevelopmentAreas} onChange={(event) => updateField("individualDevelopmentAreas", event.target.value)} placeholder="Communication, strategic thinking" />
                 </label>
                 <label className={styles.field}>
-                  <span>Learning Preferences</span>
-                  <input value={formValues.individualLearningPreferences} onChange={(event) => updateField("individualLearningPreferences", event.target.value)} placeholder="Hands-on, reflective journaling" />
+                  <span>Learning Preference</span>
+                  <select value={formValues.individualLearningPreferences} onChange={(event) => updateField("individualLearningPreferences", event.target.value)}>
+                    <option value="">Select preferred coaching format</option>
+                    {SERVICE_PROVIDED_OPTIONS.map((serviceOption) => (
+                      <option key={serviceOption} value={serviceOption}>{serviceOption}</option>
+                    ))}
+                  </select>
+                  <small>Choose the coaching format you prefer working in.</small>
                 </label>
                 <label className={styles.field}>
                   <span>Weekly Time Commitment</span>
                   <input value={formValues.individualTimeCommitment} onChange={(event) => updateField("individualTimeCommitment", event.target.value)} placeholder="2-3 hours per week" />
                 </label>
                 <label className={styles.field}>
-                  <span>Preferred Session Format</span>
-                  <input value={formValues.individualPreferredSessionFormat} onChange={(event) => updateField("individualPreferredSessionFormat", event.target.value)} placeholder="1:1 virtual, cohort-based" />
-                </label>
-                <label className={styles.field}>
-                  <span>Target Outcomes</span>
-                  <input value={formValues.individualTargetOutcomes} onChange={(event) => updateField("individualTargetOutcomes", event.target.value)} placeholder="Promotion, confidence, role clarity" />
+                  <span>Your Category</span>
+                  <select value={formValues.individualTargetAudience} onChange={(event) => updateField("individualTargetAudience", event.target.value)}>
+                    <option value="">Select the category that best describes you</option>
+                    {INDIVIDUAL_IDENTITY_OPTIONS.map((identityOption) => (
+                      <option key={identityOption} value={identityOption}>{identityOption}</option>
+                    ))}
+                  </select>
+                  <small>This helps us match you with the right coaches and programs.</small>
                 </label>
                 <label className={`${styles.field} ${styles.fieldWide}`}>
-                  <span>Current Goals</span>
-                  <textarea value={formValues.individualGoals} onChange={(event) => updateField("individualGoals", event.target.value)} placeholder="Describe what you want to achieve in the next 3-6 months." rows={3} />
+                  <span>Purpose on Coaching Studio</span>
+                  {renderMultiSelect(
+                    "individualPortalPurpose",
+                    INDIVIDUAL_PURPOSE_OPTIONS,
+                    "Select all purposes that apply to you.",
+                  )}
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide}`}>
+                  <span>Availability Preferences</span>
+                  {renderMultiSelect(
+                    "coachAvailability",
+                    AVAILABILITY_OPTIONS,
+                    "Select the time slots that work for you.",
+                  )}
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide}`}>
+                  <span>Target Outcomes</span>
+                  {renderGroupedMultiSelect(
+                    "individualTargetOutcomes",
+                    COACH_OUTCOME_FOCUS_GROUPS,
+                    "Select target outcomes you want to work on.",
+                  )}
                 </label>
                 <label className={`${styles.field} ${styles.fieldWide}`}>
                   <span>Current Challenges</span>
-                  <textarea value={formValues.individualCurrentChallenges} onChange={(event) => updateField("individualCurrentChallenges", event.target.value)} placeholder="Describe blockers that coaching or learning should address." rows={3} />
+                  {renderMultiSelect(
+                    "individualCurrentChallenges",
+                    INDIVIDUAL_CHALLENGES_OPTIONS,
+                    "Select the challenges you want coaching to help address.",
+                  )}
                 </label>
 
                 <label className={`${styles.field} ${styles.fieldWide}`}>
@@ -902,20 +1042,11 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
                 </label>
 
                 <label className={`${styles.field} ${styles.fieldWide}`}>
-                  <span>Expertise Areas</span>
+                  <span>Desired Coach&apos;s Expertise Area</span>
                   {renderMultiSelect(
                     "expertiseAreas",
                     COMPETENCY_OPTIONS,
-                    "Select growth areas relevant for matching with coaches.",
-                  )}
-                </label>
-
-                <label className={`${styles.field} ${styles.fieldWide}`}>
-                  <span>Target Audience</span>
-                  {renderMultiSelect(
-                    "individualTargetAudience",
-                    TARGET_AUDIENCE_OPTIONS,
-                    "Select the audience category closest to your context.",
+                    "Select the expertise areas you want your coach to specialise in.",
                   )}
                 </label>
               </div>
@@ -955,6 +1086,46 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
                 <label className={`${styles.field} ${styles.fieldWide}`}>
                   <span>Company Description</span>
                   <textarea value={formValues.companyDescription} onChange={(event) => updateField("companyDescription", event.target.value)} placeholder="Describe the company." rows={4} />
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide} ${styles.sectionBlock}`}>
+                  <span>Purpose on Coaching Studio</span>
+                  {renderMultiSelect(
+                    "individualPortalPurpose",
+                    COMPANY_PURPOSE_OPTIONS,
+                    "Select all purposes that apply to your company.",
+                  )}
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide} ${styles.sectionBlock}`}>
+                  <span>Outcome Focus</span>
+                  {renderGroupedMultiSelect(
+                    "coachOutcomeFocus",
+                    COACH_OUTCOME_FOCUS_GROUPS,
+                    "Select outcome focus areas your company specializes in.",
+                  )}
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide}`}>
+                  <span>Expertise Areas</span>
+                  {renderMultiSelect(
+                    "expertiseAreas",
+                    COMPETENCY_OPTIONS,
+                    "Select expertise areas your company offers.",
+                  )}
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide}`}>
+                  <span>Target Audience</span>
+                  {renderMultiSelect(
+                    "coachTargetAudience",
+                    TARGET_AUDIENCE_OPTIONS,
+                    "Select the audiences your company serves.",
+                  )}
+                </label>
+                <label className={`${styles.field} ${styles.fieldWide}`}>
+                  <span>Services Provided</span>
+                  {renderMultiSelect(
+                    "coachSessionFormats",
+                    SERVICE_PROVIDED_OPTIONS,
+                    "Select all services your company offers.",
+                  )}
                 </label>
               </div>
             </CollapsibleSection>

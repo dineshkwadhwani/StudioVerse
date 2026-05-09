@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
+import { calculateEngagementIndex, type EngagementIndexResult } from "@/services/engagement-index.service";
 import {
   createScopedManagedUser,
   getUserById,
@@ -26,7 +27,7 @@ import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ManageUsersPage.module.css";
 
-type UserRole = StudioUserRole;
+type UserRole = "company" | "professional" | "individual" | "superadmin";
 
 type CreatorProfile = {
   id: string;
@@ -39,7 +40,7 @@ type CreatorProfile = {
 };
 
 function isUserRole(value: unknown): value is UserRole {
-  return value === "company" || value === "professional" || value === "individual";
+  return value === "company" || value === "professional" || value === "individual" || value === "superadmin";
 }
 
 function getInitials(name: string): string {
@@ -102,6 +103,7 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
   const [searchingPhone, setSearchingPhone] = useState(false);
   const [phoneLookupState, setPhoneLookupState] = useState<"idle" | "found" | "not-found">("idle");
   const [phoneLookupMessage, setPhoneLookupMessage] = useState("");
+  const [engagementIndices, setEngagementIndices] = useState<Record<string, EngagementIndexResult>>({});
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
@@ -206,7 +208,10 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
   }
 
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
+  const roleMenuGroups = useMemo(
+    () => getRoleMenuGroups(role === "superadmin" ? "company" : role, { basePath }),
+    [basePath, role]
+  );
   const filteredUsers = useMemo(() => {
     if (scopeFilter === "all") return users;
     return users.filter((u) => u.userType === scopeFilter);
@@ -236,6 +241,34 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
     setEmail("");
     setPhoneE164("");
   }, [targetUserType]);
+
+  // Load engagement indices for superadmin users
+  useEffect(() => {
+    if (role !== "superadmin" || users.length === 0) {
+      return;
+    }
+
+    const loadEngagementIndices = async () => {
+      const newIndices: Record<string, EngagementIndexResult> = {};
+      
+      // Load engagement index for each user in parallel
+      await Promise.all(
+        users.map(async (user) => {
+          try {
+            const index = await calculateEngagementIndex(user.id);
+            newIndices[user.id] = index;
+          } catch (err) {
+            // If engagement calculation fails, just skip it
+            console.error(`Failed to calculate engagement index for user ${user.id}`, err);
+          }
+        })
+      );
+
+      setEngagementIndices(newIndices);
+    };
+
+    loadEngagementIndices();
+  }, [role, users]);
 
   async function handleSearchByPhone() {
     setError("");
@@ -401,11 +434,16 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
               <section className={dashboardStyles.menuPanel}>
                 <div className={dashboardStyles.menuUser}>
                   <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
-                    company: tenantConfig.roles.company,
-                    professional: tenantConfig.roles.professional,
-                    individual: tenantConfig.roles.individual,
-                  })}</p>
+                  <p className={dashboardStyles.menuRole}>
+                    {role === "superadmin" 
+                      ? tenantConfig.roles.superAdmin
+                      : getRoleLabel(role, {
+                          company: tenantConfig.roles.company,
+                          professional: tenantConfig.roles.professional,
+                          individual: tenantConfig.roles.individual,
+                        })
+                    }
+                  </p>
                 </div>
                 {roleMenuGroups.map((group) => (
                   <div key={group.key} className={dashboardStyles.menuGroup}>
@@ -538,19 +576,27 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
               <p className={styles.empty}>No users found in your scope yet.</p>
             ) : (
               <div className={styles.usersList}>
-                {filteredUsers.map((user) => (
-                  <article key={user.id} className={styles.userRow}>
-                    <p className={styles.userName}>{user.fullName}</p>
-                    <p className={styles.userMeta}>Type: {getRoleDisplayLabel(user.userType, tenantConfig)}</p>
-                    <p className={styles.userMeta}>{user.email}</p>
-                    <p className={styles.userMeta}>{user.phoneE164}</p>
-                    {creator?.role === "company" && user.userType === "individual" ? (
-                      <p className={styles.userMeta}>
-                        {`${professionalLabel}: ${coaches.find((coach) => coach.id === user.associatedProfessionalId)?.fullName || "Unassigned"}`}
-                      </p>
-                    ) : null}
-                  </article>
-                ))}
+                {filteredUsers.map((user) => {
+                  const engagementIndex = engagementIndices[user.id];
+                  return (
+                    <article key={user.id} className={styles.userRow}>
+                      <p className={styles.userName}>{user.fullName}</p>
+                      <p className={styles.userMeta}>Type: {getRoleDisplayLabel(user.userType, tenantConfig)}</p>
+                      <p className={styles.userMeta}>{user.email}</p>
+                      <p className={styles.userMeta}>{user.phoneE164}</p>
+                      {creator?.role === "company" && user.userType === "individual" ? (
+                        <p className={styles.userMeta}>
+                          {`${professionalLabel}: ${coaches.find((coach) => coach.id === user.associatedProfessionalId)?.fullName || "Unassigned"}`}
+                        </p>
+                      ) : null}
+                      {role === "superadmin" && engagementIndex ? (
+                        <p className={styles.userMeta}>
+                          {`Engagement: ${engagementIndex.tier === "active-user" ? "🟢 Active" : engagementIndex.tier === "moderate-user" ? "🟡 Moderate" : "⚪ Occasional"} (${engagementIndex.score} points)`}
+                        </p>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>

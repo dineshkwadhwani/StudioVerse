@@ -4,8 +4,9 @@
 }
 
 .tabBar {
-  width: fit-content;
+  width: 100%;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin-bottom: 0;
   padding: 0.3rem;
@@ -80,6 +81,7 @@
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
+  white-space: nowrap;
   font-size: 0.875rem;
   font-weight: 600;
   color: #4f6174;

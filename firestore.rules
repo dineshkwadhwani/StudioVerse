@@ -247,11 +247,12 @@ service cloud.firestore {
                     // an associated coach's wallet. Only availableCoins may go up;
                     // totalIssuedCoins and utilizedCoins must stay the same so balances
                     // cannot be minted out of thin air on the recipient side.
-                    || (isCompanyUser() && !isTreasuryWallet(walletId) &&
-                         resource.data.associatedCompanyId == currentCompanyId()
+                    // Recipient is verified via the user document (wallet docs do not
+                    // store associatedCompanyId).
+                    || (isCompanyUser() && !isTreasuryWallet(walletId)
                          && resource.data.userId != request.auth.uid
-                         && resource.data.userId != currentUserIdValue()
-                         && resource.data.userId != currentUserUidValue()
+                         && exists(/databases/$(database)/documents/users/$(resource.data.userId))
+                         && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid
                          && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
                          && request.resource.data.utilizedCoins == resource.data.utilizedCoins
                          && request.resource.data.availableCoins >= resource.data.availableCoins

@@ -14,20 +14,21 @@ Status:
 Problem:
 
 - Company users approving a coach (professional) coin request hit `permission-denied` inside `transferCoins()`.
-- Two rule violations:
+- Three rule violations:
   1. `wallets` update rule only allowed *spend-like* moves (`availableCoins <= resource.data.availableCoins`). Crediting the recipient coach's wallet (which **increases** `availableCoins`) was rejected.
-  2. `walletTransactions` create rule only allowed `transactionType == "debit"`. The transfer writes a `"sent"` record (company side) and a `"received"` record (coach side), both of which were rejected.
+  2. The previous attempted credit-arm checked `wallet.associatedCompanyId == currentCompanyId()`, but `wallets` documents do not actually carry an `associatedCompanyId` field, so the arm was unreachable. Membership has to be verified through the recipient's user document instead.
+  3. `walletTransactions` create rule only allowed `transactionType == "debit"`. The transfer writes a `"sent"` record (company side) and a `"received"` record (coach side), both of which were rejected.
 
 Changes:
 
-- `firestore.rules` → `wallets` update — added a **company-credit arm** that allows a `companyUser` to update a wallet whose `associatedCompanyId == currentCompanyId()` and whose `userId` is **not** the company user themselves. On this arm `availableCoins` may increase, while `totalIssuedCoins` and `utilizedCoins` must remain unchanged (so the company cannot mint coins or fake utilization).
+- `firestore.rules` → `wallets` update — added a **company-credit arm** that allows a `companyUser` to update a wallet whose owning user (`get(/users/{wallet.userId}).data.associatedCompanyId == request.auth.uid`) is one of their associated coaches. On this arm `availableCoins` may increase, while `totalIssuedCoins` and `utilizedCoins` must remain unchanged (so the company cannot mint coins or fake utilization). The recipient cannot be the company user themselves.
 - `firestore.rules` → `walletTransactions` create — added a clause permitting a `companyUser` to create transactions of type `"sent"` or `"received"` when `tenantId == currentTenantId()`, `coins > 0`, and `createdBy` is the company user. This covers the ledger pair written by the transfer.
 
 Production deploy steps:
 
 1. `firebase use studioverse-prod`.
 2. `firebase deploy --only firestore:rules`.
-3. Smoke test: as a company user, approve a coach's coin request — both wallets should update and two ledger entries (sent + received) should appear.
+3. Smoke test: as a company user, approve a coach's coin request — both wallets should update and two ledger entries (sent + received) should appear, and the `coinRequests` doc should flip to `approved`.
 
 ## Latest rollout update (May 9, 2026) — Firestore rules + service fix: assessment report read access
 

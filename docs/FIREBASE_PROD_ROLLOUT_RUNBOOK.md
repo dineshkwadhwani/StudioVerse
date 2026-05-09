@@ -21,7 +21,8 @@ Problem:
 
 Changes:
 
-- `firestore.rules` → `wallets` update — added a **company-credit arm** that allows a `companyUser` to update a wallet whose owning user (`get(/users/{wallet.userId}).data.associatedCompanyId == request.auth.uid`) is one of their associated coaches. On this arm `availableCoins` may increase, while `totalIssuedCoins` and `utilizedCoins` must remain unchanged (so the company cannot mint coins or fake utilization). The recipient cannot be the company user themselves.
+- `firestore.rules` → `wallets` update — added a **company-credit arm** that allows a `companyUser` to update a wallet whose owning user (`get(/users/{wallet.userId}).data.associatedCompanyId`) matches the company user's `request.auth.uid` / `currentUserIdValue()` / `currentUserUidValue()`. On this arm `availableCoins` may increase, while `totalIssuedCoins` and `utilizedCoins` must remain unchanged (so the company cannot mint coins or fake utilization). The recipient cannot be the company user themselves.
+- `firestore.rules` → `wallets` **read** — same membership check applied to reads. The previous `resource.data.associatedCompanyId == currentCompanyId()` check on wallets was dead (wallet documents don't carry `associatedCompanyId`), which was blocking `transferCoins` from even reading the recipient coach's wallet inside the transaction.
 - `firestore.rules` → `walletTransactions` create — added a clause permitting a `companyUser` to create transactions of type `"sent"` or `"received"` when `tenantId == currentTenantId()`, `coins > 0`, and `createdBy` is the company user. This covers the ledger pair written by the transfer.
 
 Production deploy steps:

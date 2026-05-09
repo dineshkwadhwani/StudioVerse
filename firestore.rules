@@ -216,8 +216,16 @@ service cloud.firestore {
                          walletId.matches(".*::" + currentUserIdValue()) ||
                          walletId.matches(".*::" + currentUserUidValue())
                        ))
-                    || (isCompanyUser() && !isTreasuryWallet(walletId) &&
-                         resource.data.associatedCompanyId == currentCompanyId());
+                    // Company can read wallets of associated coaches/individuals.
+                    // Membership is verified via the user document, since wallet
+                    // docs do not store associatedCompanyId.
+                    || (isCompanyUser() && !isTreasuryWallet(walletId)
+                         && exists(/databases/$(database)/documents/users/$(resource.data.userId))
+                         && (
+                              get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid
+                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserIdValue()
+                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserUidValue()
+                            ));
       allow create: if isSignedIn() && !isTreasuryWallet(walletId);
       allow update: if isSuperAdmin()
                     || (isSignedIn() && !isTreasuryWallet(walletId) && (
@@ -252,7 +260,11 @@ service cloud.firestore {
                     || (isCompanyUser() && !isTreasuryWallet(walletId)
                          && resource.data.userId != request.auth.uid
                          && exists(/databases/$(database)/documents/users/$(resource.data.userId))
-                         && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid
+                         && (
+                              get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid
+                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserIdValue()
+                              || get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentUserUidValue()
+                            )
                          && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
                          && request.resource.data.utilizedCoins == resource.data.utilizedCoins
                          && request.resource.data.availableCoins >= resource.data.availableCoins

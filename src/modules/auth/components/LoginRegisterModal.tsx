@@ -11,7 +11,7 @@ import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/
 import { httpsCallable } from 'firebase/functions';
 import styles from './LoginRegisterModal.module.css';
 import firebaseApp, { functions } from '@/services/firebase';
-import { ensureWalletExists } from '@/services/wallet.service';
+import { ensureWalletExists, issueRegistrationBonusForUser } from '@/services/wallet.service';
 import { saveUserProfile } from '@/services/profile.service';
 import { processReferralJoinForNewUser } from '@/services/referral.service';
 import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
@@ -310,14 +310,28 @@ export default function LoginRegisterModal({
           });
         }
 
-        // Ensure wallet exists (handles both fresh claims and returning users).
-        void ensureWalletExists({
-          userId: result.user.uid,
-          lookupUserIds: [userDocId].filter(Boolean) as string[],
-          tenantId,
-          userType: resolvedRole as WalletUserType,
-          userName: resolvedName,
-        });
+        // Wallet provisioning:
+        // - Fresh claim: issueRegistrationBonus creates the wallet, credits the
+        //   tenant registration bonus, and debits the treasury (idempotent —
+        //   skipped if a registration bonus tx already exists).
+        // - Returning user: CF already created the wallet on first claim; only
+        //   ensure a wallet exists for legacy users that pre-date the invariant.
+        if (claimed && claimed.claimed) {
+          void issueRegistrationBonusForUser({
+            userId: result.user.uid,
+            tenantId,
+          }).catch(() => {
+            // Best-effort. Idempotent CF; safe to retry on next login.
+          });
+        } else {
+          void ensureWalletExists({
+            userId: result.user.uid,
+            lookupUserIds: [userDocId].filter(Boolean) as string[],
+            tenantId,
+            userType: resolvedRole as WalletUserType,
+            userName: resolvedName,
+          });
+        }
 
         sessionStorage.setItem('cs_uid', result.user.uid);
         sessionStorage.setItem('cs_profile_id', userDocId);

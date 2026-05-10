@@ -141,6 +141,15 @@ type TenantRecord = {
     coachLeadFee?: number;
     individualLeadFee?: number;
   };
+  searchConfig?: {
+    enabled?: boolean;
+    programs?: boolean;
+    assessments?: boolean;
+    events?: boolean;
+    professional?: boolean;
+    individual?: boolean;
+    company?: boolean;
+  };
   activationChecklist?: {
     mailConfigReady?: boolean;
     walletConfigReady?: boolean;
@@ -213,6 +222,16 @@ type TenantLeadFormState = {
   individualLeadFee: number;
 };
 
+type TenantSearchFormState = {
+  enabled: boolean;
+  programs: boolean;
+  assessments: boolean;
+  events: boolean;
+  professional: boolean;
+  individual: boolean;
+  company: boolean;
+};
+
 type TenantFormState = {
   tenantId: string;
   tenantName: string;
@@ -224,6 +243,7 @@ type TenantFormState = {
   mailConfig: TenantMailFormState;
   botConfig: TenantBotFormState;
   leadConfig: TenantLeadFormState;
+  searchConfig: TenantSearchFormState;
   activationChecklist: {
     mailConfigReady: boolean;
     walletConfigReady: boolean;
@@ -383,6 +403,15 @@ const EMPTY_TENANT_FORM: TenantFormState = {
     companyLeadFee: 0,
     coachLeadFee: 0,
     individualLeadFee: 0,
+  },
+  searchConfig: {
+    enabled: false,
+    programs: false,
+    assessments: false,
+    events: false,
+    professional: false,
+    individual: false,
+    company: false,
   },
   activationChecklist: {
     mailConfigReady: false,
@@ -1284,6 +1313,15 @@ export default function SuperAdminPortal() {
         coachLeadFee: Math.max(0, Math.floor(Number(target.leadConfig?.coachLeadFee ?? 0))),
         individualLeadFee: Math.max(0, Math.floor(Number(target.leadConfig?.individualLeadFee ?? 0))),
       },
+      searchConfig: {
+        enabled: target.searchConfig?.enabled ?? false,
+        programs: target.searchConfig?.programs ?? false,
+        assessments: target.searchConfig?.assessments ?? false,
+        events: target.searchConfig?.events ?? false,
+        professional: target.searchConfig?.professional ?? false,
+        individual: target.searchConfig?.individual ?? false,
+        company: target.searchConfig?.company ?? false,
+      },
       activationChecklist: {
         mailConfigReady: target.activationChecklist?.mailConfigReady ?? false,
         walletConfigReady: target.activationChecklist?.walletConfigReady ?? false,
@@ -1581,6 +1619,15 @@ export default function SuperAdminPortal() {
           individualLeadFee: tenantForm.leadConfig.enableIndividualLead
             ? Math.max(0, Math.floor(tenantForm.leadConfig.individualLeadFee))
             : 0,
+        },
+        searchConfig: {
+          enabled: tenantForm.searchConfig.enabled,
+          programs: tenantForm.searchConfig.enabled && tenantForm.searchConfig.programs,
+          assessments: tenantForm.searchConfig.enabled && tenantForm.searchConfig.assessments,
+          events: tenantForm.searchConfig.enabled && tenantForm.searchConfig.events,
+          professional: tenantForm.searchConfig.enabled && tenantForm.searchConfig.professional,
+          individual: tenantForm.searchConfig.enabled && tenantForm.searchConfig.individual,
+          company: tenantForm.searchConfig.enabled && tenantForm.searchConfig.company,
         },
         activationChecklist: {
           mailConfigReady: tenantForm.activationChecklist.mailConfigReady,
@@ -3236,6 +3283,112 @@ export default function SuperAdminPortal() {
                   Enable Individual Lead
                 </label>
               </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Search & Messages</p>
+              <p className={styles.subtitle}>
+                Master toggle for the universal Search and Messages features. When off, the
+                Search and Messages menu items are hidden across all studio menus. When on,
+                only the items checked below appear as searchable categories.
+              </p>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.searchConfig.enabled}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        searchConfig: { ...prev.searchConfig, enabled: e.target.checked },
+                      }))
+                    }
+                  />
+                  Enable Search
+                </label>
+              </div>
+              {tenantForm.searchConfig.enabled ? (
+                <div className={styles.radioRow} style={{ marginTop: 8 }}>
+                  <label className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={tenantForm.searchConfig.programs}
+                      onChange={(e) =>
+                        setTenantForm((prev) => ({
+                          ...prev,
+                          searchConfig: { ...prev.searchConfig, programs: e.target.checked },
+                        }))
+                      }
+                    />
+                    Programs
+                  </label>
+                  <label className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={tenantForm.searchConfig.assessments}
+                      onChange={(e) =>
+                        setTenantForm((prev) => ({
+                          ...prev,
+                          searchConfig: { ...prev.searchConfig, assessments: e.target.checked },
+                        }))
+                      }
+                    />
+                    Assessments
+                  </label>
+                  <label className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={tenantForm.searchConfig.events}
+                      onChange={(e) =>
+                        setTenantForm((prev) => ({
+                          ...prev,
+                          searchConfig: { ...prev.searchConfig, events: e.target.checked },
+                        }))
+                      }
+                    />
+                    Events
+                  </label>
+                  <label className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={tenantForm.searchConfig.professional}
+                      onChange={(e) =>
+                        setTenantForm((prev) => ({
+                          ...prev,
+                          searchConfig: { ...prev.searchConfig, professional: e.target.checked },
+                        }))
+                      }
+                    />
+                    Professional
+                  </label>
+                  <label className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={tenantForm.searchConfig.individual}
+                      onChange={(e) =>
+                        setTenantForm((prev) => ({
+                          ...prev,
+                          searchConfig: { ...prev.searchConfig, individual: e.target.checked },
+                        }))
+                      }
+                    />
+                    Individual
+                  </label>
+                  <label className={styles.radioPill}>
+                    <input
+                      type="checkbox"
+                      checked={tenantForm.searchConfig.company}
+                      onChange={(e) =>
+                        setTenantForm((prev) => ({
+                          ...prev,
+                          searchConfig: { ...prev.searchConfig, company: e.target.checked },
+                        }))
+                      }
+                    />
+                    Company
+                  </label>
+                </div>
+              ) : null}
             </section>
 
             <div className={styles.actions}>

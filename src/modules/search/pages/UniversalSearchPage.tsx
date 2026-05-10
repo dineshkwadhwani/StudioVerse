@@ -48,11 +48,30 @@ export function getAllowedCategories(role: StudioUserRole | null): SearchCategor
   return base;
 }
 
+function getTenantEnabledCategories(
+  searchConfig: TenantConfig["searchConfig"] | undefined,
+): SearchCategory[] {
+  if (!searchConfig?.enabled) return [];
+  const enabled: SearchCategory[] = [];
+  if (searchConfig.programs) enabled.push("programs");
+  if (searchConfig.assessments) enabled.push("assessments");
+  if (searchConfig.events) enabled.push("events");
+  if (searchConfig.professional) enabled.push("coaches");
+  if (searchConfig.company) enabled.push("companies");
+  if (searchConfig.individual) enabled.push("individuals");
+  return enabled;
+}
+
 export default function UniversalSearchPage({ tenantConfig }: Props) {
   const { session, loading, error } = useAuthedSession({ tenantConfig });
   const role = session?.role ?? null;
 
-  const allowedCategories = useMemo(() => getAllowedCategories(role), [role]);
+  const allowedCategories = useMemo(() => {
+    const roleAllowed = getAllowedCategories(role);
+    const tenantEnabled = new Set(getTenantEnabledCategories(tenantConfig.searchConfig));
+    return roleAllowed.filter((cat) => tenantEnabled.has(cat));
+  }, [role, tenantConfig.searchConfig]);
+  const searchEnabled = tenantConfig.searchConfig?.enabled === true;
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<SearchCategory>>(() => new Set(allowedCategories));
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -361,7 +380,13 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
         {loading ? <p>Loading…</p> : null}
         {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
 
-        {!loading && !error && session ? (
+        {!loading && !error && session && !searchEnabled ? (
+          <p style={{ color: "#888", marginTop: 16 }}>
+            Search is not available on this tenant.
+          </p>
+        ) : null}
+
+        {!loading && !error && session && searchEnabled ? (
           <>
             <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
               <input

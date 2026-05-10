@@ -12,7 +12,7 @@ import { getAssignmentsForAssigneeContext } from "@/services/assignment.service"
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "../menuConfig";
+import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "../menuConfig";
 import type { StudioUserRole, StudioMenuItem } from "../menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "../CoachingLandingPage.module.css";
@@ -36,7 +36,7 @@ function isAssignmentAction(key: string): boolean {
 }
 
 function getInitialMenuItem(role: UserRole): StudioMenuItem | null {
-  const items = getRoleMenuItems(role, { basePath: `/${coachingTenantConfig.id}` });
+  const items = getRoleMenuItems(role, { basePath: `/${coachingTenantConfig.id}`, searchConfig: searchMenuConfigFromTenant(coachingTenantConfig) });
   return items[0] ?? null;
 }
 
@@ -155,7 +155,7 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
     }
   }, [basePath, router, tenantId]);
 
-  const menuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const menuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
 
   const userInitials = useMemo(() => getInitials(name), [name]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";

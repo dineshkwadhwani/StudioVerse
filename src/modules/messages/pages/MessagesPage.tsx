@@ -101,6 +101,12 @@ export default function MessagesPage({ tenantConfig }: Props) {
       />
       <main style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
         <h1>Messages</h1>
+        {tenantConfig.searchConfig?.enabled !== true ? (
+          <p style={{ color: "#888", marginTop: 16 }}>
+            Messages are not available on this tenant.
+          </p>
+        ) : (
+        <>
         <div style={{ display: "flex", gap: 12, marginBottom: 16, borderBottom: "1px solid #e5e5e5" }}>
           <TabButton
             active={tab === "inbox"}
@@ -134,6 +140,8 @@ export default function MessagesPage({ tenantConfig }: Props) {
             </ul>
           )
         ) : null}
+        </>
+        )}
       </main>
 
       {selectedMessage ? (

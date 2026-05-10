@@ -20,7 +20,7 @@ import {
 } from "@/services/manage-users.service";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -209,8 +209,8 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
 
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuGroups = useMemo(
-    () => getRoleMenuGroups(role === "superadmin" ? "company" : role, { basePath }),
-    [basePath, role]
+    () => getRoleMenuGroups(role === "superadmin" ? "company" : role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }),
+    [basePath, role, tenantConfig]
   );
   const filteredUsers = useMemo(() => {
     if (scopeFilter === "all") return users;

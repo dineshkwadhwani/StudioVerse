@@ -11,7 +11,7 @@ import { getWalletForUserContext, listWalletTransactionsForUserContext } from "@
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "./menuConfig";
 import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
@@ -142,7 +142,7 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
   const isBusinessWalletRole = role === "company" || role === "professional";

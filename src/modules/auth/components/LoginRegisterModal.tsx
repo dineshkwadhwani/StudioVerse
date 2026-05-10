@@ -7,9 +7,10 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
 } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import styles from './LoginRegisterModal.module.css';
-import firebaseApp from '@/services/firebase';
+import firebaseApp, { functions } from '@/services/firebase';
 import { ensureWalletExists } from '@/services/wallet.service';
 import { saveUserProfile } from '@/services/profile.service';
 import { processReferralJoinForNewUser } from '@/services/referral.service';
@@ -17,6 +18,15 @@ import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config
 import type { WalletUserType } from '@/types/wallet';
 import type { TenantConfig } from '@/types/tenant';
 import { persistAuthSessionCookies } from "@/lib/auth/sessionCookies";
+
+type ClaimInvitationResult =
+  | { claimed: false; reason: string }
+  | { claimed: true; userId: string; user: Record<string, unknown> };
+
+const claimInvitationCallable = httpsCallable<
+  { tenantId: string; phoneE164: string },
+  ClaimInvitationResult
+>(functions, "claimInvitation");
 
 type Phase = 'login-phone' | 'login-otp' | 'register-role' | 'register-details' | 'success';
 type UserRole = 'company' | 'professional' | 'individual';
@@ -249,64 +259,74 @@ export default function LoginRegisterModal({
 
       logFlow('verify-otp:success', { phone: phoneE164 });
 
-      // Check if user exists in Firestore
-      const usersRef = collection(db, 'users');
-      const q = query(
-        usersRef,
-        where('phoneE164', '==', phoneE164),
-        where('tenantId', '==', tenantId)
-      );
-      const snapshot = await getDocs(q);
+      // Step 1: try to claim a pending invitation matching this phone+tenant.
+      // The Cloud Function uses Admin SDK and atomically creates users/{auth.uid}
+      // from the invitation, then rewrites references.
+      let claimed: ClaimInvitationResult | null = null;
+      try {
+        const claimResp = await claimInvitationCallable({ tenantId, phoneE164 });
+        claimed = claimResp.data;
+      } catch (claimErr) {
+        logFlow('verify-otp:claim-error', { message: (claimErr as Error).message });
+      }
 
-      if (snapshot.empty) {
-        // User is authenticated in Firebase Auth but not registered in tenant profile data.
-        // Stay on login and offer explicit Register action.
+      let userDocId: string | null = null;
+      let userData: Record<string, unknown> | null = null;
+
+      if (claimed && claimed.claimed) {
+        userDocId = claimed.userId;
+        userData = claimed.user;
+        logFlow('verify-otp:claimed-invitation', { userId: claimed.userId });
+      } else {
+        // Step 2: returning user — fetch their already-claimed users/{auth.uid} doc.
+        const directSnap = await getDoc(doc(db, 'users', result.user.uid));
+        if (directSnap.exists()) {
+          userDocId = directSnap.id;
+          userData = directSnap.data() as Record<string, unknown>;
+        }
+      }
+
+      if (!userDocId || !userData) {
+        // Authenticated in Firebase Auth but no profile — offer Register.
         logFlow('verify-otp:new-user');
         setUserNotFound(true);
         setInfo('User does not exist. Register now to continue.');
       } else {
-        // Existing user - redirect to dashboard
-        const userDoc = snapshot.docs[0];
-        const userData = userDoc.data() as Record<string, unknown>;
         const resolvedRole = resolveUserRole(userData);
-        const resolvedName = typeof userData.name === 'string' ? userData.name : 'User';
+        const resolvedName = typeof userData.name === 'string'
+          ? userData.name
+          : (typeof userData.fullName === 'string' ? userData.fullName : 'User');
         const resolvedEmail = typeof userData.email === 'string' ? userData.email : '';
         const resolvedPhone = typeof userData.phoneE164 === 'string' ? userData.phoneE164 : phoneE164;
         logFlow('verify-otp:existing-user', { role: resolvedRole, name: resolvedName });
 
-        if (typeof userData.uid !== 'string' || userData.uid !== result.user.uid) {
-          await updateDoc(doc(db, 'users', userDoc.id), {
+        // For returning users that pre-date the uid invariant, mirror lastLoginAt.
+        // Claim flow already wrote the doc fresh; this is a no-op for fresh claims.
+        if (userDocId === result.user.uid) {
+          await updateDoc(doc(db, 'users', userDocId), {
             uid: result.user.uid,
             lastLoginAt: serverTimestamp(),
             updatedAt: new Date().toISOString(),
           });
-        } else {
-          // User already has uid set, just update lastLoginAt
-          await updateDoc(doc(db, 'users', userDoc.id), {
-            lastLoginAt: serverTimestamp(),
-          });
         }
 
-        // Ensure pre-provisioned users (created by assignment flow) have a wallet.
-        const resolvedUserId = typeof userData.userId === 'string' ? userData.userId : undefined;
+        // Ensure wallet exists (handles both fresh claims and returning users).
         void ensureWalletExists({
           userId: result.user.uid,
-          lookupUserIds: [userDoc.id, resolvedUserId].filter(Boolean) as string[],
+          lookupUserIds: [userDocId].filter(Boolean) as string[],
           tenantId,
           userType: resolvedRole as WalletUserType,
           userName: resolvedName,
         });
 
-        // Keep session uid aligned with Firebase Auth uid for cross-page auth checks.
         sessionStorage.setItem('cs_uid', result.user.uid);
-        sessionStorage.setItem('cs_profile_id', userDoc.id);
+        sessionStorage.setItem('cs_profile_id', userDocId);
         sessionStorage.setItem('cs_role', resolvedRole);
         sessionStorage.setItem('cs_name', resolvedName);
         sessionStorage.setItem('cs_email', resolvedEmail);
         sessionStorage.setItem('cs_phone', resolvedPhone);
         persistAuthSessionCookies({ uid: result.user.uid, role: resolvedRole });
 
-        // Redirect to dashboard
         setPhase('success');
         setTimeout(() => {
           window.location.href = `${basePath}/dashboard`;

@@ -11,7 +11,7 @@ import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "./menuConfig";
 import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./CoachingLandingPage.module.css";
@@ -551,7 +551,7 @@ export default function CoachingLandingPage({ config }: Props) {
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel, basePath), [basePath, toolsLabel]);
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
   const brandSubtitle = "StudioVerse Platform";
   const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn

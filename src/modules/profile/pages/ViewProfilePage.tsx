@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import type { TenantConfig } from "@/types/tenant";
@@ -138,7 +138,7 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
       : profile.coachSessionFormats;
   }, [profile]);
 
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [role, basePath]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [role, basePath, tenantConfig]);
   const initials = useMemo(() => getInitials(name), [name]);
 
   async function handleLogout() {

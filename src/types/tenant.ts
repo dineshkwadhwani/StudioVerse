@@ -18,6 +18,15 @@ export type TenantConfig = {
     events: boolean;
     aiCoach: boolean;
   };
+  searchConfig?: {
+    enabled: boolean;
+    programs: boolean;
+    assessments: boolean;
+    events: boolean;
+    professional: boolean;
+    individual: boolean;
+    company: boolean;
+  };
   botConfig?: {
     visible: boolean;
     studioBotEnabled: boolean;

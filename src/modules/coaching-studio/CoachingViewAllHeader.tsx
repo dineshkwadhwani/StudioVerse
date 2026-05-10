@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "./menuConfig";
 import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
@@ -99,7 +99,7 @@ export default function CoachingViewAllHeader({ config, currentPage, onSignInReg
   const professionalLabel = config.roles.professional;
   const individualLabel = config.roles.individual;
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
 
   const navClass = (page: ViewAllPage): string => {
     return `${landingStyles.navLink} ${currentPage === page ? landingStyles.navLinkActive : ""}`;

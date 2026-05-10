@@ -13,7 +13,7 @@ import { listProfessionalsForCoachDropdown } from "@/services/manage-users.servi
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import { getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole, StudioMenuItem, StudioMenuGroup } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
@@ -38,7 +38,7 @@ function isAssignmentAction(key: string): boolean {
 }
 
 function getInitialMenuItem(role: UserRole): StudioMenuItem | null {
-  const items = getRoleMenuItems(role, { basePath: `/${coachingTenantConfig.id}` });
+  const items = getRoleMenuItems(role, { basePath: `/${coachingTenantConfig.id}`, searchConfig: searchMenuConfigFromTenant(coachingTenantConfig) });
   return items[0] ?? null;
 }
 
@@ -201,7 +201,7 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
     }
   }, [basePath, router, tenantId]);
 
-  const menuGroups = useMemo<StudioMenuGroup[]>(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
+  const menuGroups = useMemo<StudioMenuGroup[]>(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
 
   const userInitials = useMemo(() => getInitials(name), [name]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";

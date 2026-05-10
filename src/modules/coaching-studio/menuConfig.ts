@@ -3,6 +3,7 @@ export {
   getRoleLabel,
   getRoleMenuItems,
   getRoleMenuGroups,
+  searchMenuConfigFromTenant,
 } from "@/modules/activities/config/menuConfig";
 
 export type {
@@ -10,6 +11,7 @@ export type {
   StudioMenuItem,
   StudioMenuGroup,
   StudioMenuGroupName,
+  SearchMenuConfig,
   CoachingUserRole,
   CoachingMenuItem,
 } from "@/modules/activities/config/menuConfig";

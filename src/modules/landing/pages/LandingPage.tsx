@@ -11,7 +11,7 @@ import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./LandingPage.module.css";
@@ -600,8 +600,8 @@ export default function LandingPage({ config }: Props) {
   }), [activeSectionIntros?.events, activeSectionIntros?.programs, activeSectionIntros?.tools]);
   const sectionMeta = useMemo(() => getSectionMeta(sectionLabels, sectionIntros, basePath), [basePath, sectionIntros, sectionLabels]);
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
   const brandSubtitle = "StudioVerse Platform";
   const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn

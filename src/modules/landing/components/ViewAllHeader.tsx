@@ -6,7 +6,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -84,8 +84,8 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
   const brandSubtitle = "StudioVerse Platform";
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
 
   const navClass = (_page: ViewAllPage): string => {
     return landingStyles.navLink;

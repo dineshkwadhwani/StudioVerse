@@ -17,7 +17,7 @@ import {
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileFormValues, UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import {
@@ -167,7 +167,7 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
 
   const roleLabel = useMemo(() => (profile ? getProfileRoleLabel(profile.userType) : "Profile"), [profile]);
   const isEmailLocked = useMemo(() => Boolean(profile?.email.trim()), [profile?.email]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [role, basePath]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [role, basePath, tenantConfig]);
   const initials = useMemo(() => getInitials(name), [name]);
 
   function scrollToFeedbackBanner() {

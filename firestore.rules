@@ -17,19 +17,15 @@ service cloud.firestore {
     }
 
     function currentUserIdValue() {
-      return isSignedIn() ? currentUser().userId : null;
+      return isSignedIn() ? request.auth.uid : null;
     }
 
     function currentUserUidValue() {
-      return isSignedIn() ? currentUser().uid : null;
+      return isSignedIn() ? request.auth.uid : null;
     }
 
     function isActorId(value) {
-      return isSignedIn() && (
-        value == request.auth.uid ||
-        value == currentUserIdValue() ||
-        value == currentUserUidValue()
-      );
+      return isSignedIn() && value == request.auth.uid;
     }
 
     function currentTenantId() {
@@ -146,30 +142,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read:   if isSignedIn();
+      // Invariant: users/{userId} ⇔ userId == auth.uid. Pre-created users live in
+      // /invitations/* and are promoted to /users/{auth.uid} by the claimInvitation
+      // Cloud Function (Admin SDK, bypasses these rules). So we only need:
+      //   - SuperAdmin (manual ops)
+      //   - Self-registration (a user creating their own profile)
       allow create: if isSuperAdmin()
-                    || isSelfRegistering(userId)
-                    || (isSignedIn()
-                        && request.resource.data.userType in ["company", "professional", "individual"]
-                        && request.resource.data.role in ["company", "professional", "individual"]
-                        && request.resource.data.tenantId == currentTenantId()
-                        && request.resource.data.status in ["active", "inactive"]
-                        && request.resource.data.userType != "superadmin"
-                        && request.resource.data.role != "superadmin"
-                        && (
-                             (isCompanyUser()
-                               && request.resource.data.associatedCompanyId == currentCompanyId()
-                               && request.resource.data.userType in ["professional", "individual"]
-                               && request.resource.data.role in ["professional", "individual"])
-                           || (isProfessionalUser()
-                               && request.resource.data.associatedProfessionalId == request.auth.uid
-                               && request.resource.data.userType == "individual"
-                               && request.resource.data.role == "individual")
-                           ));
+                    || isSelfRegistering(userId);
       allow update: if (isSuperAdmin())
                     // Own-profile updates: user can edit their own doc but cannot change
                     // role, tenant, or association fields (those are manager/admin only).
                     || (isSignedIn()
-                        && (request.auth.uid == userId || request.auth.uid == resource.data.uid)
+                        && request.auth.uid == userId
                         && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
                     // Company managers can update professionals/individuals within their
                     // tenant, including writing association fields. userType/role/status remain blocked.
@@ -185,6 +169,41 @@ service cloud.firestore {
                         && request.resource.data.get('associatedProfessionalId', null) == request.auth.uid
                         && hasOnlyAllowedManagerChanges());
       allow delete: if false;
+    }
+
+    // ── Invitations ────────────────────────────────────────────────────────
+    // Pre-created users (created by SuperAdmin/Company/Coach via Manage Users,
+    // Manage Cohort, or Assignment provisioning) live here until first login.
+    // The claimInvitation Cloud Function (Admin SDK) atomically promotes them
+    // to /users/{auth.uid} and rewrites references — the function bypasses
+    // these rules.
+    match /invitations/{id} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && resource.data.tenantId == currentTenantId()
+                        && (isCompanyUser() || isProfessionalUser()));
+      allow create: if isSuperAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.tenantId == currentTenantId()
+                        && request.resource.data.userType in ["professional", "individual"]
+                        && request.resource.data.role in ["professional", "individual"]
+                        && request.resource.data.status == "pending"
+                        && (
+                             (isCompanyUser()
+                               && request.resource.data.associatedCompanyId == currentCompanyId())
+                          || (isProfessionalUser()
+                               && request.resource.data.associatedProfessionalId == request.auth.uid
+                               && request.resource.data.userType == "individual")
+                        ));
+      allow update: if isSuperAdmin()
+                    || (isCompanyUser()
+                        && resource.data.tenantId == currentTenantId()
+                        && resource.data.associatedCompanyId == currentCompanyId()
+                        && hasOnlyAllowedChanges(['userType', 'role', 'status', 'claimedUid', 'claimedUserId', 'claimedAt']))
+                    || (isProfessionalUser()
+                        && resource.data.tenantId == currentTenantId()
+                        && resource.data.userType == "individual"
+                        && hasOnlyAllowedChanges(['userType', 'role', 'status', 'claimedUid', 'claimedUserId', 'claimedAt']));
+      allow delete: if isSuperAdmin();
     }
 
     // ── Tenants ────────────────────────────────────────────────────────────

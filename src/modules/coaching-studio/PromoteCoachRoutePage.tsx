@@ -8,7 +8,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { config as tenantConfig } from "@/tenants/coaching-studio/config";
-import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -65,7 +65,7 @@ export default function PromoteCoachRoutePage() {
     return unsub;
   }, [router, basePath]);
 
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [role, basePath]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [role, basePath]);
   const initials = useMemo(() => getInitials(name), [name]);
 
   async function handleSignOut() {

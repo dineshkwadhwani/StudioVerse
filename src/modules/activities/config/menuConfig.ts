@@ -15,12 +15,21 @@ export type StudioMenuGroup = {
   items: StudioMenuItem[];
 };
 
+export type SearchMenuConfig = {
+  enabled: boolean;
+};
+
+export function searchMenuConfigFromTenant(tenantConfig: { searchConfig?: { enabled?: boolean } } | null | undefined): SearchMenuConfig {
+  return { enabled: tenantConfig?.searchConfig?.enabled === true };
+}
+
 // Backward-compatible aliases for existing imports.
 export type CoachingUserRole = StudioUserRole;
 export type CoachingMenuItem = StudioMenuItem;
 
 type MenuOptions = {
   basePath?: string;
+  searchConfig?: SearchMenuConfig;
 };
 
 type RoleLabels = {
@@ -168,7 +177,21 @@ export function getRoleMenuGroups(
   options: MenuOptions = {}
 ): StudioMenuGroup[] {
   const basePath = options.basePath ?? DEFAULT_BASE_PATH;
-  if (role === "company") return getCompanyMenu(basePath);
-  if (role === "professional") return getProfessionalMenu(basePath);
-  return getIndividualMenu(basePath);
+  const baseGroups =
+    role === "company"
+      ? getCompanyMenu(basePath)
+      : role === "professional"
+        ? getProfessionalMenu(basePath)
+        : getIndividualMenu(basePath);
+
+  const searchEnabled = options.searchConfig?.enabled === true;
+  if (searchEnabled) return baseGroups;
+
+  return baseGroups
+    .filter((group) => group.key !== "discover")
+    .map((group) =>
+      group.key === "actions"
+        ? { ...group, items: group.items.filter((item) => item.key !== "messages") }
+        : group
+    );
 }

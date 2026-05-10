@@ -11,7 +11,6 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
-import { buildWalletId } from "@/services/wallet.service";
 import { sendNotificationEmail } from "@/services/notification.service";
 import {
   getUserById,
@@ -165,14 +164,31 @@ async function resolveNewIndividuals(args: {
   companyId: string;
   professionalId?: string | null;
   pending: NewCohortIndividualInput[];
-}): Promise<{ existingIds: string[]; toCreate: Array<{ id: string; payload: Record<string, unknown> }> }> {
+}): Promise<{
+  existingUserIds: string[];
+  existingInvitationIds: string[];
+  toCreateInvitations: Array<{ id: string; payload: Record<string, unknown> }>;
+}> {
   if (args.pending.length === 0) {
-    return { existingIds: [], toCreate: [] };
+    return { existingUserIds: [], existingInvitationIds: [], toCreateInvitations: [] };
   }
 
   const tenantUsers = await listUsersByTenant(args.tenantId);
-  const existingIds: string[] = [];
-  const toCreate: Array<{ id: string; payload: Record<string, unknown> }> = [];
+  const pendingInvitationsSnap = await getDocs(
+    query(
+      collection(db, "invitations"),
+      where("tenantId", "==", args.tenantId),
+      where("status", "==", "pending")
+    )
+  );
+  const pendingInvitations = pendingInvitationsSnap.docs.map((row) => ({
+    id: row.id,
+    data: row.data() as Record<string, unknown>,
+  }));
+
+  const existingUserIds: string[] = [];
+  const existingInvitationIds: string[] = [];
+  const toCreateInvitations: Array<{ id: string; payload: Record<string, unknown> }> = [];
 
   for (const entry of args.pending) {
     const email = normalizeEmail(entry.email);
@@ -182,30 +198,41 @@ async function resolveNewIndividuals(args: {
       continue;
     }
 
-    const matched = tenantUsers.find(
+    const matchedUser = tenantUsers.find(
       (user) =>
         user.userType === "individual" &&
         user.status === "active" &&
         (user.email === email || user.phoneE164 === phoneE164)
     );
 
-    if (matched) {
-      existingIds.push(matched.id);
+    if (matchedUser) {
+      existingUserIds.push(matchedUser.id);
       continue;
     }
 
-    const userRef = doc(collection(db, "users"));
+    const matchedInvitation = pendingInvitations.find((inv) => {
+      const invType = toStringValue(inv.data.userType);
+      if (invType !== "individual") return false;
+      const invEmail = toStringValue(inv.data.email).toLowerCase();
+      const invPhone = toStringValue(inv.data.phoneE164 || inv.data.phone);
+      return invEmail === email || invPhone === phoneE164;
+    });
+
+    if (matchedInvitation) {
+      existingInvitationIds.push(matchedInvitation.id);
+      continue;
+    }
+
+    const invitationRef = doc(collection(db, "invitations"));
     const fullName = `${entry.firstName.trim()} ${entry.lastName.trim()}`.trim();
 
-    toCreate.push({
-      id: userRef.id,
+    toCreateInvitations.push({
+      id: invitationRef.id,
       payload: {
-        userId: userRef.id,
-        uid: userRef.id,
         tenantId: args.tenantId,
         userType: "individual",
-        profileType: "individual",
-        status: "active",
+        role: "individual",
+        status: "pending",
         firstName: entry.firstName.trim(),
         lastName: entry.lastName.trim(),
         fullName,
@@ -213,20 +240,25 @@ async function resolveNewIndividuals(args: {
         email,
         phoneE164,
         phone: phoneE164,
-        assignmentEligible: true,
-        mandatoryProfileCompleted: false,
-        profileCompletionPercent: 50,
         associatedCompanyId: args.companyId,
         associatedProfessionalId: args.professionalId || null,
+        companyName: "",
         createdByUserId: args.creatorUserId,
         createdByRole: args.creatorRole,
+        claimedUid: null,
+        claimedUserId: null,
+        claimedAt: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },
     });
   }
 
-  return { existingIds: dedupeStrings(existingIds), toCreate };
+  return {
+    existingUserIds: dedupeStrings(existingUserIds),
+    existingInvitationIds: dedupeStrings(existingInvitationIds),
+    toCreateInvitations,
+  };
 }
 
 export async function listIndividualsForCohortScope(args: {
@@ -438,8 +470,14 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
 
   const allMemberIds = dedupeStrings([
     ...normalizedExistingIds,
-    ...pending.existingIds,
-    ...pending.toCreate.map((entry) => entry.id),
+    ...pending.existingUserIds,
+    ...pending.existingInvitationIds,
+    ...pending.toCreateInvitations.map((entry) => entry.id),
+  ]);
+
+  const invitationMemberIds = new Set<string>([
+    ...pending.existingInvitationIds,
+    ...pending.toCreateInvitations.map((entry) => entry.id),
   ]);
 
   if (allMemberIds.length < MIN_COHORT_MEMBER_COUNT) {
@@ -510,24 +548,9 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
     });
   }
 
-  pending.toCreate.forEach((entry) => {
-    const userRef = doc(db, "users", entry.id);
-    batch.set(userRef, entry.payload);
-
-    const walletRef = doc(db, "wallets", buildWalletId(entry.id, args.tenantId));
-    batch.set(walletRef, {
-      userId: entry.id,
-      tenantId: args.tenantId,
-      userType: "individual",
-      userName: `${toStringValue(entry.payload.firstName)} ${toStringValue(entry.payload.lastName)}`.trim(),
-      totalIssuedCoins: 0,
-      utilizedCoins: 0,
-      availableCoins: 0,
-      createdBy: args.creatorUserId,
-      updatedBy: args.creatorUserId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+  pending.toCreateInvitations.forEach((entry) => {
+    const invitationRef = doc(db, "invitations", entry.id);
+    batch.set(invitationRef, entry.payload);
   });
 
   allMemberIds.forEach((memberId) => {
@@ -541,8 +564,9 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
     });
 
     if (resolvedProfessionalId) {
-      const userRef = doc(db, "users", memberId);
-      batch.set(userRef, {
+      const targetCollection = invitationMemberIds.has(memberId) ? "invitations" : "users";
+      const memberRef = doc(db, targetCollection, memberId);
+      batch.set(memberRef, {
         associatedProfessionalId: resolvedProfessionalId,
         associatedCompanyId: companyId,
         updatedAt: serverTimestamp(),

@@ -12,7 +12,7 @@ import { createReferral, listReferralsForUser } from "@/services/referral.servic
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import type { ReferredType, ReferralRecord } from "@/types/referral";
-import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -181,7 +181,7 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
   }
 
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath }), [basePath, role]);
+  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
 

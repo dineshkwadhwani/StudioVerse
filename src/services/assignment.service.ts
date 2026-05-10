@@ -14,8 +14,7 @@ import type { WithFieldValue } from "firebase/firestore";
 import { auth, db } from "@/services/firebase";
 import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/assignment";
 import type { AssignmentStatus } from "@/types/assignment";
-import { createWalletForUser, getTenantRegistrationFreeCoins, getWalletForUserContext } from "@/services/wallet.service";
-import { processReferralJoinForNewUser } from "@/services/referral.service";
+import { getWalletForUserContext } from "@/services/wallet.service";
 import { getCohortAssignmentPayload } from "@/services/cohorts.service";
 import { sendNotificationEmail } from "@/services/notification.service";
 import type { CohortCreatorRole } from "@/types/cohort";
@@ -288,30 +287,32 @@ async function provisionAssigneeIfNeeded(args: {
     };
   }
 
-  const userRef = doc(collection(db, "users"));
-  const newAssigneeId = userRef.id;
+  const invitationRef = doc(collection(db, "invitations"));
+  const newAssigneeId = invitationRef.id;
 
-  await setDoc(
-    userRef,
-    {
-      userId: newAssigneeId,
-      tenantId: args.tenantId,
-      userType: "individual",
-      profileType: "individual",
-      fullName: assigneeFullName,
-      name: assigneeFullName,
-      email: assigneeEmail,
-      phone: assigneePhone,
-      phoneE164: assigneePhone,
-      status: "active",
-      assignmentEligible: true,
-      mandatoryProfileCompleted: true,
-      profileCompletionPercent: 100,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  await setDoc(invitationRef, {
+    tenantId: args.tenantId,
+    userType: "individual",
+    role: "individual",
+    status: "pending",
+    fullName: assigneeFullName,
+    name: assigneeFullName,
+    firstName: assigneeFullName.split(/\s+/)[0] ?? "",
+    lastName: assigneeFullName.split(/\s+/).slice(1).join(" "),
+    email: assigneeEmail,
+    phone: assigneePhone,
+    phoneE164: assigneePhone,
+    associatedCompanyId: null,
+    associatedProfessionalId: null,
+    companyName: "",
+    createdByUserId: args.assignerId,
+    createdByRole: "professional",
+    claimedUid: null,
+    claimedUserId: null,
+    claimedAt: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 
   try {
     if (assigneeEmail) {
@@ -325,7 +326,7 @@ async function provisionAssigneeIfNeeded(args: {
           tenantName: args.tenantId,
         },
         metadata: {
-          userId: newAssigneeId,
+          invitationId: newAssigneeId,
           source: "assignmentAutoProvision",
         },
       });
@@ -333,30 +334,6 @@ async function provisionAssigneeIfNeeded(args: {
   } catch {
     // User provisioning should not fail if notification fails.
   }
-
-  const registrationCoins = await getTenantRegistrationFreeCoins(args.tenantId);
-  await createWalletForUser({
-    userId: newAssigneeId,
-    tenantId: args.tenantId,
-    userType: "individual",
-    userName: assigneeFullName,
-    createdBy: args.assignerId,
-    initialCoins: registrationCoins,
-    reason: "Registration bonus",
-  });
-
-    try {
-      await processReferralJoinForNewUser({
-        userId: newAssigneeId,
-        fullName: assigneeFullName,
-        tenantId: args.tenantId,
-        userType: "individual",
-        email: assigneeEmail,
-        phoneE164: assigneePhone,
-      });
-    } catch {
-      // Referral processing is best-effort and should not block assignment creation.
-    }
 
   return {
     assigneeId: newAssigneeId,

@@ -1,4 +1,4 @@
-# StudioVerse — Coaching Studio MVP · Test Cases
+)# StudioVerse — Coaching Studio MVP · Test Cases
 
 **Studio:** Coaching · **Generated:** May 2026 · **Roles:** SA = SuperAdmin · C = Company · P = Professional (Coach) · I = Individual
 

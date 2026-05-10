@@ -6,14 +6,13 @@ import {
   getDocs,
   limit,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   type Timestamp,
 } from "firebase/firestore";
-import { buildWalletId } from "@/services/wallet.service";
-import { processReferralJoinForNewUser } from "@/services/referral.service";
+import { createInvitation } from "@/services/invitations.service";
 
 export type ManageUserRole = "company" | "professional" | "individual";
 
@@ -35,6 +34,8 @@ export type ManagedUserRecord = {
   associatedCompanyIds?: string[];
   createdByUserId?: string;
   createdByRole?: string;
+  isPending?: boolean;
+  invitationId?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 };
@@ -122,6 +123,66 @@ function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserR
   };
 }
 
+function mapInvitationAsManagedUser(id: string, data: Record<string, unknown>): ManagedUserRecord {
+  const firstName = toStringValue(data.firstName);
+  const lastName = toStringValue(data.lastName);
+  const fullName = toStringValue(data.fullName || data.name || `${firstName} ${lastName}`.trim());
+
+  const userType =
+    toStringValue(data.userType || data.role) === "professional" ? "professional" : "individual";
+
+  return {
+    id,
+    userId: id,
+    uid: undefined,
+    tenantId: toStringValue(data.tenantId),
+    userType,
+    status: "active",
+    firstName,
+    lastName,
+    fullName,
+    email: toStringValue(data.email),
+    phoneE164: toStringValue(data.phoneE164 || data.phone),
+    companyName: toStringValue(data.companyName) || undefined,
+    associatedProfessionalId: toStringValue(data.associatedProfessionalId) || null,
+    associatedCompanyId: toStringValue(data.associatedCompanyId) || undefined,
+    createdByUserId: toStringValue(data.createdByUserId) || undefined,
+    createdByRole: toStringValue(data.createdByRole) || undefined,
+    isPending: true,
+    invitationId: id,
+    createdAt: data.createdAt as Timestamp | undefined,
+    updatedAt: data.updatedAt as Timestamp | undefined,
+  };
+}
+
+async function listPendingInvitationsForCompany(args: {
+  tenantId: string;
+  companyId: string;
+}): Promise<ManagedUserRecord[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, "invitations"),
+      where("tenantId", "==", args.tenantId),
+      where("associatedCompanyId", "==", args.companyId),
+      where("status", "==", "pending")
+    )
+  );
+  return snap.docs.map((row) => mapInvitationAsManagedUser(row.id, row.data() as Record<string, unknown>));
+}
+
+async function listPendingInvitationsForProfessional(args: {
+  professionalId: string;
+}): Promise<ManagedUserRecord[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, "invitations"),
+      where("associatedProfessionalId", "==", args.professionalId),
+      where("status", "==", "pending")
+    )
+  );
+  return snap.docs.map((row) => mapInvitationAsManagedUser(row.id, row.data() as Record<string, unknown>));
+}
+
 export async function getUserById(userId: string): Promise<ManagedUserRecord | null> {
   const directDocSnap = await getDoc(doc(db, "users", userId));
   if (directDocSnap.exists()) {
@@ -147,15 +208,18 @@ export async function listManagedUsersForCompany(args: {
   tenantId: string;
   companyId: string;
 }): Promise<ManagedUserRecord[]> {
-  const snap = await getDocs(query(collection(db, "users"), where("tenantId", "==", args.tenantId)));
-  return snap.docs
+  const [snap, pending] = await Promise.all([
+    getDocs(query(collection(db, "users"), where("tenantId", "==", args.tenantId))),
+    listPendingInvitationsForCompany({ tenantId: args.tenantId, companyId: args.companyId }),
+  ]);
+  const claimed = snap.docs
     .map((row) => mapManagedUser(row.id, row.data() as Record<string, unknown>))
     .filter(
       (row) =>
         (row.userType === "professional" || row.userType === "individual") &&
         row.associatedCompanyId === args.companyId
-    )
-    .sort((left, right) => left.fullName.localeCompare(right.fullName));
+    );
+  return [...claimed, ...pending].sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
 
 export async function listManagedUsersForProfessional(args: {
@@ -191,6 +255,17 @@ export async function listManagedUsersForProfessional(args: {
       const mapped = mapManagedUser(row.id, row.data() as Record<string, unknown>);
       merged.set(mapped.id, mapped);
     });
+  }
+
+  const pendingSnaps = await Promise.all(
+    normalizedIds.map((professionalId) =>
+      listPendingInvitationsForProfessional({ professionalId })
+    )
+  );
+  for (const list of pendingSnaps) {
+    for (const row of list) {
+      merged.set(row.id, row);
+    }
   }
 
   return Array.from(merged.values())
@@ -321,6 +396,57 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     };
   }
 
+  const existingInvitation = await getDocs(
+    query(
+      collection(db, "invitations"),
+      where("phoneE164", "==", phoneE164),
+      where("status", "==", "pending"),
+      limit(1)
+    )
+  );
+
+  if (!existingInvitation.empty) {
+    const invitationRow = existingInvitation.docs[0];
+    const invitationData = invitationRow.data() as Record<string, unknown>;
+    const invitationTenantId = toStringValue(invitationData.tenantId);
+    const invitationUserType = toStringValue(invitationData.userType);
+
+    if (invitationUserType !== targetUserType) {
+      throw new Error("The phone number is already invited as a different user type.");
+    }
+    if (invitationTenantId && invitationTenantId !== tenantId) {
+      throw new Error("This phone is already invited under another tenant.");
+    }
+    if (targetUserType === "professional" && creatorRole !== "company") {
+      throw new Error("Only Company can associate Professional users.");
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      tenantId,
+      associatedCompanyId: associatedCompanyId ?? null,
+      companyName: creator.companyName ?? toStringValue(invitationData.companyName) ?? "",
+      updatedAt: serverTimestamp(),
+    };
+    if (targetUserType === "individual") {
+      if (creatorRole === "professional") {
+        updatePayload.associatedProfessionalId = creator.id;
+      } else if (associatedProfessionalId) {
+        updatePayload.associatedProfessionalId = associatedProfessionalId;
+      }
+    }
+    await updateDoc(doc(db, "invitations", invitationRow.id), updatePayload);
+
+    const refreshedSnap = await getDoc(doc(db, "invitations", invitationRow.id));
+    const refreshed = mapInvitationAsManagedUser(
+      invitationRow.id,
+      (refreshedSnap.data() ?? {}) as Record<string, unknown>
+    );
+    return {
+      operation: "associated",
+      user: refreshed,
+    };
+  }
+
   if (!firstName || !lastName || !email || !phoneE164) {
     throw new Error("firstName, lastName, email, and phoneE164 are required when creating a new user.");
   }
@@ -336,97 +462,59 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     throw new Error("A user with this email already exists.");
   }
 
-  const tenantSnap = await getDocs(query(collection(db, "tenants"), where("tenantId", "==", tenantId), limit(1)));
-  const tenantData = tenantSnap.empty ? null : (tenantSnap.docs[0].data() as Record<string, unknown>);
-  const walletConfig = tenantData?.walletConfig as Record<string, unknown> | undefined;
-  const registrationFreeCoins = Math.max(0, Math.floor(Number(walletConfig?.registrationFreeCoins ?? 10)));
-  const initialWalletCoins =
-    creatorRole === "company" && targetUserType === "professional" ? 0 : registrationFreeCoins;
+  const duplicateInvitationByEmail = await getDocs(
+    query(
+      collection(db, "invitations"),
+      where("email", "==", email),
+      where("status", "==", "pending"),
+      limit(1)
+    )
+  );
+  if (!duplicateInvitationByEmail.empty) {
+    throw new Error("An invitation with this email is already pending.");
+  }
 
   const fullName = `${firstName} ${lastName}`.trim();
-  const userRef = doc(collection(db, "users"));
-  const walletId = buildWalletId(userRef.id, tenantId);
-  const walletRef = doc(db, "wallets", walletId);
 
-  await runTransaction(db, async (transaction) => {
-    transaction.set(userRef, {
-      userId: userRef.id,
-      name: fullName,
-      fullName,
-      firstName,
-      lastName,
-      email,
-      phoneE164,
-      phone: phoneE164,
-      userType: targetUserType,
-      profileType: targetUserType,
-      role: targetUserType,
-      status: "active",
-      tenantId,
-      companyName: creator.companyName ?? "",
-      associatedCompanyId,
-      associatedProfessionalId,
-      createdByUserId: creator.id,
-      createdByRole: creatorRole,
-      assignmentEligible: false,
-      mandatoryProfileCompleted: false,
-      profileCompletionPercent: 0,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    transaction.set(walletRef, {
-      userId: userRef.id,
-      tenantId,
-      userType: targetUserType,
-      userName: fullName,
-      totalIssuedCoins: initialWalletCoins,
-      utilizedCoins: 0,
-      availableCoins: initialWalletCoins,
-      createdBy: creator.id,
-      updatedBy: creator.id,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    if (initialWalletCoins > 0) {
-      const walletTxRef = doc(collection(db, "walletTransactions"));
-      transaction.set(walletTxRef, {
-        walletId,
-        userId: userRef.id,
-        tenantId,
-        userType: targetUserType,
-        userName: fullName,
-        transactionType: "credit",
-        coins: initialWalletCoins,
-        reason: "Initial wallet issuance",
-        createdBy: creator.id,
-        createdAt: serverTimestamp(),
-      });
-    }
+  const invitation = await createInvitation({
+    tenantId,
+    userType: targetUserType,
+    role: targetUserType,
+    firstName,
+    lastName,
+    fullName,
+    name: fullName,
+    email,
+    phoneE164,
+    phone: phoneE164,
+    associatedCompanyId: associatedCompanyId ?? null,
+    associatedProfessionalId: associatedProfessionalId ?? null,
+    companyName: creator.companyName ?? "",
+    createdByUserId: creator.id,
+    createdByRole: creatorRole,
   });
-
-  const created = await getUserById(userRef.id);
-  if (!created) {
-    throw new Error("Failed to create user.");
-  }
-
-  try {
-    await processReferralJoinForNewUser({
-      userId: created.userId,
-      fullName: created.fullName,
-      tenantId,
-      userType: targetUserType,
-      email: created.email,
-      phoneE164: created.phoneE164,
-    });
-  } catch {
-    // Referral processing is best-effort and should not block user creation.
-  }
 
   return {
     operation: "created",
-    user: created,
+    user: mapInvitationAsManagedUser(invitation.invitationId, {
+      tenantId: invitation.tenantId,
+      userType: invitation.userType,
+      role: invitation.role,
+      firstName: invitation.firstName,
+      lastName: invitation.lastName,
+      fullName: invitation.fullName,
+      name: invitation.name,
+      email: invitation.email,
+      phoneE164: invitation.phoneE164,
+      phone: invitation.phone,
+      companyName: invitation.companyName,
+      associatedCompanyId: invitation.associatedCompanyId,
+      associatedProfessionalId: invitation.associatedProfessionalId,
+      createdByUserId: invitation.createdByUserId,
+      createdByRole: invitation.createdByRole,
+      createdAt: invitation.createdAt,
+      updatedAt: invitation.updatedAt,
+    }),
   };
 }
 
@@ -455,19 +543,31 @@ export async function lookupScopedIndividualByPhone(input: {
     )
   );
 
-  if (snap.empty) {
-    return { found: false };
+  if (!snap.empty) {
+    const foundUser = mapManagedUser(snap.docs[0].id, snap.docs[0].data() as Record<string, unknown>);
+    if (foundUser.userType === input.targetUserType) {
+      return { found: true, user: foundUser };
+    }
   }
 
-  const foundUser = mapManagedUser(snap.docs[0].id, snap.docs[0].data() as Record<string, unknown>);
-
-  // Verify the found user has the requested type
-  if (foundUser.userType !== input.targetUserType) {
-    return { found: false };
+  const invitationSnap = await getDocs(
+    query(
+      collection(db, "invitations"),
+      where("phoneE164", "==", input.phoneE164),
+      where("tenantId", "==", currentUserProfile.tenantId),
+      where("status", "==", "pending"),
+      limit(1)
+    )
+  );
+  if (!invitationSnap.empty) {
+    const invitation = mapInvitationAsManagedUser(
+      invitationSnap.docs[0].id,
+      invitationSnap.docs[0].data() as Record<string, unknown>
+    );
+    if (invitation.userType === input.targetUserType) {
+      return { found: true, user: invitation };
+    }
   }
 
-  return {
-    found: true,
-    user: foundUser,
-  };
+  return { found: false };
 }

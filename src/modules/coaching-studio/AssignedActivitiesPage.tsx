@@ -11,7 +11,7 @@ import { getUserProfile } from "@/services/profile.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
+import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "./menuConfig";
 import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import landingStyles from "./CoachingLandingPage.module.css";
@@ -140,7 +140,7 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath }), [basePath, role]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
 

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StudioVerse — Coaching Studio MVP User Journeys</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1a202c;
+    line-height: 1.45;
+    font-size: 11pt;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  h1 { font-size: 22pt; margin: 0 0 4px 0; color: #1a365d; }
+  h2 {
+    font-size: 15pt; margin: 32px 0 10px 0; color: #1a365d;
+    border-bottom: 2px solid #1a365d; padding-bottom: 4px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 12pt; margin: 18px 0 6px 0; color: #2c5282;
+    page-break-after: avoid;
+  }
+  h4 { font-size: 11pt; margin: 12px 0 4px 0; color: #2d3748; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 6px 0 8px 22px; padding: 0; }
+  li { margin: 3px 0; }
+  code {
+    background: #edf2f7; padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.5pt;
+  }
+  .meta { color: #718096; font-size: 10pt; margin-bottom: 18px; }
+  .role-card {
+    border: 1px solid #cbd5e0; border-radius: 6px;
+    padding: 14px 18px; margin: 14px 0;
+    background: #f7fafc;
+  }
+  .role-card h3 { margin-top: 0; }
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 12px;
+    font-size: 9pt; font-weight: 600; margin-right: 6px;
+  }
+  .b-sa { background: #fed7d7; color: #742a2a; }
+  .b-c  { background: #c6f6d5; color: #22543d; }
+  .b-p  { background: #bee3f8; color: #2a4365; }
+  .b-i  { background: #faf089; color: #744210; }
+  .journey {
+    margin: 14px 0;
+    padding: 10px 14px;
+    border-left: 4px solid #2c5282;
+    background: #ebf8ff;
+    page-break-inside: avoid;
+  }
+  .journey h4 { margin: 0 0 6px 0; color: #1a365d; }
+  .journey ol { margin: 4px 0 4px 22px; }
+  .precond { font-size: 10pt; color: #4a5568; font-style: italic; margin: 2px 0 6px 0; }
+  .ec { color: #c05621; font-weight: 500; }
+  .toc { background: #f0f4f8; padding: 12px 18px; border-radius: 6px; margin: 12px 0 24px; }
+  .toc ul { list-style: none; margin-left: 0; }
+  .toc li { margin: 4px 0; }
+  .pgbreak { page-break-before: always; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 10pt; }
+  th, td { border: 1px solid #cbd5e0; padding: 5px 8px; text-align: left; }
+  th { background: #edf2f7; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
+  @media print {
+    body { padding: 0; }
+    .toc { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+
+<h1>StudioVerse — Coaching Studio MVP</h1>
+<h2 style="border:none;margin-top:0;">User Journeys for Functional Validation</h2>
+<p class="meta">Studio: <strong>Coaching Studio</strong> · Roles: SuperAdmin · Company · Professional (Coach) · Individual · Generated: May 2026</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ul>
+    <li>1. How to use this document</li>
+    <li>2. Role overview</li>
+    <li>3. Pre-test setup &amp; test data</li>
+    <li>4. SuperAdmin journeys</li>
+    <li>5. Company journeys</li>
+    <li>6. Professional (Coach) journeys</li>
+    <li>7. Individual journeys</li>
+    <li>8. Cross-role end-to-end scenarios</li>
+  </ul>
+</div>
+
+<h2>1. How to use this document</h2>
+<p>Each journey is a self-contained scenario a tester can walk through. Journeys use the format:</p>
+<ul>
+  <li><strong>Pre-conditions</strong> — what must be true before starting (signed-in role, fixture data, balance).</li>
+  <li><strong>Steps</strong> — numbered click-through.</li>
+  <li><strong>Expected outcomes</strong> — what should be visible after each meaningful step.</li>
+  <li><strong>Edge cases to validate</strong> — variants worth probing within the same journey.</li>
+</ul>
+<p>All journeys assume the Coaching Studio tenant. URLs use the pattern <code>/coaching-studio/&lt;route&gt;</code>.</p>
+
+<h2>2. Role overview</h2>
+<table>
+  <tr><th>Role</th><th>Internal id</th><th>Purpose</th><th>Tenant scope</th></tr>
+  <tr><td><span class="badge b-sa">SA</span> SuperAdmin</td><td><code>superadmin</code></td><td>Platform owner — tenants, packages, approvals, treasury</td><td>Cross-tenant</td></tr>
+  <tr><td><span class="badge b-c">C</span> Company</td><td><code>company</code></td><td>Buys coaching for its workforce; manages coaches &amp; individuals</td><td>Single tenant</td></tr>
+  <tr><td><span class="badge b-p">P</span> Professional / Coach</td><td><code>professional</code></td><td>Sells coaching; creates content; manages individuals; can be company-associated or independent</td><td>Single tenant</td></tr>
+  <tr><td><span class="badge b-i">I</span> Individual</td><td><code>individual</code></td><td>End learner — receives assignments, completes activities</td><td>Single tenant</td></tr>
+</table>
+
+<h2>3. Pre-test setup &amp; test data</h2>
+<p>Before walking through journeys, prepare the following fixtures in <code>studioverse-test</code>:</p>
+<ul>
+  <li>1 SuperAdmin (seeded)</li>
+  <li>1 Coaching Studio tenant configured: opening treasury 100,000 coins; registration bonus 10; referral bonus 5; cashout min 100.</li>
+  <li>1 Company user (self-registered)</li>
+  <li>2 Professionals: one associated to the company, one independent</li>
+  <li>2 Individuals: one associated to the company-coach, one self-registered</li>
+  <li>1 published Program, 1 published Event, 1 published Assessment</li>
+  <li>1 Promotion Package, 1 Bot Hero Package, 1 Coin Package, 1 Listing Package</li>
+</ul>
+<p>Recommended phone numbers: use Firebase Auth test phones with fixed OTP <code>123456</code>.</p>
+
+<div class="pgbreak"></div>
+
+<h2>4. <span class="badge b-sa">SA</span> SuperAdmin journeys</h2>
+
+<div class="role-card">
+<h3>SA-A. First-time platform setup</h3>
+<p class="precond"><strong>Pre-conditions:</strong> Seeded SuperAdmin account. No tenants exist yet.</p>
+</div>
+
+<div class="journey">
+<h4>SA-A1 · Sign in &amp; land on SuperAdmin portal</h4>
+<ol>
+  <li>Visit <code>/coaching-studio/auth</code> and sign in with SA phone + OTP.</li>
+  <li>Verify automatic redirect to SuperAdmin portal home (stats tiles render: tenants, users, programs, assessments, events).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Sign in with a non-SA phone — should land on regular dashboard, not SA portal.</p>
+</div>
+
+<div class="journey">
+<h4>SA-A2 · Create &amp; configure a tenant</h4>
+<ol>
+  <li>Open <strong>Tenants</strong> tab in SA portal.</li>
+  <li>Create tenant: slug <code>coaching</code>, name "Coaching Studio", description.</li>
+  <li>Open the tenant's Wallet Config: set opening treasury 100,000; registration bonus 10; referral bonus 5; cashout min 100.</li>
+  <li>Open Mail Config: enable, set sender <code>noreply@coachingstudio.in</code>, name "Coaching Studio".</li>
+  <li>Open Bot Config: enable, persona "Coach Dinesh", message cap 5.</li>
+  <li>Open Landing Config: toggle Programs / Events / Tools sections on.</li>
+  <li>Open Lead Fees: enable Coach lead unlocking at 10 coins, Company at 20, Individual disabled.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Save with empty tenant slug — should error. Save with duplicate slug — should error.</p>
+</div>
+
+<div class="journey">
+<h4>SA-A3 · Create catalog content (Program / Event / Assessment)</h4>
+<ol>
+  <li>Open <code>/coaching-studio/manage-programs</code> → New Program → fill required fields (name, type, duration, credits) → Publish.</li>
+  <li>Open <code>/coaching-studio/manage-events</code> → New Event → fill fields incl. city + date → Publish.</li>
+  <li>Open <code>/coaching-studio/manage-assessments</code> → New Assessment → choose render style + report style → Publish.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Publish with missing thumbnail — flag if not blocked. Set <code>availableFrom</code> in future — verify it does not appear on landing until that date.</p>
+</div>
+
+<div class="journey">
+<h4>SA-A4 · Configure earning packages</h4>
+<ol>
+  <li>Open Earning Packages → Promotion Packages tab → create 2 packages (7-day at 50 coins, 30-day at 200).</li>
+  <li>Bot Hero Packages tab → create 1 (30-day, 1000 coins).</li>
+  <li>Coin Packages tab → confirm Starter / Player / Champion / Pro League / Titan rows seeded; toggle one inactive.</li>
+  <li>Listing Packages tab → create 1 (basic listing, 14 days).</li>
+  <li>Lead Fees tab → confirm values from SA-A2.</li>
+</ol>
+</div>
+
+<h3>SA-B. Day-2 operations &amp; approvals</h3>
+
+<div class="journey">
+<h4>SA-B1 · Approve a coach's promotion request</h4>
+<p class="precond"><strong>Pre:</strong> A Coach has submitted a Program promotion request.</p>
+<ol>
+  <li>Dashboard → click "Pending Promotion Requests" tile.</li>
+  <li>On Approve Requests page, Promotions tab is active — review request → Approve.</li>
+  <li>Verify: program's <code>promotionStatus</code> becomes <code>active</code>; promoted-first ordering reflects on landing for Events (Programs gap noted).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Deny — verify request marked denied; coach's coin debit refunded; coach is notified.</p>
+</div>
+
+<div class="journey">
+<h4>SA-B2 · Approve a Bot Hero request</h4>
+<ol>
+  <li>Dashboard → "Pending Bot Hero Requests" tile.</li>
+  <li>Review coach profile, durations, image; pick start date that doesn't overlap an active hero; Approve.</li>
+  <li>Verify: status <code>active</code> at start date; treasury credited; bot widget overrides persona to coach name/avatar within window.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Try to pick a start date that overlaps another active/approved hero — should be blocked with clear error.</p>
+</div>
+
+<div class="journey">
+<h4>SA-B3 · Approve a cashout request</h4>
+<ol>
+  <li>Dashboard → "Pending Cashout Requests" tile.</li>
+  <li>Verify request shows: requester, amount, payout details, current wallet balance.</li>
+  <li>Approve — verify status <code>approved</code>; deduction visible in user's ledger.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Approve when requester wallet went below the requested amount after submission — should still hold the original debit (debit happened at request time).</p>
+</div>
+
+<div class="journey">
+<h4>SA-B4 · Manage users &amp; wallets cross-tenant</h4>
+<ol>
+  <li>Open Users tab → filter by tenant + role; verify counts match dashboard.</li>
+  <li>Open a Coach's row → Manage Wallet → see ledger including credits, debits, sent/received transfers.</li>
+  <li>Issue an offline allocation of 500 coins to that coach with reason "manual_offline_allocation".</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Try to assign coins exceeding treasury balance — should fail; verify treasury auto top-up triggers if configured.</p>
+</div>
+
+<div class="journey">
+<h4>SA-B5 · View &amp; filter coin orders</h4>
+<ol>
+  <li>Open Orders page → filter by status <code>paid</code>, date range, role <code>company</code>.</li>
+  <li>Verify totals match Monetization tiles on dashboard.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>SA-B6 · Manage referrals platform-wide</h4>
+<ol>
+  <li>Open Referrals → tenant dropdown → switch to a specific tenant — list filters live.</li>
+  <li>Click "Send reminder" on an outstanding referral — verify reminder logged and email triggered.</li>
+</ol>
+</div>
+
+<div class="pgbreak"></div>
+
+<h2>5. <span class="badge b-c">C</span> Company journeys</h2>
+
+<div class="role-card">
+<h3>C-A. Onboarding</h3>
+</div>
+
+<div class="journey">
+<h4>C-A1 · Self-register as Company</h4>
+<ol>
+  <li>Visit <code>/coaching-studio/auth</code>.</li>
+  <li>Phase 1 — phone + OTP. Phase 3 — pick role <strong>Company</strong>. Phase 4 — fill company details (name, position, GST optional).</li>
+  <li>Verify: profile created; wallet auto-created; opening balance applied per tenant config; redirected to dashboard.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Use phone already registered — should sign in (not duplicate-create). Cancel during phase 4 — partial profile state visible to user; eligibility flags reflect incompleteness.</p>
+</div>
+
+<h3>C-B. Build the team</h3>
+
+<div class="journey">
+<h4>C-B1 · Onboard a coach (Professional) under the company</h4>
+<ol>
+  <li>Open <code>/coaching-studio/manage-users</code> → Add User → role Professional.</li>
+  <li>Enter coach's phone, name, email; submit.</li>
+  <li>Verify: coach created with <code>associatedCompanyId</code> = your uid; coach's wallet exists with 0 opening (company-onboarded coaches don't get registration bonus).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Add coach with phone already on platform under another tenant — should error or warn. Add as Individual (different role) — verify scoped behavior.</p>
+</div>
+
+<div class="journey">
+<h4>C-B2 · Onboard an Individual under the company (direct)</h4>
+<ol>
+  <li>Add User → role Individual → enter details → submit.</li>
+  <li>Verify: individual created with <code>associatedCompanyId</code> = company; wallet auto-provisioned; appears in Manage Users list.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>C-B3 · Build a cohort &amp; assign content</h4>
+<ol>
+  <li>Open <code>/coaching-studio/manage-cohorts</code> → New Cohort → name, professionalId (one of the company's coaches), add ≥2 individuals.</li>
+  <li>Save → verify cohort status becomes <strong>active</strong>.</li>
+  <li>Open the cohort detail → <strong>Assign Activity</strong> → pick a published Program → confirm.</li>
+  <li>Verify: wallet deducts (members × creditsRequired); each individual sees the assignment in their My Activities; assignor sees in Assigned Activities.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Insufficient wallet → company sees "Insufficient credits" gate; no partial creation. Cohort with 1 member → status remains inactive; assignment blocked. Add a member, retry.</p>
+</div>
+
+<h3>C-C. Coin operations &amp; approvals</h3>
+
+<div class="journey">
+<h4>C-C1 · Buy coins (placeholder payment)</h4>
+<ol>
+  <li>Open <code>/coaching-studio/buy-coins</code> → pick the Champion package → Confirm Order.</li>
+  <li>On placeholder payment screen → <strong>Simulate Success</strong>.</li>
+  <li>Verify: order moves <code>created → pending → paid</code>; wallet credited; ledger entry visible.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Click <strong>Simulate Failure</strong> instead — order remains <code>pending</code>; wallet not credited; idempotency holds (retry success → only one credit).</p>
+</div>
+
+<div class="journey">
+<h4>C-C2 · Approve a coach's coin request</h4>
+<p class="precond"><strong>Pre:</strong> An associated coach has submitted a coin request.</p>
+<ol>
+  <li>Open <code>/coaching-studio/manage-wallet</code> → Coin Requests tab/modal.</li>
+  <li>Open the pending request → review amount &amp; reason → Approve.</li>
+  <li>Verify: company wallet debited; coach wallet credited; two ledger entries appear (sent + received); request marked <code>approved</code>.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Deny → coach is refunded the credits originally held at request time. Approve when company has insufficient balance — should block with message.</p>
+</div>
+
+<div class="journey">
+<h4>C-C3 · Cashout idle credits</h4>
+<ol>
+  <li>Open Manage Wallet → Cashout → enter amount ≥ tenant minimum → submit payout details.</li>
+  <li>Verify: amount debited immediately (held); request listed under "Cashout History" as <code>pending</code>; SuperAdmin sees it in approvals queue.</li>
+</ol>
+</div>
+
+<h3>C-D. Visibility &amp; reports</h3>
+
+<div class="journey">
+<h4>C-D1 · See team &amp; assignment activity</h4>
+<ol>
+  <li>Open <code>/coaching-studio/assigned-activities</code> → see assignments you created.</li>
+  <li>Open Manage Users → confirm associated coaches/individuals listed.</li>
+  <li>Open dashboard → see your activity completion stats (own).</li>
+</ol>
+</div>
+
+<div class="pgbreak"></div>
+
+<h2>6. <span class="badge b-p">P</span> Professional (Coach) journeys</h2>
+
+<div class="role-card">
+<h3>P-A. Onboarding (independent vs company-associated)</h3>
+</div>
+
+<div class="journey">
+<h4>P-A1 · Self-register as independent Coach</h4>
+<ol>
+  <li>Visit auth page → phase 3 select <strong>Professional</strong>.</li>
+  <li>Phase 4 fill credentials, certifications, headline, bio, profile photo.</li>
+  <li>Verify: registration bonus credits applied; wallet created; <code>associatedCompanyId</code> is null (independent).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Skip optional fields — profile completion % &lt; 100; <code>assignmentEligible</code> may be false if mandatory fields missing.</p>
+</div>
+
+<div class="journey">
+<h4>P-A2 · Get added as a company-associated coach</h4>
+<ol>
+  <li>Company onboards you (see C-B1).</li>
+  <li>Sign in for the first time → verify <code>associatedCompanyId</code> visible on profile.</li>
+  <li>Verify: wallet has 0 balance (no registration bonus for company-onboarded coaches).</li>
+</ol>
+</div>
+
+<h3>P-B. Manage learners &amp; cohorts</h3>
+
+<div class="journey">
+<h4>P-B1 · Onboard an Individual under the coach</h4>
+<ol>
+  <li>Open <code>/coaching-studio/manage-users</code> → Add User → role Individual.</li>
+  <li>Submit — verify individual created with <code>associatedProfessionalId</code> = your uid.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>P-B2 · Build a cohort &amp; assign</h4>
+<ol>
+  <li>Open <code>/coaching-studio/manage-cohorts</code> → New Cohort → add ≥2 individuals → save → status active.</li>
+  <li>From cohort detail → Assign Program → confirm — wallet deducts members × cost.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Try to remove members below 2 — cohort drops to inactive.</p>
+</div>
+
+<h3>P-C. Create &amp; promote content</h3>
+
+<div class="journey">
+<h4>P-C1 · Create a Program (when feature available)</h4>
+<p class="precond">Note: per audit, Coach-side Program creation UI is a known gap; SA path tested in SA-A3.</p>
+</div>
+
+<div class="journey">
+<h4>P-C2 · Request promotion of an existing Program/Event</h4>
+<ol>
+  <li>Open the program/event detail → <strong>Request Promotion</strong>.</li>
+  <li>Pick a Promotion Package → confirm (credits debited).</li>
+  <li>Verify: request appears in your "My Requests" list as pending; SA sees it in approval queue.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Insufficient credits → blocked. SA denies → credits refunded.</p>
+</div>
+
+<div class="journey">
+<h4>P-C3 · Submit a Bot Hero request</h4>
+<ol>
+  <li>Open <code>/coaching-studio/promote-coach</code> → pick package → preferred start date → submit.</li>
+  <li>Verify: request marked pending; credits debited; request visible in your history.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Submit without profile photo — should be blocked with message. SA denies — credits refunded.</p>
+</div>
+
+<h3>P-D. Coin operations</h3>
+
+<div class="journey">
+<h4>P-D1 · Request coins from your company</h4>
+<p class="precond"><strong>Pre:</strong> You are company-associated. Independent coaches cannot use this flow.</p>
+<ol>
+  <li>Open <code>/coaching-studio/request-coins</code> → enter amount + reason → submit.</li>
+  <li>Verify: request appears in your history as pending. Company sees it in their Coin Requests modal.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>P-D2 · Buy coins (independent coach)</h4>
+<ol>
+  <li>Open Buy Coins → pick package → simulate success → wallet credits.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>P-D3 · Cashout earnings (independent only)</h4>
+<ol>
+  <li>Open Manage Wallet → Cashout → amount ≥ tenant minimum → submit.</li>
+  <li>Verify: pending request visible; SA can approve.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Company-associated coaches: cashout option should be hidden — earnings route to company wallet (verify via creator-earnings ledger).</p>
+</div>
+
+<h3>P-E. Visibility</h3>
+
+<div class="journey">
+<h4>P-E1 · Use Search &amp; lead unlocks</h4>
+<ol>
+  <li>Open <code>/coaching-studio/search</code> → search for "leadership" → filter Programs.</li>
+  <li>Filter Individuals → see lead tiles. If Coach lead-fee enabled, your tile may appear locked to viewers; switching role you see Individuals as locked tiles to be unlocked.</li>
+  <li>Click an Individual tile → if locked, <strong>Unlock</strong> → confirm fee debit → tile becomes unlocked &amp; persists.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Try unlock when wallet balance &lt; fee — blocked. Re-open the tile — already unlocked, no re-charge (idempotent).</p>
+</div>
+
+<div class="journey">
+<h4>P-E2 · Send an intro message</h4>
+<ol>
+  <li>From an unlocked Individual lead tile → <strong>Send Message</strong> → choose template (T1 standard or T2 personalized).</li>
+  <li>Send → verify in your Outbox.</li>
+  <li>Recipient sees the message unlocked (Coach→Individual messages arrive unlocked).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Send second message to same recipient — duplicate state shown; no second debit.</p>
+</div>
+
+<div class="pgbreak"></div>
+
+<h2>7. <span class="badge b-i">I</span> Individual journeys</h2>
+
+<div class="role-card">
+<h3>I-A. Onboarding</h3>
+</div>
+
+<div class="journey">
+<h4>I-A1 · Self-register as Individual</h4>
+<ol>
+  <li>Visit auth page → phase 3 → <strong>Individual</strong>.</li>
+  <li>Phase 4 — name, email, basic profile.</li>
+  <li>Verify: registration bonus credits applied; wallet created; redirected to dashboard.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>I-A2 · Auto-provisioned during assignment</h4>
+<p class="precond"><strong>Pre:</strong> A Coach has assigned a program/event/assessment to your phone before you registered.</p>
+<ol>
+  <li>Visit auth page → register with the same phone.</li>
+  <li>Verify: profile created; existing assignment now linked to your uid; previously-stamped <code>userId</code> on attempt/report is reconciled (per recent rule fix, you can read the assignment-linked report once your auth uid matches).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Legacy assignments where <code>userId</code> on report is the assignment's pre-auth <code>assigneeId</code> — current rule allows read via assignment.assigneeId match (verified May 9 fix).</p>
+</div>
+
+<h3>I-B. Take an activity</h3>
+
+<div class="journey">
+<h4>I-B1 · Discover an assignment in My Activities</h4>
+<ol>
+  <li>Open <code>/coaching-studio/my-activities</code>.</li>
+  <li>Verify the freshly-assigned program/event/assessment is visible with status <code>assigned</code>.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>I-B2 · Complete an assessment &amp; view report</h4>
+<ol>
+  <li>Open the assigned assessment → click <strong>Start</strong>.</li>
+  <li>Walk through the questions (e.g., SingleChoice / Likert / Slider variants per render style).</li>
+  <li>Submit — verify "report being prepared" state.</li>
+  <li>After ~30s, refresh — open the report from My Activities.</li>
+  <li>Verify: report sections render per chosen template; assessment status moves to <code>completed</code>; coach (assignor) can see completion in their Assigned Activities view.</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Mid-quiz refresh — verify in-progress preservation if implemented; otherwise, attempt restarts. Verify report read access for the coach (assigner) and the company (if assignor was company).</p>
+</div>
+
+<div class="journey">
+<h4>I-B3 · Mark a Program/Event in progress and complete</h4>
+<ol>
+  <li>From My Activities → open assignment → mark <strong>In progress</strong>.</li>
+  <li>Later → mark <strong>Complete</strong>. Verify state transitions and assignor visibility.</li>
+</ol>
+</div>
+
+<h3>I-C. Discovery &amp; messaging</h3>
+
+<div class="journey">
+<h4>I-C1 · Discover a Coach in Search</h4>
+<ol>
+  <li>Open Search → choose "Coaches" category → enter keyword.</li>
+  <li>Verify: Coaches whose Name / Headline / Bio / Credentials match appear; tiles unlocked (Individual viewing Coach is always unlocked since Individual lead-fee disabled or N/A).</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>I-C2 · Send intro message to a Coach</h4>
+<ol>
+  <li>From a coach tile → Send Message → use the Individual template.</li>
+  <li>Verify: message lands in coach's Inbox <strong>locked</strong> (Individual→Coach is gated).</li>
+</ol>
+<p class="ec"><strong>Edge:</strong> Send second time to same coach — duplicate state, no second debit.</p>
+</div>
+
+<h3>I-D. Wallet</h3>
+
+<div class="journey">
+<h4>I-D1 · See own wallet &amp; transactions</h4>
+<ol>
+  <li>Open Manage Wallet → verify ledger entries: registration bonus, any debits/credits.</li>
+  <li>Verify Buy Coins is available; cashout option is hidden for Individuals.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>I-D2 · Refer a friend</h4>
+<ol>
+  <li>Open Manage Referrals → invite a friend by phone/email.</li>
+  <li>Friend joins (registers) → verify both sides are credited per tenant config (joiner gets registration bonus; referrer gets referral bonus).</li>
+</ol>
+</div>
+
+<div class="pgbreak"></div>
+
+<h2>8. Cross-role end-to-end scenarios</h2>
+
+<p>These tie multiple roles together — useful for regression sweeps and demo flows.</p>
+
+<div class="journey">
+<h4>E2E-1 · Company onboards coach &amp; individuals → assigns assessment → coach reviews report</h4>
+<ol>
+  <li><strong>SA</strong> seeds tenant + 1 published assessment.</li>
+  <li><strong>Company</strong> registers, onboards a coach (P) and 3 individuals.</li>
+  <li><strong>Company</strong> creates a cohort with the 3 individuals + coach → assigns the assessment.</li>
+  <li><strong>Each Individual</strong> takes the assessment → reports generate.</li>
+  <li><strong>Coach</strong> opens Assigned Activities → sees status of all 3 individuals → opens their reports (assigner read).</li>
+  <li><strong>Company</strong> opens dashboard — sees activity completion summary.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>E2E-2 · Coach Bot Hero monetization end-to-end</h4>
+<ol>
+  <li><strong>SA</strong> creates a Bot Hero package (30 days, 1000 coins).</li>
+  <li><strong>Coach</strong> tops up wallet (Buy Coins) → submits Bot Hero request → preferred start tomorrow.</li>
+  <li><strong>SA</strong> approves, picks tomorrow as start.</li>
+  <li>Move clock forward (or wait) → bot widget on landing now reflects coach name &amp; avatar.</li>
+  <li>At end date → bot widget reverts to tenant default persona; coach's hero status moves to <code>expired</code>.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>E2E-3 · Coin transfer (company → coach) and ledger reconciliation</h4>
+<ol>
+  <li><strong>Coach (company-associated)</strong> requests 500 coins.</li>
+  <li><strong>Company</strong> approves the request.</li>
+  <li>Verify: company wallet debited 500; coach wallet credited 500; two ledger entries (sent + received) — request marked approved.</li>
+  <li><strong>SA</strong> opens both wallets in admin view → ledger totals reconcile; treasury unaffected.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>E2E-4 · Promotion request → approval → landing-page promoted-first ordering</h4>
+<ol>
+  <li><strong>Coach</strong> publishes an event &amp; requests promotion.</li>
+  <li><strong>SA</strong> approves.</li>
+  <li>Visit landing page (signed-out) → verify promoted event surfaces ahead of non-promoted ones.</li>
+  <li>After expiry → ordering returns to default.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>E2E-5 · Lead unlock + intro message paid path</h4>
+<ol>
+  <li><strong>Coach</strong> searches Individuals → tile is locked (lead fee &gt; 0) → unlocks (debit).</li>
+  <li>Coach sends T2 personalized intro message → message lands in Individual's Inbox unlocked.</li>
+  <li><strong>Individual</strong> replies-in-kind by sending intro to the coach → message lands in coach Inbox <strong>locked</strong> until coach pays unlock fee.</li>
+</ol>
+</div>
+
+<div class="journey">
+<h4>E2E-6 · Cashout &amp; treasury reconciliation</h4>
+<ol>
+  <li>Coach earns from creator-attribution flow (assignment from another tenant member to their content).</li>
+  <li>Coach requests cashout ≥ minimum.</li>
+  <li>SA approves — verify ledger debit on coach wallet; treasury counters update; cashout-to-purchase ratio tile reflects.</li>
+</ol>
+</div>
+
+<hr>
+<p class="meta">End of user-journeys document. For step-level test cases see <code>TEST_CASES.md</code>; for capability matrix see <code>ROLE_RESPONSIBILITY_MATRIX.html</code>; for QA strategy see <code>QUALITY_PLAN.html</code>.</p>
+
+</body>
+</html>

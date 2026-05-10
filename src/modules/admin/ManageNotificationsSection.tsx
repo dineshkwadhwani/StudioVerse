@@ -201,6 +201,7 @@ export default function ManageNotificationsSection({
     wallet: "💰 Wallet & Credits",
     referrals: "🔗 Referrals",
     adminAlerts: "🚨 Admin Alerts",
+    messages: "✉️ Messages",
   };
 
   const domainOrder: NotificationDomain[] = [

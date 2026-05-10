@@ -6,7 +6,8 @@ export type NotificationDomain =
   | "botHero"
   | "wallet"
   | "referrals"
-  | "adminAlerts";
+  | "adminAlerts"
+  | "messages";
 
 export type NotificationDeliveryStatus = "sent" | "blocked" | "failed";
 

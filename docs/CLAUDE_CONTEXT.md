@@ -240,3 +240,12 @@ If this repo grows further, add these files:
 - **General Clean-up**
   - Removed all obsolete files and folders after migration.
   - Validated that the admin UI, menu, and routing are consistent and error-free.
+
+### Session changes — May 9, 2026
+
+- **Firestore rules (deployed to studioverse-test):** `walletTransactions` read relaxed to allow signed-in users to read non-treasury rows (treasury still superadmin-only); `coinRequests` create accepts the requester's primary `associatedCompanyId` OR any entry in `associatedCompanyIds` to support coaches associated with multiple companies.
+- **Multi-company coin request UI:** `src/modules/wallet/pages/RequestCoinsPage.tsx` now renders a company-picker dropdown when the coach has ≥2 associated companies. `ManagedUserRecord.associatedCompanyIds?: string[]` added in `src/services/manage-users.service.ts`.
+- **Razorpay env mode simplified** — `src/lib/payments/razorpay.ts`: `RAZORPAY_MODE` (`test`|`live`) is now the sole decider. The legacy `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` override was removed. Each environment must set the mode-paired keys (`RAZORPAY_{TEST,LIVE}_API_KEY` + `…_KEY_SECRET`).
+- **Razorpay test harness (new):** `/test/razorpay` (`src/app/test/razorpay/page.tsx`) with `src/app/api/test/razorpay/create-order/route.ts` and `…/verify/route.ts`. Default ₹10 cart, random receipt id, full Razorpay checkout + signature verify.
+- **DB reset script (new):** `scripts/reset-firestore-test.mjs` (hard-locked to `studioverse-test`). Keeps superadmin users, programs, assessments, assessmentQuestions, events, tenants; resets treasury wallets to 100000 coins; wipes everything else. npm aliases `db:reset:test` / `db:reset:test:confirm`. Documented in `scripts/README.md`.
+- **Diagnostic suffixes** still present at `manage-users.service.ts:239`, `create-scoped/route.ts:538`, `ManageUsersPage.tsx:357` — strip after fresh user-creation round confirms the duplicate-auth issue is resolved.

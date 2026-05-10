@@ -40,6 +40,7 @@ export const NOTIFICATION_CATEGORY_DEFINITIONS = [
   { key: "adminCashoutAlert", label: "Admin Alert: Cashout", domain: "adminAlerts", description: "Send alert email to Super Admin about a new cashout request." },
   { key: "adminBotHeroAlert", label: "Admin Alert: Bot Hero", domain: "adminAlerts", description: "Send alert email to Super Admin about a new Bot Hero request." },
   { key: "adminPromotionAlert", label: "Admin Alert: Promotion", domain: "adminAlerts", description: "Send alert email to Super Admin about a new promotion request." },
+  { key: "introMessageReceived", label: "Messages: Intro Message Received", domain: "messages", description: "Send email to a user when they receive an intro message via Universal Search." },
 ] as const satisfies ReadonlyArray<{
   key: string;
   label: string;

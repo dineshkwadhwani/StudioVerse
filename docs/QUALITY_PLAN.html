@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StudioVerse — Coaching Studio MVP Quality Plan</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1a202c;
+    line-height: 1.45;
+    font-size: 10.5pt;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  h1 { font-size: 22pt; margin: 0 0 4px 0; color: #1a365d; }
+  h2 {
+    font-size: 14pt; margin: 24px 0 8px 0; color: #1a365d;
+    border-bottom: 2px solid #1a365d; padding-bottom: 4px;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 14px 0 6px 0; color: #2c5282; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; margin: 10px 0 4px 0; color: #2d3748; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 4px 0 8px 22px; }
+  li { margin: 3px 0; }
+  code {
+    background: #edf2f7; padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9pt;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 10pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #cbd5e0; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #1a365d; color: #fff; }
+  tr:nth-child(even) td { background: #f7fafc; }
+  .meta { color: #718096; font-size: 10pt; margin-bottom: 18px; }
+  .pgbreak { page-break-before: always; }
+  .callout {
+    background: #ebf8ff; border-left: 4px solid #2c5282;
+    padding: 10px 14px; margin: 10px 0;
+    page-break-inside: avoid;
+  }
+  .warn {
+    background: #fffaf0; border-left: 4px solid #dd6b20;
+    padding: 10px 14px; margin: 10px 0;
+  }
+  .toc { background: #f0f4f8; padding: 12px 18px; border-radius: 6px; margin: 12px 0 24px; font-size: 10pt; }
+  .toc ol { margin-left: 20px; }
+  .pyramid {
+    width: 100%; max-width: 540px; margin: 12px auto;
+    text-align: center;
+  }
+  .pyramid-row {
+    margin: 0 auto; padding: 6px 8px;
+    color: #fff; font-weight: 600; font-size: 10pt;
+    border-bottom: 1px solid #fff;
+  }
+  .p-1 { background: #2b6cb0; width: 30%; }
+  .p-2 { background: #3182ce; width: 55%; }
+  .p-3 { background: #4299e1; width: 80%; }
+  .p-4 { background: #63b3ed; width: 100%; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<h1>StudioVerse — Coaching Studio MVP Quality Plan</h1>
+<p class="meta">Audience: Internal QA &amp; Engineering · Version: 1.0 · May 2026 · Owner: QA lead · Approver: Product owner</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li>Purpose &amp; scope</li>
+    <li>Quality objectives</li>
+    <li>In-scope / out-of-scope</li>
+    <li>Test environments &amp; data</li>
+    <li>Test levels (pyramid)</li>
+    <li>Test types &amp; coverage</li>
+    <li>Tooling stack</li>
+    <li>Roles &amp; responsibilities (RACI)</li>
+    <li>Risk-based test prioritization</li>
+    <li>Defect management</li>
+    <li>Entry / exit criteria</li>
+    <li>Release cadence &amp; gating</li>
+    <li>Metrics &amp; reporting</li>
+    <li>Open risks &amp; assumptions</li>
+    <li>Appendices (tooling commands, references)</li>
+  </ol>
+</div>
+
+<h2>1. Purpose &amp; scope</h2>
+<p>This Quality Plan defines how the StudioVerse <strong>Coaching Studio MVP</strong> is verified before each promotion from <code>studioverse-test</code> to <code>studioverse-prod</code>, and how ongoing regression is managed through the post-MVP roadmap.</p>
+<p>It is the operating manual for the QA function: tooling, environments, test strategy, defect handling, entry/exit gates, and metrics. It complements:</p>
+<ul>
+  <li><code>USER_JOURNEYS_COACHING_MVP.html</code> — narrative role journeys.</li>
+  <li><code>TEST_CASES.md</code> — atomic, bifurcated test cases (automatable vs manual).</li>
+  <li><code>ROLE_RESPONSIBILITY_MATRIX.html</code> — capability matrix per role.</li>
+  <li><code>FIREBASE_PROD_ROLLOUT_RUNBOOK.md</code> — operational steps for rules / functions deployment.</li>
+</ul>
+
+<h2>2. Quality objectives</h2>
+<table>
+  <tr><th>#</th><th>Objective</th><th>Measure</th></tr>
+  <tr><td>QO-1</td><td>Functional correctness across the 4 roles &amp; 21 functional areas.</td><td>≥95% of [A] cases automated and green; 100% of regression cases pass before each prod deploy.</td></tr>
+  <tr><td>QO-2</td><td>Tenant isolation — no cross-tenant data leakage.</td><td>0 cross-tenant findings in rules-unit-tests + manual probe.</td></tr>
+  <tr><td>QO-3</td><td>Wallet integrity — no money-mint / double-spend.</td><td>0 ledger discrepancies between transactions and wallet balances after end-to-end runs.</td></tr>
+  <tr><td>QO-4</td><td>Authorization — privilege escalation blocked.</td><td>0 successful client writes to <code>userType</code>/<code>role</code>/<code>status</code>.</td></tr>
+  <tr><td>QO-5</td><td>UX — no Sev-1 visual or interaction defects on supported devices.</td><td>0 P0/P1 defects open at release; mobile + desktop smoke green.</td></tr>
+  <tr><td>QO-6</td><td>Performance — landing page TTI under target.</td><td>p95 TTI &lt; 3s on Vercel preview; Lighthouse ≥ 80 on landing.</td></tr>
+  <tr><td>QO-7</td><td>Notifications — transactional emails actually arrive.</td><td>One end-to-end email verified per category before each prod deploy.</td></tr>
+</table>
+
+<h2>3. In-scope / out-of-scope</h2>
+<h3>In scope</h3>
+<ul>
+  <li>Coaching Studio MVP for all four roles (SA, Company, Coach, Individual).</li>
+  <li>Firestore rules, Firebase Functions, Next.js App Router routes under <code>/coaching-studio/*</code>.</li>
+  <li>Resend email delivery, Groq AI report generation, Firebase Auth (phone OTP).</li>
+  <li>Vercel preview deploys + <code>studioverse-test</code> Firebase project.</li>
+</ul>
+<h3>Out of scope (until separately scoped)</h3>
+<ul>
+  <li>Training Studio &amp; Recruitment Studio specific flows (covered by separate plans when introduced).</li>
+  <li>Capacitor / native app wrapping (not built).</li>
+  <li>Real Razorpay integration (placeholder payment in MVP).</li>
+  <li>Marketplace commission split (planned).</li>
+  <li>Load testing &amp; chaos engineering (post-MVP — covered by performance plan).</li>
+</ul>
+
+<h2>4. Test environments &amp; data</h2>
+<table>
+  <tr><th>Environment</th><th>Purpose</th><th>Backend</th><th>Frontend</th><th>Data</th></tr>
+  <tr><td>Local emulator</td><td>Dev + unit + rules tests</td><td>Firebase emulator suite (auth :9099, firestore :8080, functions :5001, ui)</td><td><code>npm run dev</code> against local env</td><td>Seed scripts (per studio)</td></tr>
+  <tr><td>Vercel preview</td><td>Per-PR review &amp; smoke</td><td><code>studioverse-test</code></td><td>Auto-deployed preview URL</td><td>Shared test fixtures</td></tr>
+  <tr><td><code>studioverse-test</code></td><td>Integration + e2e + UAT</td><td>Firebase test project</td><td>Vercel preview branch (main)</td><td>Persistent test fixtures (refreshed weekly)</td></tr>
+  <tr><td><code>studioverse-prod</code></td><td>Production</td><td>Firebase prod project</td><td>Vercel production</td><td>Real data (never test fixtures)</td></tr>
+</table>
+
+<h3>Test data fixtures (seed)</h3>
+<ul>
+  <li><strong>Users:</strong> 1 SA · 1 Company · 1 Company-associated Coach · 1 Independent Coach · 1 Company-associated Individual · 1 Self-registered Individual.</li>
+  <li><strong>Tenants:</strong> Coaching Studio fully configured (wallet, mail, bot, lead config, notifications).</li>
+  <li><strong>Catalog:</strong> 3 published Programs, 3 published Events, 4 published Assessments (covering ≥4 render styles &amp; ≥4 report styles).</li>
+  <li><strong>Packages:</strong> 5 Coin packages (Starter–Titan), 2 Promotion packages, 1 Bot Hero package, 1 Listing package.</li>
+  <li><strong>Phones:</strong> Firebase Auth test phones with fixed OTP <code>123456</code>; 6 distinct numbers.</li>
+  <li><strong>Refresh:</strong> Run <code>scripts/seed-test-fixtures.ts</code> weekly Monday 09:00 IST.</li>
+</ul>
+
+<div class="callout">
+<strong>Data hygiene rule:</strong> never run automated/E2E tests against <code>studioverse-prod</code>. Tests target <code>studioverse-test</code> only. Manual UAT may use <code>studioverse-prod</code> with a clearly-marked test tenant if absolutely required (avoid where possible).
+</div>
+
+<h2>5. Test levels (pyramid)</h2>
+<div class="pyramid">
+  <div class="pyramid-row p-1">Manual / Exploratory (~5%)</div>
+  <div class="pyramid-row p-2">E2E (Playwright) (~15%)</div>
+  <div class="pyramid-row p-3">Integration / Rules / Functions (~30%)</div>
+  <div class="pyramid-row p-4">Unit (~50%)</div>
+</div>
+
+<table>
+  <tr><th>Level</th><th>What</th><th>Where</th><th>Speed target</th></tr>
+  <tr><td>Unit</td><td>Pure functions, services, mappers, validators.</td><td>Vitest, alongside <code>src/</code> &amp; <code>functions/src/</code>.</td><td>&lt; 5 min full suite</td></tr>
+  <tr><td>Rules unit</td><td>Firestore Security Rules positive &amp; negative cases per role.</td><td><code>@firebase/rules-unit-testing</code> against emulator.</td><td>&lt; 3 min</td></tr>
+  <tr><td>Functions integration</td><td>Callable / triggered Firebase Functions with emulator.</td><td>Jest + supertest-style; firestore emulator.</td><td>&lt; 8 min</td></tr>
+  <tr><td>E2E</td><td>Critical user journeys end-to-end.</td><td>Playwright against <code>studioverse-test</code> deploy.</td><td>&lt; 20 min for smoke; &lt; 60 min full suite</td></tr>
+  <tr><td>Manual / exploratory</td><td>Visual rendering, AI content quality, payment integration, accessibility.</td><td>Vercel preview / <code>studioverse-test</code>.</td><td>~2h per release</td></tr>
+</table>
+
+<h2>6. Test types &amp; coverage</h2>
+<table>
+  <tr><th>Type</th><th>Approach</th><th>Owner</th></tr>
+  <tr><td>Functional</td><td>Cases in <code>TEST_CASES.md</code> mapped per area; [A] automated, [M] manual checklist.</td><td>QA</td></tr>
+  <tr><td>Authorization</td><td>Rules unit tests cover wallets, walletTransactions, assessmentReports, users, coinRequests, leadUnlocks, messages.</td><td>Engineering + QA</td></tr>
+  <tr><td>Tenant isolation</td><td>Cross-tenant probe in rules unit + manual: read another tenant's docs while signed in as a different tenant's user.</td><td>QA</td></tr>
+  <tr><td>Wallet integrity</td><td>Functions tests for transferCoins / approveCoinRequest / treasuryAutoTopUp / returnDebitsToTreasury triggers; ledger reconciliation script.</td><td>Engineering</td></tr>
+  <tr><td>Performance</td><td>Lighthouse on landing + key authenticated pages; bundle-size check on each PR.</td><td>QA</td></tr>
+  <tr><td>Visual / UX</td><td>Manual checklist on Chrome (desktop + iPhone Safari emulation); Storybook (when introduced).</td><td>QA + Design</td></tr>
+  <tr><td>Accessibility</td><td>Manual keyboard/screen-reader spot-check on auth, dashboard, manage pages; axe-core on landing.</td><td>QA</td></tr>
+  <tr><td>Email rendering</td><td>Send one of each notification category to a Gmail + Outlook web inbox before each prod deploy.</td><td>QA</td></tr>
+  <tr><td>AI quality (Groq)</td><td>Manual review of one report per assessment template; flag drift if outputs become incoherent.</td><td>Product + QA</td></tr>
+  <tr><td>Security</td><td>Rules-diff review on every PR touching <code>firestore.rules</code>; secret scan in CI.</td><td>Engineering lead</td></tr>
+</table>
+
+<h2 class="pgbreak">7. Tooling stack</h2>
+<table>
+  <tr><th>Layer</th><th>Tool</th><th>Notes</th></tr>
+  <tr><td>Unit / integration</td><td>Vitest (frontend) · Jest (functions)</td><td>Functions retains Jest to match Firebase Functions toolchain.</td></tr>
+  <tr><td>Rules tests</td><td><code>@firebase/rules-unit-testing</code></td><td>Run against local Firestore emulator.</td></tr>
+  <tr><td>E2E</td><td>Playwright</td><td>Chromium + WebKit + Firefox; auth bypass via Firebase test phones.</td></tr>
+  <tr><td>Lint / Type</td><td>ESLint · TypeScript strict · <code>tsc --noEmit</code></td><td>CI gate on every PR.</td></tr>
+  <tr><td>Performance</td><td>Lighthouse CLI · <code>@next/bundle-analyzer</code></td><td>Run on PR previews.</td></tr>
+  <tr><td>Accessibility</td><td>axe-core · manual keyboard nav</td><td>Automated baseline + manual depth.</td></tr>
+  <tr><td>CI</td><td>GitHub Actions</td><td>Workflow: lint → typecheck → unit → rules → functions → build → e2e (smoke) on PR; full e2e on merge to main.</td></tr>
+  <tr><td>Bug tracker</td><td>GitHub Issues</td><td>Labels: <code>bug</code>, <code>P0…P3</code>, <code>area/&lt;name&gt;</code>, <code>regression</code>, <code>flaky</code>.</td></tr>
+  <tr><td>Test data</td><td><code>scripts/seed-test-fixtures.ts</code></td><td>Idempotent; refreshes weekly.</td></tr>
+  <tr><td>Monitoring (post-deploy)</td><td>Firebase console · Vercel logs · Resend logs</td><td>Per-deploy smoke checks the runbook.</td></tr>
+</table>
+
+<h2>8. Roles &amp; responsibilities (RACI)</h2>
+<table>
+  <tr><th>Activity</th><th>QA lead</th><th>QA engineer</th><th>Backend dev</th><th>Frontend dev</th><th>Product</th></tr>
+  <tr><td>Owns Quality Plan</td><td>A/R</td><td>C</td><td>C</td><td>C</td><td>I</td></tr>
+  <tr><td>Authors automated tests</td><td>A</td><td>R</td><td>R</td><td>R</td><td>I</td></tr>
+  <tr><td>Authors manual checklist</td><td>A</td><td>R</td><td>I</td><td>I</td><td>C</td></tr>
+  <tr><td>Maintains test fixtures</td><td>A</td><td>R</td><td>C</td><td>I</td><td>I</td></tr>
+  <tr><td>Reviews rules diff</td><td>C</td><td>I</td><td>A/R</td><td>I</td><td>I</td></tr>
+  <tr><td>Triages defects</td><td>R</td><td>R</td><td>C</td><td>C</td><td>A</td></tr>
+  <tr><td>Approves release</td><td>R</td><td>I</td><td>C</td><td>C</td><td>A</td></tr>
+  <tr><td>Runs prod-deploy smoke</td><td>A/R</td><td>R</td><td>C</td><td>C</td><td>I</td></tr>
+</table>
+<p style="font-size: 9.5pt; color: #718096;">R = Responsible · A = Accountable · C = Consulted · I = Informed</p>
+
+<h2>9. Risk-based test prioritization</h2>
+<p>Risk = likelihood × impact. Highest risk drives test coverage depth and test-case priority.</p>
+<table>
+  <tr><th>Risk area</th><th>Why high impact</th><th>Test depth</th></tr>
+  <tr><td>Wallet / Coins / Treasury</td><td>Real money proxy. A bug here is a financial loss or compliance issue.</td><td>Unit + integration + e2e + reconciliation script.</td></tr>
+  <tr><td>Tenant isolation</td><td>Multi-tenant data leakage = trust-broken event.</td><td>Rules unit (positive + negative) + manual probe.</td></tr>
+  <tr><td>Auth &amp; privilege escalation</td><td>Privilege creep = compromised platform.</td><td>Rules unit + manual probe + bundle inspection.</td></tr>
+  <tr><td>Coin request / cashout flow</td><td>Touches both wallet integrity &amp; user trust.</td><td>End-to-end tests with company-associated &amp; independent coach.</td></tr>
+  <tr><td>Assignment &amp; auto-provisioning</td><td>Side-effects across users + wallet + assessment.</td><td>Integration + e2e for both known &amp; unknown assignees.</td></tr>
+  <tr><td>Assessment report read-access (recently fixed)</td><td>Past production incident; ongoing regression risk.</td><td>Regression suite gate before every prod deploy.</td></tr>
+  <tr><td>Search &amp; lead unlock</td><td>New monetization surface; permission boundaries.</td><td>Integration + e2e for each role / each lead-config combination.</td></tr>
+  <tr><td>Bot Hero lifecycle</td><td>Time-windowed visual change on landing.</td><td>Time-mocked integration tests + manual visual at start/expiry.</td></tr>
+  <tr><td>Notifications</td><td>Tenant-config-driven; quiet failures hurt trust.</td><td>One real-email smoke per category per release.</td></tr>
+  <tr><td>AI report quality</td><td>External API drift; subjective quality.</td><td>Manual review of one per template; reference outputs stored.</td></tr>
+</table>
+
+<h2>10. Defect management</h2>
+<h3>Severity</h3>
+<table>
+  <tr><th>Sev</th><th>Definition</th><th>Resolution SLA (test env)</th><th>Resolution SLA (prod)</th></tr>
+  <tr><td>P0</td><td>Production blocker; data loss; payment/wallet incident; widespread auth failure.</td><td>4h</td><td>2h hotfix</td></tr>
+  <tr><td>P1</td><td>Major feature broken; no workaround; affects multiple roles.</td><td>1 business day</td><td>1 business day</td></tr>
+  <tr><td>P2</td><td>Single feature broken; workaround exists.</td><td>Next sprint</td><td>Next sprint</td></tr>
+  <tr><td>P3</td><td>Cosmetic, copy, minor UX.</td><td>Backlog (committed quarterly)</td><td>Backlog</td></tr>
+</table>
+
+<h3>Lifecycle</h3>
+<ol>
+  <li><strong>New</strong> — reported with environment, role, repro steps, expected vs actual, screenshots/logs.</li>
+  <li><strong>Triaged</strong> — severity assigned, owner assigned (within 1 business day).</li>
+  <li><strong>In progress</strong> — owner working; failing test exists for P0/P1.</li>
+  <li><strong>Fixed</strong> — PR open with test; awaiting review.</li>
+  <li><strong>Verified</strong> — QA replays original repro on the fix branch's preview.</li>
+  <li><strong>Closed</strong> — merged + deployed; regression test in place for P0/P1.</li>
+</ol>
+
+<div class="warn">
+<strong>Production-incident rule:</strong> any P0 in <code>studioverse-prod</code> requires (a) an incident note appended to <code>FIREBASE_PROD_ROLLOUT_RUNBOOK.md</code>, (b) a regression test added to the suite before close, and (c) a 1-page postmortem within 48h.
+</div>
+
+<h2>11. Entry / exit criteria</h2>
+<h3>Entry to QA cycle (per release branch)</h3>
+<ul>
+  <li>All planned features merged to release branch.</li>
+  <li>Unit + lint + typecheck green on CI.</li>
+  <li>Test fixtures refreshed on <code>studioverse-test</code>.</li>
+  <li>Smoke test script runnable against the preview URL.</li>
+</ul>
+
+<h3>Exit (release ready)</h3>
+<ul>
+  <li>0 P0 / P1 open.</li>
+  <li>Regression suite green (including May 2026 fixes: wallet credit, assessment report read, walletTransactions list).</li>
+  <li>Manual checklist signed: visual smoke (desktop + mobile), accessibility spot-check, email smoke (one per category).</li>
+  <li>Prod-deploy runbook updated with any rules / function / env changes.</li>
+  <li>Performance budget met (landing TTI &lt; 3s p95).</li>
+</ul>
+
+<h2>12. Release cadence &amp; gating</h2>
+<table>
+  <tr><th>Phase</th><th>Cadence</th><th>What runs</th><th>Gate</th></tr>
+  <tr><td>PR check</td><td>On every push</td><td>Lint, typecheck, unit, rules, functions, build, smoke E2E</td><td>All green to merge</td></tr>
+  <tr><td>Merge to main</td><td>Continuous</td><td>Full E2E on Vercel preview, Lighthouse</td><td>Notify QA on red</td></tr>
+  <tr><td>Test environment release</td><td>Weekly</td><td>Manual smoke on test deploy, email smoke, AI report sample</td><td>Sign-off before prod plan</td></tr>
+  <tr><td>Production release</td><td>Bi-weekly (planned)</td><td>Runbook execution: <code>firebase deploy</code> for rules / functions, then Vercel prod deploy; post-deploy smoke</td><td>QA + Product approval</td></tr>
+  <tr><td>Hotfix</td><td>As needed</td><td>Minimal regression slice; prod runbook</td><td>QA lead approval</td></tr>
+</table>
+
+<h2>13. Metrics &amp; reporting</h2>
+<table>
+  <tr><th>Metric</th><th>Target</th><th>Cadence</th></tr>
+  <tr><td>Automated test pass rate</td><td>≥ 99%</td><td>Per CI run</td></tr>
+  <tr><td>Flaky test rate</td><td>&lt; 1%</td><td>Weekly</td></tr>
+  <tr><td>P0/P1 open count</td><td>0 at release</td><td>Per release</td></tr>
+  <tr><td>Mean time to triage</td><td>&lt; 1 business day</td><td>Weekly</td></tr>
+  <tr><td>Mean time to fix (P1)</td><td>&lt; 2 business days</td><td>Weekly</td></tr>
+  <tr><td>Coverage of [A] cases automated</td><td>≥ 85%</td><td>Per release</td></tr>
+  <tr><td>Manual smoke runtime</td><td>&lt; 2h</td><td>Per release</td></tr>
+  <tr><td>Production hotfix count</td><td>≤ 1 / quarter</td><td>Quarterly</td></tr>
+</table>
+
+<h3>Weekly QA report (template)</h3>
+<ol>
+  <li>What shipped this week (PRs, deploys).</li>
+  <li>Open P0/P1 by area.</li>
+  <li>Suite health: pass rate, flaky test names, slowest 5.</li>
+  <li>Coverage delta from last week (auto-test count, manual checklist size).</li>
+  <li>Risks &amp; asks (env access, fixture refresh, blocked items).</li>
+</ol>
+
+<h2>14. Open risks &amp; assumptions</h2>
+<ul>
+  <li><strong>Real PSP integration pending</strong> — Buy Credits is placeholder. Wallet-crediting branch is tested via simulate-success, but real Razorpay webhooks and idempotency must be re-tested when introduced.</li>
+  <li><strong>Listing fee / commission split not implemented</strong> — out of scope; revisit when E14 phase 2 lands.</li>
+  <li><strong>Route-level role guards absent</strong> — direct-URL access to authenticated pages is currently menu-hidden, not server-blocked. Rules enforce data access, but UI strings/components may render. Tracked as a non-blocking risk for MVP.</li>
+  <li><strong>Bot endpoints not rate-limited</strong> — abuse risk; recommend Cloud Functions IP-rate limit before opening to wider audience.</li>
+  <li><strong>Two parallel auth flows (AuthWizard + LoginRegisterModal)</strong> — only AuthWizard calls <code>saveUserProfile()</code>. Tests must fix the auth path used; bug risk for users registered via the modal path.</li>
+  <li><strong>Treasury txn read no longer gated client-side</strong> (May 10 rule fix) — accepted trade-off; treasury wallet doc remains SA-only. Re-evaluate when separating treasury txns into a distinct collection.</li>
+  <li><strong>AI provider drift</strong> — Groq llama-3.3-70b. Output coherence depends on the underlying model; track manual quality reviews per release.</li>
+  <li><strong>Test phone allotment</strong> — Firebase test phones are shared across environments; coordinate to avoid OTP collisions.</li>
+</ul>
+
+<h2>15. Appendices</h2>
+
+<h3>15.1 Local commands cheat-sheet</h3>
+<table>
+  <tr><th>Task</th><th>Command</th></tr>
+  <tr><td>Start emulator suite</td><td><code>firebase emulators:start --only auth,firestore,functions</code></td></tr>
+  <tr><td>Run unit tests (frontend)</td><td><code>npm test</code></td></tr>
+  <tr><td>Run rules tests</td><td><code>npm run test:rules</code> (against running emulator)</td></tr>
+  <tr><td>Run functions tests</td><td><code>cd functions &amp;&amp; npm test</code></td></tr>
+  <tr><td>Build all studios</td><td><code>npm run build</code></td></tr>
+  <tr><td>Lint &amp; typecheck</td><td><code>npm run lint &amp;&amp; npm run typecheck</code></td></tr>
+  <tr><td>Run Playwright smoke</td><td><code>npm run e2e:smoke</code></td></tr>
+  <tr><td>Run Playwright full</td><td><code>npm run e2e</code></td></tr>
+  <tr><td>Deploy rules to test</td><td><code>firebase use studioverse-test &amp;&amp; firebase deploy --only firestore:rules</code></td></tr>
+  <tr><td>Deploy rules to prod</td><td><code>firebase use studioverse-prod &amp;&amp; firebase deploy --only firestore:rules</code></td></tr>
+</table>
+
+<h3>15.2 Per-release smoke checklist (manual, ~30 min)</h3>
+<ol>
+  <li>Sign in as Company → onboard a Coach + 2 Individuals → create cohort → assign assessment.</li>
+  <li>Sign in as Individual → take assessment → see report.</li>
+  <li>Sign in as Coach (company-associated) → request 200 coins.</li>
+  <li>Sign in as Company → approve coin request → confirm both wallets &amp; ledger.</li>
+  <li>Sign in as Coach (independent) → submit Bot Hero request.</li>
+  <li>Sign in as SA → approve Bot Hero → land on landing → confirm widget persona.</li>
+  <li>Sign in as Coach → search Individuals → unlock a lead → send T2 intro.</li>
+  <li>Sign in as Individual → see unlocked message in inbox.</li>
+  <li>Sign in as Coach → request cashout (independent only).</li>
+  <li>Sign in as SA → approve cashout → confirm ledger.</li>
+  <li>Visit landing signed-out → confirm promoted-first ordering.</li>
+  <li>Spot-check email inbox: 1 assignment-created, 1 coin-request-approved, 1 cashout-pending.</li>
+</ol>
+
+<h3>15.3 References</h3>
+<ul>
+  <li><code>docs/CODEBASE_CONTEXT.md</code> — implementation snapshot per epic.</li>
+  <li><code>docs/ARCHITECTURE_OVERVIEW.md</code> — system overview.</li>
+  <li><code>docs/E0.md</code> – <code>E16.md</code> — epic specs.</li>
+  <li><code>docs/FIREBASE_PROD_ROLLOUT_RUNBOOK.md</code> — operational rollout steps.</li>
+  <li><code>firestore.rules</code> — current security rules.</li>
+</ul>
+
+<hr>
+<p class="meta">End of Quality Plan v1.0 · Owner: QA lead · Next review: end of MVP cycle.</p>
+
+</body>
+</html>

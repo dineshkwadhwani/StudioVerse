@@ -219,3 +219,42 @@ export async function sendReferralReminderEmail(
     body,
   });
 }
+
+type SendIntroMessageEmailArgs = {
+  mailConfig: TenantMailConfig;
+  receiverEmail: string;
+  receiverName: string;
+  senderName: string;
+  isLocked: boolean;
+  preview: string;
+};
+
+export async function sendIntroMessageEmail(
+  args: SendIntroMessageEmailArgs,
+): Promise<SendAssignmentEmailResult> {
+  const subject = `New intro message from ${args.senderName}`;
+  const lines = [
+    `Hi ${args.receiverName},`,
+    "",
+    `${args.senderName} sent you an intro message via Universal Search.`,
+    "",
+  ];
+
+  if (args.isLocked) {
+    lines.push(
+      "This message is currently locked in your inbox. Sign in and unlock it from the Messages page to read the full text.",
+    );
+  } else {
+    lines.push("Preview:", args.preview);
+  }
+
+  lines.push("", "— StudioVerse Messages");
+
+  return sendTenantEmail({
+    mailConfig: args.mailConfig,
+    name: args.receiverName,
+    email: args.receiverEmail,
+    subject,
+    body: lines.join("\n"),
+  });
+}

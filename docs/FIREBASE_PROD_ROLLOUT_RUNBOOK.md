@@ -1654,3 +1654,40 @@ Implications for production rollout discipline:
 Any change to Program/Event schema, callable payload validation, Firestore rules, storage rules, or indexes must update the source-of-truth files listed above in the same pull request.
 
 If function names are added/removed, update this runbook immediately.
+
+## Session changes (May 9, 2026)
+
+### Razorpay environment selector (code change)
+
+`src/lib/payments/razorpay.ts` — `RAZORPAY_MODE` is now the sole decider of test vs live. The previous `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` explicit-override short-circuit was removed. Each environment must set the mode-paired keys directly:
+
+- `RAZORPAY_MODE=test` → reads `RAZORPAY_TEST_API_KEY` + `RAZORPAY_TEST_KEY_SECRET`
+- `RAZORPAY_MODE=live` → reads `RAZORPAY_LIVE_API_KEY` + `RAZORPAY_LIVE_KEY_SECRET`
+- Unset → falls back to `APP_ENV` / `NEXT_PUBLIC_APP_ENV` (`production` → live, else test).
+
+Pre-prod check: confirm production Vercel env has `RAZORPAY_MODE=live` and both `RAZORPAY_LIVE_*` keys set. The legacy `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` vars are now ignored — remove them from any environment that previously relied on them.
+
+### Razorpay test harness (new)
+
+- UI: `src/app/test/razorpay/page.tsx` (route `/test/razorpay`).
+- API: `src/app/api/test/razorpay/create-order/route.ts`, `src/app/api/test/razorpay/verify/route.ts`.
+- Default cart `₹10` with random receipt id; opens Razorpay checkout, verifies signature, fetches payment status.
+- Resolves keys through the same `src/lib/payments/razorpay.ts` lib, so it honors `RAZORPAY_MODE`.
+- Same `/test/...` pattern as `/test/resend`. Treat as internal-only — do not link from authenticated app shells.
+
+### DB reset script (new)
+
+- `scripts/reset-firestore-test.mjs` — hard-locked to `studioverse-test`.
+- Preserves: superadmin users; `programs`, `assessments`, `assessmentQuestions`, `events`, `tenants`; resets each `treasury::*` wallet to `100000` coins.
+- Wipes everything else (non-superadmin users, non-treasury wallets, all other top-level collections).
+- Does **not** touch Firebase Auth users — those must be deleted manually from the Firebase console.
+- npm aliases: `npm run db:reset:test` (dry run) / `npm run db:reset:test:confirm` (executes).
+- Documented in `scripts/README.md`. Never create an equivalent script targeting production.
+
+### Diagnostic suffixes (temporary)
+
+The "Professional can create only Individual users" error in three sites carries a `[svc/api/page …]` suffix to identify which layer rejected the request and which user IDs were resolved. Strip these suffixes once the duplicate-auth-account issue (sessionStorage `cs_uid` referencing a stale professional account) is confirmed resolved after the DB reset and fresh user-creation round:
+
+- `src/services/manage-users.service.ts:239`
+- `src/app/api/users/create-scoped/route.ts:538`
+- `src/modules/users/pages/ManageUsersPage.tsx:357`

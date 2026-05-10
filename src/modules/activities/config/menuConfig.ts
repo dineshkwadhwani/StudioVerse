@@ -7,7 +7,7 @@ export type StudioMenuItem = {
   type?: "signout";
 };
 
-export type StudioMenuGroupName = "my-account" | "manage" | "actions";
+export type StudioMenuGroupName = "discover" | "my-account" | "manage" | "actions";
 
 export type StudioMenuGroup = {
   key: StudioMenuGroupName;
@@ -41,8 +41,19 @@ function buildPath(basePath: string, suffix: string): string {
   return `${basePath}${suffix}`;
 }
 
+function getDiscoverGroup(basePath: string): StudioMenuGroup {
+  return {
+    key: "discover",
+    label: "Discover",
+    items: [
+      { key: "search", label: "Search", href: buildPath(basePath, "/search") },
+    ],
+  };
+}
+
 function getCompanyMenu(basePath: string): StudioMenuGroup[] {
   return [
+    getDiscoverGroup(basePath),
     {
       key: "my-account",
       label: "My Account",
@@ -67,6 +78,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       label: "Actions",
       items: [
         { key: "activities", label: "Activities", href: buildPath(basePath, "/activities") },
+        { key: "messages", label: "Messages", href: buildPath(basePath, "/messages") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },
@@ -75,6 +87,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
 
 function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
   return [
+    getDiscoverGroup(basePath),
     {
       key: "my-account",
       label: "My Account",
@@ -99,6 +112,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       label: "Actions",
       items: [
         { key: "activities", label: "Activities", href: buildPath(basePath, "/activities") },
+        { key: "messages", label: "Messages", href: buildPath(basePath, "/messages") },
         { key: "promote-coach", label: "Promote Coach", href: buildPath(basePath, "/promote-coach") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
@@ -108,6 +122,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
 
 function getIndividualMenu(basePath: string): StudioMenuGroup[] {
   return [
+    getDiscoverGroup(basePath),
     {
       key: "my-account",
       label: "My Account",
@@ -124,6 +139,7 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       items: [
         { key: "view-all-activities", label: "View All Activities", href: buildPath(basePath, "/view-all-activities") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "messages", label: "Messages", href: buildPath(basePath, "/messages") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
     },

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StudioVerse — Role Responsibility Matrix</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1a202c;
+    line-height: 1.4;
+    font-size: 10.5pt;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 22px;
+  }
+  h1 { font-size: 21pt; margin: 0 0 4px 0; color: #1a365d; }
+  h2 {
+    font-size: 14pt; margin: 26px 0 8px 0; color: #1a365d;
+    border-bottom: 2px solid #1a365d; padding-bottom: 4px;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 14px 0 6px 0; color: #2c5282; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  .meta { color: #718096; font-size: 10pt; margin-bottom: 14px; }
+  table {
+    border-collapse: collapse; width: 100%; margin: 8px 0 12px;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #cbd5e0; padding: 5px 8px; vertical-align: top;
+  }
+  th { background: #1a365d; color: #fff; text-align: left; }
+  th.role { text-align: center; width: 64px; }
+  td.role { text-align: center; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7fafc; }
+  .yes { color: #22543d; font-weight: 700; }
+  .no  { color: #a0aec0; }
+  .partial { color: #c05621; font-weight: 700; }
+  .legend {
+    background: #edf2f7; padding: 10px 14px; border-radius: 6px; margin: 8px 0 18px;
+    font-size: 10pt;
+  }
+  .legend strong { color: #1a365d; }
+  .gap-note { color: #c05621; font-style: italic; font-size: 9.5pt; }
+  .summary {
+    background: #ebf8ff; border-left: 4px solid #2c5282;
+    padding: 10px 14px; margin: 14px 0;
+    page-break-inside: avoid;
+  }
+  .pgbreak { page-break-before: always; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
+  ul { margin: 4px 0 6px 22px; }
+  code {
+    background: #edf2f7; padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9pt;
+  }
+</style>
+</head>
+<body>
+
+<h1>StudioVerse — Role Responsibility Matrix</h1>
+<p class="meta">Studio: <strong>Coaching Studio (MVP)</strong> · Updated: May 2026 · Source: codebase audit + Epic specs E0–E16</p>
+
+<div class="legend">
+  <strong>Roles</strong>: SA = Super Admin · C = Company · P = Professional (Coach) · I = Individual<br>
+  <strong>Legend</strong>: <span class="yes">✓</span> Full access · <span class="partial">◐</span> Partial / scoped · <span class="no">—</span> Not permitted<br>
+  <strong>Note</strong>: This matrix reflects what is shipped in the Coaching Studio MVP. Items marked <em>(planned)</em> are roadmapped but not in the build.
+</div>
+
+<h2>1. Authentication &amp; Registration</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Self-register as Company</td><td class="role no">—</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Self-register as Professional</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Self-register as Individual</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td></tr>
+  <tr><td>Super Admin account created via master seed</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Login (phone OTP)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Auto-process pending referral on first sign-in</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+</table>
+
+<h2>2. Tenant Management</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create / edit tenant (slug, name, description)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure landing page sections (toggles, labels)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure wallet (opening, registration/referral bonuses, cashout min)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure mail (sender, name, enabled toggle)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure bot (visibility, persona, message cap)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure lead-fees (per-type toggles + fees) <strong>NEW</strong></td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure notifications (toggles, reminder days) <strong>NEW</strong></td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>3. User Management</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create user of any role platform-wide</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Create Professional (scoped to own company)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Create Individual (scoped to coach or company)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>View all users platform-wide</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View own managed Professionals</td><td class="role no">—</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View own managed Individuals</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Edit any user</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Edit own profile</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Upload profile picture</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Delete user</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Auto-provision Individual during assignment</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+</table>
+<p class="gap-note">Note: privilege-escalation fields (<code>userType</code>, <code>role</code>, <code>status</code>) are immutable from client writes for non-SA via Firestore rules.</p>
+
+<h2>4. Programs</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create program</td><td class="role yes">✓</td><td class="role partial">◐</td><td class="role partial">◐</td><td class="role no">—</td></tr>
+  <tr><td>Edit program</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Publish / unpublish program</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Delete program</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Browse published programs</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Request promotion to marketplace</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny promotion request</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+<p class="gap-note">Gap: Coach/Company-side Program creation UI is partial — full SA path is shipped.</p>
+
+<h2>5. Events</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create event</td><td class="role yes">✓</td><td class="role partial">◐</td><td class="role partial">◐</td><td class="role no">—</td></tr>
+  <tr><td>Edit event</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Publish / unpublish event</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Delete event</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Browse published events</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Request promotion (promoted-first ordering)</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny promotion request</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>6. Assessments (Tools)</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create assessment + questions</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Edit / delete assessment</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Publish / unpublish assessment</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Browse published assessments</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Take an assigned assessment</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td></tr>
+  <tr><td>View own assessment report</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View assigned/assigner-linked report (assignor view)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>View any report platform-wide</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+<p class="gap-note">Gap: AI question generation UI not yet built (prompts stored, generator pending).</p>
+
+<h2>7. Assignments</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Assign activity to an individual</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Assign activity to a cohort</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Recommend an activity</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Self-assign (treasury path)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Cancel assignment</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>View all assignments platform-wide</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View own-assigned (Assigned Activities)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>View own-received (My Activities)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Mark in-progress / complete</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+</table>
+
+<h2>8. Cohorts</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create cohort</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Edit cohort metadata</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Add / remove members</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Assign cohort to activity</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>View cohorts</td><td class="role yes">✓</td><td class="role partial">◐ own</td><td class="role partial">◐ own</td><td class="role no">—</td></tr>
+  <tr><td>Delete cohort</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+<p class="gap-note">Status logic: cohort is <em>active</em> when memberCount ≥ 2 and a professional is set; otherwise <em>inactive</em>. Member removal below 2 flips status at runtime.</p>
+
+<h2>9. Wallet &amp; Coins</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>View own wallet balance &amp; ledger</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View all wallets platform-wide</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View transaction history (any user, scoped to coin-request flows)</td><td class="role yes">✓</td><td class="role partial">◐ associated coaches</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Manual offline allocation to any user</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Buy coins via platform (placeholder payment in MVP)</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Create / edit / deactivate coin packages</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Request coins from associated company</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓ (associated only)</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny coin request</td><td class="role yes">✓</td><td class="role partial">◐ own coaches</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Request cashout</td><td class="role no">—</td><td class="role yes">✓</td><td class="role partial">◐ independent only</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny cashout</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Receive registration / referral bonus</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Treasury wallet read</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+<p class="gap-note">Gap: Real Razorpay (or other PSP) integration is pending; current Buy Credits uses Simulate Success/Failure. Creator-earnings: when coach has <code>associatedCompanyId</code>, earnings route to company wallet automatically.</p>
+
+<h2>10. Referrals</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create referral (invite)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View own referrals</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View all referrals platform-wide</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Send reminders</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Track status (referred → reminded → joined)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+</table>
+
+<h2>11. Bot Hero</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create / edit Bot Hero packages</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Submit Bot Hero request</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>View own Bot Hero requests</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny / overlap-check</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Active hero featured in landing/widget</td><td class="role no">—</td><td class="role no">—</td><td class="role partial">◐ if approved &amp; in window</td><td class="role no">—</td></tr>
+</table>
+
+<h2>12. Bot Chat</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Chat with Studio Bot (tenant persona)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Chat with Professional Bot</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Configure persona / visibility</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Guest mode (cap + post-cap email)</td><td class="role yes">guest</td><td class="role yes">guest</td><td class="role yes">guest</td><td class="role yes">guest</td></tr>
+</table>
+
+<h2>13. Promotions &amp; Listing Packages</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Create / edit promotion packages</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Create / edit listing packages</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Request content promotion</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny promotion request</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View promotion package catalogue</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Listing fee on public publish (planned)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>14. Approvals &amp; Admin Requests</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>View pending coin requests</td><td class="role yes">✓</td><td class="role partial">◐ own coaches</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View pending cashout requests</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View pending Bot Hero requests</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View pending promotion requests</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>View pending listing requests</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny coin request</td><td class="role yes">✓</td><td class="role partial">◐ own coaches</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Approve / deny cashout / bot hero / promotion / listing</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>15. Reports &amp; Analytics</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Platform stats dashboard (tenants, users, coins, referrals)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Action tiles for pending requests (with deep-link)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Wallet tiles (purchased, cashout, ratio)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Own activity completion stats</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Own assignments-created stats</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Coin orders (all)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Coin orders (own)</td><td class="role no">—</td><td class="role partial">◐ planned</td><td class="role partial">◐ planned</td><td class="role partial">◐ planned</td></tr>
+  <tr><td>Guest bot interaction logs (read-only)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>16. Landing Page &amp; Public Content</h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Browse public programs / events / tools</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View tenant landing page (unauthenticated)</td><td class="role yes">guest</td><td class="role yes">guest</td><td class="role yes">guest</td><td class="role yes">guest</td></tr>
+  <tr><td>Configure landing content</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Bot hero featured on landing</td><td class="role no">—</td><td class="role no">—</td><td class="role partial">◐ if active</td><td class="role no">—</td></tr>
+</table>
+
+<h2>17. Search &amp; User Discovery <span style="font-weight: 400; font-size: 10pt;">(NEW — E16)</span></h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Search Programs / Events / Assessments</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Search Coaches (Professionals)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Search Companies</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td></tr>
+  <tr><td>Search Individuals</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Lead tile shown unlocked / locked per tenant lead-config</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Unlock locked lead (debit fee, idempotent)</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View profile of unlocked lead</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+</table>
+<p class="gap-note">Association protection: Company/Professional searchers see only <strong>unassociated</strong> Individuals/Coaches; Individual searchers see all Coaches/Companies.</p>
+
+<h2>18. Messaging &amp; Intro Messages <span style="font-weight: 400; font-size: 10pt;">(NEW — E16)</span></h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Send intro message (T1 standard)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Send intro message (T2 personalized)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Receive intro message unlocked (Coach/Company → Individual)</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td><td class="role yes">✓</td></tr>
+  <tr><td>Receive intro message locked (Individual → Coach/Company)</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>Unlock locked message (debit fee)</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role no">—</td></tr>
+  <tr><td>View Inbox / Outbox</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Duplicate-send prevention</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+</table>
+
+<h2>19. Notifications <span style="font-weight: 400; font-size: 10pt;">(NEW)</span></h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Configure notification toggles per category</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Configure reminder days (botHero / promotion / listing expiring soon)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Receive transactional emails (assignment, coin request, cashout, etc.)</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>View notification log (sent / blocked / failed)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>20. Buy Credits / Coin Packages <span style="font-weight: 400; font-size: 10pt;">(E13 — placeholder phase)</span></h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Browse active coin packages</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Confirm order (placeholder payment)</td><td class="role no">—</td><td class="role yes">✓</td><td class="role yes">✓</td><td class="role yes">✓</td></tr>
+  <tr><td>Real PSP integration (Razorpay) — <em>planned</em></td><td class="role no">—</td><td class="role partial">◐ planned</td><td class="role partial">◐ planned</td><td class="role partial">◐ planned</td></tr>
+  <tr><td>View own orders — <em>planned</em></td><td class="role no">—</td><td class="role partial">◐ planned</td><td class="role partial">◐ planned</td><td class="role partial">◐ planned</td></tr>
+  <tr><td>View all orders</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+</table>
+
+<h2>21. Revenue Routing &amp; Treasury <span style="font-weight: 400; font-size: 10pt;">(NEW — E14)</span></h2>
+<table>
+  <tr><th>Operation</th><th class="role">SA</th><th class="role">C</th><th class="role">P</th><th class="role">I</th></tr>
+  <tr><td>Treasury auto top-up (configured trigger)</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Receive creator earnings (assignment debit on own content)</td><td class="role no">—</td><td class="role yes">✓ via assoc.</td><td class="role yes">✓ if independent</td><td class="role no">—</td></tr>
+  <tr><td>Earnings routed to company when coach is associated</td><td class="role yes">via routing</td><td class="role yes">✓</td><td class="role no">—</td><td class="role no">—</td></tr>
+  <tr><td>Self-assignment earnings routed to treasury (no double-pay)</td><td class="role yes">via routing</td><td class="role yes">via routing</td><td class="role yes">via routing</td><td class="role yes">via routing</td></tr>
+</table>
+
+<h2 class="pgbreak">Summary by Section</h2>
+<div class="summary">
+<p><strong>Sections covered:</strong> 21 functional areas (16 existing + 5 new since the prior matrix: Search, Messaging, Notifications, Buy Credits, Revenue Routing).</p>
+<p><strong>Major capability adds since last revision:</strong></p>
+<ul>
+  <li>E16 Search &amp; User Discovery — universal search across catalog + users with association protection.</li>
+  <li>E16 Messaging — intro messages with templates, locked/unlocked states, paid unlock.</li>
+  <li>E14 Lead Config — per-tenant per-type lead unlock fees driving search &amp; messaging.</li>
+  <li>E14 Revenue Routing — creator earnings, company association routing, self-assignment treasury rule.</li>
+  <li>E13 Buy Credits — placeholder package purchase flow with order lifecycle.</li>
+  <li>Notification system — admin-configurable categories &amp; reminders.</li>
+  <li>Bot Hero monetization — full lifecycle (request → approval → activation → expiry) with widget override.</li>
+</ul>
+<p><strong>Known gaps</strong> (not in MVP, flagged for roadmap):</p>
+<ul>
+  <li>Real PSP integration (Razorpay) for Buy Credits.</li>
+  <li>Coach/Company-side Program/Event creation UI.</li>
+  <li>AI assessment-question generation UI.</li>
+  <li>Listing fee charge on public content publish.</li>
+  <li>Marketplace commission split (creator + platform).</li>
+  <li>Route-level role guards (today only menu-level hiding).</li>
+  <li>SEO <code>generateMetadata()</code> on landing.</li>
+  <li>Rate limiting on bot endpoints.</li>
+</ul>
+</div>
+
+<hr>
+<p class="meta">Generated from StudioVerse codebase audit — May 2026. For step-level test cases see <code>TEST_CASES.md</code>; for role journeys see <code>USER_JOURNEYS_COACHING_MVP.html</code>; for QA strategy see <code>QUALITY_PLAN.html</code>.</p>
+
+</body>
+</html>

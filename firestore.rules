@@ -104,6 +104,7 @@ service cloud.firestore {
         "adminCashoutAlert",
         "adminBotHeroAlert",
         "adminPromotionAlert",
+        "introMessageReceived",
       ];
     }
 
@@ -314,24 +315,30 @@ service cloud.firestore {
     }
 
     // ── Assessment Attempts ────────────────────────────────────────────────
+    // Owner identity is checked via isActorId() to support all three id forms:
+    // Auth UID, users.uid, and users.userId. Without this, attempts created
+    // with the user-doc userId (which may differ from auth.uid for managed
+    // users) would be unreadable by their own author.
     match /assessmentAttempts/{attemptId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+                    || (isSignedIn() && isActorId(resource.data.userId));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+                    || (isSignedIn() && isActorId(resource.data.userId));
       allow delete: if false;
     }
 
     // ── Assessment Reports ─────────────────────────────────────────────────
+    // Reports are stored with userId set either to the completer's auth.uid
+    // or to assignment.assigneeId, so use isActorId() to recognise both.
     match /assessmentReports/{reportId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || (isSignedIn() && isActorId(resource.data.userId))
                     || (isSignedIn()
                         && exists(/databases/$(database)/documents/assignments/$(resource.data.assignmentId))
                         && (
-                          get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assigneeId == request.auth.uid
-                          || get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assignerId == request.auth.uid
+                          isActorId(get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assigneeId)
+                          || isActorId(get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assignerId)
                         ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
@@ -372,10 +379,10 @@ service cloud.firestore {
                        );
       allow update: if isSuperAdmin()
                     || (isSignedIn() && (
-                         resource.data.assignedTo  == request.auth.uid ||
-                         resource.data.assignedBy  == request.auth.uid ||
-                         resource.data.assignerId  == request.auth.uid ||
-                         resource.data.assigneeId  == request.auth.uid
+                         isActorId(resource.data.get('assignedTo', ''))
+                         || isActorId(resource.data.get('assignedBy', ''))
+                         || isActorId(resource.data.get('assignerId', ''))
+                         || isActorId(resource.data.get('assigneeId', ''))
                        )
                        && request.resource.data.assignerId == resource.data.assignerId
                        && request.resource.data.tenantId == resource.data.tenantId
@@ -449,7 +456,7 @@ service cloud.firestore {
     // ── Coin Requests ──────────────────────────────────────────────────────
     match /coinRequests/{requestId} {
       allow create: if isProfessionalUser()
-        && request.resource.data.requesterProfessionalId == request.auth.uid
+        && isActorId(request.resource.data.requesterProfessionalId)
         && request.resource.data.tenantId == currentTenantId()
         && (
              request.resource.data.companyId == currentCompanyId()
@@ -461,7 +468,7 @@ service cloud.firestore {
 
       allow read: if isSuperAdmin()
         || (isSignedIn() && (
-              resource.data.requesterProfessionalId == request.auth.uid
+              isActorId(resource.data.requesterProfessionalId)
               || resource.data.companyId == request.auth.uid
               || resource.data.companyId == currentUserIdValue()
               || resource.data.companyId == currentUserUidValue()
@@ -530,15 +537,17 @@ service cloud.firestore {
     // ── Coin Orders ────────────────────────────────────────────────────────
     // Users can create and read their own orders; SuperAdmin can update for approvals.
     // SECURITY: Users cannot modify userId, status, or amount fields.
+    // userId/createdBy may store any of {auth.uid, users.uid, users.userId}, so
+    // we use isActorId() to accept all three forms.
     match /coinOrders/{orderId} {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && (
-                         resource.data.userId    == request.auth.uid ||
-                         resource.data.createdBy == request.auth.uid
+                         isActorId(resource.data.get('userId', ''))
+                         || isActorId(resource.data.get('createdBy', ''))
                        ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid
+                    || (isSignedIn() && isActorId(resource.data.get('userId', ''))
                         && hasOnlyAllowedChanges(['userId', 'status', 'amount', 'createdBy']));
       allow delete: if false;
     }
@@ -645,6 +654,55 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow read:  if isSuperAdmin();
       allow write: if false;
+    }
+
+    // ── Lead Unlocks ───────────────────────────────────────────────────────
+    // Persistent unlock state for the Lead tile lock/unlock flow.
+    // Writes go through the `unlockLead` callable (Admin SDK) which performs
+    // the wallet debit + lead unlock doc create atomically. Client writes are
+    // denied. Reads are gated to the unlocker, the lead being unlocked, or
+    // SuperAdmin.
+    match /leadUnlocks/{unlockId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && (
+                         resource.data.unlockerUserId == request.auth.uid
+                         || resource.data.unlockerUserId == currentUserIdValue()
+                         || resource.data.unlockerUserId == currentUserUidValue()
+                         || resource.data.leadUserId == request.auth.uid
+                         || resource.data.leadUserId == currentUserIdValue()
+                         || resource.data.leadUserId == currentUserUidValue()
+                       ));
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Messages ───────────────────────────────────────────────────────────
+    // Intro messages between users discovered via Universal Search.
+    // Writes go through `sendIntroMessage` and `unlockMessage` callables;
+    // client direct writes are denied. Each user can read messages addressed
+    // to them or sent by them.
+    match /messages/{messageId} {
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && (
+                         resource.data.senderUserId == request.auth.uid
+                         || resource.data.senderUserId == currentUserIdValue()
+                         || resource.data.senderUserId == currentUserUidValue()
+                         || resource.data.receiverUserId == request.auth.uid
+                         || resource.data.receiverUserId == currentUserIdValue()
+                         || resource.data.receiverUserId == currentUserUidValue()
+                       ));
+      // Allow receivers to mark their own message as read (only the readAt
+      // field changes). All other state transitions go through callables.
+      allow update: if isSignedIn()
+                    && (
+                         resource.data.receiverUserId == request.auth.uid
+                         || resource.data.receiverUserId == currentUserIdValue()
+                         || resource.data.receiverUserId == currentUserUidValue()
+                       )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+      allow create: if false;
+      allow delete: if false;
     }
 
   }

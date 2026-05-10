@@ -1085,3 +1085,41 @@ All nine epic docs updated:
 - `docs/E7.md` — assignment/recommendation/self-registration rules corrected to match implementation.
 - `docs/E8.md` — role menu implementation snapshot added; My activities and Manage Wallet noted as live routes.
 - `docs/FIREBASE_PROD_ROLLOUT_RUNBOOK.md` — extended with E7 assignments section (collection schema, required indexes, rules, smoke tests), E8 pre-prod checks, updated walletTransactions schema (debit type + extra fields), wallet ownership rule, and the TypeScript build fix note.
+
+### Session changes — May 9, 2026
+
+Topics: Firestore rule relaxations (multi-company coin requests + walletTransactions read), Razorpay test harness, Razorpay env-mode simplification, destructive DB reset script.
+
+- **Firestore rules (deployed to studioverse-test):**
+  - `walletTransactions` read: any signed-in user can read non-`treasury::*` rows; treasury rows remain superadmin-only. Reason: company users opening the coin requests modal needed to read coach ledger entries.
+  - `coinRequests` create: accepts `companyId == currentCompanyId()` OR `companyId in currentUser().get('associatedCompanyIds', [])`, supporting coaches associated with multiple companies.
+
+- **Multi-company coin request UI** (`src/modules/wallet/pages/RequestCoinsPage.tsx`):
+  - Loads `[associatedCompanyId, ...associatedCompanyIds]`, dedupes, resolves each via `getUserById`.
+  - Renders a `<select>` dropdown when ≥2 companies; disabled input when single.
+  - `ManagedUserRecord.associatedCompanyIds?: string[]` added in `src/services/manage-users.service.ts`.
+
+- **Razorpay env mode (simplified)** — `src/lib/payments/razorpay.ts`:
+  - Removed the `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` explicit-override short-circuit.
+  - `RAZORPAY_MODE` (`test` | `live`) is the sole decider; reads the matching `RAZORPAY_TEST_*` or `RAZORPAY_LIVE_*` pair.
+  - Falls back to `APP_ENV` / `NEXT_PUBLIC_APP_ENV` (`production` → live, else test) only when `RAZORPAY_MODE` is unset.
+
+- **Razorpay test harness (new):**
+  - UI: `src/app/test/razorpay/page.tsx` — default ₹10 cart, random receipt id, opens Razorpay checkout, prefills name/email/phone.
+  - APIs: `src/app/api/test/razorpay/create-order/route.ts` and `…/verify/route.ts` — both go through `src/lib/payments/razorpay.ts` so they honor `RAZORPAY_MODE`.
+  - Mirrors the pattern of the existing Resend test (`/test/resend`).
+
+- **DB reset script (new):** `scripts/reset-firestore-test.mjs`
+  - Hard-locked to project `studioverse-test`; refuses any other project.
+  - Keeps superadmin users + `programs` + `assessments` + `assessmentQuestions` + `events` + `tenants` (full).
+  - Resets each `treasury::*` wallet to `{ totalIssuedCoins: 100000, availableCoins: 100000, utilizedCoins: 0 }`.
+  - Wipes everything else via batched 400-op deletes.
+  - Does NOT touch Firebase Auth users — those are deleted manually.
+  - npm aliases: `npm run db:reset:test` (dry run) / `npm run db:reset:test:confirm`. Script docs in `scripts/README.md`.
+
+- **Diagnostic suffixes (temporary)** — to triage a stale-`cs_uid` / duplicate-auth-account issue. Strip after fresh user-creation round confirms the issue is resolved:
+  - `src/services/manage-users.service.ts:239`
+  - `src/app/api/users/create-scoped/route.ts:538`
+  - `src/modules/users/pages/ManageUsersPage.tsx:357`
+
+- **Pending follow-up:** user is recreating users from scratch (SuperAdmin → Company → Coach → Coachee) after running the reset script and clearing Firebase Auth. After that round, strip the diagnostic suffixes above.

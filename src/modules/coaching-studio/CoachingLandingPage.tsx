@@ -17,7 +17,7 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
-import LoginRegisterModal from "./auth/LoginRegisterModal";
+import LoginRegisterModal from "@/modules/auth/components/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "./DetailModal";
 
 type Props = {

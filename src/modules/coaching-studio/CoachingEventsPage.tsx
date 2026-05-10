@@ -6,7 +6,7 @@ import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { EVENT_TYPE_LABELS, type EventRecord } from "@/types/event";
-import LoginRegisterModal from "./auth/LoginRegisterModal";
+import LoginRegisterModal from "@/modules/auth/components/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "./DetailModal";
 import TenantViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";

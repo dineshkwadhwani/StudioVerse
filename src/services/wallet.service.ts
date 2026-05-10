@@ -179,7 +179,7 @@ export async function issueRegistrationBonusForUser(args: {
     tenantId: args.tenantId,
   });
 
-  if (result.data?.status === "issued") {
+  if (result.data?.status === "credited") {
     try {
       const userRecord = await resolveUserRecordByAnyId(args.userId);
       if (userRecord) {

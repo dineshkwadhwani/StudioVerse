@@ -317,20 +317,29 @@ export default function LoginRegisterModal({
         // - Returning user: CF already created the wallet on first claim; only
         //   ensure a wallet exists for legacy users that pre-date the invariant.
         if (claimed && claimed.claimed) {
-          void issueRegistrationBonusForUser({
-            userId: result.user.uid,
-            tenantId,
-          }).catch(() => {
-            // Best-effort. Idempotent CF; safe to retry on next login.
-          });
+          // Await so the wallet exists before we redirect to the dashboard;
+          // otherwise the Manage Wallet page can race ahead and read a missing
+          // wallet doc. CF is idempotent, so a retry on next login is safe.
+          try {
+            await issueRegistrationBonusForUser({
+              userId: result.user.uid,
+              tenantId,
+            });
+          } catch (bonusErr) {
+            logFlow('verify-otp:bonus-error', { message: (bonusErr as Error).message });
+          }
         } else {
-          void ensureWalletExists({
-            userId: result.user.uid,
-            lookupUserIds: [userDocId].filter(Boolean) as string[],
-            tenantId,
-            userType: resolvedRole as WalletUserType,
-            userName: resolvedName,
-          });
+          try {
+            await ensureWalletExists({
+              userId: result.user.uid,
+              lookupUserIds: [userDocId].filter(Boolean) as string[],
+              tenantId,
+              userType: resolvedRole as WalletUserType,
+              userName: resolvedName,
+            });
+          } catch (walletErr) {
+            logFlow('verify-otp:ensure-wallet-error', { message: (walletErr as Error).message });
+          }
         }
 
         sessionStorage.setItem('cs_uid', result.user.uid);

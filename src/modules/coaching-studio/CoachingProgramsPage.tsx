@@ -10,7 +10,7 @@ import {
   type ProgramDeliveryType,
   type ProgramRecord,
 } from "@/types/program";
-import LoginRegisterModal from "./auth/LoginRegisterModal";
+import LoginRegisterModal from "@/modules/auth/components/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "./DetailModal";
 import TenantViewAllHeader from "./CoachingViewAllHeader";
 import landingStyles from "./CoachingLandingPage.module.css";

@@ -45,7 +45,8 @@ import { calculateEngagementIndex, type EngagementIndexResult } from "@/services
 import { listPromotionRequests } from "@/services/programPromotionRequests.service";
 import { listPendingBotHeroRequests } from "@/services/botHero.service";
 import { listListingRequests } from "@/services/listingRequests.service";
-import { listAllReferrals, processReferralJoinForNewUser, sendReferralReminders } from "@/services/referral.service";
+import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
+import { createInvitation } from "@/services/invitations.service";
 import { backfillTenantTreasuryWallets, buildWalletId, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
@@ -1442,7 +1443,28 @@ export default function SuperAdminPortal() {
 
       if (userForm.id) {
         await updateDoc(doc(db, "users", userForm.id), payload);
+      } else if (userForm.userType === "professional" || userForm.userType === "individual") {
+        // Pre-created users live in invitations/ until first OTP login claims them.
+        // No wallet, no referral processing here — those happen at claim time.
+        await createInvitation({
+          tenantId: normalizedTenantId,
+          userType: userForm.userType,
+          role: userForm.userType,
+          firstName: "",
+          lastName: "",
+          fullName: trimmedName,
+          name: trimmedName,
+          email: normalizedEmail,
+          phoneE164: normalizedPhone,
+          phone: normalizedPhone,
+          associatedCompanyId: null,
+          associatedProfessionalId: null,
+          companyName: normalizedCompanyName || "",
+          createdByUserId: profile.id,
+          createdByRole: "superadmin",
+        });
       } else {
+        // SuperAdmin and Company users are created directly in users/ (no invitation flow).
         const userRef = doc(collection(db, "users"));
 
         await setDoc(userRef, {
@@ -1450,12 +1472,7 @@ export default function SuperAdminPortal() {
           createdAt: serverTimestamp(),
         });
 
-        const isWalletEligible =
-          userForm.userType === "company"
-          || userForm.userType === "professional"
-          || userForm.userType === "individual";
-
-        if (isWalletEligible) {
+        if (userForm.userType === "company") {
           const registrationCoins = await getTenantRegistrationFreeCoins(normalizedTenantId);
           const userType = userForm.userType as WalletUserType;
           const walletId = buildWalletId(userRef.id, normalizedTenantId);
@@ -1497,21 +1514,6 @@ export default function SuperAdminPortal() {
               });
             }
           });
-        }
-
-        if (userForm.userType === "professional" || userForm.userType === "individual") {
-          try {
-            await processReferralJoinForNewUser({
-              userId: userRef.id,
-              fullName: trimmedName,
-              tenantId: normalizedTenantId,
-              userType: userForm.userType,
-              email: normalizedEmail,
-              phoneE164: normalizedPhone,
-            });
-          } catch {
-            // Referral processing is best-effort and should not block user creation.
-          }
         }
       }
 

@@ -24,9 +24,16 @@ type VerifyResponse = {
 
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, cb: (response: unknown) => void) => void };
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+    };
   }
 }
+
+type CheckoutInstance = {
+  open: () => void;
+  on: (event: string, cb: (response: unknown) => void) => void;
+};
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -142,7 +149,7 @@ export default function RazorpayTestPage() {
             setErrorText("Checkout dismissed by user.");
           },
         },
-      });
+      }) as unknown as CheckoutInstance;
 
       checkout.on("payment.failed", (response: unknown) => {
         const r = response as { error?: { description?: string; code?: string } };

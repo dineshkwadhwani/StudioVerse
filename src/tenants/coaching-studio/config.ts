@@ -25,6 +25,10 @@ export const config: TenantConfig = {
       subject: "Coaching Studio : An activity has been assigned",
       body: "Dear {{assigneeName}}\nAn activity has been assigned to you by {{assignerName}}. Please log in to Coaching Studio (www.coachingstudio.in) to complete the activity.\n\nCoaching Studio Team.",
     },
+    invitationNotification: {
+      subject: "Coaching Studio : You have been invited to join",
+      body: "Dear {{inviteeName}},\n\n{{inviterName}} has invited you to join Coaching Studio as a {{roleLabel}}.\n\nPlease log in at https://www.coachingstudio.in using this phone number ({{phoneE164}}) to complete your registration. Your account is already set up — sign in to get started.\n\nCoaching Studio Team.",
+    },
   },
   theme: {
     primaryColor: "#01696f",

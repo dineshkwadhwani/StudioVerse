@@ -580,7 +580,14 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
                   const engagementIndex = engagementIndices[user.id];
                   return (
                     <article key={user.id} className={styles.userRow}>
-                      <p className={styles.userName}>{user.fullName}</p>
+                      <p className={styles.userName}>
+                        {user.fullName}
+                        {user.isPending ? (
+                          <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 4, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 500 }}>
+                            Invited
+                          </span>
+                        ) : null}
+                      </p>
                       <p className={styles.userMeta}>Type: {getRoleDisplayLabel(user.userType, tenantConfig)}</p>
                       <p className={styles.userMeta}>{user.email}</p>
                       <p className={styles.userMeta}>{user.phoneE164}</p>

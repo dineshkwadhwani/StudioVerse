@@ -45,6 +45,10 @@ export type TenantConfig = {
       subject: string;
       body: string;
     };
+    invitationNotification?: {
+      subject: string;
+      body: string;
+    };
   };
   theme: {
     primaryColor: string;

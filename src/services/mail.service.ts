@@ -140,6 +140,60 @@ export async function sendTenantEmail(args: SendTenantEmailArgs): Promise<SendAs
   };
 }
 
+type SendInvitationEmailArgs = {
+  mailConfig: TenantMailConfig;
+  tenantId: string;
+  inviteeEmail: string;
+  inviteeName: string;
+  inviterName: string;
+  roleLabel: string;
+  phoneE164: string;
+};
+
+const DEFAULT_INVITATION_SUBJECT = "You have been invited to StudioVerse";
+const DEFAULT_INVITATION_BODY = [
+  "Dear {{inviteeName}},",
+  "",
+  "{{inviterName}} has invited you to join as a {{roleLabel}}.",
+  "Please sign in using your phone number ({{phoneE164}}) to complete your registration.",
+  "",
+  "StudioVerse Team.",
+].join("\n");
+
+export async function sendInvitationEmail(
+  args: SendInvitationEmailArgs
+): Promise<SendAssignmentEmailResult> {
+  if (!args.inviteeEmail.trim()) {
+    return {
+      success: true,
+      skipped: true,
+      message: "Invitee has no email address; skipping invitation email.",
+    };
+  }
+
+  const tenantConfig = getTenantConfigById(args.tenantId);
+  const template = tenantConfig?.mailTemplates?.invitationNotification;
+
+  const subjectTemplate = template?.subject ?? DEFAULT_INVITATION_SUBJECT;
+  const bodyTemplate = template?.body ?? DEFAULT_INVITATION_BODY;
+
+  const values: Record<string, string> = {
+    inviteeName: args.inviteeName,
+    inviterName: args.inviterName,
+    roleLabel: args.roleLabel,
+    phoneE164: args.phoneE164,
+    tenantId: args.tenantId,
+  };
+
+  return sendTenantEmail({
+    mailConfig: args.mailConfig,
+    name: args.inviteeName,
+    email: args.inviteeEmail,
+    subject: renderMailTemplate(subjectTemplate, values),
+    body: renderMailTemplate(bodyTemplate, values),
+  });
+}
+
 export async function sendAssignmentEmail(
   args: SendAssignmentEmailArgs
 ): Promise<SendAssignmentEmailResult> {

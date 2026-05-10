@@ -46,7 +46,9 @@ import { listPromotionRequests } from "@/services/programPromotionRequests.servi
 import { listPendingBotHeroRequests } from "@/services/botHero.service";
 import { listListingRequests } from "@/services/listingRequests.service";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
-import { createInvitation } from "@/services/invitations.service";
+import { createInvitation, findPendingInvitationByPhone } from "@/services/invitations.service";
+import { getTenantMailConfig, sendInvitationEmail } from "@/services/mail.service";
+import { getTenantConfigById } from "@/tenants";
 import { backfillTenantTreasuryWallets, buildWalletId, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
 import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import type { AssignmentRecord } from "@/types/assignment";
@@ -96,6 +98,8 @@ type AppUser = {
   companyName?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+  isInvitation?: boolean;
+  invitationId?: string;
 };
 
 type TenantRecord = {
@@ -924,18 +928,38 @@ export default function SuperAdminPortal() {
 
   async function loadUsers() {
     try {
-      const usersRef = collection(db, "users");
-      const snap = await getDocs(usersRef);
+      const [usersSnap, invitationsSnap] = await Promise.all([
+        getDocs(collection(db, "users")),
+        getDocs(query(collection(db, "invitations"), where("status", "==", "pending"))),
+      ]);
 
-      const mapped: AppUser[] = snap.docs
-        .map((entry) => {
-          const data = entry.data() as Omit<AppUser, "id">;
-          return {
-            id: entry.id,
-            ...data,
-          };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const claimed: AppUser[] = usersSnap.docs.map((entry) => {
+        const data = entry.data() as Omit<AppUser, "id">;
+        return { id: entry.id, ...data };
+      });
+
+      const invited: AppUser[] = invitationsSnap.docs.map((entry) => {
+        const data = entry.data() as Record<string, unknown>;
+        const userType = (data.userType as AppUserType) ?? "individual";
+        return {
+          id: entry.id,
+          name: String(data.name ?? data.fullName ?? ""),
+          email: String(data.email ?? ""),
+          phoneE164: String(data.phoneE164 ?? ""),
+          userType,
+          status: "inactive" as Status,
+          tenantId: String(data.tenantId ?? ""),
+          companyName: String(data.companyName ?? ""),
+          createdAt: data.createdAt as Timestamp | undefined,
+          updatedAt: data.updatedAt as Timestamp | undefined,
+          isInvitation: true,
+          invitationId: entry.id,
+        };
+      });
+
+      const mapped = [...claimed, ...invited].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
 
       setUsers(mapped);
     } catch (error) {
@@ -1444,6 +1468,14 @@ export default function SuperAdminPortal() {
       if (userForm.id) {
         await updateDoc(doc(db, "users", userForm.id), payload);
       } else if (userForm.userType === "professional" || userForm.userType === "individual") {
+        const existingInvite = await findPendingInvitationByPhone({
+          tenantId: normalizedTenantId,
+          phoneE164: normalizedPhone,
+        });
+        if (existingInvite) {
+          throw new Error("An invitation has already been sent to this phone number. The user will appear in the list once they sign in.");
+        }
+
         // Pre-created users live in invitations/ until first OTP login claims them.
         // No wallet, no referral processing here — those happen at claim time.
         await createInvitation({
@@ -1463,6 +1495,25 @@ export default function SuperAdminPortal() {
           createdByUserId: profile.id,
           createdByRole: "superadmin",
         });
+
+        try {
+          const mailConfig = await getTenantMailConfig(normalizedTenantId);
+          const tenantConfig = getTenantConfigById(normalizedTenantId);
+          const roleLabel = userForm.userType === "professional"
+            ? tenantConfig?.roles.professional ?? "Coach"
+            : tenantConfig?.roles.individual ?? "Coachee";
+          await sendInvitationEmail({
+            mailConfig,
+            tenantId: normalizedTenantId,
+            inviteeEmail: normalizedEmail,
+            inviteeName: trimmedName,
+            inviterName: profile.name || "Super Admin",
+            roleLabel,
+            phoneE164: normalizedPhone,
+          });
+        } catch (mailError) {
+          console.warn("Failed to send invitation email", mailError);
+        }
       } else {
         // SuperAdmin and Company users are created directly in users/ (no invitation flow).
         const userRef = doc(collection(db, "users"));
@@ -2174,10 +2225,14 @@ export default function SuperAdminPortal() {
                         </div>
 
                         <div className={styles.userActions}>
-                          <span className={styles.statusBadge}>{item.status}</span>
-                          <button type="button" className={styles.rowAction} onClick={() => openEditUserModal(item)}>
-                            Edit
-                          </button>
+                          <span className={styles.statusBadge}>
+                            {item.isInvitation ? "Invited" : item.status}
+                          </span>
+                          {item.isInvitation ? null : (
+                            <button type="button" className={styles.rowAction} onClick={() => openEditUserModal(item)}>
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </section>
                     ))}

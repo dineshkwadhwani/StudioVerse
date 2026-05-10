@@ -13,6 +13,8 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { createInvitation } from "@/services/invitations.service";
+import { getTenantMailConfig, sendInvitationEmail } from "@/services/mail.service";
+import { getTenantConfigById } from "@/tenants";
 
 export type ManageUserRole = "company" | "professional" | "individual";
 
@@ -493,6 +495,25 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     createdByUserId: creator.id,
     createdByRole: creatorRole,
   });
+
+  try {
+    const mailConfig = await getTenantMailConfig(tenantId);
+    const tenantConfig = getTenantConfigById(tenantId);
+    const roleLabel = targetUserType === "professional"
+      ? tenantConfig?.roles.professional ?? "Coach"
+      : tenantConfig?.roles.individual ?? "Coachee";
+    await sendInvitationEmail({
+      mailConfig,
+      tenantId,
+      inviteeEmail: email,
+      inviteeName: fullName,
+      inviterName: creator.fullName || creator.firstName || "A team member",
+      roleLabel,
+      phoneE164,
+    });
+  } catch (mailError) {
+    console.warn("Failed to send invitation email", mailError);
+  }
 
   return {
     operation: "created",

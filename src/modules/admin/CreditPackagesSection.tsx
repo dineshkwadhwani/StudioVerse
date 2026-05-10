@@ -5,7 +5,9 @@ import styles from "./SuperAdminPortal.module.css";
 import {
   listCoinPackages,
   saveCoinPackage,
+  uploadCoinPackageImage,
   validateCoinPackageForm,
+  validateCoinPackageImageFile,
 } from "@/services/coinPackages.service";
 import { DEFAULT_COIN_PACKAGES } from "@/types/coinPackage";
 import type { CoinPackageFormValues, CoinPackageRecord } from "@/types/coinPackage";
@@ -14,6 +16,7 @@ const EMPTY_FORM: CoinPackageFormValues = {
   name: "",
   description: "",
   imageUrl: "",
+  imagePath: "",
   credits: "",
   priceInr: "",
   status: "active",
@@ -35,6 +38,8 @@ export default function CreditPackagesSection({ operatorId }: Props) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   async function refresh() {
     setLoading(true);
@@ -50,6 +55,7 @@ export default function CreditPackagesSection({ operatorId }: Props) {
   function openCreate() {
     setFormValues(EMPTY_FORM);
     setFormErrors({});
+    setSelectedImage(null);
     setMessage("");
     setError("");
     setFormOpen(true);
@@ -61,15 +67,32 @@ export default function CreditPackagesSection({ operatorId }: Props) {
       name: pkg.name,
       description: pkg.description ?? "",
       imageUrl: pkg.imageUrl ?? "",
+      imagePath: pkg.imagePath ?? "",
       credits: String(pkg.credits),
       priceInr: String(pkg.priceInr),
       status: pkg.status,
       sortOrder: String(pkg.sortOrder),
     });
     setFormErrors({});
+    setSelectedImage(null);
     setMessage("");
     setError("");
     setFormOpen(true);
+  }
+
+  function handleImageSelection(file: File | null) {
+    setError("");
+    if (!file) {
+      setSelectedImage(null);
+      return;
+    }
+    const validationError = validateCoinPackageImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      setSelectedImage(null);
+      return;
+    }
+    setSelectedImage(file);
   }
 
   async function handleSave() {
@@ -82,20 +105,34 @@ export default function CreditPackagesSection({ operatorId }: Props) {
     setError("");
     try {
       const nextValues: CoinPackageFormValues = { ...formValues };
-      if (formValues.id) {
+
+      if (selectedImage) {
+        setUploadingImage(true);
+        const packageId = formValues.id ?? crypto.randomUUID();
+        const upload = await uploadCoinPackageImage({
+          packageId,
+          file: selectedImage,
+        });
+        nextValues.id = packageId;
+        nextValues.imageUrl = upload.imageUrl;
+        nextValues.imagePath = upload.imagePath;
+      } else if (formValues.id) {
         const existingPackage = packages.find((pkg) => pkg.id === formValues.id);
         if (existingPackage) {
           nextValues.imageUrl = nextValues.imageUrl || existingPackage.imageUrl || "";
+          nextValues.imagePath = nextValues.imagePath || existingPackage.imagePath || "";
         }
       }
 
       await saveCoinPackage(nextValues, operatorId);
       setMessage(formValues.id ? "Credit package updated." : "Credit package created.");
       setFormOpen(false);
+      setSelectedImage(null);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save credit package.");
     } finally {
+      setUploadingImage(false);
       setSaving(false);
     }
   }
@@ -110,6 +147,7 @@ export default function CreditPackagesSection({ operatorId }: Props) {
             name: pkg.name,
             description: pkg.description ?? "",
             imageUrl: "",
+            imagePath: "",
             credits: String(pkg.credits),
             priceInr: String(pkg.priceInr),
             status: pkg.status,
@@ -265,22 +303,27 @@ export default function CreditPackagesSection({ operatorId }: Props) {
               />
               {formErrors.description ? <p className={styles.error}>{formErrors.description}</p> : null}
 
-              <label className={styles.label}>Image URL</label>
-              <p style={{ fontSize: "0.8rem", color: "#4d6e86", margin: "0 0 4px" }}>
-                Paste a public image URL for the credit package card (optional)
-              </p>
+              <label className={styles.label}>Image</label>
               <input
                 className={styles.input}
-                type="url"
-                value={formValues.imageUrl}
-                onChange={(e) => setFormValues((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(event) => handleImageSelection(event.target.files?.[0] ?? null)}
+                disabled={saving || uploadingImage}
               />
-              {formValues.imageUrl ? (
+              <p className={styles.subtitle}>
+                {selectedImage
+                  ? `Selected image: ${selectedImage.name}`
+                  : formValues.imageUrl
+                    ? "Existing image will be kept unless you upload a replacement."
+                    : "Upload a JPG, PNG, or WebP image up to 2MB."}
+              </p>
+              {formValues.imageUrl && !selectedImage ? (
                 <button
                   type="button"
                   className={styles.ghostButton}
-                  onClick={() => setFormValues((prev) => ({ ...prev, imageUrl: "" }))}
-                  disabled={saving}
+                  onClick={() => setFormValues((prev) => ({ ...prev, imageUrl: "", imagePath: "" }))}
+                  disabled={saving || uploadingImage}
                   style={{ marginBottom: "12px" }}
                 >
                   Remove current image
@@ -288,12 +331,12 @@ export default function CreditPackagesSection({ operatorId }: Props) {
               ) : null}
               {formErrors.imageUrl ? <p className={styles.error}>{formErrors.imageUrl}</p> : null}
 
-              {formValues.imageUrl ? (
+              {(formValues.imageUrl || selectedImage) ? (
                 <div style={{ marginBottom: "12px" }}>
                   <p className={styles.label} style={{ marginBottom: "6px" }}>Image Preview</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={formValues.imageUrl}
+                    src={selectedImage ? URL.createObjectURL(selectedImage) : formValues.imageUrl}
                     alt="Credit package preview"
                     style={{ height: "80px", borderRadius: "10px", objectFit: "cover", border: "1px solid #c6dcea" }}
                   />

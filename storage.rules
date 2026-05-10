@@ -12,49 +12,55 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == "superadmin";
     }
 
-    // Profile photos — each user can write only their own, any authenticated user can read
+    // Profile photos — user can write only their own
     match /profiles/{tenantId}/{userId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Assessment cover images — superadmin write, authenticated read
+    // Assessment cover images
     match /assessments/{tenantId}/{assessmentId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Program thumbnails — superadmin write, authenticated read
+    // Program thumbnails
     match /programs/{tenantId}/{programId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Event thumbnails — superadmin write, authenticated read
+    // Event thumbnails
     match /events/{tenantId}/{eventId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Bot hero package images — superadmin write, authenticated read
+    // Bot hero package images
     match /botHeroPackages/{packageId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Promotion package images — superadmin write, authenticated read
+    // Promotion package images
     match /promotionPackages/{tenantId}/{packageId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Listing package images — superadmin write, authenticated read
+    // Listing package images
     match /listingPackages/{tenantId}/{packageId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSuperAdmin();
     }
 
-    // Deny all unmatched paths
+    // Coin/credit package images
+    match /coinPackages/{packageId}/{filename} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;
     }

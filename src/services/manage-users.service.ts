@@ -91,7 +91,7 @@ function isValidEmail(value: string): boolean {
 function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserRecord {
   const firstName = toStringValue(data.firstName);
   const lastName = toStringValue(data.lastName);
-  const fullName = toStringValue(data.fullName || data.name || `${firstName} ${lastName}`.trim());
+  const fullName = toStringValue(data.fullName || `${firstName} ${lastName}`.trim());
 
   return {
     id,
@@ -128,7 +128,7 @@ function mapManagedUser(id: string, data: Record<string, unknown>): ManagedUserR
 function mapInvitationAsManagedUser(id: string, data: Record<string, unknown>): ManagedUserRecord {
   const firstName = toStringValue(data.firstName);
   const lastName = toStringValue(data.lastName);
-  const fullName = toStringValue(data.fullName || data.name || `${firstName} ${lastName}`.trim());
+  const fullName = toStringValue(data.fullName || `${firstName} ${lastName}`.trim());
 
   const userType =
     toStringValue(data.userType || data.role) === "professional" ? "professional" : "individual";
@@ -485,7 +485,6 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
     firstName,
     lastName,
     fullName,
-    name: fullName,
     email,
     phoneE164,
     phone: phoneE164,
@@ -524,7 +523,6 @@ export async function createScopedManagedUser(input: CreateManagedUserInput): Pr
       firstName: invitation.firstName,
       lastName: invitation.lastName,
       fullName: invitation.fullName,
-      name: invitation.name,
       email: invitation.email,
       phoneE164: invitation.phoneE164,
       phone: invitation.phone,

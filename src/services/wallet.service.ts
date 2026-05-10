@@ -10,6 +10,8 @@ import {
   addDoc,
   updateDoc,
   limit,
+  type QuerySnapshot,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db } from "@/services/firebase";
@@ -269,12 +271,16 @@ export async function getWalletByUserAndTenant(args: {
     return mapWalletDoc(scopedSnap.id, scopedSnap.data() as Record<string, unknown>);
   }
 
-  const legacySnap = await getDoc(doc(db, "wallets", userId));
-  if (legacySnap.exists()) {
-    const legacyWallet = mapWalletDoc(legacySnap.id, legacySnap.data() as Record<string, unknown>);
-    if (legacyWallet.tenantId === tenantId) {
-      return legacyWallet;
+  try {
+    const legacySnap = await getDoc(doc(db, "wallets", userId));
+    if (legacySnap.exists()) {
+      const legacyWallet = mapWalletDoc(legacySnap.id, legacySnap.data() as Record<string, unknown>);
+      if (legacyWallet.tenantId === tenantId) {
+        return legacyWallet;
+      }
     }
+  } catch {
+    // Legacy wallet doc not readable (non-existent or no permission) — skip.
   }
 
   const byUserSnap = await getDocs(query(collection(db, "wallets"), where("userId", "==", userId)));
@@ -393,37 +399,24 @@ function toTransactionMillis(value: WalletTransactionRecord["createdAt"]): numbe
 export async function listWalletTransactionsForUserContext(args: {
   userIds: string[];
   tenantId?: string;
+  includeTreasury?: boolean;
 }): Promise<WalletTransactionRecord[]> {
   const normalizedIds = Array.from(new Set(args.userIds.map((id) => id.trim()).filter(Boolean)));
 
   try {
-    const snapshots = await Promise.all(
-      normalizedIds.flatMap((userId) => {
-        const queries = [
-          getDocs(query(collection(db, "walletTransactions"), where("userId", "==", userId))),
-          getDocs(query(collection(db, "walletTransactions"), where("createdBy", "==", userId))),
-          getDocs(query(collection(db, "walletTransactions"), where("walletId", "==", userId))),
-        ];
-
-        if (args.tenantId) {
-          queries.push(
-            getDocs(
-              query(
-                collection(db, "walletTransactions"),
-                where("walletId", "==", buildWalletId(userId, args.tenantId))
-              )
-            )
-          );
-        }
-
-        return queries;
-      })
+    const results = await Promise.allSettled(
+      normalizedIds.flatMap((userId) => [
+        getDocs(query(collection(db, "walletTransactions"), where("userId", "==", userId))),
+        getDocs(query(collection(db, "walletTransactions"), where("createdBy", "==", userId))),
+      ])
     );
 
-    const allMatched = snapshots
-      .flatMap((snapshot) =>
-        snapshot.docs.map((entry) => mapWalletTransactionDoc(entry.id, entry.data() as Record<string, unknown>))
+    const allMatched = results
+      .filter((r): r is PromiseFulfilledResult<QuerySnapshot> => r.status === "fulfilled")
+      .flatMap((r) =>
+        r.value.docs.map((entry: QueryDocumentSnapshot) => mapWalletTransactionDoc(entry.id, entry.data() as Record<string, unknown>))
       )
+      .filter((item) => args.includeTreasury || !item.walletId.startsWith(TREASURY_WALLET_PREFIX))
       .reduce<WalletTransactionRecord[]>((acc, item) => {
         if (!acc.some((existing) => existing.id === item.id)) {
           acc.push(item);
@@ -507,14 +500,23 @@ export async function assignCoins(input: AssignCoinsInput): Promise<void> {
   const scopedWalletRef = doc(db, "wallets", scopedWalletId);
   const legacyWalletRef = doc(db, "wallets", input.userId);
 
+  const scopedPreCheck = await getDoc(scopedWalletRef).catch(() => null);
+  const needsLegacyCheck = !scopedPreCheck?.exists();
+
   await runTransaction(db, async (transaction) => {
-    const [scopedSnap, legacySnap] = await Promise.all([
-      transaction.get(scopedWalletRef),
-      transaction.get(legacyWalletRef),
-    ]);
+    const scopedSnap = await transaction.get(scopedWalletRef);
+
+    let legacySnap: { exists: () => boolean; data: () => Record<string, unknown> | undefined } | null = null;
+    if (needsLegacyCheck) {
+      try {
+        legacySnap = await transaction.get(legacyWalletRef);
+      } catch {
+        legacySnap = null;
+      }
+    }
 
     const scopedCurrent = scopedSnap.exists() ? (scopedSnap.data() as Record<string, unknown>) : null;
-    const legacyCurrent = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+    const legacyCurrent = legacySnap?.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
     const legacyTenantId = String(legacyCurrent?.tenantId ?? "");
     const useLegacy = !scopedCurrent && legacyCurrent && legacyTenantId === input.tenantId;
     const current = scopedCurrent ?? (useLegacy ? legacyCurrent : null);
@@ -576,12 +578,22 @@ export async function createWalletForUser(input: {
   const legacyWalletRef = doc(db, "wallets", input.userId);
   const initialCoins = Math.max(0, Math.floor(Number(input.initialCoins ?? 0)));
 
+  const scopedPreCheck = await getDoc(scopedWalletRef).catch(() => null);
+  const needsLegacyCheck = !scopedPreCheck?.exists();
+
   await runTransaction(db, async (transaction) => {
-    const [scopedSnap, legacySnap] = await Promise.all([
-      transaction.get(scopedWalletRef),
-      transaction.get(legacyWalletRef),
-    ]);
-    const legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+    const scopedSnap = await transaction.get(scopedWalletRef);
+
+    let legacyData: Record<string, unknown> | null = null;
+    if (needsLegacyCheck) {
+      try {
+        const legacySnap = await transaction.get(legacyWalletRef);
+        legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+      } catch {
+        legacyData = null;
+      }
+    }
+
     const sameTenantLegacyExists = Boolean(legacyData && String(legacyData.tenantId ?? "") === input.tenantId);
 
     if (scopedSnap.exists() || sameTenantLegacyExists) {
@@ -817,14 +829,23 @@ export async function createCashoutRequest(args: {
   const scopedWalletRef = doc(db, "wallets", scopedWalletId);
   const legacyWalletRef = doc(db, "wallets", requesterCanonicalUserId);
 
+  const scopedPreCheck = await getDoc(scopedWalletRef).catch(() => null);
+  const needsLegacyCheck = !scopedPreCheck?.exists();
+
   await runTransaction(db, async (transaction) => {
-    const [scopedSnap, legacySnap] = await Promise.all([
-      transaction.get(scopedWalletRef),
-      transaction.get(legacyWalletRef),
-    ]);
+    const scopedSnap = await transaction.get(scopedWalletRef);
+
+    let legacyData: Record<string, unknown> | null = null;
+    if (needsLegacyCheck) {
+      try {
+        const legacySnap = await transaction.get(legacyWalletRef);
+        legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
+      } catch {
+        legacyData = null;
+      }
+    }
 
     const scopedData = scopedSnap.exists() ? (scopedSnap.data() as Record<string, unknown>) : null;
-    const legacyData = legacySnap.exists() ? (legacySnap.data() as Record<string, unknown>) : null;
     const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === tenantId);
     const current = scopedData ?? (useLegacy ? legacyData : null);
 

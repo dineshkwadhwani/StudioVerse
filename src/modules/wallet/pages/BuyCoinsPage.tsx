@@ -167,7 +167,7 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
       }
 
       const localOrderId = await createCoinOrder({
-        userId: userCtx.profileId,
+        userId: currentUser.uid,
         userName: userCtx.name,
         tenantId,
         userType: userCtx.userType,
@@ -186,7 +186,7 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
           internalOrderId: localOrderId,
           tenantId,
           packageId: selected.id,
-          userId: userCtx.profileId,
+          userId: currentUser.uid,
         },
       });
       paymentHandledRef.current = false;
@@ -217,25 +217,42 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
         handler: async (payload: RazorpayHandlerResponse) => {
           paymentHandledRef.current = true;
           try {
+            console.log("[BuyCoins] Razorpay handler fired, verifying payment...", {
+              razorpay_order_id: payload.razorpay_order_id,
+              razorpay_payment_id: payload.razorpay_payment_id,
+            });
+
             await postWithAuth<{ ok: boolean }>("/api/payments/razorpay/verify", token, {
               expectedAmountPaise: createOrder.amountPaise,
               razorpayOrderId: payload.razorpay_order_id,
               razorpayPaymentId: payload.razorpay_payment_id,
               razorpaySignature: payload.razorpay_signature,
             });
+            console.log("[BuyCoins] Server verification passed");
 
+            console.log("[BuyCoins] Updating coin order status to completed...", { localOrderId });
             await updateCoinOrderStatus(localOrderId, "completed");
+            console.log("[BuyCoins] Coin order status updated");
+
+            console.log("[BuyCoins] Assigning coins...", {
+              userId: currentUser.uid,
+              tenantId,
+              userType: userCtx.userType,
+              credits: selected.credits,
+            });
             await assignCoins({
-              userId: userCtx.profileId,
+              userId: currentUser.uid,
               tenantId,
               userType: userCtx.userType,
               userName: userCtx.name,
               coinsToAssign: selected.credits,
-              assignedBy: userCtx.profileId,
+              assignedBy: currentUser.uid,
             });
+            console.log("[BuyCoins] Coins assigned successfully");
 
             setFlow("success");
           } catch (verifyError) {
+            console.error("[BuyCoins] Post-payment error:", verifyError);
             const message = verifyError instanceof Error ? verifyError.message : "Payment verification failed.";
             try {
               await updateCoinOrderStatus(localOrderId, "failed");

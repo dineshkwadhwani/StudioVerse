@@ -101,7 +101,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
 
     try {
       const [transactions, cashoutRequests] = await Promise.all([
-        listWalletTransactionsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined }),
+        listWalletTransactionsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined, includeTreasury: true }),
         listCashoutRequestsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined }),
       ]);
       setWalletDetailTransactions(transactions);

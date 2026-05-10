@@ -47,6 +47,7 @@ import { listPendingBotHeroRequests } from "@/services/botHero.service";
 import { listListingRequests } from "@/services/listingRequests.service";
 import { listAllReferrals, sendReferralReminders } from "@/services/referral.service";
 import { createInvitation, findPendingInvitationByPhone } from "@/services/invitations.service";
+import type { InvitationUserType } from "@/types/invitation";
 import { getTenantMailConfig, sendInvitationEmail } from "@/services/mail.service";
 import { getTenantConfigById } from "@/tenants";
 import { backfillTenantTreasuryWallets, buildWalletId, getTenantRegistrationFreeCoins, listWalletSummary } from "@/services/wallet.service";
@@ -89,7 +90,7 @@ type Status = "active" | "inactive";
 type AppUser = {
   id: string;
   uid?: string;
-  name: string;
+  fullName: string;
   email: string;
   phoneE164: string;
   userType: AppUserType;
@@ -170,7 +171,7 @@ type TenantRecord = {
 
 type UserFormState = {
   id?: string;
-  name: string;
+  fullName: string;
   email: string;
   phoneE164: string;
   userType: AppUserType;
@@ -351,7 +352,7 @@ function getUsersFilterLabel(value: UsersFilter): string {
 }
 
 const EMPTY_USER_FORM: UserFormState = {
-  name: "",
+  fullName: "",
   email: "",
   phoneE164: "",
   userType: "individual",
@@ -519,7 +520,7 @@ async function ensureSuperadminProfile(firebaseUser: User): Promise<AppUser> {
   if (phoneE164 === MASTER_SUPERADMIN_PHONE_E164) {
     const seedRecord = {
       uid: firebaseUser.uid,
-      name: MASTER_SUPERADMIN.fullName,
+      fullName: MASTER_SUPERADMIN.fullName,
       email: MASTER_SUPERADMIN.email,
       phoneE164: MASTER_SUPERADMIN_PHONE_E164,
       userType: "superadmin" as const,
@@ -630,11 +631,11 @@ export default function SuperAdminPortal() {
   }, [tenants, selectedAssignTenant]);
 
   const userInitials = useMemo(() => {
-    if (!profile?.name) {
+    if (!profile?.fullName) {
       return "SA";
     }
 
-    const parts = profile.name
+    const parts = profile.fullName
       .trim()
       .split(/\s+/)
       .filter(Boolean);
@@ -648,7 +649,7 @@ export default function SuperAdminPortal() {
     }
 
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  }, [profile?.name]);
+  }, [profile?.fullName]);
 
   const filteredUsers = useMemo(() => {
     if (usersFilter === "all") {
@@ -686,7 +687,7 @@ export default function SuperAdminPortal() {
 
     const companyNames = users
       .filter((entry) => entry.userType === "company" && entry.tenantId === userForm.tenantId)
-      .map((entry) => (entry.companyName || entry.name || "").trim())
+      .map((entry) => (entry.companyName || entry.fullName || "").trim())
       .filter(Boolean);
 
     return Array.from(new Set(companyNames)).sort((a, b) => a.localeCompare(b));
@@ -934,8 +935,19 @@ export default function SuperAdminPortal() {
       ]);
 
       const claimed: AppUser[] = usersSnap.docs.map((entry) => {
-        const data = entry.data() as Omit<AppUser, "id">;
-        return { id: entry.id, ...data };
+        const data = entry.data() as Record<string, unknown>;
+        return {
+          id: entry.id,
+          fullName: String(data.fullName ?? ""),
+          email: String(data.email ?? ""),
+          phoneE164: String(data.phoneE164 ?? ""),
+          userType: (data.userType as AppUserType) ?? "individual",
+          status: (data.status as Status) ?? "active",
+          tenantId: String(data.tenantId ?? ""),
+          companyName: String(data.companyName ?? ""),
+          createdAt: data.createdAt as Timestamp | undefined,
+          updatedAt: data.updatedAt as Timestamp | undefined,
+        };
       });
 
       const invited: AppUser[] = invitationsSnap.docs.map((entry) => {
@@ -943,7 +955,7 @@ export default function SuperAdminPortal() {
         const userType = (data.userType as AppUserType) ?? "individual";
         return {
           id: entry.id,
-          name: String(data.name ?? data.fullName ?? ""),
+          fullName: String(data.fullName ?? ""),
           email: String(data.email ?? ""),
           phoneE164: String(data.phoneE164 ?? ""),
           userType,
@@ -958,7 +970,7 @@ export default function SuperAdminPortal() {
       });
 
       const mapped = [...claimed, ...invited].sort((a, b) =>
-        a.name.localeCompare(b.name)
+        a.fullName.localeCompare(b.fullName)
       );
 
       setUsers(mapped);
@@ -1170,7 +1182,7 @@ export default function SuperAdminPortal() {
   function openEditUserModal(target: AppUser) {
     setUserForm({
       id: target.id,
-      name: target.name,
+      fullName: target.fullName ?? "",
       email: target.email,
       phoneE164: target.phoneE164,
       userType: target.userType,
@@ -1368,7 +1380,7 @@ export default function SuperAdminPortal() {
 
     try {
       await updateDoc(doc(db, "users", profile.id), {
-        name: profile.name.trim(),
+        fullName: profile.fullName.trim(),
         email: profile.email.trim(),
         updatedAt: serverTimestamp(),
       });
@@ -1427,7 +1439,7 @@ export default function SuperAdminPortal() {
     setInfo("");
 
     try {
-      const trimmedName = userForm.name.trim();
+      const trimmedName = userForm.fullName.trim();
       const normalizedPhone = normalizePhone(userForm.phoneE164);
       const normalizedEmail = userForm.email.trim();
       const normalizedTenantId = userForm.userType === "superadmin" ? "platform" : userForm.tenantId.trim();
@@ -1454,7 +1466,7 @@ export default function SuperAdminPortal() {
       }
 
       const payload = {
-        name: trimmedName,
+        fullName: trimmedName,
         email: normalizedEmail,
         phoneE164: normalizedPhone,
         userType: userForm.userType,
@@ -1467,7 +1479,7 @@ export default function SuperAdminPortal() {
 
       if (userForm.id) {
         await updateDoc(doc(db, "users", userForm.id), payload);
-      } else if (userForm.userType === "professional" || userForm.userType === "individual") {
+      } else {
         const existingInvite = await findPendingInvitationByPhone({
           tenantId: normalizedTenantId,
           phoneE164: normalizedPhone,
@@ -1476,16 +1488,15 @@ export default function SuperAdminPortal() {
           throw new Error("An invitation has already been sent to this phone number. The user will appear in the list once they sign in.");
         }
 
-        // Pre-created users live in invitations/ until first OTP login claims them.
-        // No wallet, no referral processing here — those happen at claim time.
+        // All user types (company, professional, individual) go through the invitation flow.
+        // Wallet creation and treasury debit happen automatically at claim time.
         await createInvitation({
           tenantId: normalizedTenantId,
-          userType: userForm.userType,
-          role: userForm.userType,
+          userType: userForm.userType as InvitationUserType,
+          role: userForm.userType as InvitationUserType,
           firstName: "",
           lastName: "",
           fullName: trimmedName,
-          name: trimmedName,
           email: normalizedEmail,
           phoneE164: normalizedPhone,
           phone: normalizedPhone,
@@ -1499,72 +1510,22 @@ export default function SuperAdminPortal() {
         try {
           const mailConfig = await getTenantMailConfig(normalizedTenantId);
           const tenantConfig = getTenantConfigById(normalizedTenantId);
-          const roleLabel = userForm.userType === "professional"
-            ? tenantConfig?.roles.professional ?? "Coach"
-            : tenantConfig?.roles.individual ?? "Coachee";
+          const roleLabel = userForm.userType === "company"
+            ? tenantConfig?.roles.company ?? "Company"
+            : userForm.userType === "professional"
+              ? tenantConfig?.roles.professional ?? "Coach"
+              : tenantConfig?.roles.individual ?? "Coachee";
           await sendInvitationEmail({
             mailConfig,
             tenantId: normalizedTenantId,
             inviteeEmail: normalizedEmail,
             inviteeName: trimmedName,
-            inviterName: profile.name || "Super Admin",
+            inviterName: profile.fullName || "Super Admin",
             roleLabel,
             phoneE164: normalizedPhone,
           });
         } catch (mailError) {
           console.warn("Failed to send invitation email", mailError);
-        }
-      } else {
-        // SuperAdmin and Company users are created directly in users/ (no invitation flow).
-        const userRef = doc(collection(db, "users"));
-
-        await setDoc(userRef, {
-          ...payload,
-          createdAt: serverTimestamp(),
-        });
-
-        if (userForm.userType === "company") {
-          const registrationCoins = await getTenantRegistrationFreeCoins(normalizedTenantId);
-          const userType = userForm.userType as WalletUserType;
-          const walletId = buildWalletId(userRef.id, normalizedTenantId);
-          const walletRef = doc(db, "wallets", walletId);
-
-          await runTransaction(db, async (transaction) => {
-            const walletSnap = await transaction.get(walletRef);
-            if (walletSnap.exists()) {
-              return;
-            }
-
-            transaction.set(walletRef, {
-              userId: userRef.id,
-              tenantId: normalizedTenantId,
-              userType,
-              userName: trimmedName,
-              totalIssuedCoins: registrationCoins,
-              utilizedCoins: 0,
-              availableCoins: registrationCoins,
-              createdBy: profile.id,
-              updatedBy: profile.id,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-
-            if (registrationCoins > 0) {
-              const walletTxRef = doc(collection(db, "walletTransactions"));
-              transaction.set(walletTxRef, {
-                walletId,
-                userId: userRef.id,
-                tenantId: normalizedTenantId,
-                userType,
-                userName: trimmedName,
-                transactionType: "credit",
-                coins: registrationCoins,
-                reason: "Initial wallet issuance",
-                createdBy: profile.id,
-                createdAt: serverTimestamp(),
-              });
-            }
-          });
         }
       }
 
@@ -1826,7 +1787,7 @@ export default function SuperAdminPortal() {
             {menuOpen ? (
               <section className={styles.menuPanel}>
                 <div className={styles.menuUser}>
-                  <p className={styles.menuName}>{profile?.name ?? "Super Admin"}</p>
+                  <p className={styles.menuName}>{profile?.fullName ?? "Super Admin"}</p>
                   <p className={styles.menuRole}>Super Admin</p>
                 </div>
 
@@ -2015,8 +1976,8 @@ export default function SuperAdminPortal() {
               <input
                 id="profile-name"
                 className={styles.input}
-                value={profile.name}
-                onChange={(event) => setProfile({ ...profile, name: event.target.value })}
+                value={profile.fullName}
+                onChange={(event) => setProfile({ ...profile, fullName: event.target.value })}
               />
 
               <label className={styles.label} htmlFor="profile-email">
@@ -2122,8 +2083,8 @@ export default function SuperAdminPortal() {
                     id="user-name-input"
                     className={styles.input}
                     placeholder="Full name"
-                    value={userForm.name}
-                    onChange={(event) => setUserForm((prev) => ({ ...prev, name: event.target.value }))}
+                    value={userForm.fullName}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, fullName: event.target.value }))}
                   />
                 </div>
 
@@ -2139,7 +2100,7 @@ export default function SuperAdminPortal() {
                     onChange={(event) => setUserForm((prev) => ({ ...prev, phoneE164: event.target.value }))}
                   />
                   {existingPhoneUser ? (
-                    <p className={styles.error}>Phone already exists for user: {existingPhoneUser.name}</p>
+                    <p className={styles.error}>Phone already exists for user: {existingPhoneUser.fullName}</p>
                   ) : null}
                 </div>
 
@@ -2213,7 +2174,7 @@ export default function SuperAdminPortal() {
                       <section key={item.id} className={styles.userItem}>
                         <div>
                           <div className={styles.userNameRow}>
-                            <p className={styles.userName}>{item.name}</p>
+                            <p className={styles.userName}>{item.fullName}</p>
                             {item.userType === "individual" && engagementIndices[item.id] !== undefined ? (
                               <span className={styles.engagementBadge}>
                                 {Math.round((engagementIndices[item.id].score / 230) * 100)}%
@@ -2600,7 +2561,7 @@ export default function SuperAdminPortal() {
                       tenantId={selectedAssignTenant}
                       role="superadmin"
                       actorUserId={profile?.id ?? authUser?.uid ?? ""}
-                      actorName={profile?.name ?? "Super Admin"}
+                      actorName={profile?.fullName ?? "Super Admin"}
                       showHeader={false}
                       embedded
                     />
@@ -2677,8 +2638,8 @@ export default function SuperAdminPortal() {
             <input
               id="user-name"
               className={styles.input}
-              value={userForm.name}
-              onChange={(event) => setUserForm((prev) => ({ ...prev, name: event.target.value }))}
+              value={userForm.fullName}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, fullName: event.target.value }))}
             />
 
             <label className={styles.label} htmlFor="user-email">

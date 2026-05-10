@@ -236,7 +236,6 @@ async function resolveNewIndividuals(args: {
         firstName: entry.firstName.trim(),
         lastName: entry.lastName.trim(),
         fullName,
-        name: fullName,
         email,
         phoneE164,
         phone: phoneE164,

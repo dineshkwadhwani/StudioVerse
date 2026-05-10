@@ -12,7 +12,6 @@ export type UserProfileRecord = {
   profileType: ProfileUserType;
   userType: ProfileUserType;
   fullName: string;
-  name: string;
   email: string;
   phone: string;
   phoneE164: string;

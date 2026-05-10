@@ -28,7 +28,6 @@ function mapInvitation(id: string, data: Record<string, unknown>): InvitationRec
     firstName: String(data.firstName ?? ""),
     lastName: String(data.lastName ?? ""),
     fullName: String(data.fullName ?? ""),
-    name: String(data.name ?? ""),
     email: String(data.email ?? ""),
     phoneE164: String(data.phoneE164 ?? ""),
     phone: String(data.phone ?? data.phoneE164 ?? ""),

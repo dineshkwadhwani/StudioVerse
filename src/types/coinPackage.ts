@@ -7,6 +7,7 @@ export type CoinPackageRecord = {
   name: string;
   description?: string;
   imageUrl?: string;
+  imagePath?: string;
   credits: number;
   priceInr: number;
   status: CoinPackageStatus;
@@ -22,6 +23,7 @@ export type CoinPackageFormValues = {
   name: string;
   description: string;
   imageUrl: string;
+  imagePath: string;
   credits: string;
   priceInr: string;
   status: CoinPackageStatus;

@@ -16,18 +16,6 @@ service cloud.firestore {
       return isSignedIn() ? currentUser().userType : null;
     }
 
-    function currentUserIdValue() {
-      return isSignedIn() ? request.auth.uid : null;
-    }
-
-    function currentUserUidValue() {
-      return isSignedIn() ? request.auth.uid : null;
-    }
-
-    function isActorId(value) {
-      return isSignedIn() && value == request.auth.uid;
-    }
-
     function currentTenantId() {
       return isSignedIn() ? currentUser().tenantId : null;
     }
@@ -48,273 +36,56 @@ service cloud.firestore {
       return isSignedIn() && currentUserType() == "professional";
     }
 
-    function isIndependentProfessionalUser() {
-      return isProfessionalUser() && currentCompanyId() == null;
-    }
-
-    // Treasury wallets use the ID pattern "treasury::<tenantId>".
-    // They are never owned by an individual user so we gate reads to
-    // superadmins only from the client side. All writes go through
-    // trusted backend Functions (Admin SDK) and bypass rules entirely.
-    function isTreasuryWallet(walletId) {
-      return walletId.matches("^treasury::.*");
-    }
-
-    // Field-level immutability helper: Ensures sensitive fields cannot be modified by client.
-    // blockedFields: list of field names that must not change (e.g., ['userType', 'tenantId'])
-    function hasOnlyAllowedChanges(blockedFields) {
-      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return !changedKeys.hasAny(blockedFields);
-    }
-
-    function isValidNotificationType(value) {
-      return value in [
-        "onboardingWelcome",
-        "onboardingActivation",
-        "managedUserWelcome",
-        "assignmentCreated",
-        "assignmentInProgress",
-        "assignmentCompleted",
-        "assignmentCancelled",
-        "cohortMemberAdded",
-        "cohortMemberRemoved",
-        "promotionRequested",
-        "promotionApproved",
-        "promotionDenied",
-        "promotionExpiringSoon",
-        "listingExpiringSoon",
-        "botHeroRequested",
-        "botHeroApproved",
-        "botHeroDenied",
-        "botHeroExpiringSoon",
-        "coinRequestSubmitted",
-        "coinRequestApproved",
-        "coinRequestDenied",
-        "cashoutRequested",
-        "cashoutApproved",
-        "cashoutDenied",
-        "registrationBonusIssued",
-        "referralInviteSent",
-        "referralReminderSent",
-        "referralJoined",
-        "adminCashoutAlert",
-        "adminBotHeroAlert",
-        "adminPromotionAlert",
-        "introMessageReceived",
-      ];
-    }
-
-    function isValidNotificationStatus(value) {
-      return value in ["sent", "blocked", "failed"];
-    }
-
     // ── Users ──────────────────────────────────────────────────────────────
-    // Login queries users by phoneE164+tenantId so collection reads must be
-    // open to any authenticated user. Writes are scoped to own document.
-    // Company/professional can also update profiles of users they manage
-    // (createScopedManagedUser, saveCohort run from the client and write
-    //  managed user docs directly).
-    // CRITICAL: Privilege-escalation fields (userType, role, status) are immutable
-    // from client writes for all non-superadmin callers.
-    // Association fields (tenantId, associatedCompanyId, associatedProfessionalId)
-    // are writable by authorised company/professional managers via hasOnlyAllowedManagerChanges.
-    //
-    // Self-registration (new user creating their own profile for the first time)
-    // must NOT call currentUser() — that document doesn't exist yet and would
-    // cause a permissions failure. We validate the write data directly instead.
-    function isSelfRegistering(userId) {
-      return isSignedIn()
-        && userId == request.auth.uid
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.userType in ["company", "professional", "individual"]
-        && request.resource.data.role in ["company", "professional", "individual"]
-        && request.resource.data.userType != "superadmin"
-        && request.resource.data.role != "superadmin"
-        && request.resource.data.status in ["active", "inactive"];
-    }
-
-    // Used for manager-level updates (company/professional associating users to coaches).
-    // Only blocks true privilege-escalation fields; allows association fields to be written.
-    function hasOnlyAllowedManagerChanges() {
-      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return !changedKeys.hasAny(['userType', 'role', 'status']);
-    }
-
     match /users/{userId} {
       allow read:   if isSignedIn();
-      // Invariant: users/{userId} ⇔ userId == auth.uid. Pre-created users live in
-      // /invitations/* and are promoted to /users/{auth.uid} by the claimInvitation
-      // Cloud Function (Admin SDK, bypasses these rules). So we only need:
-      //   - SuperAdmin (manual ops)
-      //   - Self-registration (a user creating their own profile)
-      allow create: if isSuperAdmin()
-                    || isSelfRegistering(userId);
-      allow update: if (isSuperAdmin())
-                    // Own-profile updates: user can edit their own doc but cannot change
-                    // role, tenant, or association fields (those are manager/admin only).
-                    || (isSignedIn()
-                        && request.auth.uid == userId
-                        && hasOnlyAllowedChanges(['userType', 'role', 'tenantId', 'associatedCompanyId', 'associatedProfessionalId', 'status']))
-                    // Company managers can update professionals/individuals within their
-                    // tenant, including writing association fields. userType/role/status remain blocked.
-                    || (isCompanyUser()
-                        && resource.data.get('tenantId', null) in [null, currentTenantId()]
-                        && resource.data.userType in ['professional', 'individual']
-                        && hasOnlyAllowedManagerChanges())
-                    // Professional managers can associate individuals to themselves within
-                    // the same tenant. associatedProfessionalId must be set to their own uid.
-                    || (isProfessionalUser()
-                        && resource.data.get('tenantId', null) == currentTenantId()
-                        && resource.data.userType == 'individual'
-                        && request.resource.data.get('associatedProfessionalId', null) == request.auth.uid
-                        && hasOnlyAllowedManagerChanges());
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin()
+                    || (isSignedIn() && request.auth.uid == userId)
+                    || (isSignedIn() && request.auth.uid == resource.data.uid)
+                    || (isCompanyUser() && resource.data.associatedCompanyId == currentCompanyId())
+                    || (isProfessionalUser() && resource.data.associatedProfessionalId == request.auth.uid);
       allow delete: if false;
     }
 
     // ── Invitations ────────────────────────────────────────────────────────
-    // Pre-created users (created by SuperAdmin/Company/Coach via Manage Users,
-    // Manage Cohort, or Assignment provisioning) live here until first login.
-    // The claimInvitation Cloud Function (Admin SDK) atomically promotes them
-    // to /users/{auth.uid} and rewrites references — the function bypasses
-    // these rules.
-    match /invitations/{id} {
-      allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.tenantId == currentTenantId()
-                        && (isCompanyUser() || isProfessionalUser()));
-      allow create: if isSuperAdmin()
-                    || (isSignedIn()
-                        && request.resource.data.tenantId == currentTenantId()
-                        && request.resource.data.userType in ["professional", "individual"]
-                        && request.resource.data.role in ["professional", "individual"]
-                        && request.resource.data.status == "pending"
-                        && (
-                             (isCompanyUser()
-                               && request.resource.data.associatedCompanyId == currentCompanyId())
-                          || (isProfessionalUser()
-                               && request.resource.data.associatedProfessionalId == request.auth.uid
-                               && request.resource.data.userType == "individual")
-                        ));
-      allow update: if isSuperAdmin()
-                    || (isCompanyUser()
-                        && resource.data.tenantId == currentTenantId()
-                        && resource.data.associatedCompanyId == currentCompanyId()
-                        && hasOnlyAllowedChanges(['userType', 'role', 'status', 'claimedUid', 'claimedUserId', 'claimedAt']))
-                    || (isProfessionalUser()
-                        && resource.data.tenantId == currentTenantId()
-                        && resource.data.userType == "individual"
-                        && hasOnlyAllowedChanges(['userType', 'role', 'status', 'claimedUid', 'claimedUserId', 'claimedAt']));
-      allow delete: if isSuperAdmin();
+    // Pre-created users live here until claimed. Claimed by Cloud Function.
+    match /invitations/{invitationId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isSignedIn();
+      allow delete: if false;
     }
 
     // ── Tenants ────────────────────────────────────────────────────────────
     match /tenants/{tenantId} {
       allow read:  if true;
-      allow write: if isSuperAdmin()
-                   && (
-                     request.resource.data.status != "active"
-                     || request.resource.data.activationChecklist.completed == true
-                   );
+      allow write: if isSuperAdmin();
     }
 
     // ── Wallets ────────────────────────────────────────────────────────────
-    // Treasury wallets (treasury::<tenantId>) are written exclusively by
-    // trusted backend Functions (Admin SDK) and readable by SuperAdmin only.
-    // Regular user wallets use scoped IDs (<tenantId>::<userId>) or legacy
-    // userId-only IDs. Company users can update wallets of their associated
-    // users for coin request approvals.
-    // SECURITY: User updates are blocked from modifying tenantId, associatedCompanyId, or userId.
+    // Wallet IDs may be scoped: {tenantId}_{userId} or plain userId.
+    // Users can read/update their own wallet (matched by userId field).
+    // Company users can also update wallets of their associated professionals.
     match /wallets/{walletId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && !isTreasuryWallet(walletId));
-      allow create: if isSignedIn() && !isTreasuryWallet(walletId);
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn();
       allow update: if isSuperAdmin()
-                    || (isSignedIn() && !isTreasuryWallet(walletId) && (
-                         request.auth.uid == walletId ||
-                         walletId == currentUserIdValue() ||
-                         walletId == currentUserUidValue() ||
-                         resource.data.userId == request.auth.uid ||
-                         resource.data.userId == currentUserIdValue() ||
-                         resource.data.userId == currentUserUidValue() ||
-                         walletId.matches(".*::" + request.auth.uid) ||
-                         walletId.matches(".*::" + currentUserIdValue()) ||
-                         walletId.matches(".*::" + currentUserUidValue())
-                       )
-                       // Non-superadmin clients can only perform spend-like balance moves.
-                       // They cannot mint/inflate balances via direct wallet writes.
-                       && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
-                       && request.resource.data.availableCoins <= resource.data.availableCoins
-                       && request.resource.data.utilizedCoins >= resource.data.utilizedCoins
-                       && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']))
-                    || (isCompanyUser() && !isTreasuryWallet(walletId) &&
-                         resource.data.associatedCompanyId == currentCompanyId()
-                         && request.resource.data.totalIssuedCoins == resource.data.totalIssuedCoins
-                         && request.resource.data.availableCoins <= resource.data.availableCoins
-                         && request.resource.data.utilizedCoins >= resource.data.utilizedCoins
-                         && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']))
-                    // Company-credit arm: company user crediting (transferring coins to)
-                    // an associated coach's wallet. Only availableCoins may go up;
-                    // totalIssuedCoins and utilizedCoins must stay the same so balances
-                    // cannot be minted out of thin air on the recipient side.
-                    // Recipient is verified via the user document. Both paths are tried
-                    // so legacy wallets (walletId == userId, no userId field) and scoped
-                    // wallets (walletId == tenant::userId, userId field present) work.
-                    || (isCompanyUser() && !isTreasuryWallet(walletId)
-                         && resource.data.get('userId', walletId) != request.auth.uid
-                         && exists(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId)))
-                         && (
-                              get(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId))).data.associatedCompanyId == request.auth.uid
-                              || get(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId))).data.associatedCompanyId == currentUserIdValue()
-                              || get(/databases/$(database)/documents/users/$(resource.data.get('userId', walletId))).data.associatedCompanyId == currentUserUidValue()
-                            )
-                         && request.resource.data.get('totalIssuedCoins', 0) == resource.data.get('totalIssuedCoins', 0)
-                         && request.resource.data.get('utilizedCoins', 0) == resource.data.get('utilizedCoins', 0)
-                         && request.resource.data.get('availableCoins', 0) >= resource.data.get('availableCoins', 0)
-                         && hasOnlyAllowedChanges(['userId', 'tenantId', 'userType', 'associatedCompanyId', 'createdBy']));
+                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || (isCompanyUser() &&
+                         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentCompanyId());
       allow delete: if false;
     }
 
     // ── Wallet Transactions ────────────────────────────────────────────────
-    // Treasury transactions (walletId = treasury::<tenantId>) are written by
-    // backend Functions and readable by SuperAdmin only.
-    // Regular user transactions include scoped wallet IDs (<tenantId>::<userId>).
     match /walletTransactions/{txId} {
-      // Wallet ledger is tenant-scoped data the app needs to render in user,
-      // company, and admin contexts (own history, coach history, coin-request
-      // review). Any signed-in user can read.
-      // NOTE: We cannot exclude treasury txns via `resource.data.walletId` here
-      // because the page's list queries filter on `userId` / `createdBy`, and
-      // Firestore's query pre-check cannot statically prove a negated regex on
-      // a different field. Treasury wallet *documents* remain SuperAdmin-only
-      // via the /wallets rule; treasury writes are performed exclusively by
-      // trusted backend Functions (Admin SDK) and bypass rules.
-      allow read:   if isSignedIn();
-      allow create: if isSuperAdmin()
-                    || (isSignedIn()
-                        && request.resource.data.tenantId == currentTenantId()
-                        && request.resource.data.transactionType == "debit"
-                        && request.resource.data.coins is number
-                        && request.resource.data.coins > 0
-                        && isActorId(request.resource.data.userId)
-                        && isActorId(request.resource.data.createdBy)
-                        && (
-                             request.resource.data.walletId == request.auth.uid
-                             || request.resource.data.walletId == currentUserIdValue()
-                             || request.resource.data.walletId == currentUserUidValue()
-                             || request.resource.data.walletId.matches(".*::" + request.auth.uid)
-                             || request.resource.data.walletId.matches(".*::" + currentUserIdValue())
-                             || request.resource.data.walletId.matches(".*::" + currentUserUidValue())
-                           ))
-                    // Company-credit transfer ledger: company user records the
-                    // matching "sent"/"received" pair when crediting a coach.
-                    // createdBy must be the company user; transferred coin amount
-                    // must be positive.
-                    || (isCompanyUser()
-                        && request.resource.data.tenantId == currentTenantId()
-                        && (request.resource.data.transactionType == "sent"
-                            || request.resource.data.transactionType == "received")
-                        && request.resource.data.coins is number
-                        && request.resource.data.coins > 0
-                        && isActorId(request.resource.data.createdBy));
+      allow read:   if isSuperAdmin()
+                    || (isSignedIn() && (
+                         resource.data.userId    == request.auth.uid ||
+                         resource.data.createdBy == request.auth.uid
+                       ));
+      allow create: if isSignedIn();
       allow update: if isSuperAdmin();
       allow delete: if false;
     }
@@ -328,37 +99,23 @@ service cloud.firestore {
     // ── Assessment Questions ───────────────────────────────────────────────
     match /assessmentQuestions/{questionId} {
       allow read:   if isSignedIn();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow write:  if isSuperAdmin();
     }
 
     // ── Assessment Attempts ────────────────────────────────────────────────
-    // Owner identity is checked via isActorId() to support all three id forms:
-    // Auth UID, users.uid, and users.userId. Without this, attempts created
-    // with the user-doc userId (which may differ from auth.uid for managed
-    // users) would be unreadable by their own author.
     match /assessmentAttempts/{attemptId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && isActorId(resource.data.userId));
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
       allow update: if isSuperAdmin()
-                    || (isSignedIn() && isActorId(resource.data.userId));
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow delete: if false;
     }
 
     // ── Assessment Reports ─────────────────────────────────────────────────
-    // Reports are stored with userId set either to the completer's auth.uid
-    // or to assignment.assigneeId, so use isActorId() to recognise both.
     match /assessmentReports/{reportId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && isActorId(resource.data.userId))
-                    || (isSignedIn()
-                        && exists(/databases/$(database)/documents/assignments/$(resource.data.assignmentId))
-                        && (
-                          isActorId(get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assigneeId)
-                          || isActorId(get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.assignerId)
-                        ));
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
       allow delete: if false;
@@ -376,38 +133,17 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || isSignedIn();
     }
 
-    // ── Guest Logs ─────────────────────────────────────────────────────────
-    // Guest logs are written by trusted backend route handlers (Admin SDK).
-    // SuperAdmin can read them from the portal; client-side writes are denied.
-    match /guestLogs/{logId} {
-      allow read:   if isSuperAdmin();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
     // ── Assignments ────────────────────────────────────────────────────────
     match /assignments/{assignmentId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-                    && request.resource.data.tenantId == currentTenantId()
-                    && (
-                         request.resource.data.assignerId == request.auth.uid
-                         || request.resource.data.assignerId == currentUserIdValue()
-                         || request.resource.data.assignerId == currentUserUidValue()
-                       );
+      allow create: if isSignedIn();
       allow update: if isSuperAdmin()
                     || (isSignedIn() && (
-                         isActorId(resource.data.get('assignedTo', ''))
-                         || isActorId(resource.data.get('assignedBy', ''))
-                         || isActorId(resource.data.get('assignerId', ''))
-                         || isActorId(resource.data.get('assigneeId', ''))
-                       )
-                       && request.resource.data.assignerId == resource.data.assignerId
-                       && request.resource.data.tenantId == resource.data.tenantId
-                       && request.resource.data.activityId == resource.data.activityId
-                       && request.resource.data.activityType == resource.data.activityType
-                       && request.resource.data.coinsDeducted == resource.data.coinsDeducted);
+                         resource.data.assignedTo  == request.auth.uid ||
+                         resource.data.assignedBy  == request.auth.uid ||
+                         resource.data.assignerId  == request.auth.uid ||
+                         resource.data.assigneeId  == request.auth.uid
+                       ));
       allow delete: if false;
     }
 
@@ -420,11 +156,10 @@ service cloud.firestore {
     }
 
     // ── Cohort Members ─────────────────────────────────────────────────────
-    // saveCohort deletes and re-creates members from the client so the cohort
-    // owner (company or professional) needs delete permission on their own cohort.
+    // saveCohort deletes + re-creates members from the client.
     match /cohortMembers/{memberId} {
       allow read:   if isSignedIn();
-      allow create: if isSuperAdmin() || isCompanyUser() || isProfessionalUser();
+      allow create: if isSignedIn();
       allow update: if isSuperAdmin();
       allow delete: if isSuperAdmin()
                     || (isCompanyUser() && resource.data.companyId == currentCompanyId())
@@ -434,73 +169,39 @@ service cloud.firestore {
     // ── Cohort Assignments ─────────────────────────────────────────────────
     match /cohortAssignments/{cohortAssignmentId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-                    && request.resource.data.tenantId == currentTenantId()
-                    && (
-                         request.resource.data.assignerId == request.auth.uid
-                         || request.resource.data.assignerId == currentUserIdValue()
-                         || request.resource.data.assignerId == currentUserUidValue()
-                       );
-      allow update: if isSuperAdmin()
-                    || (isSignedIn()
-                        && (
-                             resource.data.assignerId == request.auth.uid
-                             || resource.data.assignerId == currentUserIdValue()
-                             || resource.data.assignerId == currentUserUidValue()
-                           )
-                        && request.resource.data.assignerId == resource.data.assignerId
-                        && request.resource.data.tenantId == resource.data.tenantId
-                        && request.resource.data.cohortId == resource.data.cohortId
-                        && request.resource.data.activityId == resource.data.activityId
-                        && request.resource.data.activityType == resource.data.activityType
-                        && request.resource.data.totalCoinsDeducted == resource.data.totalCoinsDeducted);
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isSignedIn();
       allow delete: if isSuperAdmin();
     }
 
     // ── Referrals ──────────────────────────────────────────────────────────
-    // Users can create and update their referrals, but cannot modify core fields.
-    // SECURITY: Referrer ID, tenant, and referral rewards cannot be modified by users.
-    // SECURITY: create enforces referrerUserId == caller and tenantId == caller's tenant,
-    //           preventing attribution fraud and cross-tenant injection.
     match /referrals/{referralId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-                    && isActorId(request.resource.data.referrerUserId)
-                    && request.resource.data.tenantId == currentTenantId();
-      allow update: if isSignedIn()
-                    && hasOnlyAllowedChanges(['referrerUserId', 'tenantId', 'referredEmail', 'referredPhone', 'referredPhoneE164']);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
       allow delete: if isSuperAdmin();
     }
 
     // ── Coin Requests ──────────────────────────────────────────────────────
     match /coinRequests/{requestId} {
       allow create: if isProfessionalUser()
-        && isActorId(request.resource.data.requesterProfessionalId)
+        && request.resource.data.requesterProfessionalId == request.auth.uid
         && request.resource.data.tenantId == currentTenantId()
-        && (
-             request.resource.data.companyId == currentCompanyId()
-             || request.resource.data.companyId in currentUser().get('associatedCompanyIds', [])
-           )
+        && request.resource.data.companyId == currentCompanyId()
         && request.resource.data.status == "pending"
         && request.resource.data.amount is number
         && request.resource.data.amount > 0;
 
       allow read: if isSuperAdmin()
         || (isSignedIn() && (
-              isActorId(resource.data.requesterProfessionalId)
-              || resource.data.companyId == request.auth.uid
-              || resource.data.companyId == currentUserIdValue()
-              || resource.data.companyId == currentUserUidValue()
-              || (isCompanyUser() && resource.data.companyId == currentCompanyId())
+              resource.data.requesterProfessionalId == request.auth.uid ||
+              resource.data.companyId == request.auth.uid ||
+              (isCompanyUser() && resource.data.companyId == currentCompanyId())
            ));
 
       allow update: if isSuperAdmin()
-        || ((
-              resource.data.companyId == request.auth.uid
-              || resource.data.companyId == currentUserIdValue()
-              || resource.data.companyId == currentUserUidValue()
-              || (isCompanyUser() && resource.data.companyId == currentCompanyId())
-            )
+        || (isCompanyUser()
+            && resource.data.companyId == currentCompanyId()
             && resource.data.status == "pending"
             && request.resource.data.status in ["approved", "denied"]
             && request.resource.data.requesterProfessionalId == resource.data.requesterProfessionalId
@@ -511,80 +212,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Cashout Requests ───────────────────────────────────────────────────
-    match /cashoutRequests/{requestId} {
-      allow create: if isSignedIn()
-        && (
-          request.resource.data.requesterUserId == request.auth.uid
-          || request.resource.data.requesterUserId == currentUserIdValue()
-          || request.resource.data.requesterUserId == currentUserUidValue()
-        )
-        && request.resource.data.tenantId == currentTenantId()
-        && request.resource.data.status == "pending"
-        && request.resource.data.creditsRequested is number
-        && request.resource.data.creditsRequested >= 1
-        && (
-          (isCompanyUser() && request.resource.data.requesterUserType == "company")
-          || (isIndependentProfessionalUser() && request.resource.data.requesterUserType == "professional")
-        );
-
-      allow read: if isSuperAdmin()
-        || (isSignedIn() && (
-          resource.data.requesterUserId == request.auth.uid
-          || resource.data.requesterUserId == currentUserIdValue()
-          || resource.data.requesterUserId == currentUserUidValue()
-        ));
-
-      allow update: if isSuperAdmin()
-        && resource.data.status == "pending"
-        && request.resource.data.status in ["approved", "denied"]
-        && request.resource.data.requesterUserId == resource.data.requesterUserId
-        && request.resource.data.tenantId == resource.data.tenantId
-        && request.resource.data.creditsRequested == resource.data.creditsRequested;
-
-      allow delete: if false;
-    }
-
     // ── Coin Packages ──────────────────────────────────────────────────────
     match /coinPackages/{packageId} {
       allow read:   if true;
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow write:  if isSuperAdmin();
     }
 
     // ── Coin Orders ────────────────────────────────────────────────────────
-    // Users can create and read their own orders; SuperAdmin can update for approvals.
-    // SECURITY: Users cannot modify userId, status, or amount fields.
-    // userId/createdBy may store any of {auth.uid, users.uid, users.userId}, so
-    // we use isActorId() to accept all three forms.
     match /coinOrders/{orderId} {
       allow read:   if isSuperAdmin()
                     || (isSignedIn() && (
-                         isActorId(resource.data.get('userId', ''))
-                         || isActorId(resource.data.get('createdBy', ''))
+                         resource.data.userId    == request.auth.uid ||
+                         resource.data.createdBy == request.auth.uid
                        ));
       allow create: if isSignedIn();
       allow update: if isSuperAdmin()
-                    || (isSignedIn() && isActorId(resource.data.get('userId', ''))
-                        && hasOnlyAllowedChanges(['userId', 'status', 'amount', 'createdBy']));
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow delete: if false;
     }
 
     // ── Promotion Packages ─────────────────────────────────────────────────
     match /promotionPackages/{packageId} {
       allow read:   if isSignedIn();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow write:  if isSuperAdmin();
     }
 
-    // ── Listing Packages ──────────────────────────────────────────────────
+    // ── Listing Packages ───────────────────────────────────────────────────
     match /listingPackages/{packageId} {
       allow read:   if isSignedIn();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow write:  if isSuperAdmin();
     }
 
     // ── Program Promotion Requests ─────────────────────────────────────────
@@ -595,36 +251,20 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // ── Bot Hero Packages ──────────────────────────────────────────────────
-    // Super Admin can manage packages; any signed-in user can read (to display packages to coaches).
-    match /botHeroPackages/{packageId} {
+    // ── Bot Hero Requests ──────────────────────────────────────────────────
+    match /botHeroRequests/{requestId} {
       allow read:   if isSignedIn();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isSignedIn();
       allow delete: if isSuperAdmin();
     }
 
-    // ── Bot Hero Requests ──────────────────────────────────────────────────
-    // Professionals can create their own requests within their tenant only.
-    // Professionals can read their own requests; Super Admin reads all.
-    // Only Super Admin can update (approve/deny).
-    // SECURITY: tenantId must match user's current tenant to prevent cross-tenant injection.
-    match /botHeroRequests/{requestId} {
+    // ── Cashout Requests ───────────────────────────────────────────────────
+    match /cashoutRequests/{requestId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && (
-                         resource.data.professionalId == request.auth.uid ||
-                         resource.data.professionalId == currentUserIdValue() ||
-                         resource.data.professionalId == currentUserUidValue()
-                       ));
-      allow create: if isProfessionalUser()
-                    && request.resource.data.tenantId == currentTenantId()
-                    && (
-                      request.resource.data.professionalId == request.auth.uid ||
-                      request.resource.data.professionalId == currentUserIdValue() ||
-                      request.resource.data.professionalId == currentUserUidValue()
-                    );
-      allow update: if isSuperAdmin()
-                    && hasOnlyAllowedChanges(['professionalId', 'tenantId']);
+                    || (isSignedIn() && resource.data.requesterUserId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin();
       allow delete: if false;
     }
 
@@ -635,92 +275,32 @@ service cloud.firestore {
     }
 
     // ── Notification Logs ──────────────────────────────────────────────────
-    // Append-only audit stream for delivery outcomes.
-    // Client writes are tightly constrained; server writes use Admin SDK.
+    // Client services log notification outcomes; superadmin reads for audit.
     match /notificationLogs/{logId} {
-      allow read: if isSuperAdmin();
-      allow create: if isSignedIn()
-                    && request.resource.data.keys().hasOnly([
-                      'tenantId',
-                      'notificationType',
-                      'recipientEmail',
-                      'recipientName',
-                      'status',
-                      'reason',
-                      'providerMessageId',
-                      'metadata',
-                      'createdAt',
-                    ])
-                    && request.resource.data.tenantId == currentTenantId()
-                    && request.resource.data.notificationType is string
-                    && isValidNotificationType(request.resource.data.notificationType)
-                    && request.resource.data.recipientEmail is string
-                    && request.resource.data.recipientEmail.size() > 3
-                    && request.resource.data.recipientName is string
-                    && request.resource.data.status is string
-                    && isValidNotificationStatus(request.resource.data.status)
-                    && request.resource.data.reason is string
-                    && request.resource.data.providerMessageId is string
-                    && request.resource.data.metadata is map
-                    && request.resource.data.createdAt == request.time;
-      allow update: if false;
-      allow delete: if false;
+      allow read:   if isSuperAdmin();
+      allow create: if request.auth != null;
     }
 
     // ── Audit Logs ─────────────────────────────────────────────────────────
-    // Written by Firebase Functions (admin SDK, bypasses rules).
-    // Superadmin can read; no client writes permitted.
+    // Written by Cloud Functions (admin SDK). Superadmin reads only.
     match /auditLogs/{logId} {
       allow read:  if isSuperAdmin();
       allow write: if false;
     }
 
-    // ── Lead Unlocks ───────────────────────────────────────────────────────
-    // Persistent unlock state for the Lead tile lock/unlock flow.
-    // Writes go through the `unlockLead` callable (Admin SDK) which performs
-    // the wallet debit + lead unlock doc create atomically. Client writes are
-    // denied. Reads are gated to the unlocker, the lead being unlocked, or
-    // SuperAdmin.
-    match /leadUnlocks/{unlockId} {
-      allow read:   if isSuperAdmin()
-                    || (isSignedIn() && (
-                         resource.data.unlockerUserId == request.auth.uid
-                         || resource.data.unlockerUserId == currentUserIdValue()
-                         || resource.data.unlockerUserId == currentUserUidValue()
-                         || resource.data.leadUserId == request.auth.uid
-                         || resource.data.leadUserId == currentUserIdValue()
-                         || resource.data.leadUserId == currentUserUidValue()
-                       ));
-      allow create: if false;
+    // ── Guest Logs ─────────────────────────────────────────────────────────
+    match /guestLogs/{logId} {
+      allow read:  if isSuperAdmin();
+      allow create: if true;
       allow update: if false;
       allow delete: if false;
     }
 
-    // ── Messages ───────────────────────────────────────────────────────────
-    // Intro messages between users discovered via Universal Search.
-    // Writes go through `sendIntroMessage` and `unlockMessage` callables;
-    // client direct writes are denied. Each user can read messages addressed
-    // to them or sent by them.
-    match /messages/{messageId} {
-      allow read:   if isSuperAdmin()
-                    || (isSignedIn() && (
-                         resource.data.senderUserId == request.auth.uid
-                         || resource.data.senderUserId == currentUserIdValue()
-                         || resource.data.senderUserId == currentUserUidValue()
-                         || resource.data.receiverUserId == request.auth.uid
-                         || resource.data.receiverUserId == currentUserIdValue()
-                         || resource.data.receiverUserId == currentUserUidValue()
-                       ));
-      // Allow receivers to mark their own message as read (only the readAt
-      // field changes). All other state transitions go through callables.
-      allow update: if isSignedIn()
-                    && (
-                         resource.data.receiverUserId == request.auth.uid
-                         || resource.data.receiverUserId == currentUserIdValue()
-                         || resource.data.receiverUserId == currentUserUidValue()
-                       )
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
-      allow create: if false;
+    // ── Lead Unlocks ───────────────────────────────────────────────────────
+    match /leadUnlocks/{unlockId} {
+      allow read:   if isSuperAdmin() || isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin();
       allow delete: if false;
     }
 

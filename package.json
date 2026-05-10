@@ -8,7 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "db:reset:test": "node scripts/reset-firestore-test.mjs",
-    "db:reset:test:confirm": "node scripts/reset-firestore-test.mjs --confirm"
+    "db:reset:test:confirm": "node scripts/reset-firestore-test.mjs --confirm",
+    "emulator": "firebase emulators:start --only auth,firestore,storage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:rules": "vitest run tests/rules",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "firebase": "^12.11.0",
@@ -20,14 +28,19 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "@playwright/test": "^1.49.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/ui": "^2.1.8",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "pdfkit": "^0.18.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.8"
   }
 }

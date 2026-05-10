@@ -724,7 +724,6 @@ export async function POST(request: NextRequest) {
     } = {
       uid: authUser.uid,
       userId: authUser.uid,
-      name: fullName,
       fullName,
       firstName,
       lastName,

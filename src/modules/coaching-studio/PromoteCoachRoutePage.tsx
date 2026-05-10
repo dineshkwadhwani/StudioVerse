@@ -55,7 +55,7 @@ export default function PromoteCoachRoutePage() {
           return;
         }
         setRole(userRole);
-        setName(profile?.name ?? "User");
+        setName(profile?.fullName ?? "User");
         setUid(firebaseUser.uid);
         setAvatarUrl(profile?.profilePhotoUrl ?? "");
       } finally {

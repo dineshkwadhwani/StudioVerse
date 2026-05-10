@@ -3,7 +3,7 @@ import type { ProfileUserType } from "./profile";
 
 export type InvitationStatus = "pending" | "claimed";
 
-export type InvitationUserType = Exclude<ProfileUserType, "company">;
+export type InvitationUserType = ProfileUserType;
 
 export type InvitationCreatorRole = "superadmin" | "company" | "professional";
 
@@ -15,7 +15,6 @@ export type InvitationRecord = {
   firstName: string;
   lastName: string;
   fullName: string;
-  name: string;
   email: string;
   phoneE164: string;
   phone: string;

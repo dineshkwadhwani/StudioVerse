@@ -234,7 +234,7 @@ async function sendSelfRegistrationWelcomeNotification(profile: UserProfileRecor
 
 function mapUserProfile(id: string, data: ProfileDocData): UserProfileRecord {
   const userType = resolveUserType(data);
-  const fullName = normalizeString(data.fullName ?? data.name);
+  const fullName = normalizeString(data.fullName);
   const companyName = normalizeString(
     data.companyName ?? data.companyDisplayName ?? data.companyLegalName,
   );
@@ -247,7 +247,6 @@ function mapUserProfile(id: string, data: ProfileDocData): UserProfileRecord {
     profileType: userType,
     userType,
     fullName,
-    name: fullName,
     email: normalizeString(data.email),
     phone: phoneE164,
     phoneE164,
@@ -376,7 +375,6 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     profileType: userType,
     userType,
     fullName,
-    name: fullName,
     email: normalizeString(input.email || current?.email),
     phone: normalizeString(input.phoneE164 || current?.phoneE164),
     phoneE164: normalizeString(input.phoneE164 || current?.phoneE164),
@@ -479,7 +477,6 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     userType: profile.userType,
     role: profile.userType,
     fullName: profile.fullName,
-    name: profile.name,
     email: profile.email,
     phone: profile.phone,
     phoneE164: profile.phoneE164,

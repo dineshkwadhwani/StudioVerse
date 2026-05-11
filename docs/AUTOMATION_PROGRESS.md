@@ -4,14 +4,46 @@ Tracker for the test automation rollout. One line per phase; updated at the end 
 
 ## Phase status
 
+## ✅ Sanity Suite — first complete pass (2026-05-11)
+
+The first full pass of end-to-end coverage across all four actors. **30 tests, 0 skipped, 0 failed.** This is now the canonical "sanity suite" — the regression run we'll execute before any product change merges.
+
+### Run it
+
+```bash
+npm run sanity           # the whole suite, headless
+npm run sanity:headed    # watch it run in a real browser
+npm run sanity:debug     # Playwright inspector, step-by-step
+npm run sanity:report    # open the last HTML report
+```
+
+You can also scope to one actor or one test:
+
+```bash
+npx playwright test e2e/superadmin/         # just SA tests
+npx playwright test e2e/coach/assign-program.spec.ts   # one file
+npx playwright test --grep "Cohort"         # match by test name
+```
+
+### Coverage snapshot
+
+| Actor | Tests | Outcome |
+|---|---:|---|
+| SuperAdmin | 13 | ✅ all green |
+| Company | 5 | ✅ all green |
+| Coach (Professional) | 8 | ✅ all green |
+| Individual | 4 | ✅ all green |
+| **Total** | **30** | **✅ all green** |
+
+### Phase status
+
 | Phase | Status | Date | Notes |
 |---|---|---|---|
 | 0. Foundation | ✅ Complete | 2026-05-10 | Vitest + Playwright + rules-unit-testing wired; sanity tests pass on all three layers. |
-| 1. Test cases — SuperAdmin | ✅ 12 passing · 1 skipped | 2026-05-11 | Full SA suite per user direction: wallet, resources, packages, edits. |
-| 1. Test cases — Company | ✅ 3 passing · 2 skipped (product gap) | 2026-05-11 | Add coach, add coachee, cohort (no coach due to rules gap — documented). |
+| 1. Sanity suite — all actors | ✅ 30 passing | 2026-05-11 | Full per-actor coverage. See breakdown above. |
 | 2. Functions integration | Not started | — | |
-| 3. E2E smoke | Not started | — | |
-| 4. E2E full | Not started | — | |
+| 3. Deeper E2E (edge cases, negative paths) | Not started | — | |
+| 4. CI hookup | Not started | — | Currently solo-local. |
 | 5. Coverage + TESTING_GUIDE.md | Not started | — | |
 
 ## Phase 0 — what's runnable now
@@ -20,9 +52,9 @@ Tracker for the test automation rollout. One line per phase; updated at the end 
 |---|---|---|
 | Unit | `npm test` or `npm run test:unit` | none — runs immediately |
 | Rules | `npm run test:rules` | `npm run emulator` running in another terminal |
-| E2E | `npm run e2e` | none (Playwright auto-starts `npm run dev`) |
+| Sanity (full E2E) | `npm run sanity` | none (Playwright auto-starts `npm run dev`) |
 | Watch unit | `npm run test:watch` | none |
-| Headed E2E | `npm run e2e:headed` | none |
+| Headed Sanity | `npm run sanity:headed` | none |
 
 ## Phase 0 — files added
 

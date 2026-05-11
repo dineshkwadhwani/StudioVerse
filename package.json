@@ -14,9 +14,10 @@
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:rules": "vitest run tests/rules",
-    "e2e": "playwright test",
-    "e2e:headed": "playwright test --headed",
-    "e2e:debug": "playwright test --debug"
+    "sanity": "playwright test",
+    "sanity:headed": "playwright test --headed",
+    "sanity:debug": "playwright test --debug",
+    "sanity:report": "playwright show-report"
   },
   "dependencies": {
     "firebase": "^12.11.0",

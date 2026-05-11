@@ -66,7 +66,11 @@ service cloud.firestore {
                         && resource.data.userType in ["professional", "individual"]
                         && resource.data.tenantId == currentTenantId()
                         && resource.data.get('associatedCompanyId', null) == null)
-                    || (isProfessionalUser() && resource.data.associatedProfessionalId == request.auth.uid);
+                    || (isProfessionalUser() && resource.data.associatedProfessionalId == request.auth.uid)
+                    || (isProfessionalUser()
+                        && resource.data.userType == "individual"
+                        && resource.data.tenantId == currentTenantId()
+                        && resource.data.get('associatedProfessionalId', null) == null);
       allow delete: if false;
     }
 

@@ -171,16 +171,20 @@ export async function deleteDocsWhere(
 }
 
 /**
- * Create a minimal "draft" Program doc for tests that need a program to edit.
- * Fields chosen to satisfy the Edit form's expected shape without triggering
- * publish-time validation (`published: false`).
+ * Create a Program doc for tests. Default mode is draft (not visible on the
+ * Assign Activities page). Pass `publish: true` + a `listingPackageId` to
+ * write a published-public program that satisfies the page's
+ * `isPublishedPublic` filter.
  */
 export async function bootstrapDraftProgram(args: {
   name: string;
   tenantId: string;
+  publish?: boolean;
+  listingPackageId?: string;
 }): Promise<string> {
   const db = getAdminDb();
   const ref = db.collection("programs").doc();
+  const isPublished = !!args.publish;
   await ref.set({
     name: args.name,
     tenantId: args.tenantId,
@@ -188,7 +192,9 @@ export async function bootstrapDraftProgram(args: {
     shortDescription: `Short description for ${args.name}.`,
     longDescription: `Long description for ${args.name}.`,
     details: `Detailed agenda for ${args.name}.`,
-    thumbnailUrl: "",
+    thumbnailUrl: isPublished
+      ? "https://placehold.co/400x300.png"
+      : "",
     thumbnailPath: "",
     videoUrl: "",
     creditsRequired: 50,
@@ -200,16 +206,16 @@ export async function bootstrapDraftProgram(args: {
     durationUnit: "weeks",
     visibility: "public",
     catalogVisibility: "tenant_wide",
-    status: "draft",
-    publicationState: "draft",
+    status: isPublished ? "published" : "draft",
+    publicationState: isPublished ? "published" : "draft",
     ownershipScope: "platform",
     ownerEntityId: "platform",
     promoted: false,
     promotionStatus: "none",
     promotionPackageId: null,
-    listingPackageId: null,
-    listingStatus: "none",
-    published: false,
+    listingPackageId: args.listingPackageId ?? null,
+    listingStatus: args.listingPackageId ? "approved" : "none",
+    published: isPublished,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
@@ -316,6 +322,88 @@ export async function bootstrapPromotionPackage(args: {
     updatedAt: FieldValue.serverTimestamp(),
   });
   return ref.id;
+}
+
+/**
+ * Create a minimal Assignment doc for tests that need a pre-existing
+ * assignment in someone's My Activities list.
+ */
+export async function bootstrapAssignment(args: {
+  tenantId: string;
+  activityType: "program" | "event" | "assessment";
+  activityId: string;
+  activityTitle: string;
+  assigneeId: string;
+  assigneeFullName: string;
+  assignerId: string;
+  assignerName: string;
+  status?: "assigned" | "registered" | "in_progress" | "completed";
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("assignments").doc();
+  await ref.set({
+    tenantId: args.tenantId,
+    activityType: args.activityType,
+    activityId: args.activityId,
+    activityTitle: args.activityTitle,
+    creditsRequired: 0,
+    assignerId: args.assignerId,
+    assignerName: args.assignerName,
+    assigneeId: args.assigneeId,
+    assigneePhone: "",
+    assigneeEmail: "",
+    assigneeFirstName: "",
+    assigneeLastName: "",
+    assigneeFullName: args.assigneeFullName,
+    status: args.status ?? "assigned",
+    coinsDeducted: 0,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Top up (or set) a user's wallet to ensure they have at least `minCoins`
+ * available. Adds the difference to both `availableCoins` and
+ * `totalIssuedCoins`. No-op if the wallet already has enough.
+ */
+export async function ensureWalletAtLeast(args: {
+  userId: string;
+  tenantId: string;
+  userType: "company" | "professional" | "individual";
+  userName: string;
+  minCoins: number;
+}): Promise<void> {
+  const db = getAdminDb();
+  const walletId = `${args.tenantId}::${args.userId}`;
+  const ref = db.collection("wallets").doc(walletId);
+  const snap = await ref.get();
+  if (snap.exists) {
+    const data = snap.data()!;
+    const current = Number(data.availableCoins ?? 0);
+    if (current >= args.minCoins) return;
+    const delta = args.minCoins - current;
+    await ref.update({
+      availableCoins: current + delta,
+      totalIssuedCoins: Number(data.totalIssuedCoins ?? 0) + delta,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return;
+  }
+  await ref.set({
+    userId: args.userId,
+    tenantId: args.tenantId,
+    userType: args.userType,
+    userName: args.userName,
+    totalIssuedCoins: args.minCoins,
+    utilizedCoins: 0,
+    availableCoins: args.minCoins,
+    createdBy: args.userId,
+    updatedBy: args.userId,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 }
 
 /**

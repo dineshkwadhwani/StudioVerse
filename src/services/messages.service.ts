@@ -1,4 +1,4 @@
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/services/firebase";
 import type { MessageRecord, MessageTemplateKey } from "@/types/message";
@@ -63,4 +63,40 @@ export async function unlockMessage(args: { messageId: string }): Promise<Unlock
   const callable = httpsCallable<typeof args, UnlockMessageResult>(functions, "unlockMessage");
   const result = await callable(args);
   return result.data;
+}
+
+export async function respondToMessage(args: {
+  message: MessageRecord;
+  responseType: "ignore" | "interested";
+  responderName: string;
+  responderPhone: string;
+  responderEmail: string;
+}): Promise<void> {
+  const { message, responseType, responderName, responderPhone, responderEmail } = args;
+
+  await updateDoc(doc(db, "messages", message.id), {
+    responseType,
+    respondedAt: serverTimestamp(),
+  });
+
+  const body =
+    responseType === "interested"
+      ? `Thanks for connecting. I am interested. My phone number is ${responderPhone} and my email is ${responderEmail}. Lets connect.`
+      : "The message has been read and the receiver did not respond.";
+
+  await addDoc(collection(db, "messages"), {
+    tenantId: message.tenantId,
+    studioType: message.studioType ?? null,
+    senderUserId: message.receiverUserId,
+    senderUserType: message.receiverUserType,
+    senderName: responderName,
+    receiverUserId: message.senderUserId,
+    receiverUserType: message.senderUserType,
+    receiverName: message.senderName,
+    templateKey: "auto_reply" as MessageTemplateKey,
+    subject: `Re: ${message.subject}`,
+    body,
+    isLocked: false,
+    createdAt: serverTimestamp(),
+  });
 }

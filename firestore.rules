@@ -67,24 +67,25 @@ service cloud.firestore {
     // Wallet IDs may be scoped: {tenantId}_{userId} or plain userId.
     // Users can read/update their own wallet (matched by userId field).
     // Company users can also update wallets of their associated professionals.
+    // ── Wallets ────────────────────────────────────────────────────────────
+    // Wallet IDs are scoped: {tenantId}_{userId}.
     match /wallets/{walletId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || (isCompanyUser() &&
+                         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid);
       allow create: if isSignedIn();
       allow update: if isSuperAdmin()
                     || (isSignedIn() && resource.data.userId == request.auth.uid)
                     || (isCompanyUser() &&
-                         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == currentCompanyId());
+                         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.associatedCompanyId == request.auth.uid);
       allow delete: if false;
     }
 
     // ── Wallet Transactions ────────────────────────────────────────────────
     match /walletTransactions/{txId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && (
-                         resource.data.userId    == request.auth.uid ||
-                         resource.data.createdBy == request.auth.uid
-                       ));
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
       allow delete: if false;
@@ -201,7 +202,7 @@ service cloud.firestore {
 
       allow update: if isSuperAdmin()
         || (isCompanyUser()
-            && resource.data.companyId == currentCompanyId()
+            && (resource.data.companyId == currentCompanyId() || resource.data.companyId == request.auth.uid)
             && resource.data.status == "pending"
             && request.resource.data.status in ["approved", "denied"]
             && request.resource.data.requesterProfessionalId == resource.data.requesterProfessionalId
@@ -259,6 +260,12 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ── Bot Hero Packages ─────────────────────────────────────────────────
+    match /botHeroPackages/{packageId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
     // ── Cashout Requests ───────────────────────────────────────────────────
     match /cashoutRequests/{requestId} {
       allow read:   if isSuperAdmin()
@@ -301,6 +308,18 @@ service cloud.firestore {
       allow read:   if isSuperAdmin() || isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    // ── Messages ──────────────────────────────────────────────────────────
+    match /messages/{messageId} {
+      allow read:   if isSignedIn()
+                    && (resource.data.senderUserId == request.auth.uid
+                        || resource.data.receiverUserId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn()
+                    && resource.data.receiverUserId == request.auth.uid
+                    && request.resource.data.responseType in ["ignore", "interested"];
       allow delete: if false;
     }
 

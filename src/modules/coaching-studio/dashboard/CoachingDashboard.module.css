@@ -28,107 +28,6 @@
   margin-left: auto;
 }
 
-.profileArea {
-  position: relative;
-  margin-left: auto;
-}
-
-.profileButton {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--ink);
-  padding: 8px 14px;
-  font-weight: 700;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-}
-
-/* Dropdown menu */
-.menuPanel {
-  position: absolute;
-  right: 0;
-  top: 48px;
-  width: min(300px, 88vw);
-  background: #f8fcff;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: 0 12px 24px rgba(19, 58, 86, 0.12);
-  opacity: 1;
-  padding: 12px;
-  z-index: 40;
-}
-
-.menuUser {
-  padding: 6px 10px 10px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 8px;
-}
-
-.menuName {
-  margin: 0;
-  font-weight: 800;
-  color: var(--ink);
-}
-
-.menuRole {
-  margin: 2px 0 0;
-  font-size: 0.82rem;
-  color: var(--ink-soft);
-}
-
-.menuTitle {
-  margin: 10px 8px 6px;
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.menuItem {
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  display: block;
-}
-
-.menuItem:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.menuLink {
-  display: block;
-  text-decoration: none;
-  color: var(--ink);
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-weight: 700;
-}
-
-.menuLink:hover {
-  background: #e9f6ff;
-}
-
-.menuItem:hover,
-.menuItemActive {
-  background: #e9f6ff;
-}
-
-.menuDivider {
-  border: 0;
-  border-top: 1px solid var(--line);
-  margin: 8px 0;
-}
-
 /* Content area */
 .shell {
   max-width: 1180px;
@@ -232,14 +131,6 @@
     padding: 8px 10px;
     font-size: 0.82rem;
     font-weight: 700;
-  }
-
-  .profileButton {
-    padding: 7px 12px;
-  }
-
-  .menuPanel {
-    width: min(280px, 90vw);
   }
 
   .shell {

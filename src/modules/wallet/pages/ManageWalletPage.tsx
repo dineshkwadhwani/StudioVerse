@@ -1,11 +1,10 @@
 "use client";
 
-import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getUserById } from "@/services/manage-users.service";
@@ -21,9 +20,8 @@ import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import type { CashoutConfig, CashoutRequest } from "@/types/cashoutRequest";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
-import { useClickOutside } from "@/hooks/useClickOutside";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ManageWalletPage.module.css";
@@ -33,13 +31,6 @@ type UserRole = StudioUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function formatDate(value: WalletTransactionRecord["createdAt"]): string {
@@ -84,8 +75,6 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   const basePath = `/${tenantId}`;
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [transactions, setTransactions] = useState<WalletTransactionRecord[]>([]);
   const [busy, setBusy] = useState(true);
@@ -222,19 +211,8 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
     return () => unsubscribe();
   }, [basePath, router, tenantId]);
 
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
-
-  const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
-
-  async function handleLogout() {
-    await signOut(auth);
-    sessionStorage.clear();
-    router.replace(basePath);
-  }
 
   async function refreshWalletAndTransactions(userIds: string[]) {
     const normalized = userIds.map((item) => item.trim()).filter(Boolean);
@@ -352,48 +330,23 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
             <span className={landingStyles.brandSubtitle}>{brandSubtitle}</span>
           </div>
         </Link>
-        <nav className={landingStyles.desktopNav}>
-          <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
-          <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
-          <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
-        </nav>
-
         <div className={dashboardStyles.rightControls}>
-
-          <div className={dashboardStyles.profileArea} ref={menuRef}>
-            <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
-              {initials} ▾
-            </button>
-            {menuOpen && (
-              <section className={dashboardStyles.menuPanel}>
-                <div className={dashboardStyles.menuUser}>
-                  <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
-                    company: tenantConfig.roles.company,
-                    professional: tenantConfig.roles.professional,
-                    individual: tenantConfig.roles.individual,
-                  })}</p>
-                </div>
-                {roleMenuGroups.map((group) => (
-                  <div key={group.key} className={dashboardStyles.menuGroup}>
-                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
-                    {group.items.map((item) => (
-                      <Fragment key={item.key}>
-                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
-                        {item.type === "signout" ? (
-                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
-                        ) : (
-                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                            {item.label}
-                          </Link>
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
-                ))}
-              </section>
-            )}
-          </div>
+          <nav className={landingStyles.desktopNav}>
+            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+          </nav>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantId}
+            name={name}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
         </div>
       </header>
 

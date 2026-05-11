@@ -5,7 +5,6 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -68,15 +67,16 @@ export function validateCoinPackageForm(values: CoinPackageFormValues): Record<s
 
 export async function saveCoinPackage(
   values: CoinPackageFormValues,
-  operatorId: string
+  operatorId: string,
+  isNew?: boolean
 ): Promise<CoinPackageRecord> {
   const errors = validateCoinPackageForm(values);
   if (Object.keys(errors).length > 0) {
     throw new Error(Object.values(errors)[0]);
   }
 
-  const isExisting = Boolean(values.id);
-  const ref = values.id ? doc(db, COLLECTION, values.id) : doc(collection(db, COLLECTION));
+  const docRef = values.id ? doc(db, COLLECTION, values.id) : doc(collection(db, COLLECTION));
+  const isCreate = isNew ?? !values.id;
 
   const payload: Record<string, unknown> = {
     name: values.name.trim(),
@@ -91,17 +91,14 @@ export async function saveCoinPackage(
     updatedAt: serverTimestamp(),
   };
 
-  if (isExisting) {
-    await updateDoc(ref, payload);
-  } else {
-    await setDoc(ref, {
-      ...payload,
-      createdBy: operatorId,
-      createdAt: serverTimestamp(),
-    });
+  if (isCreate) {
+    payload.createdBy = operatorId;
+    payload.createdAt = serverTimestamp();
   }
 
-  return mapCoinPackage(ref.id, { ...payload, id: ref.id });
+  await setDoc(docRef, payload, { merge: true });
+
+  return mapCoinPackage(docRef.id, { ...payload, id: docRef.id });
 }
 
 function sanitizeExtension(file: File): string {

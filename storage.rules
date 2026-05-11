@@ -7,11 +7,6 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function isSuperAdmin() {
-      return isSignedIn()
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == "superadmin";
-    }
-
     // Profile photos — user can write only their own
     match /profiles/{tenantId}/{userId}/{filename} {
       allow read:  if isSignedIn();
@@ -20,44 +15,44 @@ service firebase.storage {
 
     // Assessment cover images
     match /assessments/{tenantId}/{assessmentId}/{filename} {
-      allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow read:  if true;
+      allow write: if isSignedIn();
     }
 
     // Program thumbnails
     match /programs/{tenantId}/{programId}/{filename} {
-      allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow read:  if true;
+      allow write: if isSignedIn();
     }
 
     // Event thumbnails
     match /events/{tenantId}/{eventId}/{filename} {
-      allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow read:  if true;
+      allow write: if isSignedIn();
     }
 
     // Bot hero package images
     match /botHeroPackages/{packageId}/{filename} {
       allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow write: if isSignedIn();
     }
 
     // Promotion package images
     match /promotionPackages/{tenantId}/{packageId}/{filename} {
       allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow write: if isSignedIn();
     }
 
     // Listing package images
     match /listingPackages/{tenantId}/{packageId}/{filename} {
       allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow write: if isSignedIn();
     }
 
     // Coin/credit package images
     match /coinPackages/{packageId}/{filename} {
-      allow read:  if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow read:  if true;
+      allow write: if isSignedIn();
     }
 
     // Deny everything else

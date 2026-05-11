@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import AppShellHeader, { useAuthedSession } from "@/modules/app-shell/AppShellHeader";
+import Image from "next/image";
+import Link from "next/link";
+import { useAuthedSession } from "@/modules/app-shell/AppShellHeader";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import {
@@ -9,6 +11,8 @@ import {
   searchAssessments,
   searchEvents,
   searchUsers,
+  getTenantSearchConfig,
+  type TenantSearchConfig,
   type ProgramSearchResult,
   type AssessmentSearchResult,
   type EventSearchResult,
@@ -19,8 +23,11 @@ import { listLeadUnlocksFor, unlockLead } from "@/services/leads.service";
 import { listOutboxMessages, sendIntroMessage } from "@/services/messages.service";
 import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext } from "@/services/wallet.service";
-import Link from "next/link";
 import type { MessageTemplateKey } from "@/types/message";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
+import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
+import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
+import s from "./UniversalSearchPage.module.css";
 
 type Props = { tenantConfig: TenantConfig };
 
@@ -49,7 +56,7 @@ export function getAllowedCategories(role: StudioUserRole | null): SearchCategor
 }
 
 function getTenantEnabledCategories(
-  searchConfig: TenantConfig["searchConfig"] | undefined,
+  searchConfig: TenantSearchConfig | null | undefined,
 ): SearchCategory[] {
   if (!searchConfig?.enabled) return [];
   const enabled: SearchCategory[] = [];
@@ -65,13 +72,23 @@ function getTenantEnabledCategories(
 export default function UniversalSearchPage({ tenantConfig }: Props) {
   const { session, loading, error } = useAuthedSession({ tenantConfig });
   const role = session?.role ?? null;
+  const tenantId = tenantConfig.id;
+  const basePath = `/${tenantId}`;
+  const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
+
+  const [searchConfig, setSearchConfig] = useState<TenantSearchConfig | null>(null);
+
+  useEffect(() => {
+    getTenantSearchConfig(tenantId).then(setSearchConfig);
+  }, [tenantId]);
 
   const allowedCategories = useMemo(() => {
     const roleAllowed = getAllowedCategories(role);
-    const tenantEnabled = new Set(getTenantEnabledCategories(tenantConfig.searchConfig));
+    const tenantEnabled = new Set(getTenantEnabledCategories(searchConfig));
     return roleAllowed.filter((cat) => tenantEnabled.has(cat));
-  }, [role, tenantConfig.searchConfig]);
-  const searchEnabled = tenantConfig.searchConfig?.enabled === true;
+  }, [role, searchConfig]);
+  const searchEnabled = searchConfig?.enabled === true;
+  const searchConfigLoading = searchConfig === null;
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<SearchCategory>>(() => new Set(allowedCategories));
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -98,7 +115,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
   }>({ headline: "", expertise: [], certifications: [] });
   const [messageModal, setMessageModal] = useState<UserSearchResult | null>(null);
 
-  const tenantId = tenantConfig.id;
   const unlockerUserId = session?.uid ?? "";
 
   useEffect(() => {
@@ -111,8 +127,8 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
         const [config, existing, wallet, outbox, profile] = await Promise.all([
           getTenantLeadConfig(tenantId),
           listLeadUnlocksFor({ tenantId, unlockerUserId }),
-          getWalletForUserContext(lookupIds, tenantId),
-          listOutboxMessages({ tenantId, senderUserId: unlockerUserId }),
+          getWalletForUserContext(lookupIds, tenantId).catch(() => null),
+          listOutboxMessages({ tenantId, senderUserId: unlockerUserId }).catch(() => []),
           getUserProfile({ userId: unlockerUserId, tenantId, profileId }),
         ]);
         if (cancelled) return;
@@ -138,7 +154,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
     };
   }, [tenantId, unlockerUserId, session?.profileId]);
 
-  // Sync selected set when role/allowedCategories change.
   useEffect(() => {
     setSelected(new Set(allowedCategories));
   }, [allowedCategories]);
@@ -195,7 +210,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
       } else {
         setEvents([]);
       }
-      // Coaches search: visible to all roles. Coach/Company searcher => unassociated only.
       if (categories.has("coaches")) {
         const enforceUnassociated = role === "company" || role === "professional";
         tasks.push(
@@ -210,7 +224,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
       } else {
         setCoaches([]);
       }
-      // Companies search: Individual searcher only.
       if (categories.has("companies") && role === "individual") {
         tasks.push(
           searchUsers({
@@ -224,7 +237,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
       } else {
         setCompanies([]);
       }
-      // Individuals search: Coach/Company searcher only, unassociated.
       if (categories.has("individuals") && (role === "company" || role === "professional")) {
         tasks.push(
           searchUsers({
@@ -309,7 +321,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
         body: `Hello ${safeReceiver}, I am ${safeSender}, a ${headline} with expertise in ${skills}.${credSentence} I believe I can support your growth journey. I would love to connect and explore how I can help.`,
       };
     }
-    // individual_t1
     return {
       subject: `Introduction from ${safeSender}`,
       body: `Hi, I am ${safeSender}. I would like to connect.`,
@@ -364,7 +375,6 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
   }
 
   function isUnlocked(user: UserSearchResult, viewerRole: StudioUserRole | null): boolean {
-    // Individual viewing Coach/Company => always unlocked.
     if (viewerRole === "individual" && (user.userType === "professional" || user.userType === "company")) {
       return true;
     }
@@ -373,49 +383,65 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
   }
 
   return (
-    <div>
-      <AppShellHeader tenantConfig={tenantConfig} role={role} name={session?.name ?? "User"} />
-      <main style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
-        <h1>Search</h1>
-        {loading ? <p>Loading…</p> : null}
-        {error ? <p style={{ color: "#b00020" }}>{error}</p> : null}
+    <main className={s.page}>
+      <header className={s.toolbar}>
+        <Link href={basePath} className={landingStyles.brand}>
+          <Image src={tenantConfig.theme.logo} alt={`${tenantConfig.name} logo`} width={76} height={40} className={landingStyles.logo} />
+          <div className={landingStyles.brandText}>
+            <span className={landingStyles.brandTitle}>{tenantConfig.name}</span>
+            <span className={landingStyles.brandSubtitle}>StudioVerse Platform</span>
+          </div>
+        </Link>
+        <div className={dashboardStyles.rightControls}>
+          <nav className={landingStyles.desktopNav}>
+            <Link href={`${basePath}/tools`} className={landingStyles.navLink}>{toolsLabel}</Link>
+            <Link href={`${basePath}/programs`} className={landingStyles.navLink}>Programs</Link>
+            <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
+          </nav>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantId}
+            name={session?.name ?? "User"}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
+        </div>
+      </header>
 
-        {!loading && !error && session && !searchEnabled ? (
-          <p style={{ color: "#888", marginTop: 16 }}>
-            Search is not available on this tenant.
+      <div className={s.shell}>
+        {/* ── Hero card ─────────────────────────────────────── */}
+        <section className={s.heroCard}>
+          <h1 className={s.pageTitle}>Search</h1>
+          <p className={s.pageSubtitle}>
+            Search programs, assessments, events, and people across the platform.
           </p>
-        ) : null}
 
-        {!loading && !error && session && searchEnabled ? (
-          <>
-            <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
+          {loading || searchConfigLoading ? <p className={s.infoText}>Loading…</p> : null}
+          {error ? <p className={s.errorText}>{error}</p> : null}
+
+          {!loading && !searchConfigLoading && !error && session && !searchEnabled ? (
+            <p className={s.infoText}>Search is not available on this tenant.</p>
+          ) : null}
+
+          {!loading && !searchConfigLoading && !error && session && searchEnabled ? (
+            <form onSubmit={handleSubmit} className={s.searchForm}>
               <input
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search programs, assessments, events, people…"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  fontSize: 16,
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                }}
+                className={s.searchInput}
               />
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 }}>
+              <div className={s.categoryRow}>
                 {ALL_CATEGORIES.filter((cat) => allowedCategories.includes(cat.key)).map((cat) => (
                   <label
                     key={cat.key}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 10px",
-                      border: "1px solid #ddd",
-                      borderRadius: 999,
-                      background: selected.has(cat.key) ? "#eef4ff" : "#fff",
-                    }}
+                    className={selected.has(cat.key) ? s.categoryPillActive : s.categoryPill}
                   >
                     <input
                       type="checkbox"
@@ -427,38 +453,31 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
                 ))}
               </div>
 
-              <div style={{ marginTop: 14 }}>
-                <button
-                  type="submit"
-                  style={{
-                    padding: "10px 18px",
-                    fontSize: 15,
-                    border: 0,
-                    borderRadius: 8,
-                    background: "#1a73e8",
-                    color: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
+              <div className={s.submitRow}>
+                <button type="submit" className={s.submitButton}>
                   Search
                 </button>
               </div>
 
               {validationError ? (
-                <p style={{ color: "#b00020", marginTop: 8 }}>{validationError}</p>
+                <p className={s.validationError}>{validationError}</p>
               ) : null}
             </form>
+          ) : null}
+        </section>
 
-            <section style={{ marginTop: 28 }}>
-              {!submittedQuery ? (
-                <p style={{ color: "#888" }}>Enter a query above to start searching.</p>
-              ) : null}
-              {searching ? <p style={{ color: "#666" }}>Searching…</p> : null}
-              {searchError ? <p style={{ color: "#b00020" }}>{searchError}</p> : null}
+        {/* ── Content card (results) ────────────────────────── */}
+        {!loading && !searchConfigLoading && !error && session && searchEnabled ? (
+          <section className={s.contentCard}>
+            {!submittedQuery ? (
+              <p className={s.infoText}>Enter a query above to start searching.</p>
+            ) : null}
+            {searching ? <p className={s.searchingText}>Searching…</p> : null}
+            {searchError ? <p className={s.errorText}>{searchError}</p> : null}
 
-              {submittedQuery && !searching && !searchError ? (
-                <>
-                  {selected.has("programs") ? (
+            {submittedQuery && !searching && !searchError ? (
+              <>
+                {selected.has("programs") ? (
                     <ResultGroup title="Programs" empty="No matching programs.">
                       {programs.map((program) => (
                         <ResourceCard
@@ -509,6 +528,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
                           onUnlock={() => openUnlockModal(user)}
                           onSendMessage={() => setMessageModal(user)}
                           alreadySent={sentToSet.has(user.id)}
+                          basePath={basePath}
                         />
                       ))}
                     </ResultGroup>
@@ -525,6 +545,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
                           onUnlock={() => openUnlockModal(user)}
                           onSendMessage={() => setMessageModal(user)}
                           alreadySent={sentToSet.has(user.id)}
+                          basePath={basePath}
                         />
                       ))}
                     </ResultGroup>
@@ -541,16 +562,16 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
                           onUnlock={() => openUnlockModal(user)}
                           onSendMessage={() => setMessageModal(user)}
                           alreadySent={sentToSet.has(user.id)}
+                          basePath={basePath}
                         />
                       ))}
                     </ResultGroup>
                   ) : null}
                 </>
               ) : null}
-            </section>
-          </>
+          </section>
         ) : null}
-      </main>
+      </div>
       {unlockModal ? (
         <UnlockModal
           tenantBasePath={`/${tenantId}`}
@@ -575,7 +596,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
           onSend={(templateKey) => handleSendMessage(messageModal, templateKey)}
         />
       ) : null}
-    </div>
+    </main>
   );
 }
 
@@ -592,20 +613,12 @@ function ResultGroup({
   const hasItems = items.some((item) => item != null && item !== false);
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <h2 style={{ fontSize: 18, marginBottom: 10 }}>{title}</h2>
+    <div className={s.resultGroup}>
+      <h2 className={s.resultGroupTitle}>{title}</h2>
       {hasItems ? (
-        <div
-          style={{
-            display: "grid",
-            gap: 12,
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          }}
-        >
-          {children}
-        </div>
+        <div className={s.resultGrid}>{children}</div>
       ) : (
-        <p style={{ color: "#999" }}>{empty}</p>
+        <p className={s.emptyResult}>{empty}</p>
       )}
     </div>
   );
@@ -623,35 +636,14 @@ function ResourceCard({
   thumbnailUrl: string | null;
 }) {
   return (
-    <article
-      style={{
-        border: "1px solid #e5e5e5",
-        borderRadius: 10,
-        padding: 12,
-        background: "#fff",
-      }}
-    >
+    <article className={s.resourceCard}>
       {thumbnailUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={thumbnailUrl}
-          alt={name}
-          style={{
-            width: "100%",
-            height: 120,
-            objectFit: "cover",
-            borderRadius: 6,
-            marginBottom: 8,
-          }}
-        />
+        <img src={thumbnailUrl} alt={name} className={s.resourceThumb} />
       ) : null}
-      <h3 style={{ fontSize: 16, margin: 0 }}>{name}</h3>
-      {metadata ? (
-        <p style={{ fontSize: 12, color: "#666", margin: "4px 0" }}>{metadata}</p>
-      ) : null}
-      {shortDescription ? (
-        <p style={{ fontSize: 13, color: "#444", margin: "8px 0" }}>{shortDescription}</p>
-      ) : null}
+      <h3 className={s.resourceName}>{name}</h3>
+      {metadata ? <p className={s.resourceMeta}>{metadata}</p> : null}
+      {shortDescription ? <p className={s.resourceDesc}>{shortDescription}</p> : null}
     </article>
   );
 }
@@ -664,6 +656,7 @@ function LeadTile({
   onUnlock,
   onSendMessage,
   alreadySent,
+  basePath,
 }: {
   user: UserSearchResult;
   unlocked: boolean;
@@ -672,45 +665,21 @@ function LeadTile({
   onUnlock: () => void;
   onSendMessage: () => void;
   alreadySent: boolean;
+  basePath: string;
 }) {
   if (!unlocked) {
     return (
-      <article
-        style={{
-          border: "1px solid #e5e5e5",
-          borderRadius: 10,
-          padding: 14,
-          background: "#fafafa",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: "50%",
-            background: "#ddd",
-            margin: "0 auto 10px",
-            filter: "blur(4px)",
-          }}
-        />
-        <p style={{ fontWeight: 600, marginBottom: 6 }}>🔒 Unlock this Lead</p>
-        <p style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>
+      <article className={s.leadTileLocked}>
+        <div className={s.lockedAvatar} />
+        <p className={s.lockedTitle}>Unlock this Lead</p>
+        <p className={s.lockedCost}>
           {fee} {fee === 1 ? "Credit" : "Credits"} to Unlock
         </p>
         <button
           type="button"
           onClick={onUnlock}
           disabled={unlocking}
-          style={{
-            padding: "8px 14px",
-            fontSize: 13,
-            border: 0,
-            borderRadius: 6,
-            background: "#1a73e8",
-            color: "#fff",
-            cursor: unlocking ? "wait" : "pointer",
-          }}
+          className={s.unlockButton}
         >
           {unlocking ? "Unlocking…" : "Unlock"}
         </button>
@@ -719,77 +688,32 @@ function LeadTile({
   }
 
   return (
-    <article
-      style={{
-        border: "1px solid #e5e5e5",
-        borderRadius: 10,
-        padding: 14,
-        background: "#fff",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+    <article className={s.leadTile}>
+      <div className={s.leadHeader}>
         {user.profilePhotoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.profilePhotoUrl}
-            alt={user.fullName}
-            style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }}
-          />
+          <img src={user.profilePhotoUrl} alt={user.fullName} className={s.leadAvatar} />
         ) : (
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              background: "#e0e0e0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 600,
-              color: "#666",
-            }}
-          >
+          <div className={s.leadAvatarPlaceholder}>
             {(user.fullName || "?").trim().charAt(0).toUpperCase()}
           </div>
         )}
         <div>
-          <h3 style={{ fontSize: 15, margin: 0 }}>{user.fullName || "Member"}</h3>
+          <h3 className={s.leadName}>{user.fullName || "Member"}</h3>
           {user.professionalHeadline ? (
-            <p style={{ fontSize: 12, color: "#666", margin: "2px 0 0" }}>
-              {user.professionalHeadline}
-            </p>
+            <p className={s.leadHeadline}>{user.professionalHeadline}</p>
           ) : null}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button
-          type="button"
-          style={{
-            flex: 1,
-            padding: "6px 10px",
-            fontSize: 12,
-            border: "1px solid #ddd",
-            borderRadius: 6,
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
+      <div className={s.leadActions}>
+        <Link href={`${basePath}/view-profile/${user.id}`} className={s.viewProfileButton}>
           View Profile
-        </button>
+        </Link>
         <button
           type="button"
           onClick={onSendMessage}
           disabled={alreadySent}
-          style={{
-            flex: 1,
-            padding: "6px 10px",
-            fontSize: 12,
-            border: 0,
-            borderRadius: 6,
-            background: alreadySent ? "#9aa" : "#1a73e8",
-            color: "#fff",
-            cursor: alreadySent ? "not-allowed" : "pointer",
-          }}
+          className={s.sendMessageButton}
         >
           {alreadySent ? "Message Sent" : "Send Message"}
         </button>
@@ -819,50 +743,28 @@ function UnlockModal({
 }) {
   const insufficient = balance < fee;
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 10,
-          padding: 24,
-          width: "min(420px, 92vw)",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Unlock {name}?</h2>
-        <p style={{ color: "#444", marginBottom: 6 }}>
+    <div role="dialog" aria-modal="true" className={s.modalBackdrop}>
+      <div className={s.modalCard}>
+        <h2 className={s.modalTitle}>Unlock {name}?</h2>
+        <p className={s.unlockCostText}>
           Cost: <strong>{fee}</strong> {fee === 1 ? "credit" : "credits"}
         </p>
-        <p style={{ color: "#444", marginBottom: 14 }}>
+        <p className={s.unlockBalanceText}>
           Available balance: <strong>{balance}</strong>
         </p>
         {insufficient ? (
-          <div style={{ background: "#fff5f5", border: "1px solid #f3c2c2", padding: 10, borderRadius: 6, marginBottom: 12 }}>
-            <p style={{ margin: 0, color: "#b00020" }}>Insufficient credits.</p>
-            <Link href={`${tenantBasePath}/buy-coins`} style={{ color: "#1a73e8" }}>
-              Buy Credits
-            </Link>
+          <div className={s.insufficientWarning}>
+            <p>Insufficient credits.</p>
+            <Link href={`${tenantBasePath}/buy-coins`}>Buy Credits</Link>
           </div>
         ) : null}
-        {errorMessage ? <p style={{ color: "#b00020" }}>{errorMessage}</p> : null}
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        {errorMessage ? <p className={s.feedbackError}>{errorMessage}</p> : null}
+        <div className={s.modalActions}>
           <button
             type="button"
             onClick={onCancel}
             disabled={unlocking}
-            style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid #ddd", background: "#fff" }}
+            className={s.modalCancelButton}
           >
             Cancel
           </button>
@@ -870,14 +772,7 @@ function UnlockModal({
             type="button"
             onClick={onConfirm}
             disabled={unlocking || insufficient}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              border: 0,
-              background: insufficient ? "#aaa" : "#1a73e8",
-              color: "#fff",
-              cursor: unlocking ? "wait" : insufficient ? "not-allowed" : "pointer",
-            }}
+            className={s.modalConfirmButton}
           >
             {unlocking ? "Unlocking…" : "Confirm Unlock"}
           </button>
@@ -919,42 +814,20 @@ function SendMessageModal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 10,
-          padding: 24,
-          width: "min(480px, 92vw)",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>
+    <div role="dialog" aria-modal="true" className={s.modalBackdrop}>
+      <div className={`${s.modalCard} ${s.modalCardWide}`}>
+        <h2 className={s.modalTitle}>
           Send Message to {receiver.fullName || "Member"}
         </h2>
 
         {alreadySent ? (
-          <p style={{ color: "#666", marginBottom: 12 }}>
-            You have already sent a message to this user.
-          </p>
+          <p className={s.infoText}>You have already sent a message to this user.</p>
         ) : null}
 
         {isCoachOrCompany ? (
-          <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Choose a template:</p>
-            <label style={{ display: "block", marginBottom: 8 }}>
+          <div className={s.templateSection}>
+            <p className={s.templateLabel}>Choose a template:</p>
+            <label className={s.templateOption}>
               <input
                 type="radio"
                 name="template"
@@ -964,7 +837,7 @@ function SendMessageModal({
               />{" "}
               Generic intro (Hello + offer to help)
             </label>
-            <label style={{ display: "block" }}>
+            <label className={s.templateOption}>
               <input
                 type="radio"
                 name="template"
@@ -976,33 +849,21 @@ function SendMessageModal({
             </label>
           </div>
         ) : (
-          <p style={{ fontSize: 13, color: "#444", marginBottom: 14 }}>
-            A short introduction will be sent on your behalf.
-          </p>
+          <p className={s.infoText}>A short introduction will be sent on your behalf.</p>
         )}
 
         {feedback ? (
-          <p
-            style={{
-              color: feedback.ok ? "#0a7d2c" : "#b00020",
-              marginBottom: 10,
-            }}
-          >
+          <p className={feedback.ok ? s.feedbackSuccess : s.feedbackError}>
             {feedback.message}
           </p>
         ) : null}
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <div className={s.modalActions}>
           <button
             type="button"
             onClick={onCancel}
             disabled={sending}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              border: "1px solid #ddd",
-              background: "#fff",
-            }}
+            className={s.modalCancelButton}
           >
             Close
           </button>
@@ -1010,14 +871,7 @@ function SendMessageModal({
             type="button"
             onClick={() => void handleSend()}
             disabled={sending || alreadySent || (feedback?.ok === true)}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              border: 0,
-              background: sending || alreadySent || feedback?.ok ? "#aaa" : "#1a73e8",
-              color: "#fff",
-              cursor: sending ? "wait" : "pointer",
-            }}
+            className={s.modalConfirmButton}
           >
             {sending ? "Sending…" : "Send"}
           </button>

@@ -165,18 +165,11 @@ export async function approveListingRequest(args: {
     await runTransaction(db, async (transaction) => {
       const scopedWalletId = buildWalletId(requesterId, tenantId);
       const scopedWalletRef = doc(db, "wallets", scopedWalletId);
-      const legacyWalletRef = doc(db, "wallets", requesterId);
       const walletTxRef = doc(collection(db, "walletTransactions"));
 
-      const [scopedWalletSnap, legacyWalletSnap] = await Promise.all([
-        transaction.get(scopedWalletRef),
-        transaction.get(legacyWalletRef),
-      ]);
+      const scopedWalletSnap = await transaction.get(scopedWalletRef);
 
-      const scopedData = scopedWalletSnap.exists() ? (scopedWalletSnap.data() as Record<string, unknown>) : null;
-      const legacyData = legacyWalletSnap.exists() ? (legacyWalletSnap.data() as Record<string, unknown>) : null;
-      const useLegacy = !scopedData && Boolean(legacyData && String(legacyData.tenantId ?? "") === tenantId);
-      const walletData = scopedData ?? (useLegacy ? legacyData : null);
+      const walletData = scopedWalletSnap.exists() ? (scopedWalletSnap.data() as Record<string, unknown>) : null;
 
       if (!walletData) {
         throw new Error("Requester wallet not found for listing approval charge.");
@@ -189,13 +182,11 @@ export async function approveListingRequest(args: {
         throw new Error(`Insufficient wallet balance for listing approval. Required ${listingCostCredits}, available ${availableCoins}.`);
       }
 
-      const targetWalletRef = useLegacy ? legacyWalletRef : scopedWalletRef;
-      const targetWalletId = useLegacy ? requesterId : scopedWalletId;
       const walletUserType = String(walletData.userType ?? "individual") as WalletUserType;
       const walletUserName = String(walletData.userName ?? "User");
 
       transaction.set(
-        targetWalletRef,
+        scopedWalletRef,
         {
           availableCoins: availableCoins - listingCostCredits,
           utilizedCoins: utilizedCoins + listingCostCredits,
@@ -207,7 +198,7 @@ export async function approveListingRequest(args: {
 
       if (listingCostCredits > 0) {
         transaction.set(walletTxRef, {
-          walletId: targetWalletId,
+          walletId: scopedWalletId,
           userId: requesterId,
           tenantId,
           userType: walletUserType,

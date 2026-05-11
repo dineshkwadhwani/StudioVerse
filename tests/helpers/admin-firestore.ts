@@ -18,6 +18,7 @@ import {
 import {
   getFirestore,
   Firestore,
+  FieldValue,
   type Query,
 } from "firebase-admin/firestore";
 
@@ -133,6 +134,188 @@ export async function deleteUserAndWalletByPhone(phone: string): Promise<{
   }
 
   return { usersDeleted, walletsDeleted, txnsDeleted };
+}
+
+/**
+ * Get the single user record for a phone, or null. Throws if multiple match
+ * (shouldn't happen — uniqueness is enforced at the UI layer).
+ */
+export async function getUserByPhone(
+  phone: string
+): Promise<{ id: string; data: FirebaseFirestore.DocumentData } | null> {
+  const matches = await findUsersByPhone(phone);
+  if (matches.length === 0) return null;
+  if (matches.length > 1) {
+    throw new Error(
+      `Expected at most one user for ${phone}, found ${matches.length}. Possible test data pollution.`
+    );
+  }
+  return matches[0]!;
+}
+
+/**
+ * Idempotent cleanup of any document in a given collection that matches
+ * `fieldName == value`. Returns the count deleted.
+ */
+export async function deleteDocsWhere(
+  collection: string,
+  fieldName: string,
+  value: string | number | boolean
+): Promise<number> {
+  const db = getAdminDb();
+  const snap = await db.collection(collection).where(fieldName, "==", value).get();
+  for (const doc of snap.docs) {
+    await doc.ref.delete();
+  }
+  return snap.docs.length;
+}
+
+/**
+ * Create a minimal "draft" Program doc for tests that need a program to edit.
+ * Fields chosen to satisfy the Edit form's expected shape without triggering
+ * publish-time validation (`published: false`).
+ */
+export async function bootstrapDraftProgram(args: {
+  name: string;
+  tenantId: string;
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("programs").doc();
+  await ref.set({
+    name: args.name,
+    tenantId: args.tenantId,
+    tenantIds: [args.tenantId],
+    shortDescription: `Short description for ${args.name}.`,
+    longDescription: `Long description for ${args.name}.`,
+    details: `Detailed agenda for ${args.name}.`,
+    thumbnailUrl: "",
+    thumbnailPath: "",
+    videoUrl: "",
+    creditsRequired: 50,
+    availableFrom: "",
+    expiresAt: "",
+    facilitatorName: "E2E Facilitator",
+    deliveryType: "course",
+    durationValue: 4,
+    durationUnit: "weeks",
+    visibility: "public",
+    catalogVisibility: "tenant_wide",
+    status: "draft",
+    publicationState: "draft",
+    ownershipScope: "platform",
+    ownerEntityId: "platform",
+    promoted: false,
+    promotionStatus: "none",
+    promotionPackageId: null,
+    listingPackageId: null,
+    listingStatus: "none",
+    published: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Create a minimal "draft" Event doc for tests that need an event to edit.
+ */
+export async function bootstrapDraftEvent(args: {
+  name: string;
+  tenantId: string;
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("events").doc();
+  await ref.set({
+    name: args.name,
+    tenantId: args.tenantId,
+    tenantIds: [args.tenantId],
+    shortDescription: `Short description for ${args.name}.`,
+    longDescription: `Long description for ${args.name}.`,
+    details: `Detailed agenda for ${args.name}.`,
+    thumbnailUrl: "",
+    thumbnailPath: "",
+    videoUrl: "",
+    creditsRequired: 30,
+    cost: 0,
+    eventType: "workshop",
+    eventSource: "studioverse_manager",
+    eventDate: "2026-12-01",
+    eventTime: "10:30",
+    locationAddress: "Test Address",
+    locationCity: "Pune",
+    visibility: "public",
+    catalogVisibility: "tenant_wide",
+    status: "draft",
+    publicationState: "draft",
+    ownershipScope: "platform",
+    ownerEntityId: "platform",
+    promoted: false,
+    promotionStatus: "none",
+    promotionPackageId: null,
+    listingPackageId: null,
+    listingStatus: "none",
+    published: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Create an active Listing Package for tests that need to attach one to a
+ * resource. Resource type defaults to "program".
+ */
+export async function bootstrapListingPackage(args: {
+  name: string;
+  tenantId: string;
+  resourceType?: "program" | "event" | "assessment";
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("listingPackages").doc();
+  await ref.set({
+    name: args.name,
+    tenantId: args.tenantId,
+    description: `E2E listing package: ${args.name}`,
+    imageUrl: "",
+    imagePath: "",
+    resourceType: args.resourceType ?? "program",
+    durationValue: 30,
+    durationUnit: "days",
+    costCredits: 50,
+    sortOrder: 1,
+    status: "active",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Create an active Promotion Package for tests that need to attach one.
+ */
+export async function bootstrapPromotionPackage(args: {
+  name: string;
+  tenantId: string;
+  resourceType?: "program" | "event" | "assessment";
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("promotionPackages").doc();
+  await ref.set({
+    name: args.name,
+    tenantId: args.tenantId,
+    description: `E2E promotion package: ${args.name}`,
+    imageUrl: "",
+    imagePath: "",
+    resourceType: args.resourceType ?? "event",
+    durationValue: 14,
+    durationUnit: "days",
+    costCredits: 75,
+    sortOrder: 1,
+    status: "active",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
 }
 
 /**

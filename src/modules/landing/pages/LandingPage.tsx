@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Fragment, useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import type { TenantConfig } from "@/types/tenant";
@@ -11,9 +11,11 @@ import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
 import styles from "./LandingPage.module.css";
 import headerStyles from "@/modules/landing/components/ViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "../hooks/useCarousel";
@@ -62,13 +64,6 @@ function getInitialUserType(storageKey: string): UserType {
 
   const stored = localStorage.getItem(storageKey);
   return stored === "coach" || stored === "learner" ? stored : "coach";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function repeatToCount(items: CarouselItem[], limit?: number): CarouselItem[] {
@@ -271,11 +266,8 @@ export default function LandingPage({ config }: Props) {
   const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
   const [userType, setUserType] = useState<UserType>(() => getInitialUserType(userTypeStorageKey));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   useClickOutside(mobileMenuRef, () => setIsMobileMenuOpen(false), isMobileMenuOpen);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
@@ -290,6 +282,7 @@ export default function LandingPage({ config }: Props) {
     sectionIntros?: { programs?: string; tools?: string; events?: string };
   } | null>(null);
   const perView = useItemsPerView();
+  const searchConfig = useTenantSearchConfig(tenantId);
 
   useEffect(() => {
     async function fetchTenantLandingConfig() {
@@ -349,7 +342,6 @@ export default function LandingPage({ config }: Props) {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
         setIsLoggedIn(false);
-        setMenuOpen(false);
         setName("User");
         setRole(null);
         setCurrentUserId(undefined);
@@ -366,7 +358,6 @@ export default function LandingPage({ config }: Props) {
 
       if (!hasActiveSession) {
         setIsLoggedIn(false);
-        setMenuOpen(false);
         setName("User");
         setRole(null);
         setCurrentUserId(undefined);
@@ -599,9 +590,7 @@ export default function LandingPage({ config }: Props) {
     events: activeSectionIntros?.events ?? DEFAULT_SECTION_INTROS.events,
   }), [activeSectionIntros?.events, activeSectionIntros?.programs, activeSectionIntros?.tools]);
   const sectionMeta = useMemo(() => getSectionMeta(sectionLabels, sectionIntros, basePath), [basePath, sectionIntros, sectionLabels]);
-  const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig }), [basePath, role, searchConfig]);
   const brandSubtitle = "StudioVerse Platform";
   const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn
@@ -651,7 +640,6 @@ export default function LandingPage({ config }: Props) {
     sessionStorage.removeItem("cs_uid");
     sessionStorage.removeItem("cs_role");
     sessionStorage.removeItem("cs_name");
-    setMenuOpen(false);
     setIsMobileMenuOpen(false);
   }
 
@@ -683,42 +671,17 @@ export default function LandingPage({ config }: Props) {
             </button>
           ) : (
             <div className={headerStyles.desktopAuthWrap}>
-              <div className={headerStyles.profileArea} ref={menuRef}>
-                <button type="button" className={headerStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
-                  {initials} ▾
-                </button>
-
-                {menuOpen ? (
-                  <section className={headerStyles.menuPanel}>
-                    <div className={headerStyles.menuUser}>
-                      <p className={headerStyles.menuName}>{name}</p>
-                      <p className={headerStyles.menuRole}>{getRoleLabel(role, {
-                        company: config.roles.company,
-                        professional: config.roles.professional,
-                        individual: config.roles.individual,
-                      })}</p>
-                    </div>
-
-                    {roleMenuGroups.map((group) => (
-                      <div key={group.key} className={headerStyles.menuGroup}>
-                        <p className={headerStyles.menuGroupTitle}>{group.label}</p>
-                        {group.items.map((item) => (
-                          <Fragment key={item.key}>
-                            {item.type === "signout" && <hr className={headerStyles.menuDivider} />}
-                            {item.type === "signout" ? (
-                              <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>{item.label}</button>
-                            ) : (
-                              <Link href={item.href} className={headerStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                                {item.label}
-                              </Link>
-                            )}
-                          </Fragment>
-                        ))}
-                      </div>
-                    ))}
-                  </section>
-                ) : null}
-              </div>
+              <ProfileDropdownMenu
+                role={role}
+                tenantId={tenantId}
+                name={name}
+                basePath={basePath}
+                roleLabels={{
+                  company: config.roles.company,
+                  professional: config.roles.professional,
+                  individual: config.roles.individual,
+                }}
+              />
             </div>
           )}
         </nav>

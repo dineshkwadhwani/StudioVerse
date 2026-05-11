@@ -11,14 +11,16 @@ import type { AssessmentRecord } from "@/types/assessment";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents, listLandingPageEvents } from "@/services/events.service";
 import { auth, db } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "./menuConfig";
+import { getRoleLabel, getRoleMenuItems } from "./menuConfig";
 import type { StudioUserRole } from "./menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
 import styles from "./CoachingLandingPage.module.css";
 import headerStyles from "./CoachingViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "./useCarousel";
 import LoginRegisterModal from "@/modules/auth/components/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "./DetailModal";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 
 type Props = {
   config: TenantConfig;
@@ -62,13 +64,6 @@ function getInitialUserType(storageKey: string): UserType {
 
   const stored = localStorage.getItem(storageKey);
   return stored === "coach" || stored === "learner" ? stored : "coach";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function repeatToCount(items: CarouselItem[], limit?: number): CarouselItem[] {
@@ -261,11 +256,8 @@ export default function CoachingLandingPage({ config }: Props) {
   const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
   const [userType, setUserType] = useState<UserType>(() => getInitialUserType(userTypeStorageKey));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   useClickOutside(mobileMenuRef, () => setIsMobileMenuOpen(false), isMobileMenuOpen);
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole | null>(null);
@@ -315,7 +307,6 @@ export default function CoachingLandingPage({ config }: Props) {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
         setIsLoggedIn(false);
-        setMenuOpen(false);
         setName("User");
         setRole(null);
         setCurrentUserId(undefined);
@@ -332,7 +323,6 @@ export default function CoachingLandingPage({ config }: Props) {
 
       if (!hasActiveSession) {
         setIsLoggedIn(false);
-        setMenuOpen(false);
         setName("User");
         setRole(null);
         setCurrentUserId(undefined);
@@ -550,8 +540,8 @@ export default function CoachingLandingPage({ config }: Props) {
 
   const toolsLabel = landing?.displayLabels?.tools ?? "Tools";
   const sectionMeta = useMemo(() => getSectionMeta(toolsLabel, basePath), [basePath, toolsLabel]);
-  const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
+  const searchConfig = useTenantSearchConfig(tenantId);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig }), [basePath, role, searchConfig]);
   const brandSubtitle = "StudioVerse Platform";
   const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn
@@ -601,7 +591,6 @@ export default function CoachingLandingPage({ config }: Props) {
     sessionStorage.removeItem("cs_uid");
     sessionStorage.removeItem("cs_role");
     sessionStorage.removeItem("cs_name");
-    setMenuOpen(false);
     setIsMobileMenuOpen(false);
   }
 
@@ -633,40 +622,17 @@ export default function CoachingLandingPage({ config }: Props) {
             </button>
           ) : (
             <div className={headerStyles.desktopAuthWrap}>
-              <div className={headerStyles.profileArea} ref={menuRef}>
-                <button type="button" className={headerStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
-                  {initials} ▾
-                </button>
-
-                {menuOpen ? (
-                  <section className={headerStyles.menuPanel}>
-                    <div className={headerStyles.menuUser}>
-                      <p className={headerStyles.menuName}>{name}</p>
-                      <p className={headerStyles.menuRole}>{getRoleLabel(role, {
-                        company: config.roles.company,
-                        professional: config.roles.professional,
-                        individual: config.roles.individual,
-                      })}</p>
-                    </div>
-
-                    <p className={headerStyles.menuTitle}>Menu</p>
-                    {roleMenuItems.map((item) => (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        className={headerStyles.menuLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                    <hr className={headerStyles.menuDivider} />
-                    <button type="button" className={headerStyles.menuItem} onClick={handleSignOut}>
-                      Sign Out
-                    </button>
-                  </section>
-                ) : null}
-              </div>
+              <ProfileDropdownMenu
+                role={role}
+                tenantId={tenantId}
+                name={name}
+                basePath={basePath}
+                roleLabels={{
+                  company: config.roles.company,
+                  professional: config.roles.professional,
+                  individual: config.roles.individual,
+                }}
+              />
             </div>
           )}
         </nav>

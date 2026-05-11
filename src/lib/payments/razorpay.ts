@@ -21,8 +21,9 @@ function toBase64(value: string): string {
   return Buffer.from(value).toString("base64");
 }
 
-function resolveEnvMode(): "test" | "live" {
+function resolveEnvMode(): "test" | "live" | "local" {
   const explicitMode = (process.env.RAZORPAY_MODE || "").trim().toLowerCase();
+  if (explicitMode === "local") return "local";
   if (explicitMode === "live") return "live";
   if (explicitMode === "test") return "test";
 
@@ -35,6 +36,28 @@ function resolveEnvMode(): "test" | "live" {
     .toLowerCase();
 
   return appEnv === "production" ? "live" : "test";
+}
+
+export function isLocalMode(): boolean {
+  return resolveEnvMode() === "local";
+}
+
+export function createLocalMockOrder(receipt: string, amountPaise: number): RazorpayOrderResponse {
+  return {
+    id: `local_order_${receipt}_${Date.now()}`,
+    amount: amountPaise,
+    currency: "INR",
+    receipt,
+    status: "created",
+  };
+}
+
+export function createLocalMockPaymentVerification(_razorpayOrderId: string, amountPaise: number) {
+  return {
+    paymentStatus: "captured" as const,
+    paymentMethod: "local_emulator",
+    amountPaise,
+  };
 }
 
 function resolveRazorpayKeys(): { keyId: string; keySecret: string } {

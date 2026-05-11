@@ -4,7 +4,8 @@ import type { ProfileUserType } from "@/types/profile";
 export type MessageTemplateKey =
   | "coach_company_t1"
   | "coach_company_t2"
-  | "individual_t1";
+  | "individual_t1"
+  | "auto_reply";
 
 export type MessageRecord = {
   id: string;
@@ -28,6 +29,8 @@ export type MessageRecord = {
   unlockFeeCoins?: number;
   unlockTransactionId?: string;
   readAt?: Timestamp;
+  responseType?: "ignore" | "interested";
+  respondedAt?: Timestamp;
   createdAt?: Timestamp;
 };
 

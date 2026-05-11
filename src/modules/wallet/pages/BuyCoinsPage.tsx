@@ -14,6 +14,7 @@ import type { TenantConfig } from "@/types/tenant";
 import type { WalletUserType } from "@/types/wallet";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import ViewAllHeader from "@/modules/landing/components/ViewAllHeader";
+import LocalCheckoutOverlay from "@/modules/wallet/components/LocalCheckoutOverlay";
 import styles from "./ManageWalletPage.module.css";
 import buyStyles from "./BuyCoinsPage.module.css";
 
@@ -29,6 +30,7 @@ type RazorpayCreateOrderResponse = {
   amountPaise: number;
   currency: string;
   keyId: string;
+  mode?: "local";
 };
 
 type RazorpayHandlerResponse = {
@@ -70,6 +72,12 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
   const [processing, setProcessing] = useState(false);
   const [initError, setInitError] = useState("");
   const paymentHandledRef = useRef(false);
+  const [localCheckout, setLocalCheckout] = useState<{
+    razorpayOrderId: string;
+    amountPaise: number;
+    onSuccess: () => Promise<void>;
+    onFailure: () => Promise<void>;
+  } | null>(null);
 
   async function ensureRazorpayLoaded(): Promise<void> {
     if (typeof window !== "undefined" && window.Razorpay) {
@@ -191,6 +199,54 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
       });
       paymentHandledRef.current = false;
 
+      if (createOrder.mode === "local") {
+        setLocalCheckout({
+          razorpayOrderId: createOrder.razorpayOrderId,
+          amountPaise: createOrder.amountPaise,
+          onSuccess: async () => {
+            try {
+              const mockPayload = {
+                razorpay_payment_id: `local_pay_${Date.now()}`,
+                razorpay_order_id: createOrder.razorpayOrderId,
+                razorpay_signature: "local_signature_mock",
+              };
+              await postWithAuth<{ ok: boolean }>("/api/payments/razorpay/verify", token, {
+                expectedAmountPaise: createOrder.amountPaise,
+                razorpayOrderId: mockPayload.razorpay_order_id,
+                razorpayPaymentId: mockPayload.razorpay_payment_id,
+                razorpaySignature: mockPayload.razorpay_signature,
+              });
+              await updateCoinOrderStatus(localOrderId, "completed");
+              await assignCoins({
+                userId: currentUser.uid,
+                tenantId,
+                userType: userCtx.userType,
+                userName: userCtx.name,
+                coinsToAssign: selected.credits,
+                assignedBy: currentUser.uid,
+              });
+              setFlow("success");
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : "Local payment verification failed.";
+              try { await updateCoinOrderStatus(localOrderId, "failed"); } catch { /* ignore */ }
+              setInitError(msg);
+              setFlow("failed");
+            } finally {
+              setLocalCheckout(null);
+              setProcessing(false);
+            }
+          },
+          onFailure: async () => {
+            try { await updateCoinOrderStatus(localOrderId, "failed"); } catch { /* ignore */ }
+            setInitError("Payment cancelled (local emulator).");
+            setFlow("failed");
+            setLocalCheckout(null);
+            setProcessing(false);
+          },
+        });
+        return;
+      }
+
       await ensureRazorpayLoaded();
       const Razorpay = window.Razorpay;
       if (!Razorpay) {
@@ -217,29 +273,14 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
         handler: async (payload: RazorpayHandlerResponse) => {
           paymentHandledRef.current = true;
           try {
-            console.log("[BuyCoins] Razorpay handler fired, verifying payment...", {
-              razorpay_order_id: payload.razorpay_order_id,
-              razorpay_payment_id: payload.razorpay_payment_id,
-            });
-
             await postWithAuth<{ ok: boolean }>("/api/payments/razorpay/verify", token, {
               expectedAmountPaise: createOrder.amountPaise,
               razorpayOrderId: payload.razorpay_order_id,
               razorpayPaymentId: payload.razorpay_payment_id,
               razorpaySignature: payload.razorpay_signature,
             });
-            console.log("[BuyCoins] Server verification passed");
 
-            console.log("[BuyCoins] Updating coin order status to completed...", { localOrderId });
             await updateCoinOrderStatus(localOrderId, "completed");
-            console.log("[BuyCoins] Coin order status updated");
-
-            console.log("[BuyCoins] Assigning coins...", {
-              userId: currentUser.uid,
-              tenantId,
-              userType: userCtx.userType,
-              credits: selected.credits,
-            });
             await assignCoins({
               userId: currentUser.uid,
               tenantId,
@@ -248,11 +289,9 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
               coinsToAssign: selected.credits,
               assignedBy: currentUser.uid,
             });
-            console.log("[BuyCoins] Coins assigned successfully");
 
             setFlow("success");
           } catch (verifyError) {
-            console.error("[BuyCoins] Post-payment error:", verifyError);
             const message = verifyError instanceof Error ? verifyError.message : "Payment verification failed.";
             try {
               await updateCoinOrderStatus(localOrderId, "failed");
@@ -297,6 +336,7 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
     setOrderId(null);
     setFlow("browse");
     setInitError("");
+    setLocalCheckout(null);
   }
 
   if (loadingInit) {
@@ -451,6 +491,16 @@ export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: Bu
             </div>
           </div>
         </div>
+        {localCheckout && selected ? (
+          <LocalCheckoutOverlay
+            packageName={selected.name}
+            credits={selected.credits}
+            amountPaise={localCheckout.amountPaise}
+            razorpayOrderId={localCheckout.razorpayOrderId}
+            onSimulateSuccess={localCheckout.onSuccess}
+            onSimulateFailure={localCheckout.onFailure}
+          />
+        ) : null}
       </main>
     );
   }

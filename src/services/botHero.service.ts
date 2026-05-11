@@ -148,9 +148,10 @@ export async function listActiveBotHeroPackages(): Promise<BotHeroPackageRecord[
 
 export async function saveBotHeroPackage(
   values: BotHeroPackageFormValues,
-  operatorId: string
+  operatorId: string,
+  isNew?: boolean
 ): Promise<void> {
-  const isUpdate = Boolean(values.id);
+  const isCreate = isNew ?? !values.id;
   const docId = values.id ?? doc(collection(db, PACKAGES_COLLECTION)).id;
   const docRef = doc(db, PACKAGES_COLLECTION, docId);
 
@@ -166,14 +167,10 @@ export async function saveBotHeroPackage(
     sortOrder: Number(values.sortOrder) || 99,
     updatedBy: operatorId,
     updatedAt: serverTimestamp(),
-    ...(isUpdate ? {} : { createdBy: operatorId, createdAt: serverTimestamp() }),
+    ...(isCreate ? { createdBy: operatorId, createdAt: serverTimestamp() } : {}),
   };
 
-  if (isUpdate) {
-    await updateDoc(docRef, payload);
-  } else {
-    await setDoc(docRef, payload);
-  }
+  await setDoc(docRef, payload, { merge: true });
 }
 
 export function validateBotHeroPackageForm(
@@ -334,30 +331,24 @@ export async function submitBotHeroRequest(args: {
     throw new Error("A profile picture is required to submit a Bot Hero request.");
   }
 
-  // Resolve wallet id pattern — scoped or legacy
   const walletId = `${tenantId}::${professionalId}`;
   const walletRef = doc(db, "wallets", walletId);
-  const legacyWalletRef = doc(db, "wallets", professionalId);
 
   const requestRef = doc(collection(db, REQUESTS_COLLECTION));
   const txRef = doc(collection(db, "walletTransactions"));
 
   await runTransaction(db, async (tx) => {
-    const [walletSnap, legacySnap] = await Promise.all([tx.get(walletRef), tx.get(legacyWalletRef)]);
+    const walletSnap = await tx.get(walletRef);
 
-    const targetWalletSnap = walletSnap.exists() ? walletSnap : (legacySnap.exists() ? legacySnap : null);
-    if (!targetWalletSnap) throw new Error("Wallet not found for this professional.");
+    if (!walletSnap.exists()) throw new Error("Wallet not found for this professional.");
 
-    const available = Number(targetWalletSnap.data()?.availableCoins ?? 0);
+    const available = Number(walletSnap.data()?.availableCoins ?? 0);
     if (available < pkg.credits) {
       throw new Error(`Insufficient credits. You need ${pkg.credits} but have ${available}.`);
     }
 
-    const targetWalletRef = walletSnap.exists() ? walletRef : legacyWalletRef;
-    const targetWalletId = walletSnap.exists() ? walletId : professionalId;
-
     // Debit wallet
-    tx.update(targetWalletRef, {
+    tx.update(walletRef, {
       availableCoins: increment(-pkg.credits),
       utilizedCoins: increment(pkg.credits),
       updatedAt: serverTimestamp(),
@@ -365,7 +356,7 @@ export async function submitBotHeroRequest(args: {
 
     // Write ledger entry
     tx.set(txRef, {
-      walletId: targetWalletId,
+      walletId,
       userId: professionalId,
       tenantId,
       type: "debit",
@@ -489,25 +480,20 @@ export async function denyBotHeroRequest(args: {
 
   const walletId = `${request.tenantId}::${request.professionalId}`;
   const walletRef = doc(db, "wallets", walletId);
-  const legacyWalletRef = doc(db, "wallets", request.professionalId);
   const refundTxRef = doc(collection(db, "walletTransactions"));
 
   await runTransaction(db, async (tx) => {
-    const [walletSnap, legacySnap] = await Promise.all([tx.get(walletRef), tx.get(legacyWalletRef)]);
-    const targetWalletSnap = walletSnap.exists() ? walletSnap : (legacySnap.exists() ? legacySnap : null);
+    const walletSnap = await tx.get(walletRef);
 
-    if (targetWalletSnap) {
-      const targetWalletRef = walletSnap.exists() ? walletRef : legacyWalletRef;
-      const targetWalletId = walletSnap.exists() ? walletId : request.professionalId;
-
-      tx.update(targetWalletRef, {
+    if (walletSnap.exists()) {
+      tx.update(walletRef, {
         availableCoins: increment(request.credits),
         utilizedCoins: increment(-request.credits),
         updatedAt: serverTimestamp(),
       });
 
       tx.set(refundTxRef, {
-        walletId: targetWalletId,
+        walletId,
         userId: request.professionalId,
         tenantId: request.tenantId,
         type: "credit",

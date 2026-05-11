@@ -2,18 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext, listWalletTransactionsForUserContext } from "@/services/wallet.service";
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "./menuConfig";
 import type { StudioUserRole } from "./menuConfig";
-import { useClickOutside } from "@/hooks/useClickOutside";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "./CoachingLandingPage.module.css";
 import dashboardStyles from "./dashboard/CoachingDashboard.module.css";
 import styles from "./ManageWalletPage.module.css";
@@ -22,13 +21,6 @@ type UserRole = StudioUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function formatDate(value: WalletTransactionRecord["createdAt"]): string {
@@ -73,8 +65,6 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
   const basePath = `/${tenantId}`;
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [wallet, setWallet] = useState<WalletRecord | null>(null);
   const [transactions, setTransactions] = useState<WalletTransactionRecord[]>([]);
   const [busy, setBusy] = useState(true);
@@ -139,10 +129,6 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
     return () => unsubscribe();
   }, [basePath, router, tenantId]);
 
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
-
-  const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
   const isBusinessWalletRole = role === "company" || role === "professional";
@@ -154,12 +140,6 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
 
     return transactions.filter((item) => getTransactionFlowType(item.transactionType) === transactionFlowFilter);
   }, [isBusinessWalletRole, transactionFlowFilter, transactions]);
-
-  async function handleLogout() {
-    await signOut(auth);
-    sessionStorage.clear();
-    router.replace(basePath);
-  }
 
   return (
     <main className={styles.page}>
@@ -179,31 +159,17 @@ export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }
             <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={dashboardStyles.profileArea} ref={menuRef}>
-            <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
-              {initials} ▾
-            </button>
-            {menuOpen && (
-              <section className={dashboardStyles.menuPanel}>
-                <div className={dashboardStyles.menuUser}>
-                  <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
-                    company: tenantConfig.roles.company,
-                    professional: tenantConfig.roles.professional,
-                    individual: tenantConfig.roles.individual,
-                  })}</p>
-                </div>
-                <p className={dashboardStyles.menuTitle}>Menu</p>
-                {roleMenuItems.map((item) => (
-                  <Link key={item.key} href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                    {item.label}
-                  </Link>
-                ))}
-                <hr className={dashboardStyles.menuDivider} />
-                <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>Sign Out</button>
-              </section>
-            )}
-          </div>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantId}
+            name={name}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
         </div>
       </header>
 

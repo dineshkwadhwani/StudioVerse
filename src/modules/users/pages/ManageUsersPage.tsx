@@ -1,11 +1,10 @@
 "use client";
 
-import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { calculateEngagementIndex, type EngagementIndexResult } from "@/services/engagement-index.service";
@@ -20,9 +19,7 @@ import {
 } from "@/services/manage-users.service";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
-import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
-import { useClickOutside } from "@/hooks/useClickOutside";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ManageUsersPage.module.css";
@@ -41,13 +38,6 @@ type CreatorProfile = {
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual" || value === "superadmin";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function normalizePhone(input: string): string {
@@ -81,8 +71,6 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
 
   const [role, setRole] = useState<UserRole>("individual");
   const [name, setName] = useState("User");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,8 +92,6 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
   const [phoneLookupState, setPhoneLookupState] = useState<"idle" | "found" | "not-found">("idle");
   const [phoneLookupMessage, setPhoneLookupMessage] = useState("");
   const [engagementIndices, setEngagementIndices] = useState<Record<string, EngagementIndexResult>>({});
-
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -207,11 +193,6 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
     setCoaches([]);
   }
 
-  const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuGroups = useMemo(
-    () => getRoleMenuGroups(role === "superadmin" ? "company" : role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }),
-    [basePath, role, tenantConfig]
-  );
   const filteredUsers = useMemo(() => {
     if (scopeFilter === "all") return users;
     return users.filter((u) => u.userType === scopeFilter);
@@ -392,12 +373,6 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
     }
   }
 
-  async function handleLogout() {
-    await signOut(auth);
-    sessionStorage.clear();
-    router.replace(basePath);
-  }
-
   if (loading) {
     return (
       <main className={styles.page}>
@@ -426,45 +401,17 @@ export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }:
             <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={dashboardStyles.profileArea} ref={menuRef}>
-            <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
-              {initials} ▾
-            </button>
-            {menuOpen && (
-              <section className={dashboardStyles.menuPanel}>
-                <div className={dashboardStyles.menuUser}>
-                  <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>
-                    {role === "superadmin" 
-                      ? tenantConfig.roles.superAdmin
-                      : getRoleLabel(role, {
-                          company: tenantConfig.roles.company,
-                          professional: tenantConfig.roles.professional,
-                          individual: tenantConfig.roles.individual,
-                        })
-                    }
-                  </p>
-                </div>
-                {roleMenuGroups.map((group) => (
-                  <div key={group.key} className={dashboardStyles.menuGroup}>
-                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
-                    {group.items.map((item) => (
-                      <Fragment key={item.key}>
-                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
-                        {item.type === "signout" ? (
-                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
-                        ) : (
-                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                            {item.label}
-                          </Link>
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
-                ))}
-              </section>
-            )}
-          </div>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantId}
+            name={name}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
         </div>
       </header>
 

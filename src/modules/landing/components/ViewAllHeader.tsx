@@ -2,15 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups, getRoleMenuItems, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
+import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
-import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ViewAllHeader.module.css";
 import { clearAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
@@ -23,22 +24,12 @@ type Props = {
   onSignInRegister: () => void;
 };
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
 export default function ViewAllHeader({ config, currentPage, onSignInRegister }: Props) {
   const tenantId = config.id;
   const basePath = `/${tenantId}`;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   useClickOutside(mobileMenuRef, () => setIsMobileMenuOpen(false), isMobileMenuOpen);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [name, setName] = useState("User");
@@ -48,7 +39,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
         setIsLoggedIn(false);
-        setMenuOpen(false);
         setName("User");
         setRole(null);
         return;
@@ -65,7 +55,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
 
       if (!hasActiveSession) {
         setIsLoggedIn(false);
-        setMenuOpen(false);
         setName("User");
         setRole(null);
         return;
@@ -83,9 +72,8 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
 
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
   const brandSubtitle = "StudioVerse Platform";
-  const initials = useMemo(() => getInitials(name), [name]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(config) }), [basePath, role, config]);
+  const searchConfig = useTenantSearchConfig(tenantId);
+  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig }), [basePath, role, searchConfig]);
 
   const navClass = (_page: ViewAllPage): string => {
     return landingStyles.navLink;
@@ -97,7 +85,6 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
     sessionStorage.removeItem("cs_role");
     sessionStorage.removeItem("cs_name");
     clearAuthSessionCookies();
-    setMenuOpen(false);
     setIsMobileMenuOpen(false);
   }
 
@@ -126,42 +113,17 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
             </button>
           ) : (
             <div className={styles.desktopAuthWrap}>
-              <div className={dashboardStyles.profileArea} ref={menuRef}>
-                <button type="button" className={dashboardStyles.profileButton} onClick={() => setMenuOpen((prev) => !prev)}>
-                  {initials} ▾
-                </button>
-
-                {menuOpen ? (
-                  <section className={dashboardStyles.menuPanel}>
-                    <div className={dashboardStyles.menuUser}>
-                      <p className={dashboardStyles.menuName}>{name}</p>
-                      <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
-                        company: config.roles.company,
-                        professional: config.roles.professional,
-                        individual: config.roles.individual,
-                      })}</p>
-                    </div>
-
-                    {roleMenuGroups.map((group) => (
-                      <div key={group.key} className={dashboardStyles.menuGroup}>
-                        <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
-                        {group.items.map((item) => (
-                          <Fragment key={item.key}>
-                            {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
-                            {item.type === "signout" ? (
-                              <button type="button" className={dashboardStyles.menuItem} onClick={handleSignOut}>{item.label}</button>
-                            ) : (
-                              <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                                {item.label}
-                              </Link>
-                            )}
-                          </Fragment>
-                        ))}
-                      </div>
-                    ))}
-                  </section>
-                ) : null}
-              </div>
+              <ProfileDropdownMenu
+                role={role}
+                tenantId={tenantId}
+                name={name}
+                basePath={basePath}
+                roleLabels={{
+                  company: config.roles.company,
+                  professional: config.roles.professional,
+                  individual: config.roles.individual,
+                }}
+              />
             </div>
           )}
         </nav>

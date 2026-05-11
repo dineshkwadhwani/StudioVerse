@@ -124,8 +124,9 @@ export default function CreditPackagesSection({ operatorId }: Props) {
         }
       }
 
-      await saveCoinPackage(nextValues, operatorId);
-      setMessage(formValues.id ? "Credit package updated." : "Credit package created.");
+      const isNewPackage = !formValues.id;
+      await saveCoinPackage(nextValues, operatorId, isNewPackage);
+      setMessage(isNewPackage ? "Credit package created." : "Credit package updated.");
       setFormOpen(false);
       setSelectedImage(null);
       await refresh();

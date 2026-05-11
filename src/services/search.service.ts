@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { listPrograms } from "@/services/programs.service";
 import { listEvents } from "@/services/events.service";
@@ -172,4 +172,43 @@ export async function searchUsers(args: {
       tokens
     );
   });
+}
+
+export type TenantSearchConfig = {
+  enabled: boolean;
+  programs: boolean;
+  assessments: boolean;
+  events: boolean;
+  professional: boolean;
+  individual: boolean;
+  company: boolean;
+};
+
+const DEFAULT_SEARCH_CONFIG: TenantSearchConfig = {
+  enabled: false,
+  programs: false,
+  assessments: false,
+  events: false,
+  professional: false,
+  individual: false,
+  company: false,
+};
+
+export async function getTenantSearchConfig(tenantId: string): Promise<TenantSearchConfig> {
+  const trimmed = tenantId.trim();
+  if (!trimmed) return DEFAULT_SEARCH_CONFIG;
+
+  const snap = await getDoc(doc(db, "tenants", trimmed));
+  const cfg = snap.data()?.searchConfig as Partial<TenantSearchConfig> | undefined;
+  if (!cfg) return DEFAULT_SEARCH_CONFIG;
+
+  return {
+    enabled: Boolean(cfg.enabled),
+    programs: Boolean(cfg.programs),
+    assessments: Boolean(cfg.assessments),
+    events: Boolean(cfg.events),
+    professional: Boolean(cfg.professional),
+    individual: Boolean(cfg.individual),
+    company: Boolean(cfg.company),
+  };
 }

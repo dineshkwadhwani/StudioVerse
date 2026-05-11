@@ -45,15 +45,38 @@ Tracker for the test automation rollout. One line per phase; updated at the end 
 
 ## Phase 1 — what's runnable now
 
-| Test | File | Maps to | Notes |
-|---|---|---|---|
-| SA · Users · Create Company | `e2e/superadmin/create-company.spec.ts` | USR-001 | Creates user `9168676738`, asserts user/wallet/credit-txn via Admin SDK. Idempotent: cleans up the phone before each run. |
-
-Run a single SA test:
+Full run:
 
 ```bash
-npx playwright test e2e/superadmin/create-company.spec.ts
+npx playwright test e2e/superadmin/    # 10 passed · 3 skipped · ~1.3 min
 ```
+
+| # | Test | File | Status |
+|---|---|---|---|
+| 1a | SA · Wallet · Assign 500 credits → Company (Narendra) | `wallet-assign-credits.spec.ts` | ✅ |
+| 1b | SA · Wallet · Assign 500 credits → Coach (Dinesh) | `wallet-assign-credits.spec.ts` | ✅ |
+| 1c | SA · Wallet · Assign 500 credits → Individual (Kartik) | `wallet-assign-credits.spec.ts` | ✅ |
+| 2 | SA · Resources · Create Program (with coin.png) | `create-program.spec.ts` | ✅ |
+| 3 | SA · Resources · Create Event (with coin.png) | `create-event.spec.ts` | ✅ |
+| 4 | SA · Resources · Edit Assessment (shortDescription, then revert) | `edit-assessment.spec.ts` | ✅ |
+| 5 | SA · Earning Packages · Create Credit Package | `create-credit-package.spec.ts` | ✅ |
+| 6 | SA · Earning Packages · Create Listing Package (Program) | `create-listing-package.spec.ts` | ✅ |
+| 7 | SA · Earning Packages · Create Promotion Package (Event) | `create-promotion-package.spec.ts` | ✅ |
+| 10 | SA · Earning Packages · Create Bot Hero Package (4 weeks = 1 month) | `create-bot-hero-package.spec.ts` | ✅ |
+| 8 | SA · Resources · Edit Program → attach Listing Package | `edit-program-attach-listing-package.spec.ts` | ⚠️ Skipped |
+| 9 | SA · Resources · Edit Event → attach Promotion Package | `edit-event-attach-promotion-package.spec.ts` | ⚠️ Skipped |
+| - | SA · Users · Create Company (legacy) | `create-company.spec.ts` | ⚠️ Skipped — Narendra is pre-provisioned |
+
+### Why #8 and #9 are skipped
+
+Both tests need the SA to **edit** a Program/Event and attach a Listing/Promotion Package. The package selector in the form is gated behind the "Publish now" / "Promote now" checkbox, and ticking either triggers Cloud Function validation (`programWriteSchema` + business rules). An Admin-SDK-bootstrapped fixture currently fails that validation — error surface is `FirebaseError: Program validation failed`.
+
+**Unblock options** (pick one):
+
+1. **UI-bootstrap in beforeAll** — sign in as SA once in `beforeAll`, drive the existing Create form to make the fixture program/event. Slower setup but guaranteed schema-compliant. Recommended.
+2. **Mirror `programWriteSchema` in `bootstrapDraftProgram`** — keep direct-write but include every server-side-required field. Faster but fragile; breaks whenever the schema evolves.
+
+Pick the approach, say "unskip #8" and I'll implement.
 
 ## Phase 1 — non-test files added in this session
 

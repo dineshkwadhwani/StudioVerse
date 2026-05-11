@@ -110,8 +110,9 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
         nextValues.imageUrl = uploaded.imageUrl;
         nextValues.imagePath = uploaded.imagePath;
       }
-      await saveBotHeroPackage(nextValues, operatorId);
-      setMessage(formValues.id ? "Bot Hero package updated." : "Bot Hero package created.");
+      const isNewPackage = !formValues.id;
+      await saveBotHeroPackage(nextValues, operatorId, isNewPackage);
+      setMessage(isNewPackage ? "Bot Hero package created." : "Bot Hero package updated.");
       setFormOpen(false);
       setSelectedImage(null);
       await refresh();

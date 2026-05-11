@@ -34,7 +34,6 @@ export default function CoinRequestsModal({
       try {
         const fetchedRequests = await getCoinRequestsForCompanyContext(companyIds);
         setRequests(fetchedRequests);
-        onPendingCountChange?.(fetchedRequests.filter((request) => request.status === "pending").length);
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : "Failed to load requests";
         console.error("[CoinRequestsModal] Error loading requests:", message);
@@ -45,7 +44,11 @@ export default function CoinRequestsModal({
     }
 
     void loadRequests();
-  }, [isOpen, companyIds, onPendingCountChange]);
+  }, [isOpen, companyIds]);
+
+  useEffect(() => {
+    onPendingCountChange?.(requests.filter((r) => r.status === "pending").length);
+  }, [requests, onPendingCountChange]);
 
   async function handleApprove(requestId: string) {
     setProcessingId(requestId);
@@ -58,12 +61,9 @@ export default function CoinRequestsModal({
         comment: "Approved",
       });
 
-      // Remove from list and refresh
-      setRequests((prev) => {
-        const nextRequests = prev.map((r) => (r.id === requestId ? { ...r, status: "approved" as const } : r));
-        onPendingCountChange?.(nextRequests.filter((request) => request.status === "pending").length);
-        return nextRequests;
-      });
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: "approved" as const } : r))
+      );
     } catch (approveError) {
       const message = approveError instanceof Error ? approveError.message : "Failed to approve request";
       setError(message);
@@ -83,12 +83,9 @@ export default function CoinRequestsModal({
         reason: "Denied by company",
       });
 
-      // Remove from list and refresh
-      setRequests((prev) => {
-        const nextRequests = prev.map((r) => (r.id === requestId ? { ...r, status: "denied" as const } : r));
-        onPendingCountChange?.(nextRequests.filter((request) => request.status === "pending").length);
-        return nextRequests;
-      });
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: "denied" as const } : r))
+      );
     } catch (denyError) {
       const message = denyError instanceof Error ? denyError.message : "Failed to deny request";
       setError(message);

@@ -1,14 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/services/firebase";
-import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
-import { useClickOutside } from "@/hooks/useClickOutside";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import type { TenantConfig } from "@/types/tenant";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
@@ -90,13 +87,9 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
   const [error, setError] = useState("");
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const isPreview = searchParams.get("from") === "profile";
   const basePath = `/${tenantConfig.id}`;
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";
-
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   useEffect(() => {
     async function loadProfile() {
@@ -138,15 +131,6 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
       : profile.coachSessionFormats;
   }, [profile]);
 
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [role, basePath, tenantConfig]);
-  const initials = useMemo(() => getInitials(name), [name]);
-
-  async function handleLogout() {
-    await signOut(auth);
-    sessionStorage.clear();
-    router.replace(basePath);
-  }
-
   if (loading) {
     return <main className={styles.emptyState}>Loading profile…</main>;
   }
@@ -179,46 +163,17 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
             <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={dashboardStyles.profileArea} ref={menuRef}>
-            <button
-              type="button"
-              className={dashboardStyles.profileButton}
-              onClick={() => setMenuOpen((prev) => !prev)}
-            >
-              {initials} ▾
-            </button>
-
-            {menuOpen && (
-              <section className={dashboardStyles.menuPanel}>
-                <div className={dashboardStyles.menuUser}>
-                  <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
-                    company: tenantConfig.roles.company,
-                    professional: tenantConfig.roles.professional,
-                    individual: tenantConfig.roles.individual,
-                  })}</p>
-                </div>
-
-                {roleMenuGroups.map((group) => (
-                  <div key={group.key} className={dashboardStyles.menuGroup}>
-                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
-                    {group.items.map((item) => (
-                      <Fragment key={item.key}>
-                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
-                        {item.type === "signout" ? (
-                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
-                        ) : (
-                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                            {item.label}
-                          </Link>
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
-                ))}
-              </section>
-            )}
-          </div>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantConfig.id}
+            name={name}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
         </div>
       </header>
 

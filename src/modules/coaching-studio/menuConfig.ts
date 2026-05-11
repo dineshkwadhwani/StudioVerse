@@ -3,7 +3,6 @@ export {
   getRoleLabel,
   getRoleMenuItems,
   getRoleMenuGroups,
-  searchMenuConfigFromTenant,
 } from "@/modules/activities/config/menuConfig";
 
 export type {

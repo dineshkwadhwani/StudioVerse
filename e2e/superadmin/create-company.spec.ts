@@ -30,13 +30,19 @@ import {
   toE164India,
 } from "../../tests/helpers/admin-firestore";
 
-const COMPANY = TEST_PHONES.companyByAdmin; // 9168676738
+const COMPANY = TEST_PHONES.company; // 9168676738 → Narendra Chouhan
 const TENANT_ID = "coaching-studio";
 const COMPANY_NAME = "Acme E2E Test Co";
 const COMPANY_OWNER_NAME = "Acme Owner (e2e)";
 const COMPANY_OWNER_EMAIL = "acme-owner-e2e@example.com";
 
-test.describe("SuperAdmin · Users · Create Company", () => {
+// Disabled by default: as of 2026-05-10 the canonical fixture phone 9168676738
+// is pre-provisioned in studioverse-test (as Narendra Chouhan). Running this
+// test would delete and re-create that user, wiping the wallet state that the
+// other SA tests rely on. The test remains here as a documented reference for
+// the SA-creates-Company flow. Run explicitly with `--grep "Create Company"`
+// only when you intend to reset Narendra's record.
+test.describe.skip("SuperAdmin · Users · Create Company", () => {
   test.beforeEach(async () => {
     const summary = await deleteUserAndWalletByPhone(COMPANY.number);
     test
@@ -52,11 +58,8 @@ test.describe("SuperAdmin · Users · Create Company", () => {
   test("SA creates a Company → user, wallet, and registration coins are provisioned", async ({
     page,
   }) => {
-    // 1. Sign in as SuperAdmin.
-    await signInAs(page, "superAdminPrimary");
-
-    // 2. Navigate to the SA portal.
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    // 1. Sign in as SuperAdmin (lands on `/admin` portal automatically).
+    await signInAs(page, "superAdmin");
 
     // 3. The portal hides menu behind a profile-initials button (with a ▾
     //    caret). Open the menu, then click the "Users" item.

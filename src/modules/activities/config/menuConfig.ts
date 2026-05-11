@@ -19,10 +19,6 @@ export type SearchMenuConfig = {
   enabled: boolean;
 };
 
-export function searchMenuConfigFromTenant(tenantConfig: { searchConfig?: { enabled?: boolean } } | null | undefined): SearchMenuConfig {
-  return { enabled: tenantConfig?.searchConfig?.enabled === true };
-}
-
 // Backward-compatible aliases for existing imports.
 export type CoachingUserRole = StudioUserRole;
 export type CoachingMenuItem = StudioMenuItem;

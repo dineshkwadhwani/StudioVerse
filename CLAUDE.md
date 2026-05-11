@@ -79,6 +79,16 @@ Generated code should be:
 - Resend sending uses subdomain records like `send.coachingstudio.in`.
 - For production deploys, `RESEND_API_KEY` must also be set in Vercel environment variables.
 
+## Allowed commands
+
+The following commands are pre-approved and should run without prompting:
+
+- `npx tsc --noEmit` — TypeScript type-checking
+- `npx firebase deploy --only firestore:rules` — Deploy Firestore security rules to studioverse-test
+- `npm run build` — Production build
+- `npm run dev` — Start dev server
+- `npm test` — Run tests
+
 ## Working style
 
 When implementing something new:

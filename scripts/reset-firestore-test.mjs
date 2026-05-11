@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Destructive Firestore reset for studioverse-test.
-// Keeps: superadmin users, programs, assessments, assessmentQuestions, events.
+// Keeps: superadmin users, programs, assessments, assessmentQuestions, events,
+//        coinPackages, listingPackages, promotionPackages, botHeroPackages,
+//        and tenant config (including lead fees).
 // Resets: each treasury wallet to 100000 coins.
 // Wipes everything else.
 //
@@ -61,6 +63,10 @@ const KEEP_FULL = new Set([
   "assessmentQuestions",
   "events",
   "tenants",
+  "coinPackages",
+  "listingPackages",
+  "promotionPackages",
+  "botHeroPackages",
 ]);
 
 const TREASURY_RESET_AMOUNT = 100000;

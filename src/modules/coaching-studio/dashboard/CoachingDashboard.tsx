@@ -1,20 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext } from "@/services/wallet.service";
 import { getAssignmentsForAssigneeContext } from "@/services/assignment.service";
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuItems, searchMenuConfigFromTenant } from "../menuConfig";
-import type { StudioUserRole, StudioMenuItem } from "../menuConfig";
-import { useClickOutside } from "@/hooks/useClickOutside";
+import type { StudioUserRole } from "../menuConfig";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "../CoachingLandingPage.module.css";
 import styles from "./CoachingDashboard.module.css";
 
@@ -22,22 +19,6 @@ type UserRole = StudioUserRole;
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function isAssignmentAction(key: string): boolean {
-  return key === "assign-activity" || key === "activities";
-}
-
-function getInitialMenuItem(role: UserRole): StudioMenuItem | null {
-  const items = getRoleMenuItems(role, { basePath: `/${coachingTenantConfig.id}`, searchConfig: searchMenuConfigFromTenant(coachingTenantConfig) });
-  return items[0] ?? null;
 }
 
 type DashboardProps = {
@@ -50,11 +31,7 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
   const basePath = `/${tenantId}`;
   const [role, setRole] = useState<UserRole>("individual");
   const [name, setName] = useState("User");
-  const [activeKey, setActiveKey] = useState<string>(() => getInitialMenuItem("individual")?.key ?? "");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
   const [wallet, setWallet] = useState<{ issued: number; utilized: number; available: number } | null>(null);
   const [profile, setProfile] = useState<UserProfileRecord | null>(null);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -92,7 +69,6 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
     queueMicrotask(() => {
       setRole(storedRoleRaw);
       setName(storedName ?? "User");
-      setActiveKey(getInitialMenuItem(storedRoleRaw)?.key ?? "");
     });
 
     if (storedUid) {
@@ -155,18 +131,8 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
     }
   }, [basePath, router, tenantId]);
 
-  const menuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [basePath, role, tenantConfig]);
-
-  const userInitials = useMemo(() => getInitials(name), [name]);
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";
-  const profileIncomplete = Boolean(profile && !profile.mandatoryProfileCompleted);
   const brandSubtitle = "StudioVerse Platform";
-
-  async function handleLogout() {
-    await signOut(auth);
-    sessionStorage.clear();
-    router.replace(basePath);
-  }
 
   return (
     <main className={styles.page}>
@@ -194,55 +160,17 @@ export default function CoachingDashboard({ tenantConfig = coachingTenantConfig 
             <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={styles.profileArea} ref={menuRef}>
-            <button
-              type="button"
-              className={styles.profileButton}
-              onClick={() => setMenuOpen((prev) => !prev)}
-            >
-              {userInitials} ▾
-            </button>
-
-            {menuOpen && (
-              <section className={styles.menuPanel}>
-                <div className={styles.menuUser}>
-                  <p className={styles.menuName}>{name}</p>
-                  <p className={styles.menuRole}>{getRoleLabel(role, {
-                    company: tenantConfig.roles.company,
-                    professional: tenantConfig.roles.professional,
-                    individual: tenantConfig.roles.individual,
-                  })}</p>
-                </div>
-
-                <p className={styles.menuTitle}>Actions</p>
-                {menuItems.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`${styles.menuItem} ${activeKey === item.key ? styles.menuItemActive : ""}`}
-                    disabled={role === "individual" && profileIncomplete && isAssignmentAction(item.key)}
-                    onClick={() => {
-                      if (item.href !== `${basePath}/dashboard`) {
-                        setMenuOpen(false);
-                        router.push(item.href);
-                        return;
-                      }
-                      setActiveKey(item.key);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-
-                <hr className={styles.menuDivider} />
-
-                <button type="button" className={styles.menuItem} onClick={handleLogout}>
-                  Sign Out
-                </button>
-              </section>
-            )}
-          </div>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantId}
+            name={name}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
         </div>
       </header>
 

@@ -1,12 +1,10 @@
 "use client";
 
-import { ChangeEvent, Fragment, FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
 import { validateProfileForm, createProfileFormValues, type ProfileFormErrors } from "@/lib/validation/profile.schema";
-import { auth } from "@/services/firebase";
 import { PROFILE_COMPLETION_REWARD_COINS } from "@/constants/wallet";
 import {
   getUserProfile,
@@ -17,9 +15,8 @@ import {
 import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { UserProfileFormValues, UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
-import { getRoleLabel, getRoleMenuGroups, searchMenuConfigFromTenant } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
-import { useClickOutside } from "@/hooks/useClickOutside";
+import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import {
   AVAILABILITY_OPTIONS,
   COACH_PURPOSE_OPTIONS,
@@ -55,13 +52,6 @@ function getProfileRoleLabel(role: UserProfileRecord["userType"]): string {
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function parseMultiSelectValue(value: string): string[] {
@@ -114,13 +104,9 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
   const [info, setInfo] = useState("");
   const [name, setName] = useState("User");
   const [role, setRole] = useState<UserRole>("individual");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? "Assessment Centre";
   const brandSubtitle = "StudioVerse Platform";
-
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   useEffect(() => {
     async function loadProfile() {
@@ -167,8 +153,6 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
 
   const roleLabel = useMemo(() => (profile ? getProfileRoleLabel(profile.userType) : "Profile"), [profile]);
   const isEmailLocked = useMemo(() => Boolean(profile?.email.trim()), [profile?.email]);
-  const roleMenuGroups = useMemo(() => getRoleMenuGroups(role, { basePath, searchConfig: searchMenuConfigFromTenant(tenantConfig) }), [role, basePath, tenantConfig]);
-  const initials = useMemo(() => getInitials(name), [name]);
 
   function scrollToFeedbackBanner() {
     if (typeof window === "undefined") {
@@ -450,12 +434,6 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
     }
   }
 
-  async function handleLogout() {
-    await signOut(auth);
-    sessionStorage.clear();
-    router.replace(basePath);
-  }
-
   if (loading) {
     return <main className={styles.loadingState}>Loading your profile…</main>;
   }
@@ -488,46 +466,17 @@ export default function ProfilePage({ tenantConfig = coachingTenantConfig }: Pro
             <Link href={`${basePath}/events`} className={landingStyles.navLink}>Events</Link>
           </nav>
 
-          <div className={dashboardStyles.profileArea} ref={menuRef}>
-            <button
-              type="button"
-              className={dashboardStyles.profileButton}
-              onClick={() => setMenuOpen((prev) => !prev)}
-            >
-              {initials} ▾
-            </button>
-
-            {menuOpen && (
-              <section className={dashboardStyles.menuPanel}>
-                <div className={dashboardStyles.menuUser}>
-                  <p className={dashboardStyles.menuName}>{name}</p>
-                  <p className={dashboardStyles.menuRole}>{getRoleLabel(role, {
-                    company: tenantConfig.roles.company,
-                    professional: tenantConfig.roles.professional,
-                    individual: tenantConfig.roles.individual,
-                  })}</p>
-                </div>
-
-                {roleMenuGroups.map((group) => (
-                  <div key={group.key} className={dashboardStyles.menuGroup}>
-                    <p className={dashboardStyles.menuGroupTitle}>{group.label}</p>
-                    {group.items.map((item) => (
-                      <Fragment key={item.key}>
-                        {item.type === "signout" && <hr className={dashboardStyles.menuDivider} />}
-                        {item.type === "signout" ? (
-                          <button type="button" className={dashboardStyles.menuItem} onClick={handleLogout}>{item.label}</button>
-                        ) : (
-                          <Link href={item.href} className={dashboardStyles.menuLink} onClick={() => setMenuOpen(false)}>
-                            {item.label}
-                          </Link>
-                        )}
-                      </Fragment>
-                    ))}
-                  </div>
-                ))}
-              </section>
-            )}
-          </div>
+          <ProfileDropdownMenu
+            role={role}
+            tenantId={tenantId}
+            name={name}
+            basePath={basePath}
+            roleLabels={{
+              company: tenantConfig.roles.company,
+              professional: tenantConfig.roles.professional,
+              individual: tenantConfig.roles.individual,
+            }}
+          />
         </div>
       </header>
 

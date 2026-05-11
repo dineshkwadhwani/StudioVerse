@@ -63,20 +63,17 @@ npx playwright test e2e/superadmin/    # 10 passed · 3 skipped · ~1.3 min
 | 6 | SA · Earning Packages · Create Listing Package (Program) | `create-listing-package.spec.ts` | ✅ |
 | 7 | SA · Earning Packages · Create Promotion Package (Event) | `create-promotion-package.spec.ts` | ✅ |
 | 10 | SA · Earning Packages · Create Bot Hero Package (4 weeks = 1 month) | `create-bot-hero-package.spec.ts` | ✅ |
-| 8 | SA · Resources · Edit Program → attach Listing Package | `edit-program-attach-listing-package.spec.ts` | ⚠️ Skipped |
-| 9 | SA · Resources · Edit Event → attach Promotion Package | `edit-event-attach-promotion-package.spec.ts` | ⚠️ Skipped |
+| 8 | SA · Resources · Edit Program (draft mode, no publish) | `edit-program-attach-listing-package.spec.ts` | ✅ |
+| 9 | SA · Resources · Edit Event (draft mode, no promote) | `edit-event-attach-promotion-package.spec.ts` | ✅ |
 | - | SA · Users · Create Company (legacy) | `create-company.spec.ts` | ⚠️ Skipped — Narendra is pre-provisioned |
 
-### Why #8 and #9 are skipped
+### Notes on #8 and #9 scope
 
-Both tests need the SA to **edit** a Program/Event and attach a Listing/Promotion Package. The package selector in the form is gated behind the "Publish now" / "Promote now" checkbox, and ticking either triggers Cloud Function validation (`programWriteSchema` + business rules). An Admin-SDK-bootstrapped fixture currently fails that validation — error surface is `FirebaseError: Program validation failed`.
+Per user direction 2026-05-11, scope was scaled back from "attach a Listing/Promotion Package" to "edit a field and save in draft mode". Reason: the Listing/Promotion Package selectors are gated behind "Publish now" / "Promote now" — ticking either triggers a Cloud Function validation cascade that an Admin-SDK-bootstrapped fixture doesn't satisfy. With the gate unchecked, the simpler edit-and-save path works.
 
-**Unblock options** (pick one):
+Both tests create the resource via the UI inside the test (rather than direct Admin SDK write), then drive the Edit form. They also assert the resource appears on the Manage page list, not just in Firestore.
 
-1. **UI-bootstrap in beforeAll** — sign in as SA once in `beforeAll`, drive the existing Create form to make the fixture program/event. Slower setup but guaranteed schema-compliant. Recommended.
-2. **Mirror `programWriteSchema` in `bootstrapDraftProgram`** — keep direct-write but include every server-side-required field. Faster but fragile; breaks whenever the schema evolves.
-
-Pick the approach, say "unskip #8" and I'll implement.
+To restore the original attach-package scope later: in `beforeAll`, drive the Create form once via the UI to produce a schema-compliant draft, then tick Publish/Promote in the test and pick a package. Track as a follow-up if needed.
 
 ## Phase 1 — non-test files added in this session
 

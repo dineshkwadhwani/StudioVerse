@@ -87,6 +87,11 @@ test.describe("SuperAdmin · Manage Resources · Create Program", () => {
     // detached — Add Program is always in DOM, so we wait on #program-name.
     await expect(page.locator("#program-name")).toBeHidden({ timeout: 60_000 });
 
+    // The new program should be visible on the Manage Programs page list.
+    await expect(page.getByText(TEST_NAME, { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+
     // Assert via Admin SDK that a single program with our name now exists in
     // the coaching-studio tenant.
     const db = getAdminDb();

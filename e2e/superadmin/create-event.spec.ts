@@ -67,6 +67,11 @@ test.describe("SuperAdmin · Manage Resources · Create Event", () => {
     // Form closes on save success. #event-name should detach.
     await expect(page.locator("#event-name")).toBeHidden({ timeout: 60_000 });
 
+    // The new event should be visible on the Manage Events page list.
+    await expect(page.getByText(TEST_NAME, { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+
     // Verify in DB.
     const db = getAdminDb();
     const snap = await db.collection("events").where("name", "==", TEST_NAME).get();

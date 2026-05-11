@@ -240,10 +240,7 @@ export default function ManageEventsPage({ config, showHeader = true, searchQuer
                 <button
                   type="button"
                   className={styles.addButton}
-                  onClick={() => {
-                    // TODO: Navigate to create event page
-                    alert("Create event feature coming soon");
-                  }}
+                  onClick={() => router.push(`${basePath}/create-event`)}
                 >
                   Add Event
                 </button>

@@ -70,12 +70,15 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   const durationValue = parsed.durationValue ? Number(parsed.durationValue) : 0;
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
 
-  const hasListingRequest = parsed.published && Boolean(parsed.listingPackageId);
+  const isPublicVisibility = parsed.visibility === "public";
+  const hasListingRequest = parsed.published && isPublicVisibility && Boolean(parsed.listingPackageId);
+  // Private published programs are available for assignment immediately without approval.
+  // Public published programs go to superadmin auto-approval or pending review queue.
   const publicationState = parsed.published
-    ? (isSuperAdmin ? "published" : "pending_publication_review")
+    ? (isSuperAdmin || !isPublicVisibility ? "published" : "pending_publication_review")
     : "draft";
-  const status = parsed.published && isSuperAdmin ? "published" : "draft";
-  const listingStatus = parsed.published
+  const status = parsed.published && (isSuperAdmin || !isPublicVisibility) ? "published" : "draft";
+  const listingStatus = parsed.published && isPublicVisibility
     ? (isSuperAdmin ? "approved" : "requested")
     : "none";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
@@ -192,8 +195,8 @@ export function validateProgramForm(
     }
   }
 
-  if (values.ownershipScope !== "platform") {
-    errors.ownershipScope = "Only platform-owned Programs are supported in this epic.";
+  if (!PROGRAM_OWNERSHIP_SCOPES.includes(values.ownershipScope as typeof PROGRAM_OWNERSHIP_SCOPES[number])) {
+    errors.ownershipScope = "Invalid ownership scope.";
   }
 
   if (!["public", "private"].includes(values.visibility)) {
@@ -204,8 +207,8 @@ export function validateProgramForm(
     errors.promotionPackageId = "Select a promotion package for promoted Programs.";
   }
 
-  if (values.published && !options?.isSuperAdmin && !values.listingPackageId.trim()) {
-    errors.listingPackageId = "Select a listing package to submit publication approval request.";
+  if (values.published && values.visibility === "public" && !options?.isSuperAdmin && !values.listingPackageId.trim()) {
+    errors.listingPackageId = "Select a listing package to make this program visible in the public catalogue.";
   }
 
   if (mode === "publish") {

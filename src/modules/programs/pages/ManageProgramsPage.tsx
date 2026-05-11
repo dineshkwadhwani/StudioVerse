@@ -218,10 +218,7 @@ export default function ManageProgramsPage({ config, showHeader = true, searchQu
                 <button
                   type="button"
                   className={styles.addButton}
-                  onClick={() => {
-                    // TODO: Navigate to create program page
-                    alert("Create program feature coming soon");
-                  }}
+                  onClick={() => router.push(`${basePath}/create-program`)}
                 >
                   Add Program
                 </button>

@@ -59,6 +59,9 @@ export async function getScopedPrograms(
     );
 
     return allPrograms.filter((program) => {
+      if (program.createdBy === context.userId) {
+        return true;
+      }
       if (program.ownershipScope === "company") {
         return program.ownerEntityId === userRecord.id;
       }
@@ -73,6 +76,9 @@ export async function getScopedPrograms(
     const associatedCompanyId = userRecord.associatedCompanyId?.trim();
 
     return allPrograms.filter((program) => {
+      if (program.createdBy === context.userId) {
+        return true;
+      }
       if (program.ownershipScope === "professional") {
         return program.ownerEntityId === userRecord.id;
       }

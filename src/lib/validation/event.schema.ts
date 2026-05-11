@@ -93,12 +93,15 @@ export function normalizeEventForm(
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
   const cost = parsed.cost ? Number(parsed.cost) : 0;
 
-  const hasListingRequest = parsed.published && Boolean(parsed.listingPackageId);
+  const isPublicVisibility = parsed.visibility === "public";
+  const hasListingRequest = parsed.published && isPublicVisibility && Boolean(parsed.listingPackageId);
+  // Private published events are available for assignment immediately without approval.
+  // Public published events go to superadmin auto-approval or pending review queue.
   const publicationState = parsed.published
-    ? (isSuperAdmin ? "published" : "pending_publication_review")
+    ? (isSuperAdmin || !isPublicVisibility ? "published" : "pending_publication_review")
     : "draft";
-  const status = parsed.published && isSuperAdmin ? "published" : "draft";
-  const listingStatus = parsed.published
+  const status = parsed.published && (isSuperAdmin || !isPublicVisibility) ? "published" : "draft";
+  const listingStatus = parsed.published && isPublicVisibility
     ? (isSuperAdmin ? "approved" : "requested")
     : "none";
   const catalogVisibility = parsed.visibility === "private" ? "professional_only" : "tenant_wide";
@@ -241,8 +244,8 @@ export function validateEventForm(
   }
 
   // E3 §14 — only platform scope is supported in this epic
-  if (values.ownershipScope !== "platform") {
-    errors.ownershipScope = "Only platform-owned Events are supported in this epic.";
+  if (!EVENT_OWNERSHIP_SCOPES.includes(values.ownershipScope as typeof EVENT_OWNERSHIP_SCOPES[number])) {
+    errors.ownershipScope = "Invalid ownership scope.";
   }
 
   if (!["public", "private"].includes(values.visibility)) {
@@ -253,8 +256,8 @@ export function validateEventForm(
     errors.promotionPackageId = "Select a promotion package for promoted Events.";
   }
 
-  if (values.published && !options?.isSuperAdmin && !values.listingPackageId.trim()) {
-    errors.listingPackageId = "Select a listing package to submit publication approval request.";
+  if (values.published && values.visibility === "public" && !options?.isSuperAdmin && !values.listingPackageId.trim()) {
+    errors.listingPackageId = "Select a listing package to make this event visible in the public catalogue.";
   }
 
   // Archived/cancelled events cannot be published

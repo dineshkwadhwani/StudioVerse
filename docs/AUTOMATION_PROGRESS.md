@@ -7,7 +7,8 @@ Tracker for the test automation rollout. One line per phase; updated at the end 
 | Phase | Status | Date | Notes |
 |---|---|---|---|
 | 0. Foundation | ✅ Complete | 2026-05-10 | Vitest + Playwright + rules-unit-testing wired; sanity tests pass on all three layers. |
-| 1. Test cases (driven by user, menu-by-menu) | 🟢 In progress | 2026-05-10 | First SA test live: `e2e/superadmin/create-company.spec.ts`. Auth helper + Admin SDK helpers in place. |
+| 1. Test cases — SuperAdmin | ✅ 12 passing · 1 skipped | 2026-05-11 | Full SA suite per user direction: wallet, resources, packages, edits. |
+| 1. Test cases — Company | ✅ 3 passing · 2 skipped (product gap) | 2026-05-11 | Add coach, add coachee, cohort (no coach due to rules gap — documented). |
 | 2. Functions integration | Not started | — | |
 | 3. E2E smoke | Not started | — | |
 | 4. E2E full | Not started | — | |
@@ -66,6 +67,21 @@ npx playwright test e2e/superadmin/    # 10 passed · 3 skipped · ~1.3 min
 | 8 | SA · Resources · Edit Program (draft mode, no publish) | `edit-program-attach-listing-package.spec.ts` | ✅ |
 | 9 | SA · Resources · Edit Event (draft mode, no promote) | `edit-event-attach-promotion-package.spec.ts` | ✅ |
 | - | SA · Users · Create Company (legacy) | `create-company.spec.ts` | ⚠️ Skipped — Narendra is pre-provisioned |
+
+## Phase 1 — Company suite
+
+| # | Test | File | Status |
+|---|---|---|---|
+| C-1 | Company · Create Program | `e2e/company/create-program.spec.ts` | ⚠️ Skipped — product gap (UI shows alert "Create program feature coming soon") |
+| C-2 | Company · Create Event | `e2e/company/create-event.spec.ts` | ⚠️ Skipped — product gap (UI shows alert "Create event feature coming soon") |
+| C-3 | Company · Manage Users · Add Coach (associate Dinesh) | `e2e/company/add-coach.spec.ts` | ✅ |
+| C-4 | Company · Manage Users · Add Coachee (associate Kartik) | `e2e/company/add-coachee.spec.ts` | ✅ |
+| C-5 | Company · Manage Cohorts · Create Cohort with Coach Shilpa + Kartik + Kiran (status: active) | `e2e/company/create-cohort.spec.ts` | ✅ |
+
+### Known gaps surfaced by the Company suite
+
+1. **Company-side Program/Event creation is not implemented.** Both buttons currently fire `alert("Create … feature coming soon")` — no form path to exercise. SA-side create flow is covered.
+2. **Cohort + coach-assignment rule** (resolved 2026-05-11): originally blocked by a `/users` update rule that compared `currentCompanyId()` (== Company's own `associatedCompanyId`, which is null) instead of the Company's own uid. User patched the rule and C-5 now passes with the full original scope.
 
 ### Notes on #8 and #9 scope
 

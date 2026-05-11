@@ -319,6 +319,21 @@ export async function bootstrapPromotionPackage(args: {
 }
 
 /**
+ * Set or clear the `associatedCompanyId` field on a user record. Used by
+ * Company-actor tests to seed / revert membership state.
+ */
+export async function setUserAssociatedCompany(args: {
+  userId: string;
+  associatedCompanyId: string | null;
+}): Promise<void> {
+  const db = getAdminDb();
+  await db.collection("users").doc(args.userId).update({
+    associatedCompanyId: args.associatedCompanyId,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Read the wallet doc + its transaction history for a given userId.
  * Used by tests to assert state after a UI-driven action.
  */

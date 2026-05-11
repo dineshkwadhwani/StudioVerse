@@ -59,6 +59,9 @@ export async function getScopedEvents(
     );
 
     return allEvents.filter((event) => {
+      if (event.createdBy === context.userId) {
+        return true;
+      }
       if (event.ownershipScope === "company") {
         return event.ownerEntityId === userRecord.id;
       }
@@ -73,6 +76,9 @@ export async function getScopedEvents(
     const associatedCompanyId = userRecord.associatedCompanyId?.trim();
 
     return allEvents.filter((event) => {
+      if (event.createdBy === context.userId) {
+        return true;
+      }
       if (event.ownershipScope === "professional") {
         return event.ownerEntityId === userRecord.id;
       }

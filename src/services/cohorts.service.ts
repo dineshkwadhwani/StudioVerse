@@ -555,8 +555,13 @@ export async function saveCohort(args: SaveCohortInput): Promise<CohortDetail> {
   allMemberIds.forEach((memberId) => {
     const cohortMemberRef = doc(collection(db, "cohortMembers"));
 
+    // Denormalize companyId + professionalId so the firestore.rules delete
+    // arms (which check resource.data.companyId == auth.uid etc.) can
+    // authorize Company / Professional edits without reading the parent.
     batch.set(cohortMemberRef, {
       cohortId: cohortRef.id,
+      companyId,
+      professionalId: resolvedProfessionalId,
       individualUserId: memberId,
       addedByUserId: args.creatorUserId,
       addedAt: serverTimestamp(),

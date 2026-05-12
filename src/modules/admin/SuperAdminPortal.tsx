@@ -1709,7 +1709,7 @@ export default function SuperAdminPortal() {
   }
 
   async function handleBotAvatarUpload(file: File | null) {
-    if (!file || !selectedTenantForEdit) {
+    if (!file || !tenantForm.tenantId) {
       setBotAvatarFileName(null);
       return;
     }
@@ -1721,7 +1721,7 @@ export default function SuperAdminPortal() {
 
     setBotAvatarUploadBusy(true);
     try {
-      const tenantSlug = selectedTenantForEdit.slug || selectedTenantForEdit.id;
+      const tenantSlug = tenantForm.tenantId.trim().toLowerCase();
       const fileName = `${Date.now()}-${file.name}`;
       const storagePath = `tenants/${tenantSlug}/bot-avatars/${fileName}`;
       const storageRef = ref(storage, storagePath);

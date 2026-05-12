@@ -98,6 +98,8 @@ async function bootstrapCohort(): Promise<string> {
   ]) {
     await db.collection("cohortMembers").add({
       cohortId: ref.id,
+      companyId: companyUserId,
+      professionalId: coachUserId,
       individualUserId,
       addedByUserId: companyUserId,
       addedAt: FieldValue.serverTimestamp(),
@@ -164,14 +166,15 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
       timeout: 15_000,
     });
 
-    // Find the synthetic-individual chip and click its × button.
+    // Find the synthetic-individual chip span and click its × button.
+    // Chips use a CSS-module class containing "chip" (but not "chipRemove",
+    // which is the inner button).
     const targetChip = page
-      .locator("span")
+      .locator('span[class*="chip"]:not([class*="chipRemove"])')
       .filter({ hasText: SYNTHETIC_INDIVIDUAL_NAME })
-      .filter({ has: page.getByRole("button", { name: "x" }) })
       .first();
     await expect(targetChip).toBeVisible({ timeout: 15_000 });
-    await targetChip.getByRole("button", { name: "x" }).click();
+    await targetChip.locator('button[class*="chipRemove"]').click();
 
     // Should now show "Selected Existing Coachees (2)".
     await expect(page.getByText(/^Selected Existing Coachees \(2\)$/)).toBeVisible({
@@ -180,6 +183,11 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
 
     // Save.
     await page.getByRole("button", { name: /^Update Cohort$/ }).click();
+
+    // Surface UI errors after save attempt (helps when the save bails).
+    await page.waitForTimeout(2_000);
+    const errs = (await page.locator('[class*="error"]').allTextContents()).filter(Boolean);
+    if (errs.length) console.log("[debug] surfaced errors after Update Cohort:", errs);
 
     // Poll DB until the cohort has exactly 2 members (synthetic gone).
     const db = getAdminDb();

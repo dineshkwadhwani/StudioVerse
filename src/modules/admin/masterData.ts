@@ -1,5 +1,5 @@
 export const MASTER_SUPERADMIN = {
-  fullName: "Dinesh Wadhwani",
+  fullName: "StudioVerse Admin",
   email: "thecoachdinesh@gmail.com",
   phoneLocal: "9767676738",
 };

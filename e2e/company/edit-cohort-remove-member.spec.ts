@@ -21,8 +21,12 @@ import { FieldValue } from "firebase-admin/firestore";
 
 const COMPANY = TEST_PHONES.company; // Narendra
 const COACH = TEST_PHONES.coachAssociated; // Shilpa
-const COACHEE_KEEP = TEST_PHONES.individualAssociated; // Kiran (stays)
-const COACHEE_REMOVE = TEST_PHONES.individualIndependent; // Kartik (removed)
+const COACHEE_KEEP_A = TEST_PHONES.individualAssociated; // Kiran (stays)
+const COACHEE_KEEP_B = TEST_PHONES.individualIndependent; // Kartik (stays)
+// Synthetic third individual — the cohort form rejects updates that would
+// drop a cohort below 2 members, so we start with 3 and remove this one.
+const SYNTHETIC_INDIVIDUAL_UID = "tier2-cb4-synthetic-individual";
+const SYNTHETIC_INDIVIDUAL_NAME = "Tier2 CB4 Synthetic Individual";
 const TENANT_ID = "coaching-studio";
 const COHORT_NAME = "Tier2 Edit-Cohort Target";
 
@@ -31,6 +35,36 @@ let coachUserId = "";
 let kiranUserId = "";
 let kartikUserId = "";
 let cohortId = "";
+
+async function ensureSyntheticIndividual(companyId: string) {
+  const db = getAdminDb();
+  await db.collection("users").doc(SYNTHETIC_INDIVIDUAL_UID).set(
+    {
+      userId: SYNTHETIC_INDIVIDUAL_UID,
+      uid: SYNTHETIC_INDIVIDUAL_UID,
+      tenantId: TENANT_ID,
+      userType: "individual",
+      status: "active",
+      fullName: SYNTHETIC_INDIVIDUAL_NAME,
+      firstName: "Tier2",
+      lastName: "Synthetic",
+      email: "tier2-cb4-synthetic@example.com",
+      phoneE164: "+910000000000",
+      associatedCompanyId: companyId,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+async function deleteSyntheticIndividual() {
+  await getAdminDb()
+    .collection("users")
+    .doc(SYNTHETIC_INDIVIDUAL_UID)
+    .delete()
+    .catch(() => {});
+}
 
 async function deleteCohortAndMembers() {
   const db = getAdminDb();
@@ -50,14 +84,18 @@ async function bootstrapCohort(): Promise<string> {
     companyId: companyUserId,
     professionalId: coachUserId,
     name: COHORT_NAME,
-    memberCount: 2,
+    memberCount: 3,
     status: "active",
     createdByUserId: companyUserId,
     createdByRole: "company",
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
-  for (const individualUserId of [kiranUserId, kartikUserId]) {
+  for (const individualUserId of [
+    kiranUserId,
+    kartikUserId,
+    SYNTHETIC_INDIVIDUAL_UID,
+  ]) {
     await db.collection("cohortMembers").add({
       cohortId: ref.id,
       individualUserId,
@@ -73,8 +111,8 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
     const [company, coach, kiran, kartik] = await Promise.all([
       getUserByPhone(COMPANY.number),
       getUserByPhone(COACH.number),
-      getUserByPhone(COACHEE_KEEP.number),
-      getUserByPhone(COACHEE_REMOVE.number),
+      getUserByPhone(COACHEE_KEEP_A.number),
+      getUserByPhone(COACHEE_KEEP_B.number),
     ]);
     if (!company || !coach || !kiran || !kartik) throw new Error("Fixture users missing.");
     companyUserId = company.id;
@@ -88,6 +126,10 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
       userId: kartikUserId,
       associatedCompanyId: companyUserId,
     });
+
+    // Synthetic 3rd individual so the cohort starts at 3 members; the
+    // UI rejects updates that would drop a cohort below 2 members.
+    await ensureSyntheticIndividual(companyUserId);
   });
 
   test.afterAll(async () => {
@@ -95,6 +137,7 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
     if (kartikUserId) {
       await setUserAssociatedCompany({ userId: kartikUserId, associatedCompanyId: null });
     }
+    await deleteSyntheticIndividual();
   });
 
   test.beforeEach(async () => {
@@ -102,7 +145,7 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
     cohortId = await bootstrapCohort();
   });
 
-  test("Company edits cohort and removes Kartik → 1 member remains, status=inactive", async ({
+  test("Company edits cohort and removes the synthetic member → 2 members remain (still active)", async ({
     page,
   }) => {
     await signInAs(page, "company");
@@ -116,45 +159,44 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
     await expect(ourRow).toBeVisible({ timeout: 30_000 });
     await ourRow.getByRole("button", { name: /^Edit Cohort$/ }).click();
 
-    // After loading the cohort into the form, the "Selected Existing
-    // Coachees (2)" section should show both names. Wait for the section.
-    await expect(page.getByText(/^Selected Existing Coachees \(2\)$/)).toBeVisible({
+    // After loading: "Selected Existing Coachees (3)" should appear.
+    await expect(page.getByText(/^Selected Existing Coachees \(3\)$/)).toBeVisible({
       timeout: 15_000,
     });
 
-    // Each chip is a span containing the member name as text + an × button.
-    // Filter chips by Kartik's name (or any unique substring) then click ×.
-    const kartikChip = page
+    // Find the synthetic-individual chip and click its × button.
+    const targetChip = page
       .locator("span")
-      .filter({ hasText: COACHEE_REMOVE.fullName })
+      .filter({ hasText: SYNTHETIC_INDIVIDUAL_NAME })
       .filter({ has: page.getByRole("button", { name: "x" }) })
       .first();
-    await expect(kartikChip).toBeVisible({ timeout: 15_000 });
-    await kartikChip.getByRole("button", { name: "x" }).click();
+    await expect(targetChip).toBeVisible({ timeout: 15_000 });
+    await targetChip.getByRole("button", { name: "x" }).click();
 
-    // Now should show "Selected Existing Coachees (1)".
-    await expect(page.getByText(/^Selected Existing Coachees \(1\)$/)).toBeVisible({
+    // Should now show "Selected Existing Coachees (2)".
+    await expect(page.getByText(/^Selected Existing Coachees \(2\)$/)).toBeVisible({
       timeout: 10_000,
     });
 
     // Save.
     await page.getByRole("button", { name: /^Update Cohort$/ }).click();
 
-    // Poll DB until the cohort has exactly 1 member.
+    // Poll DB until the cohort has exactly 2 members (synthetic gone).
     const db = getAdminDb();
     let memberIds: string[] = [];
     for (let attempt = 0; attempt < 20; attempt++) {
       const members = await db.collection("cohortMembers").where("cohortId", "==", cohortId).get();
       memberIds = members.docs.map((d) => String(d.data().individualUserId ?? ""));
-      if (memberIds.length === 1) break;
+      if (memberIds.length === 2 && !memberIds.includes(SYNTHETIC_INDIVIDUAL_UID)) break;
       await page.waitForTimeout(1_000);
     }
-    expect(memberIds, "expected exactly one member remaining").toHaveLength(1);
-    expect(memberIds[0]).toBe(kiranUserId);
+    expect(memberIds.sort(), "expected only Kiran + Kartik remaining").toEqual(
+      [kiranUserId, kartikUserId].sort()
+    );
 
-    // Cohort status should be "inactive" (memberCount < 2).
+    // Cohort stays "active" (memberCount >= 2 + professional set).
     const cohortSnap = await db.collection("cohorts").doc(cohortId).get();
-    expect(String(cohortSnap.data()?.status ?? "")).toBe("inactive");
-    expect(Number(cohortSnap.data()?.memberCount ?? 0)).toBe(1);
+    expect(String(cohortSnap.data()?.status ?? "")).toBe("active");
+    expect(Number(cohortSnap.data()?.memberCount ?? 0)).toBe(2);
   });
 });

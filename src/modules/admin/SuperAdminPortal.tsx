@@ -26,7 +26,8 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth, db } from "@/services/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, storage } from "@/services/firebase";
 import {
   MASTER_SUPERADMIN,
   MASTER_SUPERADMIN_PHONE_E164,
@@ -583,6 +584,8 @@ export default function SuperAdminPortal() {
   const [authError, setAuthError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [botAvatarUploadBusy, setBotAvatarUploadBusy] = useState(false);
+  const [botAvatarFileName, setBotAvatarFileName] = useState<string | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
@@ -1702,6 +1705,41 @@ export default function SuperAdminPortal() {
       setAuthError(message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleBotAvatarUpload(file: File | null) {
+    if (!file || !selectedTenantForEdit) {
+      setBotAvatarFileName(null);
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setAuthError("Avatar image must be under 2MB.");
+      return;
+    }
+
+    setBotAvatarUploadBusy(true);
+    try {
+      const tenantSlug = selectedTenantForEdit.slug || selectedTenantForEdit.id;
+      const fileName = `${Date.now()}-${file.name}`;
+      const storagePath = `tenants/${tenantSlug}/bot-avatars/${fileName}`;
+      const storageRef = ref(storage, storagePath);
+
+      await uploadBytes(storageRef, file, { contentType: file.type });
+      const downloadURL = await getDownloadURL(storageRef);
+
+      setBotAvatarFileName(file.name);
+      setTenantForm((prev) => ({
+        ...prev,
+        botConfig: { ...prev.botConfig, personaAvatar: downloadURL },
+      }));
+      setInfo("Avatar uploaded successfully.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload avatar.";
+      setAuthError(message);
+    } finally {
+      setBotAvatarUploadBusy(false);
     }
   }
 
@@ -3219,14 +3257,22 @@ export default function SuperAdminPortal() {
                   />
                 </div>
                 <div className={styles.compactField}>
-                  <label className={styles.compactLabel} htmlFor="bot-persona-avatar">Persona Avatar Path</label>
+                  <label className={styles.compactLabel} htmlFor="bot-persona-avatar">Persona Avatar</label>
                   <input
                     id="bot-persona-avatar"
-                    className={`${styles.input} ${styles.compactInput}`}
-                    placeholder="e.g. /tenants/coaching-studio/bot.png"
-                    value={tenantForm.botConfig.personaAvatar}
-                    onChange={(e) => setTenantForm((prev) => ({ ...prev, botConfig: { ...prev.botConfig, personaAvatar: e.target.value } }))}
+                    className={styles.input}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => handleBotAvatarUpload(event.target.files?.[0] ?? null)}
+                    disabled={busy || botAvatarUploadBusy}
                   />
+                  <p className={styles.subtitle}>
+                    {botAvatarFileName
+                      ? `Selected: ${botAvatarFileName}`
+                      : tenantForm.botConfig.personaAvatar
+                        ? "Existing avatar will be kept unless you upload a replacement."
+                        : "Upload a JPG, PNG, or WebP image up to 2MB."}
+                  </p>
                 </div>
                 <div className={styles.compactField}>
                   <label className={styles.compactLabel} htmlFor="bot-message-cap">Message Cap</label>

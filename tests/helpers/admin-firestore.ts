@@ -325,6 +325,114 @@ export async function bootstrapPromotionPackage(args: {
 }
 
 /**
+ * Bootstrap a pending coin request from a Professional to a Company.
+ */
+export async function bootstrapCoinRequest(args: {
+  tenantId: string;
+  professionalId: string;
+  professionalName: string;
+  companyId: string;
+  amount: number;
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("coinRequests").doc();
+  await ref.set({
+    tenantId: args.tenantId,
+    requesterProfessionalId: args.professionalId,
+    requesterName: args.professionalName,
+    companyId: args.companyId,
+    amount: args.amount,
+    message: "E2E test request",
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Bootstrap a pending cashout request.
+ */
+export async function bootstrapCashoutRequest(args: {
+  tenantId: string;
+  requesterUserId: string;
+  requesterName: string;
+  amount: number;
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("cashoutRequests").doc();
+  await ref.set({
+    tenantId: args.tenantId,
+    requesterUserId: args.requesterUserId,
+    requesterName: args.requesterName,
+    amount: args.amount,
+    coins: args.amount,
+    paymentMethod: "test-mode",
+    payoutDetails: "test-mode",
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Bootstrap a pending bot hero request.
+ */
+export async function bootstrapBotHeroRequest(args: {
+  tenantId: string;
+  professionalId: string;
+  professionalName: string;
+  packageId: string;
+  packageName: string;
+  durationValue: number;
+  durationUnit: "days" | "weeks";
+  credits: number;
+}): Promise<string> {
+  const db = getAdminDb();
+  const ref = db.collection("botHeroRequests").doc();
+  await ref.set({
+    tenantId: args.tenantId,
+    professionalId: args.professionalId,
+    professionalName: args.professionalName,
+    packageId: args.packageId,
+    packageName: args.packageName,
+    durationValue: args.durationValue,
+    durationUnit: args.durationUnit,
+    credits: args.credits,
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Set a program's promotion-request fields so it's pending SA approval.
+ *
+ * `requesterId` is required: `approveProgramPromotionRequest` resolves the
+ * requester via `promotionRequestedBy` (then falls back to `updatedBy`,
+ * `createdBy`) to find the wallet to charge. Without it the approval
+ * silently throws "Could not determine requester wallet for this promotion."
+ */
+export async function setProgramPromotionRequested(args: {
+  programId: string;
+  promotionPackageId: string;
+  requesterId: string;
+}): Promise<void> {
+  const db = getAdminDb();
+  await db.collection("programs").doc(args.programId).update({
+    promoted: true,
+    promotionStatus: "requested",
+    promotionPackageId: args.promotionPackageId,
+    promotionRequestedBy: args.requesterId,
+    updatedBy: args.requesterId,
+    createdBy: args.requesterId,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Create a minimal Assignment doc for tests that need a pre-existing
  * assignment in someone's My Activities list.
  */

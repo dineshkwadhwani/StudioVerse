@@ -184,11 +184,6 @@ test.describe("Company · Manage Cohorts · Remove Member from existing Cohort",
     // Save.
     await page.getByRole("button", { name: /^Update Cohort$/ }).click();
 
-    // Surface UI errors after save attempt (helps when the save bails).
-    await page.waitForTimeout(2_000);
-    const errs = (await page.locator('[class*="error"]').allTextContents()).filter(Boolean);
-    if (errs.length) console.log("[debug] surfaced errors after Update Cohort:", errs);
-
     // Poll DB until the cohort has exactly 2 members (synthetic gone).
     const db = getAdminDb();
     let memberIds: string[] = [];

@@ -367,6 +367,7 @@ export async function bootstrapCashoutRequest(args: {
     requesterName: args.requesterName,
     amount: args.amount,
     coins: args.amount,
+    creditsRequested: args.amount,
     paymentMethod: "test-mode",
     payoutDetails: "test-mode",
     status: "pending",

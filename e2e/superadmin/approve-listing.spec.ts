@@ -106,7 +106,9 @@ test.describe("SuperAdmin · Approve Requests · Listing", () => {
     await page.locator('button[class*="profileButton"]').first().click();
     await page.getByRole("button", { name: /^Approve Requests$/ }).first().click();
 
-    await page.getByRole("button", { name: /^Listing$/ }).first().click();
+    // The Listing tab is a button containing a label span ("Listing") and a
+    // badge span (count). Match the label rather than the full accessible name.
+    await page.getByRole("button").filter({ hasText: /^Listing\s*\d*$/ }).first().click();
 
     const ourCard = page
       .getByText(PROGRAM_NAME, { exact: true })

@@ -9,6 +9,23 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  async redirects() {
+    return [
+      {
+        source: "/",
+        has: [{ type: "host" as const, value: "coachingstudio.in" }],
+        destination: "/coaching-studio",
+        permanent: false,
+      },
+      {
+        source: "/",
+        has: [{ type: "host" as const, value: "www.coachingstudio.in" }],
+        destination: "/coaching-studio",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

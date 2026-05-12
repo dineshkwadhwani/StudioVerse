@@ -7,52 +7,73 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function hasSuperAdminClaim() {
+      return isSignedIn() && request.auth.token.get('superadmin', false) == true;
+    }
+
+    function userDocExists() {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function isSuperAdmin() {
+      return hasSuperAdminClaim()
+        || (userDocExists()
+            && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == "superadmin");
+    }
+
     // Profile photos — user can write only their own
     match /profiles/{tenantId}/{userId}/{filename} {
       allow read:  if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Assessment cover images
+    // Tenant config assets (bot avatars, logos, etc.) — superadmin write
+    match /tenants/{tenantId}/{allPaths=**} {
+      allow read:  if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Assessment cover images — superadmin write, public read
     match /assessments/{tenantId}/{assessmentId}/{filename} {
       allow read:  if true;
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // Program thumbnails
+    // Program thumbnails — superadmin write, public read
     match /programs/{tenantId}/{programId}/{filename} {
       allow read:  if true;
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // Event thumbnails
+    // Event thumbnails — superadmin write, public read
     match /events/{tenantId}/{eventId}/{filename} {
       allow read:  if true;
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // Bot hero package images
+    // Bot hero package images — superadmin write
     match /botHeroPackages/{packageId}/{filename} {
       allow read:  if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // Promotion package images
+    // Promotion package images — superadmin write
     match /promotionPackages/{tenantId}/{packageId}/{filename} {
       allow read:  if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // Listing package images
+    // Listing package images — superadmin write
     match /listingPackages/{tenantId}/{packageId}/{filename} {
       allow read:  if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // Coin/credit package images
+    // Coin/credit package images — superadmin write
     match /coinPackages/{packageId}/{filename} {
       allow read:  if true;
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     // Deny everything else

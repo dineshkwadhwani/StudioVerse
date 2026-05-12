@@ -11,6 +11,21 @@ function resolveProjectId(): string | undefined {
   );
 }
 
+function normalizePrivateKey(rawKey: string | undefined): string | undefined {
+  if (!rawKey) {
+    return undefined;
+  }
+
+  const trimmed = rawKey.trim();
+  const unquoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1)
+      : trimmed;
+
+  return unquoted.replace(/\\n/g, "\n");
+}
+
 function resolveAdminApp() {
   if (getApps().length > 0) {
     return getApps()[0];
@@ -18,7 +33,7 @@ function resolveAdminApp() {
 
   const projectId = resolveProjectId();
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = normalizePrivateKey(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
 
   if (projectId && clientEmail && privateKey) {
     return initializeApp({

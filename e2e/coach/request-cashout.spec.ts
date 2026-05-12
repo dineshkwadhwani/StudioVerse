@@ -30,6 +30,7 @@ import {
   getAdminDb,
   getUserByPhone,
 } from "../../tests/helpers/admin-firestore";
+import { FieldValue } from "firebase-admin/firestore";
 
 const COACH = TEST_PHONES.coachIndependent; // Dinesh — independent coach
 const TENANT_ID = "coaching-studio";
@@ -50,6 +51,24 @@ test.describe("Coach · Manage Wallet · Submit Cashout Request", () => {
       userType: "professional",
       userName: COACH.fullName,
       minCoins: CREDITS_TO_CASHOUT + 100,
+    });
+
+    // The cashout service rejects unless redeemableBalance >= requested.
+    // Only credit walletTransactions with sources in REDEEMABLE_SOURCES
+    // (earned / purchased / etc.) count. Seed one we control so the test
+    // is independent of the user's prior activity.
+    await getAdminDb().collection("walletTransactions").add({
+      walletId: `${TENANT_ID}::${coachUserId}`,
+      userId: coachUserId,
+      tenantId: TENANT_ID,
+      userType: "professional",
+      userName: COACH.fullName,
+      transactionType: "credit",
+      source: "earned",
+      reason: "Tier2 P-B2 redeemable seed",
+      coins: CREDITS_TO_CASHOUT + 100,
+      createdBy: "e2e-tier2",
+      createdAt: FieldValue.serverTimestamp(),
     });
   });
 

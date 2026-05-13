@@ -190,6 +190,7 @@ export default function BuyCoinsPage({ tenantConfig }: BuyCoinsPageProps) {
       const createOrder = await postWithAuth<RazorpayCreateOrderResponse>("/api/payments/razorpay/create-order", token, {
         amountPaise: Math.round(selected.priceInr * 100),
         receipt: localOrderId,
+        tenantId,
         notes: {
           internalOrderId: localOrderId,
           tenantId,
@@ -212,6 +213,7 @@ export default function BuyCoinsPage({ tenantConfig }: BuyCoinsPageProps) {
               };
               await postWithAuth<{ ok: boolean }>("/api/payments/razorpay/verify", token, {
                 expectedAmountPaise: createOrder.amountPaise,
+                tenantId,
                 razorpayOrderId: mockPayload.razorpay_order_id,
                 razorpayPaymentId: mockPayload.razorpay_payment_id,
                 razorpaySignature: mockPayload.razorpay_signature,
@@ -275,6 +277,7 @@ export default function BuyCoinsPage({ tenantConfig }: BuyCoinsPageProps) {
           try {
             await postWithAuth<{ ok: boolean }>("/api/payments/razorpay/verify", token, {
               expectedAmountPaise: createOrder.amountPaise,
+              tenantId,
               razorpayOrderId: payload.razorpay_order_id,
               razorpayPaymentId: payload.razorpay_payment_id,
               razorpaySignature: payload.razorpay_signature,

@@ -1691,3 +1691,77 @@ The "Professional can create only Individual users" error in three sites carries
 - `src/services/manage-users.service.ts:239`
 - `src/app/api/users/create-scoped/route.ts:538`
 - `src/modules/users/pages/ManageUsersPage.tsx:357`
+
+---
+
+## Session changes (May 13, 2026)
+
+### E4 — Tenant-scoped Category and Sub-Category taxonomy
+
+New Firestore collections added:
+
+| Collection | Purpose |
+|---|---|
+| `categories` | Tenant-scoped top-level categories |
+| `subCategories` | Categories linked to a parent Category and Tenant |
+
+New service: `src/services/categories.service.ts` — CRUD for both collections.
+
+New types: `CategoryRecord`, `SubCategoryRecord` in `src/types/category.ts`.
+
+SuperAdmin: new **Manage Categories** tab in `src/modules/admin/ManageCategoriesPage.tsx`.
+
+Assessment documents (`assessments` collection) now include four new optional fields:
+- `categoryId` (string)
+- `categoryName` (string)
+- `subCategoryId` (string)
+- `subCategoryName` (string)
+
+**Existing assessments are not auto-migrated.** Update them individually via the edit flow in the SuperAdmin portal.
+
+**Firestore rules:** no new rules required — categories/subCategories reads/writes go through the existing superadmin write path and authenticated read path.
+
+**Pre-prod checklist:**
+- Seed at least one Category per active tenant in the `categories` collection before going live.
+- Seed Sub-Categories in `subCategories` with matching `tenantId` and `categoryId` references.
+
+---
+
+### T5 — White-labeling complete
+
+The platform is now fully white-label ready. No coaching-studio-specific defaults exist in any shared authenticated module. All module pages use `useTenant()` as the sole source of studio context.
+
+**Key deletions / moves:**
+- `src/modules/coaching-studio/` directory deleted.
+- `src/config/studios/` duplicate directory removed.
+- `PromoteCoach` feature moved to `src/modules/bot/pages/` (tenant-neutral location).
+
+**Pre-prod note:** no env or Firestore changes required for white-labeling itself. Studio config is driven by `useTenant()` at runtime, which reads from the tenant resolver. Ensure each studio's tenant document in Firestore has complete and correct configuration before launch.
+
+**New runbook:** `docs/WHITE_LABEL_STUDIO_LAUNCH_RUNBOOK.md` — follow this for every new studio go-live.
+
+---
+
+### Per-studio Razorpay credential routing
+
+`src/lib/payments/razorpay.ts` now resolves Razorpay keys per tenant using env var naming convention:
+
+```
+RAZORPAY_{TENANT_PREFIX}_{MODE}_API_KEY
+RAZORPAY_{TENANT_PREFIX}_{MODE}_KEY_SECRET
+```
+
+Where `TENANT_PREFIX` = `tenantId.toUpperCase().replace(/[^A-Z0-9]+/g, "_")`.
+
+Examples:
+- `coaching-studio` → `RAZORPAY_COACHING_STUDIO_TEST_API_KEY`
+- `training-studio` → `RAZORPAY_TRAINING_STUDIO_LIVE_API_KEY`
+
+Falls back to global `RAZORPAY_{MODE}_API_KEY` / `RAZORPAY_{MODE}_KEY_SECRET` if no tenant-specific keys are set.
+
+**Pre-prod checklist:**
+- Set `RAZORPAY_MODE=live` in production Vercel environment.
+- Set `RAZORPAY_COACHING_STUDIO_LIVE_API_KEY` and `RAZORPAY_COACHING_STUDIO_LIVE_KEY_SECRET` in Vercel for the coaching studio deployment.
+- Repeat for each studio that processes live payments.
+- Remove any legacy `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` vars — they are no longer read.
+- Verify at `/test/razorpay` by selecting the studio from the dropdown and running a test payment with `RAZORPAY_MODE=test` before switching to live.

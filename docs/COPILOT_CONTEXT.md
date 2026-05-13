@@ -1123,3 +1123,54 @@ Topics: Firestore rule relaxations (multi-company coin requests + walletTransact
   - `src/modules/users/pages/ManageUsersPage.tsx:357`
 
 - **Pending follow-up:** user is recreating users from scratch (SuperAdmin → Company → Coach → Coachee) after running the reset script and clearing Firebase Auth. After that round, strip the diagnostic suffixes above.
+
+### Session changes — May 13, 2026
+
+Topics: Tenant-scoped taxonomy (category/sub-category), platform white-labeling completion, per-studio Razorpay credential routing.
+
+---
+
+#### E4 — Tenant-scoped Category and Sub-Category taxonomy
+
+- New Firestore collections: `categories` and `subCategories`.
+- New types: `CategoryRecord` and `SubCategoryRecord` in `src/types/category.ts`.
+- New service: `src/services/categories.service.ts` — `listCategories()`, `listSubCategories()`, `saveCategory()`, `saveSubCategory()`.
+- SuperAdmin portal: new **Manage Categories** tab (`src/modules/admin/ManageCategoriesPage.tsx`) — create/edit Categories and Sub-Categories, scoped per tenant.
+- Assessment create/edit flows updated to include Category and Sub-Category dropdowns, filtered by selected tenant and selected Category respectively.
+- Assessment documents now persist `categoryId`, `categoryName`, `subCategoryId`, and `subCategoryName` fields.
+- Existing assessments are not auto-migrated; they can be updated manually via the edit flow.
+
+---
+
+#### T5 — Platform white-labeling completion
+
+All coaching-studio-specific defaults removed from shared module pages. The codebase now fully relies on `useTenant()` for tenant context in authenticated flows.
+
+Key changes:
+- Removed `coachingTenantConfig` default imports from 9+ module pages; all pages now source config exclusively from `useTenant()`.
+- `LoginRegisterModal` converted to use `useTenant()` instead of a hardcoded tenant config default.
+- `GuestLogPage` and `guestLog.service.ts` fixed to be tenant-neutral.
+- Bot API route and `menuConfig` `DEFAULT_BASE_PATH` made tenant-neutral.
+- Duplicate `src/config/studios/` directory removed.
+- `src/modules/coaching-studio/` directory deleted; `PromoteCoach` feature migrated to `src/modules/bot/pages/` as `PromoteCoachPage.tsx`, `PromoteCoachRoutePage.tsx`, and `PromoteCoachPage.module.css`.
+- `src/app/coaching-studio/promote-coach/page.tsx` updated to import from `@/modules/bot/pages/PromoteCoachRoutePage`.
+- `docs/WHITE_LABEL_STUDIO_LAUNCH_RUNBOOK.md` created: step-by-step guide for launching a new studio instance.
+- Build verified clean: 111/111 pages, no TypeScript errors.
+
+---
+
+#### Per-studio Razorpay credential routing
+
+- `src/lib/payments/razorpay.ts` extended with tenant-aware key resolution.
+- New `normalizeTenantEnvPrefix(tenantId)` function: converts tenant IDs to env-var prefixes via `.toUpperCase().replace(/[^A-Z0-9]+/g, "_")`. Example: `"coaching-studio"` → `"COACHING_STUDIO"`.
+- New `resolveRazorpayKeys(tenantId?)` function: looks up `RAZORPAY_{PREFIX}_{MODE}_API_KEY` and `RAZORPAY_{PREFIX}_{MODE}_KEY_SECRET`; falls back to global `RAZORPAY_{MODE}_*` keys if no tenant match.
+- `.env.local` migrated to per-tenant key names:
+  - `RAZORPAY_COACHING_STUDIO_TEST_API_KEY`, `RAZORPAY_COACHING_STUDIO_TEST_KEY_SECRET`
+  - `RAZORPAY_COACHING_STUDIO_LIVE_API_KEY`, `RAZORPAY_COACHING_STUDIO_LIVE_KEY_SECRET`
+  - Blank placeholders for `TRAINING_STUDIO` and `RECRUITMENT_STUDIO`.
+- `src/modules/wallet/pages/BuyCoinsPage.tsx` updated to send `tenantId` in create-order and verify payloads.
+- `src/app/api/payments/razorpay/create-order/route.ts` and `verify/route.ts` both updated to accept and pass `tenantId`.
+- `src/app/api/test/razorpay/create-order/route.ts` and `verify/route.ts` updated to accept `tenantId`.
+- `/test/razorpay` test page updated: new **Studio ID** dropdown (coaching-studio / training-studio / recruitment-studio / custom) with freeform text input; `tenantId` sent in all API calls; debug output shows resolved tenant.
+- `RAZORPAY_MODE=test` uses tenant test keys; `RAZORPAY_MODE=local` returns mock orders (no real API calls).
+- Adding a new studio's Razorpay account requires only adding the corresponding `RAZORPAY_{STUDIO_PREFIX}_{MODE}_*` env vars — no code changes needed.

@@ -57,6 +57,7 @@ function loadCheckoutScript(): Promise<boolean> {
 }
 
 export default function RazorpayTestPage() {
+  const [tenantId, setTenantId] = useState("coaching-studio");
   const [amountInr, setAmountInr] = useState("10");
   const [receipt, setReceipt] = useState(`test_${Date.now()}`);
   const [name, setName] = useState("Test Customer");
@@ -95,7 +96,7 @@ export default function RazorpayTestPage() {
       const orderRes = await fetch("/api/test/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountInr: amountNum, receipt: receipt.trim() }),
+        body: JSON.stringify({ amountInr: amountNum, receipt: receipt.trim(), tenantId: tenantId.trim() || undefined }),
       });
       const orderData = (await orderRes.json()) as CreateOrderResponse;
       setCreateDebug(orderData.debug ?? []);
@@ -131,6 +132,7 @@ export default function RazorpayTestPage() {
                 razorpayOrderId: r.razorpay_order_id,
                 razorpayPaymentId: r.razorpay_payment_id,
                 razorpaySignature: r.razorpay_signature,
+                tenantId: tenantId.trim() || undefined,
               }),
             });
             const verifyData = (await verifyRes.json()) as VerifyResponse;
@@ -220,6 +222,29 @@ export default function RazorpayTestPage() {
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
+        <div>
+          <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>Studio ID (tenant)</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <select
+              value={["coaching-studio", "training-studio", "recruitment-studio"].includes(tenantId) ? tenantId : "__custom__"}
+              onChange={(e) => { if (e.target.value !== "__custom__") setTenantId(e.target.value); }}
+              style={{ ...inputStyle, flex: "0 0 auto", width: "auto" }}
+            >
+              <option value="coaching-studio">coaching-studio</option>
+              <option value="training-studio">training-studio</option>
+              <option value="recruitment-studio">recruitment-studio</option>
+              <option value="__custom__">custom…</option>
+            </select>
+            <input
+              type="text"
+              value={tenantId}
+              onChange={(e) => setTenantId(e.target.value)}
+              placeholder="e.g. coaching-studio"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
         <div>
           <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>Amount (INR)</label>
           <input

@@ -60,8 +60,34 @@ export function createLocalMockPaymentVerification(_razorpayOrderId: string, amo
   };
 }
 
-function resolveRazorpayKeys(): { keyId: string; keySecret: string } {
+function normalizeTenantEnvPrefix(tenantId?: string): string {
+  if (!tenantId) return "";
+  return tenantId
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function resolveRazorpayKeys(tenantId?: string): { keyId: string; keySecret: string } {
   const mode = resolveEnvMode();
+  const modePrefix = mode === "live" ? "LIVE" : "TEST";
+  const tenantPrefix = normalizeTenantEnvPrefix(tenantId);
+
+  if (tenantPrefix) {
+    const tenantModeKeyId = process.env[`RAZORPAY_${tenantPrefix}_${modePrefix}_API_KEY`]?.trim() || "";
+    const tenantModeKeySecret = process.env[`RAZORPAY_${tenantPrefix}_${modePrefix}_KEY_SECRET`]?.trim() || "";
+    if (tenantModeKeyId && tenantModeKeySecret) {
+      return { keyId: tenantModeKeyId, keySecret: tenantModeKeySecret };
+    }
+
+    const tenantKeyId = process.env[`RAZORPAY_${tenantPrefix}_API_KEY`]?.trim() || "";
+    const tenantKeySecret = process.env[`RAZORPAY_${tenantPrefix}_KEY_SECRET`]?.trim() || "";
+    if (tenantKeyId && tenantKeySecret) {
+      return { keyId: tenantKeyId, keySecret: tenantKeySecret };
+    }
+  }
+
   const keyId = (
     mode === "live"
       ? process.env.RAZORPAY_LIVE_API_KEY
@@ -77,30 +103,30 @@ function resolveRazorpayKeys(): { keyId: string; keySecret: string } {
   return { keyId, keySecret };
 }
 
-function readKeyId(): string {
-  const { keyId } = resolveRazorpayKeys();
+function readKeyId(tenantId?: string): string {
+  const { keyId } = resolveRazorpayKeys(tenantId);
   if (keyId) return keyId;
   return (process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "").trim();
 }
 
-function readKeySecret(): string {
-  const { keySecret } = resolveRazorpayKeys();
+function readKeySecret(tenantId?: string): string {
+  const { keySecret } = resolveRazorpayKeys(tenantId);
   return keySecret;
 }
 
-export function getRazorpayPublicConfig() {
-  const keyId = readKeyId();
+export function getRazorpayPublicConfig(tenantId?: string) {
+  const keyId = readKeyId(tenantId);
   if (!keyId) {
-    throw new Error("Razorpay key ID is not configured.");
+    throw new Error(`Razorpay key ID is not configured${tenantId ? ` for tenant ${tenantId}` : ""}.`);
   }
   return { keyId };
 }
 
-function getRazorpayAuthHeader(): string {
-  const keyId = readKeyId();
-  const keySecret = readKeySecret();
+function getRazorpayAuthHeader(tenantId?: string): string {
+  const keyId = readKeyId(tenantId);
+  const keySecret = readKeySecret(tenantId);
   if (!keyId || !keySecret) {
-    throw new Error("Razorpay credentials are not configured.");
+    throw new Error(`Razorpay credentials are not configured${tenantId ? ` for tenant ${tenantId}` : ""}.`);
   }
   return `Basic ${toBase64(`${keyId}:${keySecret}`)}`;
 }
@@ -117,11 +143,12 @@ export async function createRazorpayOrder(input: {
   amountPaise: number;
   receipt: string;
   notes?: Record<string, string>;
+  tenantId?: string;
 }): Promise<RazorpayOrderResponse> {
   const response = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",
     headers: {
-      Authorization: getRazorpayAuthHeader(),
+      Authorization: getRazorpayAuthHeader(input.tenantId),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -143,10 +170,10 @@ export async function createRazorpayOrder(input: {
   return data as unknown as RazorpayOrderResponse;
 }
 
-export async function fetchRazorpayPayment(paymentId: string): Promise<RazorpayPaymentResponse> {
+export async function fetchRazorpayPayment(paymentId: string, tenantId?: string): Promise<RazorpayPaymentResponse> {
   const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
     headers: {
-      Authorization: getRazorpayAuthHeader(),
+      Authorization: getRazorpayAuthHeader(tenantId),
     },
   });
   const data = await parseJsonSafe(response);
@@ -156,11 +183,11 @@ export async function fetchRazorpayPayment(paymentId: string): Promise<RazorpayP
   return data as unknown as RazorpayPaymentResponse;
 }
 
-export async function captureRazorpayPayment(paymentId: string, amountPaise: number): Promise<RazorpayPaymentResponse> {
+export async function captureRazorpayPayment(paymentId: string, amountPaise: number, tenantId?: string): Promise<RazorpayPaymentResponse> {
   const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/capture`, {
     method: "POST",
     headers: {
-      Authorization: getRazorpayAuthHeader(),
+      Authorization: getRazorpayAuthHeader(tenantId),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ amount: amountPaise, currency: "INR" }),
@@ -177,8 +204,9 @@ export function verifyRazorpaySignature(input: {
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
+  tenantId?: string;
 }): boolean {
-  const keySecret = readKeySecret();
+  const keySecret = readKeySecret(input.tenantId);
   if (!keySecret) {
     throw new Error("Razorpay secret is not configured.");
   }

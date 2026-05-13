@@ -4,6 +4,7 @@ import { createRazorpayOrder, getRazorpayPublicConfig, isLocalMode, createLocalM
 type CreateOrderBody = {
   amountPaise?: number;
   receipt?: string;
+  tenantId?: string;
   notes?: Record<string, string>;
 };
 
@@ -12,6 +13,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as CreateOrderBody;
     const amountPaise = Number(body.amountPaise ?? 0);
     const receipt = String(body.receipt ?? "").trim();
+    const tenantId = String(body.tenantId ?? "").trim();
 
     if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
       return NextResponse.json({ error: "amountPaise must be a positive number." }, { status: 400 });
@@ -19,6 +21,10 @@ export async function POST(request: NextRequest) {
 
     if (!receipt) {
       return NextResponse.json({ error: "receipt is required." }, { status: 400 });
+    }
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId is required." }, { status: 400 });
     }
 
     if (isLocalMode()) {
@@ -37,10 +43,11 @@ export async function POST(request: NextRequest) {
     const rzpOrder = await createRazorpayOrder({
       amountPaise,
       receipt,
+      tenantId,
       notes: body.notes,
     });
 
-    const { keyId } = getRazorpayPublicConfig();
+    const { keyId } = getRazorpayPublicConfig(tenantId);
 
     return NextResponse.json({
       ok: true,

@@ -12,6 +12,7 @@ type VerifyBody = {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  tenantId?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -20,10 +21,15 @@ export async function POST(request: NextRequest) {
     const razorpayOrderId = String(body.razorpayOrderId ?? "").trim();
     const razorpayPaymentId = String(body.razorpayPaymentId ?? "").trim();
     const razorpaySignature = String(body.razorpaySignature ?? "").trim();
+    const tenantId = String(body.tenantId ?? "").trim();
     const expectedAmountPaise = Number(body.expectedAmountPaise ?? 0);
 
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return NextResponse.json({ error: "Missing payment verification fields." }, { status: 400 });
+    }
+
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId is required." }, { status: 400 });
     }
 
     if (isLocalMode()) {
@@ -35,17 +41,18 @@ export async function POST(request: NextRequest) {
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
+      tenantId,
     });
 
     if (!isSignatureValid) {
       return NextResponse.json({ error: "Invalid payment signature." }, { status: 400 });
     }
 
-    let payment = await fetchRazorpayPayment(razorpayPaymentId);
+    let payment = await fetchRazorpayPayment(razorpayPaymentId, tenantId);
 
     if (payment.status === "authorized") {
       const amountForCapture = expectedAmountPaise > 0 ? expectedAmountPaise : payment.amount;
-      payment = await captureRazorpayPayment(razorpayPaymentId, amountForCapture);
+      payment = await captureRazorpayPayment(razorpayPaymentId, amountForCapture, tenantId);
     }
 
     if (payment.status !== "captured") {

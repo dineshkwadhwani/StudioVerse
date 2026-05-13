@@ -24,6 +24,37 @@ No feature code duplication is required.
   - `favicon.ico`
 - You have approved role labels and terminology for the studio.
 - You have DNS/domain ownership if launching with a custom domain.
+- You have tenant-specific Razorpay credentials for both payment flows (buy coins and cashout payout).
+
+## Razorpay Env Convention (Single Deployment)
+
+StudioVerse runs all tenants in one deployment. Razorpay credentials are resolved at runtime using the tenant id.
+
+Tenant id to env prefix examples:
+
+- `coaching-studio` -> `COACHING_STUDIO`
+- `training-studio` -> `TRAINING_STUDIO`
+- `recruitment-studio` -> `RECRUITMENT_STUDIO`
+
+Required envs per tenant and mode:
+
+- `RAZORPAY_<TENANT_PREFIX>_TEST_API_KEY`
+- `RAZORPAY_<TENANT_PREFIX>_TEST_KEY_SECRET`
+- `RAZORPAY_<TENANT_PREFIX>_LIVE_API_KEY`
+- `RAZORPAY_<TENANT_PREFIX>_LIVE_KEY_SECRET`
+
+Examples:
+
+- `RAZORPAY_COACHING_STUDIO_TEST_API_KEY`
+- `RAZORPAY_COACHING_STUDIO_TEST_KEY_SECRET`
+- `RAZORPAY_COACHING_STUDIO_LIVE_API_KEY`
+- `RAZORPAY_COACHING_STUDIO_LIVE_KEY_SECRET`
+
+Mode selection:
+
+- `RAZORPAY_MODE=test`
+- `RAZORPAY_MODE=live`
+- `RAZORPAY_MODE=local` (local mock checkout)
 
 ## Weekly Launch Checklist
 

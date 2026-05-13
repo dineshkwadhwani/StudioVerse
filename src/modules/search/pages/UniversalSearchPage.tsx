@@ -43,10 +43,14 @@ const ALL_CATEGORIES: { key: SearchCategory; label: string }[] = [
   { key: "programs", label: "Programs" },
   { key: "assessments", label: "Assessments" },
   { key: "events", label: "Events" },
-  { key: "coaches", label: "Coaches" },
+  { key: "coaches", label: "Professionals" },
   { key: "companies", label: "Companies" },
   { key: "individuals", label: "Individuals" },
 ];
+
+function toPluralLabel(label: string): string {
+  return label.toLowerCase().endsWith("s") ? label : `${label}s`;
+}
 
 export function getAllowedCategories(role: StudioUserRole | null): SearchCategory[] {
   const base: SearchCategory[] = ["programs", "assessments", "events", "coaches"];
@@ -75,6 +79,19 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
+  const professionalLabel = tenantConfig.roles.professional;
+  const professionalPluralLabel = toPluralLabel(professionalLabel);
+  const professionalPluralLabelLower = professionalPluralLabel.toLowerCase();
+
+  const categoryOptions = useMemo(
+    () =>
+      ALL_CATEGORIES.map((category) =>
+        category.key === "coaches"
+          ? { ...category, label: professionalPluralLabel }
+          : category,
+      ),
+    [professionalPluralLabel],
+  );
 
   const [searchConfig, setSearchConfig] = useState<TenantSearchConfig | null>(null);
 
@@ -305,7 +322,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
     if (templateKey === "coach_company_t1") {
       return {
         subject: `Hello from ${safeSender}`,
-        body: `Hello ${safeReceiver}, I am Coach ${safeSender}. I would be glad to assist you in your development journey. Let me know if you would like to connect.`,
+        body: `Hello ${safeReceiver}, I am ${professionalLabel} ${safeSender}. I would be glad to assist you in your development journey. Let me know if you would like to connect.`,
       };
     }
     if (templateKey === "coach_company_t2") {
@@ -438,7 +455,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
               />
 
               <div className={s.categoryRow}>
-                {ALL_CATEGORIES.filter((cat) => allowedCategories.includes(cat.key)).map((cat) => (
+                {categoryOptions.filter((cat) => allowedCategories.includes(cat.key)).map((cat) => (
                   <label
                     key={cat.key}
                     className={selected.has(cat.key) ? s.categoryPillActive : s.categoryPill}
@@ -517,7 +534,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
                     </ResultGroup>
                   ) : null}
                   {selected.has("coaches") ? (
-                    <ResultGroup title="Coaches" empty="No matching coaches.">
+                    <ResultGroup title={professionalPluralLabel} empty={`No matching ${professionalPluralLabelLower}.`}>
                       {coaches.map((user) => (
                         <LeadTile
                           key={user.id}
@@ -591,6 +608,7 @@ export default function UniversalSearchPage({ tenantConfig }: Props) {
         <SendMessageModal
           receiver={messageModal}
           senderRole={role}
+          professionalLabel={professionalLabel}
           alreadySent={sentToSet.has(messageModal.id)}
           onCancel={() => setMessageModal(null)}
           onSend={(templateKey) => handleSendMessage(messageModal, templateKey)}
@@ -785,12 +803,14 @@ function UnlockModal({
 function SendMessageModal({
   receiver,
   senderRole,
+  professionalLabel,
   alreadySent,
   onCancel,
   onSend,
 }: {
   receiver: UserSearchResult;
   senderRole: StudioUserRole | null;
+  professionalLabel: string;
   alreadySent: boolean;
   onCancel: () => void;
   onSend: (templateKey: MessageTemplateKey) => Promise<{ ok: boolean; error?: string }>;
@@ -835,7 +855,7 @@ function SendMessageModal({
                 checked={templateKey === "coach_company_t1"}
                 onChange={() => setTemplateKey("coach_company_t1")}
               />{" "}
-              Generic intro (Hello + offer to help)
+              {`Generic ${professionalLabel} intro (Hello + offer to help)`}
             </label>
             <label className={s.templateOption}>
               <input

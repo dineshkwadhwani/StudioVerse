@@ -1,3 +1,6 @@
-import PromoteCoachRoutePage from "@/modules/coaching-studio/PromoteCoachRoutePage";
+import PromoteCoachRoutePage from "@/modules/bot/pages/PromoteCoachRoutePage";
+import { config } from "@/tenants/coaching-studio/config";
 
-export default PromoteCoachRoutePage;
+export default function CoachingStudioPromoteCoachRoutePage() {
+	return <PromoteCoachRoutePage tenantConfig={config} />;
+}

@@ -12,7 +12,7 @@ import {
   splitProfileList,
   uploadProfilePhoto,
 } from "@/services/profile.service";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+
 import type { UserProfileFormValues, UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
@@ -63,7 +63,7 @@ function joinMultiSelectValue(values: string[]): string {
 }
 
 type ProfilePageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
 type CollapsibleSectionProps = {
@@ -90,7 +90,7 @@ function CollapsibleSection({ title, description, badge, children }: Collapsible
   );
 }
 
-export default function ProfilePage({ tenantConfig = coachingTenantConfig }: ProfilePageProps) {
+export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;

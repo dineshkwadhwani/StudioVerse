@@ -3,7 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { consumeRateLimit } from "@/lib/rate-limit";
 
-type GuestLogCategory = "coaching-studio" | "general";
+type GuestLogCategory = "coaching-studio" | "training-studio" | "recruitment-studio" | "general";
 
 type GuestLogPayload = {
   tenantId: string;
@@ -19,9 +19,11 @@ function normalizePhone(phone: string): string {
   return phone.replace(/[^\d]/g, "");
 }
 
+const KNOWN_CATEGORIES = new Set<GuestLogCategory>(["coaching-studio", "training-studio", "recruitment-studio", "general"]);
+
 function toCategory(value: unknown): GuestLogCategory | null {
-  if (value === "coaching-studio" || value === "general") {
-    return value;
+  if (typeof value === "string" && KNOWN_CATEGORIES.has(value as GuestLogCategory)) {
+    return value as GuestLogCategory;
   }
   return null;
 }

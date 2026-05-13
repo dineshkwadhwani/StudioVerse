@@ -11,10 +11,10 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { type NotificationCategory } from "@/constants/notifications";
-import coachingNotificationTemplates from "@/tenants/coaching-studio/notification-templates.json";
 import { getTenantMailConfig, sendTenantEmail } from "@/services/mail.service";
 import { isNotificationEnabled } from "@/services/notification-settings.service";
 import type { NotificationDeliveryStatus, NotificationTemplateMap } from "@/types/notification.types";
+import { getTenantDisplayName, resolveTemplateMapForTenant } from "@/lib/notifications/templateResolver";
 
 type TemplateVars = Record<string, string | number | boolean | null | undefined>;
 
@@ -40,10 +40,6 @@ type NotificationRecipient = {
   email: string;
 };
 
-const TEMPLATE_MAP_BY_TENANT: Record<string, NotificationTemplateMap> = {
-  "coaching-studio": coachingNotificationTemplates as NotificationTemplateMap,
-};
-
 function renderTemplate(template: string, vars: TemplateVars): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => {
     const value = vars[key];
@@ -52,7 +48,7 @@ function renderTemplate(template: string, vars: TemplateVars): string {
 }
 
 function resolveTemplatesForTenant(tenantId: string): NotificationTemplateMap {
-  return TEMPLATE_MAP_BY_TENANT[tenantId] ?? TEMPLATE_MAP_BY_TENANT["coaching-studio"];
+  return resolveTemplateMapForTenant(tenantId);
 }
 
 function normalizeTenantId(tenantId: string): string {
@@ -137,15 +133,18 @@ export async function sendNotificationEmail(args: SendNotificationEmailArgs): Pr
   const templateVariables: TemplateVars = {
     recipientName: args.recipientName || "User",
     tenantId,
+    tenantName: getTenantDisplayName(tenantId),
     ...args.templateVariables,
   };
+
+  const tenantName = String(templateVariables.tenantName ?? tenantId);
 
   const subject = template
     ? renderTemplate(template.subject, templateVariables)
     : `Notification: ${args.notificationType}`;
   const body = template
     ? renderTemplate(template.body, templateVariables)
-    : `Dear ${args.recipientName || "User"},\n\nYou have a new notification in Coaching Studio.\n\nWarm regards,\nTeam Coaching Studio`;
+    : `Dear ${args.recipientName || "User"},\n\nYou have a new notification in ${tenantName}.\n\nWarm regards,\nTeam ${tenantName}`;
 
   const sendResult = await sendTenantEmail({
     mailConfig,

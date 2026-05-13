@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 
-export type GuestLogCategory = "coaching-studio" | "general";
+export type GuestLogCategory = "coaching-studio" | "training-studio" | "recruitment-studio" | "general";
 
 export type GuestConversationEntry = {
   question: string;
@@ -39,8 +39,13 @@ export type GuestLogFilters = {
   phoneSearch?: string;
 };
 
+const KNOWN_CATEGORIES = new Set<GuestLogCategory>(["coaching-studio", "training-studio", "recruitment-studio", "general"]);
+
 function toCategory(value: unknown): GuestLogCategory {
-  return value === "coaching-studio" ? "coaching-studio" : "general";
+  if (typeof value === "string" && KNOWN_CATEGORIES.has(value as GuestLogCategory)) {
+    return value as GuestLogCategory;
+  }
+  return "general";
 }
 
 function toDateFromTimestamp(value: unknown): Date | null {
@@ -70,7 +75,7 @@ function mapLog(id: string, data: DocumentData): GuestLogRecord {
     });
 
   const categories = Array.isArray(data.categories)
-    ? Array.from(new Set(data.categories.filter((item: unknown): item is GuestLogCategory => item === "coaching-studio" || item === "general")))
+    ? Array.from(new Set(data.categories.filter((item: unknown): item is GuestLogCategory => typeof item === "string" && KNOWN_CATEGORIES.has(item as GuestLogCategory))))
     : [];
 
   return {

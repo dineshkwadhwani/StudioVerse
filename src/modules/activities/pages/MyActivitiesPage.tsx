@@ -11,7 +11,6 @@ import { getUserProfile } from "@/services/profile.service";
 import { getEvent } from "@/services/events.service";
 import { getProgram } from "@/services/programs.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "../config/menuConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
@@ -155,13 +154,13 @@ function openProgramVideoPopup(videoUrl: string, activityTitle: string): boolean
 }
 
 type MyActivitiesPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
   showHeader?: boolean;
   embedded?: boolean;
 };
 
 export default function MyActivitiesPage({
-  tenantConfig = coachingTenantConfig,
+  tenantConfig,
   showHeader = true,
   embedded = false,
 }: MyActivitiesPageProps) {

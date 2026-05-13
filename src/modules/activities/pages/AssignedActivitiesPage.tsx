@@ -10,7 +10,6 @@ import { getAssignmentsForAssignerContext } from "@/services/assignment.service"
 import { listProfessionalsForCoachDropdown } from "@/services/manage-users.service";
 import { getUserProfile } from "@/services/profile.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "../config/menuConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
@@ -21,7 +20,7 @@ import styles from "./AssignedActivitiesPage.module.css";
 type UserRole = StudioUserRole;
 
 type AssignedActivitiesPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
   showHeader?: boolean;
   embedded?: boolean;
 };
@@ -69,7 +68,7 @@ type CoachFilterOption = {
 };
 
 export default function AssignedActivitiesPage({
-  tenantConfig = coachingTenantConfig,
+  tenantConfig,
   showHeader = true,
   embedded = false,
 }: AssignedActivitiesPageProps) {

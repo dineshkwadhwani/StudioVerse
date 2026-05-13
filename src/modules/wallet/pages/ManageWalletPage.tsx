@@ -18,7 +18,6 @@ import {
 } from "@/services/wallet.service";
 import type { WalletRecord, WalletTransactionRecord } from "@/types/wallet";
 import type { CashoutConfig, CashoutRequest } from "@/types/cashoutRequest";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
@@ -66,10 +65,10 @@ function getTransactionComment(item: WalletTransactionRecord): string {
 }
 
 type ManageWalletPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
-export default function ManageWalletPage({ tenantConfig = coachingTenantConfig }: ManageWalletPageProps) {
+export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;

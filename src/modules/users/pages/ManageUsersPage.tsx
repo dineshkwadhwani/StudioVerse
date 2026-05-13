@@ -17,7 +17,6 @@ import {
   lookupScopedIndividualByPhone,
   type ManagedUserRecord,
 } from "@/services/manage-users.service";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
@@ -60,10 +59,10 @@ function getRoleDisplayLabel(
 }
 
 type ManageUsersPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
-export default function ManageUsersPage({ tenantConfig = coachingTenantConfig }: ManageUsersPageProps) {
+export default function ManageUsersPage({ tenantConfig }: ManageUsersPageProps) {
   const router = useRouter();
   const pathname = usePathname();
   const tenantId = tenantConfig.id;

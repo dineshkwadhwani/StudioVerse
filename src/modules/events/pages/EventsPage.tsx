@@ -10,6 +10,7 @@ import LoginRegisterModal from "@/modules/auth/components/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 import styles from "./EventsPage.module.css";
 
 type Props = {
@@ -196,7 +197,7 @@ export default function EventsPage({ config }: Props) {
     config.landingContent?.heroImages?.events ||
     config.landingContent?.heroImages?.programs ||
     config.landingContent?.heroImages?.tools ||
-    "/tenants/coaching-studio/hero3.png";
+    tenantAssetPath(config.id, "hero3.png");
 
   return (
     <main className={styles.page}>
@@ -261,7 +262,7 @@ export default function EventsPage({ config }: Props) {
                 <div className={styles.cardImageWrap}>
                   <img
                     className={styles.cardImage}
-                    src={item.thumbnailUrl || "/tenants/coaching-studio/events/default.svg"}
+                    src={item.thumbnailUrl || heroImage}
                     alt={item.name}
                     loading="lazy"
                   />

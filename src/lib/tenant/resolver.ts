@@ -1,7 +1,6 @@
 import { TenantConfig } from "@/types/tenant";
 import { TENANT_CONFIGS } from "@/tenants";
-
-const FALLBACK_TENANT_ID = "coaching-studio";
+import { resolveTenantByHost } from "@/lib/tenant/routing";
 
 function resolveEnvTenantId(): string | undefined {
   if (process.env.NEXT_PUBLIC_TENANT_ID) {
@@ -17,16 +16,22 @@ function resolveEnvTenantId(): string | undefined {
 }
 
 export function resolveTenant(): TenantConfig {
+  // 1. Env-based resolution (for local dev and path-based Vercel deployments)
   const envTenant = resolveEnvTenantId();
-  const hostname =
-    typeof window !== "undefined" ? window.location.hostname : "";
+  if (envTenant) {
+    const matched = TENANT_CONFIGS.find((t) => t.id === envTenant);
+    if (matched) return matched;
+  }
 
-  const fallbackTenant =
-    TENANT_CONFIGS.find((tenant) => tenant.id === FALLBACK_TENANT_ID) ?? TENANT_CONFIGS[0];
+  // 2. Domain-based resolution (for custom domain production deployments)
+  //    Uses the same exact/subdomain matching as the middleware proxy.
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  if (hostname) {
+    const matched = resolveTenantByHost(hostname);
+    if (matched) return matched;
+  }
 
-  return (
-    TENANT_CONFIGS.find(
-      (t) => t.id === envTenant || hostname.includes(t.domain)
-    ) ?? fallbackTenant
+  throw new Error(
+    "Unable to resolve tenant. Set NEXT_PUBLIC_TENANT_ID/NEXT_PUBLIC_STUDIO_TYPE or use a mapped tenant domain.",
   );
 }

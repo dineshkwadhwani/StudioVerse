@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import styles from "./DetailModal.module.css";
 import AssignmentModal from "./AssignmentModal";
 import type { ActivityType } from "@/types/assignment";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 
 type ContentType = "program" | "event" | "tool";
 type UserType = "coach" | "learner";
@@ -159,7 +160,7 @@ export default function DetailModal({
           {item.creditsRequired !== undefined && (
             <div className={styles.creditsDisplay}>
               <img
-                src="/tenants/coaching-studio/coin.png"
+                src={tenantAssetPath(tenantId, "coin.png")}
                 alt="Credits"
                 className={styles.coinIcon}
               />

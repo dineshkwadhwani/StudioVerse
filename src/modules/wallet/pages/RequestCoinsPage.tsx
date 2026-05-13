@@ -10,13 +10,13 @@ import { getUserById } from "@/services/manage-users.service";
 import { getUserProfile } from "@/services/profile.service";
 import { requestCoins } from "@/services/wallet.service";
 import type { TenantConfig } from "@/types/tenant";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+
 
 type RequestCoinsPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
-export default function RequestCoinsPage({ tenantConfig = coachingTenantConfig }: RequestCoinsPageProps) {
+export default function RequestCoinsPage({ tenantConfig }: RequestCoinsPageProps) {
   const router = useRouter();
   const basePath = `/${tenantConfig.id}`;
 

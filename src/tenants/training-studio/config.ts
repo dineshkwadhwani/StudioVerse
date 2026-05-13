@@ -4,6 +4,18 @@ export const config: TenantConfig = {
   id: "training-studio",
   name: "Training Studio",
   domain: "training-studio.in",
+  platform: {
+    name: "StudioVerse",
+  },
+  branding: {
+    appDisplayName: "Training Studio",
+    appSubtitle: "StudioVerse Platform",
+    faviconPath: "/tenants/training-studio/logo.png",
+  },
+  pageMeta: {
+    defaultTitle: "Training Studio",
+    defaultDescription: "Training Studio powered by StudioVerse.",
+  },
   roles: {
     superAdmin: "Super Admin",
     company: "Training Company",
@@ -22,6 +34,13 @@ export const config: TenantConfig = {
   },
   theme: {
     primaryColor: "#1a56db",
-    logo: "/tenants/training-studio/logo.svg",
+    logo: "/tenants/training-studio/logo.png",
+  },
+  landingContent: {
+    heroImages: {
+      programs: "/tenants/training-studio/hero1.png",
+      tools: "/tenants/training-studio/hero2.png",
+      events: "/tenants/training-studio/hero3.png",
+    },
   },
 };

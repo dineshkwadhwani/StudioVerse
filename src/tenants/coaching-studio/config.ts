@@ -4,6 +4,22 @@ export const config: TenantConfig = {
   id: "coaching-studio",
   name: "Coaching Studio",
   domain: "coachingstudio.in",
+  platform: {
+    name: "StudioVerse",
+  },
+  branding: {
+    appDisplayName: "Coaching Studio",
+    appSubtitle: "StudioVerse Platform",
+    faviconPath: "/tenants/coaching-studio/logo.png",
+  },
+  pageMeta: {
+    defaultTitle: "Coaching Studio",
+    defaultDescription: "Coaching Studio powered by StudioVerse.",
+  },
+  legal: {
+    privacyPolicyPath: "/coaching-studio/privacy-policy",
+    termsPath: "/coaching-studio/terms-of-service",
+  },
   roles: {
     superAdmin: "Super Admin",
     company: "Coaching Company",

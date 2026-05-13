@@ -6,6 +6,7 @@ import {
   type GuestLogCategory,
   type GuestLogRecord,
 } from "@/services/guestLog.service";
+import { TENANT_CONFIGS } from "@/tenants";
 import styles from "./GuestLogPage.module.css";
 
 type CategoryFilter = "all" | GuestLogCategory;
@@ -29,7 +30,9 @@ function formatDate(value: Date | null): string {
 }
 
 function formatCategory(value: GuestLogCategory): string {
-  return value === "coaching-studio" ? "Coaching Studio" : "General";
+  const tenant = TENANT_CONFIGS.find((t) => t.id === value);
+  if (tenant) return tenant.name;
+  return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, " ");
 }
 
 export default function GuestLogPage({ tenants }: GuestLogPageProps) {
@@ -124,7 +127,9 @@ export default function GuestLogPage({ tenants }: GuestLogPageProps) {
               onChange={(event) => setCategory(event.target.value as CategoryFilter)}
             >
               <option value="all">All</option>
-              <option value="coaching-studio">Coaching Studio</option>
+              {TENANT_CONFIGS.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
               <option value="general">General</option>
             </select>
           </label>

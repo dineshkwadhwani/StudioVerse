@@ -2,6 +2,23 @@ export type TenantConfig = {
   id: string;
   name: string;
   domain: string;
+  platform: {
+    name: string;
+  };
+  branding?: {
+    appDisplayName?: string;
+    appSubtitle?: string;
+    faviconPath?: string;
+    contactEmail?: string;
+  };
+  pageMeta?: {
+    defaultTitle?: string;
+    defaultDescription?: string;
+  };
+  legal?: {
+    privacyPolicyPath?: string;
+    termsPath?: string;
+  };
   roles: {
     superAdmin: string;
     company: string;

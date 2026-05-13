@@ -1,13 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import type { TenantConfig } from "@/types/tenant";
 import AuthWizard from "@/modules/auth/components/AuthWizard";
+import { useTenant } from "@/lib/tenant/context";
 
-type Props = {
-  tenantConfig: TenantConfig;
-};
+type Props = Record<string, never>;
 
-export default function AuthPage({ tenantConfig }: Props) {
+export default function AuthPage({}: Props) {
+  const tenantConfig = useTenant();
+  
   return (
     <main
       style={{
@@ -51,9 +53,9 @@ export default function AuthPage({ tenantConfig }: Props) {
         >
           <h1 style={{ margin: 0, color: "#133a56" }}>Sign In / Register</h1>
           <p style={{ color: "#4d6e86", marginTop: 8 }}>
-            Verify your mobile number, complete your profile, and continue to your {tenantConfig.name} dashboard.
+            Verify your mobile number, complete your profile, and continue to your dashboard.
           </p>
-          <AuthWizard tenantConfig={tenantConfig} />
+          <AuthWizard />
         </section>
       </div>
     </main>

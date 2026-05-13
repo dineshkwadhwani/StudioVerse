@@ -1,0 +1,130 @@
+{
+  "onboardingWelcome": {
+    "subject": "Welcome to Recruitment Studio",
+    "body": "Dear {{recipientName}},\n\nWelcome to Recruitment Studio. Your account is now active and ready to use.\n\nYou can now sign in and begin exploring programs, events, and assessments.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "onboardingActivation": {
+    "subject": "Your Recruitment Studio account has been provisioned",
+    "body": "Dear {{recipientName}},\n\nYour Recruitment Studio account has been provisioned for {{tenantName}}.\n\nPlease complete your profile after sign-in to activate all workflows.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "managedUserWelcome": {
+    "subject": "Welcome to Recruitment Studio",
+    "body": "Dear {{recipientName}},\n\nAn account has been created for you on Recruitment Studio.\n\nPlease sign in and complete your profile setup to get started.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "assignmentCreated": {
+    "subject": "New {{activityType}} assigned to you",
+    "body": "Dear {{recipientName}},\n\n{{assignerName}} has assigned a new {{activityType}} to you: {{activityTitle}}.\n\nPlease sign in to Recruitment Studio to review and complete it.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "assignmentInProgress": {
+    "subject": "{{activityType}} marked in progress",
+    "body": "Dear {{recipientName}},\n\nYour {{activityType}} has moved to in-progress status: {{activityTitle}}.\n\nPlease continue and submit your completion when ready.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "assignmentCompleted": {
+    "subject": "{{activityType}} completed",
+    "body": "Dear {{recipientName}},\n\nYour {{activityType}} has been marked as completed: {{activityTitle}}.\n\nThank you for completing the assigned activity.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "assignmentCancelled": {
+    "subject": "{{activityType}} assignment cancelled",
+    "body": "Dear {{recipientName}},\n\nThe assigned {{activityType}} has been cancelled: {{activityTitle}}.\n\nNo further action is required from your side for this assignment.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "cohortMemberAdded": {
+    "subject": "You were added to cohort {{cohortName}}",
+    "body": "Dear {{recipientName}},\n\nYou have been added to cohort {{cohortName}}.\n\nPlease sign in to view cohort details and assigned activities.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "cohortMemberRemoved": {
+    "subject": "You were removed from cohort {{cohortName}}",
+    "body": "Dear {{recipientName}},\n\nYou have been removed from cohort {{cohortName}}.\n\nIf this was unexpected, please contact your administrator.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "promotionRequested": {
+    "subject": "Promotion request submitted",
+    "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been submitted.\n\nYou will be notified once it is reviewed.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "promotionApproved": {
+    "subject": "Promotion request approved",
+    "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been approved.\n\nThe promotion is now active as per package rules.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "promotionDenied": {
+    "subject": "Promotion request denied",
+    "body": "Dear {{recipientName}},\n\nYour promotion request for {{resourceType}} \"{{resourceName}}\" has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "promotionExpiringSoon": {
+    "subject": "Promotion ending soon for {{resourceName}}",
+    "body": "Dear {{recipientName}},\n\nYour promotion for {{resourceType}} \"{{resourceName}}\" is ending on {{promotionEndDate}}.\n\nIf you want continued visibility, submit a new promotion request in advance.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "listingExpiringSoon": {
+    "subject": "Listing period ending soon for {{resourceName}}",
+    "body": "Dear {{recipientName}},\n\nYour approved listing period for {{resourceType}} \"{{resourceName}}\" is ending on {{listingEndDate}}.\n\nSubmit a new listing request in advance to avoid interruption.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "botHeroRequested": {
+    "subject": "Bot Hero request submitted",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been submitted successfully.\n\nYou will receive an update once reviewed by Super Admin.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "botHeroApproved": {
+    "subject": "Bot Hero request approved",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been approved.\n\nActive period: {{approvedStartDate}} to {{approvedEndDate}}\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "botHeroDenied": {
+    "subject": "Bot Hero request denied",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero request has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "botHeroExpiringSoon": {
+    "subject": "Bot Hero period ending soon",
+    "body": "Dear {{recipientName}},\n\nYour Bot Hero period is ending soon on {{approvedEndDate}}.\n\nIf needed, submit a new request in advance.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "coinRequestSubmitted": {
+    "subject": "Coin request submitted",
+    "body": "Dear {{recipientName}},\n\nYour coin request for {{amount}} credits has been submitted.\n\nYou will be notified when it is approved or denied.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "coinRequestApproved": {
+    "subject": "Coin request approved",
+    "body": "Dear {{recipientName}},\n\nYour coin request has been approved for {{amount}} credits.\n\nThe credits are now available in your wallet.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "coinRequestDenied": {
+    "subject": "Coin request denied",
+    "body": "Dear {{recipientName}},\n\nYour coin request has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "cashoutRequested": {
+    "subject": "Cashout request submitted",
+    "body": "Dear {{recipientName}},\n\nYour cashout request has been submitted for {{creditsRequested}} credits (Rs {{payoutAmountRs}}).\n\nYou will be notified once reviewed.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "cashoutApproved": {
+    "subject": "Cashout request approved",
+    "body": "Dear {{recipientName}},\n\nYour cashout request has been approved.\n\nPayout amount: Rs {{payoutAmountRs}}\nReference: {{payoutReference}}\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "cashoutDenied": {
+    "subject": "Cashout request denied",
+    "body": "Dear {{recipientName}},\n\nYour cashout request has been denied.\n\nReason: {{reason}}\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "registrationBonusIssued": {
+    "subject": "Registration bonus credited",
+    "body": "Dear {{recipientName}},\n\nYour registration bonus of {{bonusCoins}} credits has been added to your wallet.\n\nYou can start using these credits immediately.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "profileCompletionRewardIssued": {
+    "subject": "Congratulations on completing your profile",
+    "body": "Dear {{recipientName}},\n\nCongratulations on completing your profile to 100%.\n\nWe have added {{bonusCoins}} credits to your wallet as a reward.\n\nYou can start using these credits immediately.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "referralInviteSent": {
+    "subject": "You have been invited to Recruitment Studio",
+    "body": "Dear {{recipientName}},\n\n{{referrerName}} has invited you to join Recruitment Studio.\n\nPlease complete your registration to get started.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "referralReminderSent": {
+    "subject": "Reminder to complete your Recruitment Studio registration",
+    "body": "Dear {{recipientName}},\n\nThis is a reminder to complete your Recruitment Studio registration for referral {{referralId}}.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "referralJoined": {
+    "subject": "Your referral has joined Recruitment Studio",
+    "body": "Dear {{recipientName}},\n\n{{joinedUserName}} has successfully joined Recruitment Studio via your referral.\n\nAny referral rewards will be applied as per tenant settings.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "adminCashoutAlert": {
+    "subject": "Admin Alert: New cashout request",
+    "body": "Dear {{recipientName}},\n\nA new cashout request has been submitted in tenant {{tenantName}}.\n\nPlease review it in Approve Requests.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "adminBotHeroAlert": {
+    "subject": "Admin Alert: New Bot Hero request",
+    "body": "Dear {{recipientName}},\n\nA new Bot Hero request has been submitted in tenant {{tenantName}}.\n\nPlease review it in Approve Requests.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
+  "adminPromotionAlert": {
+    "subject": "Admin Alert: New promotion request",
+    "body": "Dear {{recipientName}},\n\nA new promotion request has been submitted in tenant {{tenantName}}.\n\nPlease review it in Approve Requests.\n\nWarm regards,\nTeam Recruitment Studio"
+  }
+}

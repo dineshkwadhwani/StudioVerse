@@ -8,7 +8,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { createReferral, listReferralsForUser } from "@/services/referral.service";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import type { ReferredType, ReferralRecord } from "@/types/referral";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
@@ -31,13 +30,16 @@ function formatDate(value: ReferralRecord["createdAt"]): string {
 }
 
 type ManageReferralsPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
-export default function ManageReferralsPage({ tenantConfig = coachingTenantConfig }: ManageReferralsPageProps) {
+export default function ManageReferralsPage({ tenantConfig }: ManageReferralsPageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
+  const professionalLabel = tenantConfig.roles.professional;
+  const individualLabel = tenantConfig.roles.individual;
+  const companyLabel = tenantConfig.roles.company;
 
   const [role, setRole] = useState<UserRole>("individual");
   const [name, setName] = useState("User");
@@ -163,6 +165,11 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
 
   const toolsLabel = tenantConfig.landingContent?.displayLabels?.tools ?? tenantConfig.labels.assessment;
   const brandSubtitle = "StudioVerse Platform";
+  const displayReferredType = (value: ReferredType): string => {
+    if (value === "coach") return professionalLabel;
+    if (value === "company") return companyLabel;
+    return individualLabel;
+  };
 
   return (
     <main className={styles.page}>
@@ -201,23 +208,25 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
           <p className={styles.contextText}>
             {role === "company"
               ? "Track referrals submitted by your professionals and monitor referral-driven growth across your company."
-              : "Refer coaches and individuals to the platform and track their progress here."}
+              : `Refer ${professionalLabel.toLowerCase()}s and ${individualLabel.toLowerCase()}s to the platform and track their progress here.`}
           </p>
           <p className={styles.note}>
-            Referral rewards are issued only when the referred coach or individual actually joins.
+            {`Referral rewards are issued only when the referred ${professionalLabel.toLowerCase()} or ${individualLabel.toLowerCase()} actually joins.`}
           </p>
 
           <div className={styles.formGrid}>
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="referred-type">Are you referring a coach or an individual?</label>
+              <label className={styles.label} htmlFor="referred-type">
+                {`Are you referring a ${professionalLabel.toLowerCase()} or an ${individualLabel.toLowerCase()}?`}
+              </label>
               <select
                 id="referred-type"
                 className={styles.select}
                 value={referredType}
                 onChange={(event) => setReferredType(event.target.value as ReferredType)}
               >
-                <option value="coach">Coach</option>
-                <option value="individual">Individual</option>
+                <option value="coach">{professionalLabel}</option>
+                <option value="individual">{individualLabel}</option>
               </select>
             </div>
 
@@ -262,7 +271,7 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
                     checked={filterType === value}
                     onChange={() => setFilterType(value)}
                   />
-                  {value === "all" ? "All" : value}
+                  {value === "all" ? "All" : displayReferredType(value)}
                 </label>
               ))}
             </div>
@@ -278,7 +287,7 @@ export default function ManageReferralsPage({ tenantConfig = coachingTenantConfi
                 <article key={item.id} className={styles.item}>
                   <div>
                     <p className={styles.name}>{item.referredEmail || item.referredPhone}</p>
-                    <p className={styles.meta}>Type: {item.referredType === "coach" ? "Coach" : "Individual"}</p>
+                    <p className={styles.meta}>Type: {displayReferredType(item.referredType)}</p>
                     <p className={styles.meta}>Phone: {item.referredPhone}</p>
                     <p className={styles.meta}>Created on: {formatDate(item.createdAt)}</p>
                   </div>

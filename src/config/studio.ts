@@ -10,22 +10,20 @@ const STUDIO_TO_TENANT: Record<StudioType, string> = {
 };
 
 export function getStudioConfig(studioType?: StudioType): TenantConfig {
-  const activeStudio =
-    studioType ||
-    (process.env.NEXT_PUBLIC_STUDIO_TYPE as StudioType | undefined) ||
-    "coaching";
+  const envTenantId = process.env.NEXT_PUBLIC_TENANT_ID;
+  const activeStudio = studioType || (process.env.NEXT_PUBLIC_STUDIO_TYPE as StudioType | undefined);
+  const requestedTenantId = envTenantId || (activeStudio ? STUDIO_TO_TENANT[activeStudio] : undefined);
 
-  const matched = getTenantConfigById(STUDIO_TO_TENANT[activeStudio]);
+  if (!requestedTenantId) {
+    throw new Error("Unable to resolve studio config. Set NEXT_PUBLIC_TENANT_ID or NEXT_PUBLIC_STUDIO_TYPE.");
+  }
+
+  const matched = getTenantConfigById(requestedTenantId);
   if (matched) {
     return matched;
   }
 
-  const fallback = getTenantConfigById("coaching-studio");
-  if (!fallback) {
-    throw new Error("Tenant configuration missing for coaching-studio.");
-  }
-
-  return fallback;
+  throw new Error(`Tenant configuration missing for ${requestedTenantId}.`);
 }
 
 export const studioConfig = getStudioConfig();

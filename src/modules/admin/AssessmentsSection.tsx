@@ -44,6 +44,7 @@ import {
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 
 function getErrorMessage(error: unknown): string {
   if (typeof error !== "object" || error === null) {
@@ -824,7 +825,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
                   <div className={styles.assessmentImageWrap}>
                     <img
                       className={styles.assessmentImage}
-                      src={a.assessmentImageUrl || "/tenants/coaching-studio/hero1.png"}
+                      src={a.assessmentImageUrl || tenantAssetPath(a.tenantId, "hero1.png")}
                       alt={a.name}
                       loading="lazy"
                     />

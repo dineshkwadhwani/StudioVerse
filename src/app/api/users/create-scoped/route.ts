@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import coachingNotificationTemplates from "@/tenants/coaching-studio/notification-templates.json";
+import { getTenantDisplayName, resolveTemplateForTenant } from "@/lib/notifications/templateResolver";
 
 type AppUserType = "company" | "professional" | "individual";
 
@@ -186,14 +186,15 @@ async function sendManagedUserWelcomeEmail(args: {
     return;
   }
 
-  const template = (coachingNotificationTemplates as Record<string, { subject?: string; body?: string }>).managedUserWelcome;
-  const subject = renderTemplate(template?.subject ?? "Welcome to Coaching Studio", {
+  const tenantName = getTenantDisplayName(args.tenantId);
+  const template = resolveTemplateForTenant(args.tenantId, "managedUserWelcome");
+  const subject = renderTemplate(template?.subject ?? "Welcome to {{tenantName}}", {
     recipientName: args.recipientName,
-    tenantName: args.tenantId,
+    tenantName,
   });
-  const body = renderTemplate(template?.body ?? "Dear {{recipientName}},\n\nWelcome to Coaching Studio.\n\nWarm regards,\nTeam Coaching Studio", {
+  const body = renderTemplate(template?.body ?? "Dear {{recipientName}},\n\nWelcome to {{tenantName}}.\n\nWarm regards,\nTeam {{tenantName}}", {
     recipientName: args.recipientName,
-    tenantName: args.tenantId,
+    tenantName,
   });
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -324,15 +325,16 @@ async function sendRegistrationBonusIssuedEmail(args: {
     return;
   }
 
-  const template = (coachingNotificationTemplates as Record<string, { subject?: string; body?: string }>).registrationBonusIssued;
+  const tenantName = getTenantDisplayName(args.tenantId);
+  const template = resolveTemplateForTenant(args.tenantId, "registrationBonusIssued");
   const subject = renderTemplate(template?.subject ?? "Registration bonus credited", {
     recipientName: args.recipientName,
-    tenantName: args.tenantId,
+    tenantName,
     bonusCoins: String(args.bonusCoins),
   });
-  const body = renderTemplate(template?.body ?? "Dear {{recipientName}},\n\nYour registration bonus of {{bonusCoins}} credits has been added to your wallet.\n\nWarm regards,\nTeam Coaching Studio", {
+  const body = renderTemplate(template?.body ?? "Dear {{recipientName}},\n\nYour registration bonus of {{bonusCoins}} credits has been added to your wallet in {{tenantName}}.\n\nWarm regards,\nTeam {{tenantName}}", {
     recipientName: args.recipientName,
-    tenantName: args.tenantId,
+    tenantName,
     bonusCoins: String(args.bonusCoins),
   });
 

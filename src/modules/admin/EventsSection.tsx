@@ -39,6 +39,7 @@ import {
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 
 type TenantOption = {
   id: string;
@@ -567,7 +568,7 @@ export default function EventsSection({
                   <div className={styles.eventImageWrap}>
                     <img
                       className={styles.eventImage}
-                      src={event.thumbnailUrl || "/tenants/coaching-studio/hero1.png"}
+                      src={event.thumbnailUrl || tenantAssetPath(event.tenantId, "hero1.png")}
                       alt={event.name}
                       loading="lazy"
                     />

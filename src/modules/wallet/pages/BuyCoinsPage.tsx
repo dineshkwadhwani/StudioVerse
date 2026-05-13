@@ -12,14 +12,14 @@ import { assignCoins } from "@/services/wallet.service";
 import type { CoinPackageRecord } from "@/types/coinPackage";
 import type { TenantConfig } from "@/types/tenant";
 import type { WalletUserType } from "@/types/wallet";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+
 import ViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import LocalCheckoutOverlay from "@/modules/wallet/components/LocalCheckoutOverlay";
 import styles from "./ManageWalletPage.module.css";
 import buyStyles from "./BuyCoinsPage.module.css";
 
 type BuyCoinsPageProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
 type OrderFlow = "browse" | "summary" | "success" | "failed";
@@ -58,7 +58,7 @@ type UserContext = {
   userType: WalletUserType;
 };
 
-export default function BuyCoinsPage({ tenantConfig = coachingTenantConfig }: BuyCoinsPageProps) {
+export default function BuyCoinsPage({ tenantConfig }: BuyCoinsPageProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;

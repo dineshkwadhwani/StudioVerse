@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { auth } from "@/services/firebase";
 import { db } from "@/services/firebase";
-import type { TenantConfig } from "@/types/tenant";
+import { useTenant } from "@/lib/tenant/context";
 import { getActiveBotHero } from "@/services/botHero.service";
 import styles from "./BotWidget.module.css";
 
@@ -32,7 +32,6 @@ type BotConfigRuntime = {
 };
 
 type Props = {
-  tenantConfig: TenantConfig;
   currentUser?: {
     uid: string;
     name: string;
@@ -42,7 +41,10 @@ type Props = {
 };
 
 const DEFAULT_PERSONA = "Studio Assistant";
-const DEFAULT_AVATAR = "/tenants/coaching-studio/bot.png";
+
+function getBotAvatarPath(tenantId: string): string {
+  return `/tenants/${tenantId}/bot.png`;
+}
 
 function inferModeFromOpenEndedAnswer(
   answer: string,
@@ -185,7 +187,9 @@ function renderFormattedMessage(content: string): ReactNode {
   });
 }
 
-export default function BotWidget({ tenantConfig, currentUser }: Props) {
+export default function BotWidget({ currentUser }: Props) {
+  const tenantConfig = useTenant();
+  
   const [runtimeBotCfg, setRuntimeBotCfg] = useState<BotConfigRuntime>({
     visible: tenantConfig.botConfig?.visible ?? false,
     studioBotEnabled: tenantConfig.botConfig?.studioBotEnabled ?? false,
@@ -296,7 +300,7 @@ export default function BotWidget({ tenantConfig, currentUser }: Props) {
   const hasProfessional = botCfg.professionalBotEnabled ?? false;
 
   const personaName = botCfg.personaName || DEFAULT_PERSONA;
-  const personaAvatar = botCfg.personaAvatar || tenantConfig.theme.logo || DEFAULT_AVATAR;
+  const personaAvatar = botCfg.personaAvatar || tenantConfig.theme.logo || getBotAvatarPath(tenantConfig.id);
   const messageCap = botCfg.messageCap ?? 5;
 
   const [open, setOpen] = useState(false);

@@ -22,7 +22,6 @@ import {
   type CohortListItem,
   type NewCohortIndividualInput,
 } from "@/types/cohort";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
@@ -75,10 +74,10 @@ function normalizePhone(input: string): string {
 }
 
 type Props = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
-export default function ManageCohortsPage({ tenantConfig = coachingTenantConfig }: Props) {
+export default function ManageCohortsPage({ tenantConfig }: Props) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;

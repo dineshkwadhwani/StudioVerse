@@ -8,7 +8,7 @@ import { getUserProfile } from "@/services/profile.service";
 import { getWalletForUserContext } from "@/services/wallet.service";
 import { getAssignmentsForAssigneeContext, getAssignmentsForAssignerContext } from "@/services/assignment.service";
 import { listProfessionalsForCoachDropdown } from "@/services/manage-users.service";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+
 import type { UserProfileRecord } from "@/types/profile";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
@@ -23,13 +23,14 @@ function isUserRole(value: unknown): value is UserRole {
 }
 
 type DashboardProps = {
-  tenantConfig?: TenantConfig;
+  tenantConfig: TenantConfig;
 };
 
-export default function DashboardPage({ tenantConfig = coachingTenantConfig }: DashboardProps) {
+export default function DashboardPage({ tenantConfig }: DashboardProps) {
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;
+  const professionalLabel = tenantConfig.roles.professional;
   const [role, setRole] = useState<UserRole>("individual");
   const [name, setName] = useState("User");
 
@@ -242,7 +243,11 @@ export default function DashboardPage({ tenantConfig = coachingTenantConfig }: D
         <section className={styles.contentCard}>
           <h1 className={styles.dashboardTitle}>Dashboard</h1>
           <p className={styles.pageDescription}>
-            {role === "company" ? "Your workspace dashboard showing team activities and resources." : role === "professional" ? "Your coaching dashboard with assignments and team summary." : "Your personal dashboard with activities and progress."}
+            {role === "company"
+              ? "Your workspace dashboard showing team activities and resources."
+              : role === "professional"
+                ? `Your ${professionalLabel.toLowerCase()} dashboard with assignments and team summary.`
+                : "Your personal dashboard with activities and progress."}
           </p>
 
           <div className={styles.summaryStack}>

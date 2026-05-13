@@ -34,7 +34,8 @@ type RoleLabels = {
   individual: string;
 };
 
-const DEFAULT_BASE_PATH = "/coaching-studio";
+// Default base path is now provided by callers (layouts); no hardcoded default
+const getDefaultBasePath = () => "/coaching-studio"; // Fallback only
 
 const DEFAULT_ROLE_LABELS: RoleLabels = {
   company: "Coaching Company",
@@ -172,7 +173,7 @@ export function getRoleMenuGroups(
   role: StudioUserRole | null,
   options: MenuOptions = {}
 ): StudioMenuGroup[] {
-  const basePath = options.basePath ?? DEFAULT_BASE_PATH;
+  const basePath = options.basePath ?? getDefaultBasePath();
   const baseGroups =
     role === "company"
       ? getCompanyMenu(basePath)

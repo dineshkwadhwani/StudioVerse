@@ -14,9 +14,8 @@ import firebaseApp, { functions } from '@/services/firebase';
 import { ensureWalletExists, issueRegistrationBonusForUser } from '@/services/wallet.service';
 import { saveUserProfile } from '@/services/profile.service';
 import { processReferralJoinForNewUser } from '@/services/referral.service';
-import { config as coachingTenantConfig } from '@/tenants/coaching-studio/config';
+import { useTenant } from '@/lib/tenant/context';
 import type { WalletUserType } from '@/types/wallet';
-import type { TenantConfig } from '@/types/tenant';
 import { persistAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
 type ClaimInvitationResult =
@@ -34,7 +33,6 @@ type UserRole = 'company' | 'professional' | 'individual';
 interface LoginRegisterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tenantConfig?: TenantConfig;
 }
 
 function isUserRole(value: unknown): value is UserRole {
@@ -52,8 +50,8 @@ function resolveUserRole(data: Record<string, unknown>): UserRole {
 export default function LoginRegisterModal({
   isOpen,
   onClose,
-  tenantConfig = coachingTenantConfig,
 }: LoginRegisterModalProps) {
+  const tenantConfig = useTenant();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaContainerIdRef = useRef(`recaptcha-container-${Math.random().toString(36).slice(2)}`);

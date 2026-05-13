@@ -13,6 +13,7 @@ import {
 import type { AssessmentRecord } from "@/types/assessment";
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 import styles from "@/modules/programs/pages/ManageProgramsPage.module.css";
 
 type Props = {
@@ -156,7 +157,7 @@ export default function ManageAssessmentsPage({ config, showHeader = true, searc
     config.landingContent?.heroImages?.tools ||
     config.landingContent?.heroImages?.programs ||
     config.landingContent?.heroImages?.events ||
-    "/tenants/coaching-studio/hero2.png";
+    tenantAssetPath(config.id, "hero2.png");
 
   return (
     <main className={styles.page}>

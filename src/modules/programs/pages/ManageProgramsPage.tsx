@@ -15,6 +15,7 @@ import {
 import TenantViewAllHeader from "@/modules/landing/components/ViewAllHeader";
 import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 import styles from "./ManageProgramsPage.module.css";
 
 type Props = {
@@ -193,7 +194,7 @@ export default function ManageProgramsPage({ config, showHeader = true, searchQu
     config.landingContent?.heroImages?.programs ||
     config.landingContent?.heroImages?.events ||
     config.landingContent?.heroImages?.tools ||
-    "/tenants/coaching-studio/hero1.png";
+    tenantAssetPath(config.id, "hero1.png");
 
   return (
     <main className={styles.page}>

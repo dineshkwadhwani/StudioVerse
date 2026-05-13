@@ -37,6 +37,7 @@ import {
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import { tenantAssetPath } from "@/lib/tenant/assets";
 
 type TenantOption = {
   id: string;
@@ -553,7 +554,7 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
                   <div className={styles.programImageWrap}>
                     <img
                       className={styles.programImage}
-                      src={program.thumbnailUrl || "/tenants/coaching-studio/hero1.png"}
+                      src={program.thumbnailUrl || tenantAssetPath(program.tenantId, "hero1.png")}
                       alt={program.name}
                       loading="lazy"
                     />

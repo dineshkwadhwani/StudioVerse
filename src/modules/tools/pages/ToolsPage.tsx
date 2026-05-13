@@ -242,7 +242,6 @@ export default function ToolsPage({ config }: ToolsPageProps) {
       <LoginRegisterModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        tenantConfig={config}
       />
       <DetailModal
         item={selectedDetailItem}

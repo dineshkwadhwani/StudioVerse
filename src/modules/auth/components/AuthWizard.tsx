@@ -13,10 +13,9 @@ import { auth } from "@/services/firebase";
 import { getUserProfileByPhone, saveUserProfile } from "@/services/profile.service";
 import { processReferralJoinForNewUser } from "@/services/referral.service";
 import { ensureWalletExists } from "@/services/wallet.service";
-import { config as coachingTenantConfig } from "@/tenants/coaching-studio/config";
+import { useTenant } from "@/lib/tenant/context";
 import type { WalletUserType } from "@/types/wallet";
 import type { ProfileUserType, UserProfileRecord } from "@/types/profile";
-import type { TenantConfig } from "@/types/tenant";
 import styles from "./AuthWizard.module.css";
 import { persistAuthSessionCookies } from "@/lib/auth/sessionCookies";
 
@@ -40,7 +39,6 @@ function normalizePhone(input: string): string {
 }
 
 type Props = {
-  tenantConfig?: TenantConfig;
   onClose?: () => void;
 };
 
@@ -82,7 +80,8 @@ function getAuthErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-export default function AuthWizard({ tenantConfig = coachingTenantConfig, onClose }: Props) {
+export default function AuthWizard({ onClose }: Props) {
+  const tenantConfig = useTenant();
   const router = useRouter();
   const tenantId = tenantConfig.id;
   const basePath = `/${tenantId}`;

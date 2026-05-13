@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TENANT_CONFIGS } from "@/tenants";
 import {
-  isSharedTenantPath,
   isTenantRootPath,
   resolveTenantByHost,
 } from "@/lib/tenant/routing";
@@ -26,7 +26,7 @@ const STATIC_FILE_EXTENSIONS = [
 
 type StudioRole = "company" | "professional" | "individual" | "superadmin";
 
-const TENANT_IDS = new Set(["coaching-studio", "training-studio", "recruitment-studio"]);
+const TENANT_IDS = new Set(TENANT_CONFIGS.map((tenant) => tenant.id));
 
 const PROTECTED_ROUTE_RULES: Record<string, StudioRole[]> = {
   dashboard: ["company", "professional", "individual", "superadmin"],
@@ -53,10 +53,10 @@ function shouldBypass(pathname: string): boolean {
 
 function getEffectivePath(pathname: string, tenantId: string | null): string {
   if (!tenantId) return pathname;
-  if (isSharedTenantPath(pathname)) {
-    return `/${tenantId}${pathname}`;
-  }
-  return pathname;
+  // Already tenant-prefixed (direct path access e.g. /coaching-studio/dashboard)
+  if (pathname.startsWith(`/${tenantId}/`) || pathname === `/${tenantId}`) return pathname;
+  // Domain-resolved tenant: prefix all paths
+  return `/${tenantId}${pathname}`;
 }
 
 function resolveProtectedRoute(pathname: string): { tenantId: string; routeKey: string } | null {
@@ -117,7 +117,8 @@ export function proxy(request: NextRequest): NextResponse {
     return NextResponse.rewrite(url);
   }
 
-  if (isSharedTenantPath(pathname)) {
+  // Domain-resolved tenant: rewrite ALL paths that are not already tenant-prefixed
+  if (!pathname.startsWith(`/${tenant.id}/`) && pathname !== `/${tenant.id}`) {
     const url = request.nextUrl.clone();
     url.pathname = `/${tenant.id}${pathname}`;
     return NextResponse.rewrite(url);

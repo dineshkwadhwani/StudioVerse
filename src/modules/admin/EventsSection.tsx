@@ -25,6 +25,7 @@ import {
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
+import { listCategories, listSubCategories } from "@/services/categories.service";
 import {
   EVENT_PROMOTION_STATUS_LABELS,
   EVENT_SOURCE_LABELS,
@@ -37,6 +38,7 @@ import {
 } from "@/types/event";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
+import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
 
 type TenantOption = {
   id: string;
@@ -61,6 +63,8 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     tenantId: event.tenantId,
     tenantIds,
     name: event.name,
+    categoryId: event.categoryId ?? "",
+    subCategoryId: event.subCategoryId ?? "",
     eventType: event.eventType,
     eventSource: event.eventSource,
     shortDescription: event.shortDescription,
@@ -113,6 +117,8 @@ export default function EventsSection({
   const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visibleEvents = events.filter((event) => {
@@ -141,6 +147,8 @@ export default function EventsSection({
       event.publicationState,
       event.status,
       event.promotionStatus,
+      event.categoryName,
+      event.subCategoryName,
     ]
       .filter((value): value is string => Boolean(value && value.trim()))
       .join(" ")
@@ -148,6 +156,8 @@ export default function EventsSection({
 
     return searchableText.includes(normalizedSearchQuery);
   });
+  const categoryOptionsForTenant = categories.filter((item) => item.tenantId === formValues.tenantId);
+  const subCategoryOptionsForTenant = subCategories.filter((item) => item.tenantId === formValues.tenantId);
 
   async function loadTenants(): Promise<void> {
     try {
@@ -182,6 +192,23 @@ export default function EventsSection({
 
   useEffect(() => {
     void loadTenants();
+  }, []);
+
+  useEffect(() => {
+    async function loadCategoryOptions(): Promise<void> {
+      try {
+        const [nextCategories, nextSubCategories] = await Promise.all([
+          listCategories(),
+          listSubCategories(),
+        ]);
+        setCategories(nextCategories);
+        setSubCategories(nextSubCategories);
+      } catch (loadError) {
+        console.error("Failed to load categories for Event form:", loadError);
+      }
+    }
+
+    void loadCategoryOptions();
   }, []);
 
   useEffect(() => {
@@ -394,7 +421,17 @@ export default function EventsSection({
       };
 
       const payload = normalizeEventForm(nextFormValues, mode, isSuperAdmin);
-      await saveEvent(payload, mode, isExisting);
+      const categoryName = categoryOptionsForTenant.find((item) => item.id === payload.categoryId)?.name ?? null;
+      const subCategoryName = subCategoryOptionsForTenant.find((item) => item.id === payload.subCategoryId)?.name ?? null;
+      await saveEvent(
+        {
+          ...payload,
+          categoryName,
+          subCategoryName,
+        },
+        mode,
+        isExisting,
+      );
 
       if (payload.promotionStatus === "requested" && nextId) {
         const operatorId = auth.currentUser?.uid ?? "system";
@@ -590,6 +627,8 @@ export default function EventsSection({
           promotionPackagesLoading={promotionPackagesLoading}
           listingPackages={listingPackages}
           listingPackagesLoading={listingPackagesLoading}
+          categories={categoryOptionsForTenant}
+          subCategories={subCategoryOptionsForTenant}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onRemoveThumbnail={removeCurrentThumbnail}

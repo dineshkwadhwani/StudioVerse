@@ -9,6 +9,10 @@ export type AssessmentWriteInput = {
   tenantId: string;
   tenantIds: string[];
   name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  subCategoryId: string | null;
+  subCategoryName: string | null;
   shortDescription: string;
   longDescription: string;
   assessmentImageUrl: string;

@@ -48,6 +48,10 @@ export type AssessmentRecord = {
   tenantId: string;
   tenantIds?: string[];
   name: string;
+  categoryId?: string;
+  categoryName?: string;
+  subCategoryId?: string;
+  subCategoryName?: string;
   shortDescription: string;
   longDescription: string;
   assessmentImageUrl?: string;
@@ -152,6 +156,8 @@ export type AssessmentFormValues = {
   tenantId: string;
   tenantIds: string[];
   name: string;
+  categoryId: string;
+  subCategoryId: string;
   shortDescription: string;
   longDescription: string;
   assessmentImageUrl: string;

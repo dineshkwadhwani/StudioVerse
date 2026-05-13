@@ -40,6 +40,10 @@ export type EventRecord = {
   tenantId: string;
   tenantIds?: string[];
   name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  subCategoryId: string | null;
+  subCategoryName: string | null;
   eventType: EventType;
   eventSource: EventSource;
   shortDescription: string;
@@ -86,6 +90,10 @@ export type EventWriteInput = {
   tenantId: string;
   tenantIds?: string[];
   name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  subCategoryId: string | null;
+  subCategoryName: string | null;
   eventType: EventType;
   eventSource: EventSource;
   shortDescription: string;
@@ -120,6 +128,8 @@ export type EventFormValues = {
   tenantId: string;
   tenantIds: string[];
   name: string;
+  categoryId: string;
+  subCategoryId: string;
   eventType: EventType;
   eventSource: EventSource;
   shortDescription: string;
@@ -155,6 +165,8 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   tenantId: "",
   tenantIds: [],
   name: "",
+  categoryId: "",
+  subCategoryId: "",
   eventType: "webinar",
   eventSource: "studioverse_manager",
   shortDescription: "",

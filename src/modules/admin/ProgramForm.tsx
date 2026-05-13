@@ -18,6 +18,7 @@ import {
 } from "@/types/program";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
+import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
 import type {ProgramFormErrors} from "@/lib/validation/program.schema";
 
 type TenantOption = {
@@ -39,6 +40,8 @@ type ProgramFormProps = {
   promotionPackagesLoading: boolean;
   listingPackages: ListingPackageRecord[];
   listingPackagesLoading: boolean;
+  categories?: CategoryRecord[];
+  subCategories?: SubCategoryRecord[];
   onChange: <K extends keyof ProgramFormValues>(field: K, nextValue: ProgramFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onRemoveThumbnail: () => void;
@@ -58,6 +61,8 @@ export default function ProgramForm({
   promotionPackagesLoading,
   listingPackages,
   listingPackagesLoading,
+  categories = [],
+  subCategories = [],
   onChange,
   onThumbnailSelect,
   onRemoveThumbnail,
@@ -75,6 +80,7 @@ export default function ProgramForm({
   const selectedTenantIdsWithPrimary = primaryTenantId && !selectedTenantIds.includes(primaryTenantId)
     ? [primaryTenantId, ...selectedTenantIds]
     : selectedTenantIds;
+  const visibleSubCategories = subCategories.filter((item) => item.categoryId === value.categoryId);
   const fieldRefs = useRef<
     Partial<Record<keyof ProgramFormValues, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>
   >({});
@@ -297,6 +303,47 @@ export default function ProgramForm({
               <option value="private">{PROGRAM_VISIBILITY_LABELS.private}</option>
             </select>
             {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-category">
+                  Category
+                </label>
+                <select
+                  id="program-category"
+                  className={styles.select}
+                  value={value.categoryId}
+                  onChange={(event) => {
+                    onChange("categoryId", event.target.value);
+                    onChange("subCategoryId", "");
+                  }}
+                  disabled={busy}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="program-sub-category">
+                  Sub Category
+                </label>
+                <select
+                  id="program-sub-category"
+                  className={styles.select}
+                  value={value.subCategoryId}
+                  onChange={(event) => onChange("subCategoryId", event.target.value)}
+                  disabled={busy || !value.categoryId}
+                >
+                  <option value="">Select sub category</option>
+                  {visibleSubCategories.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <label className={styles.label} htmlFor="program-thumbnail">
               Thumbnail

@@ -26,9 +26,11 @@ import {
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
+import { listCategories, listSubCategories } from "@/services/categories.service";
 import { type ProgramFormValues, type ProgramSaveMode } from "@/types/program";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
+import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
 import styles from "@/modules/admin/SuperAdminPortal.module.css";
 
 type Props = {
@@ -60,6 +62,10 @@ export default function CreateProgramPage({ config }: Props) {
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
   const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
   const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
+  const categoryOptionsForTenant = categories.filter((item) => item.tenantId === tenantId);
+  const subCategoryOptionsForTenant = subCategories.filter((item) => item.tenantId === tenantId);
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -98,6 +104,23 @@ export default function CreateProgramPage({ config }: Props) {
     }
     void loadPackages();
   }, [tenantId]);
+
+  useEffect(() => {
+    async function loadCategoryOptions(): Promise<void> {
+      try {
+        const [nextCategories, nextSubCategories] = await Promise.all([
+          listCategories(),
+          listSubCategories(),
+        ]);
+        setCategories(nextCategories);
+        setSubCategories(nextSubCategories);
+      } catch (loadError) {
+        console.error("Failed to load category options:", loadError);
+      }
+    }
+
+    void loadCategoryOptions();
+  }, []);
 
   function updateField<K extends keyof ProgramFormValues>(field: K, nextValue: ProgramFormValues[K]): void {
     setFormValues((prev) => ({ ...prev, [field]: nextValue }));
@@ -177,7 +200,9 @@ export default function CreateProgramPage({ config }: Props) {
 
       const nextFormValues = { ...formValues, id: nextId, thumbnailUrl: nextThumbnailUrl, thumbnailPath: nextThumbnailPath };
       const payload = normalizeProgramForm(nextFormValues, mode, isSuperAdmin);
-      await saveProgram(payload, mode, false);
+      const categoryName = categoryOptionsForTenant.find((item) => item.id === payload.categoryId)?.name ?? null;
+      const subCategoryName = subCategoryOptionsForTenant.find((item) => item.id === payload.subCategoryId)?.name ?? null;
+      await saveProgram({ ...payload, categoryName, subCategoryName }, mode, false);
 
       if (payload.promotionStatus === "requested" && nextId) {
         const operatorId = auth.currentUser?.uid ?? "system";
@@ -240,6 +265,8 @@ export default function CreateProgramPage({ config }: Props) {
             promotionPackagesLoading={promotionPackagesLoading}
             listingPackages={listingPackages}
             listingPackagesLoading={listingPackagesLoading}
+            categories={categoryOptionsForTenant}
+            subCategories={subCategoryOptionsForTenant}
             onChange={updateField}
             onThumbnailSelect={handleThumbnailSelection}
             onRemoveThumbnail={removeCurrentThumbnail}

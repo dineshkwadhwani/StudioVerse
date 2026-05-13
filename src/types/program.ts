@@ -23,6 +23,10 @@ export type ProgramRecord = {
   tenantId: string;
   tenantIds?: string[];
   name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  subCategoryId: string | null;
+  subCategoryName: string | null;
   shortDescription: string;
   longDescription: string;
   thumbnailUrl: string | null;
@@ -60,6 +64,10 @@ export type ProgramWriteInput = {
   tenantId: string;
   tenantIds?: string[];
   name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  subCategoryId: string | null;
+  subCategoryName: string | null;
   shortDescription: string;
   longDescription: string;
   thumbnailUrl: string | null;
@@ -91,6 +99,8 @@ export type ProgramFormValues = {
   tenantId: string;
   tenantIds: string[];
   name: string;
+  categoryId: string;
+  subCategoryId: string;
   shortDescription: string;
   longDescription: string;
   deliveryType: ProgramDeliveryType;
@@ -124,6 +134,8 @@ export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   tenantId: "",
   tenantIds: [],
   name: "",
+  categoryId: "",
+  subCategoryId: "",
   shortDescription: "",
   longDescription: "",
   deliveryType: "course",

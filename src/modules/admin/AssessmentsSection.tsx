@@ -13,6 +13,7 @@ import { auth, db, storage } from "@/services/firebase";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
+import { listCategories, listSubCategories } from "@/services/categories.service";
 import { saveAssessmentDefinition } from "@/services/assessments.service";
 import {
   chargePromotionRequestOnSubmission,
@@ -42,6 +43,7 @@ import {
 } from "@/types/assessment";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
+import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
 
 function getErrorMessage(error: unknown): string {
   if (typeof error !== "object" || error === null) {
@@ -119,6 +121,8 @@ const EMPTY_FORM: AssessmentFormValues = {
   tenantId: "",
   tenantIds: [],
   name: "",
+  categoryId: "",
+  subCategoryId: "",
   shortDescription: "",
   longDescription: "",
   assessmentImageUrl: "",
@@ -202,6 +206,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   const [error, setError] = useState("");
   const [selectedPublicationState, setSelectedPublicationState] = useState<string>("all");
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visibleAssessments = assessments.filter((a) => {
@@ -231,6 +237,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
       a.status,
       a.promotionStatus,
       a.listingStatus,
+      a.categoryName,
+      a.subCategoryName,
     ]
       .filter((value): value is string => Boolean(value && value.trim()))
       .join(" ")
@@ -238,6 +246,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
 
     return searchableText.includes(normalizedSearchQuery);
   });
+  const categoryOptionsForTenant = categories.filter((item) => item.tenantId === formValues.tenantId);
+  const subCategoryOptionsForTenant = subCategories.filter((item) => item.tenantId === formValues.tenantId);
   const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
   const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
@@ -347,6 +357,23 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
     void loadListingPackagesForForm();
   }, [formOpen, formValues.tenantId]);
 
+  useEffect(() => {
+    async function loadCategoryOptions(): Promise<void> {
+      try {
+        const [nextCategories, nextSubCategories] = await Promise.all([
+          listCategories(),
+          listSubCategories(),
+        ]);
+        setCategories(nextCategories);
+        setSubCategories(nextSubCategories);
+      } catch (loadError) {
+        console.error("Failed to load categories for Assessment form:", loadError);
+      }
+    }
+
+    void loadCategoryOptions();
+  }, []);
+
   function openCreate() {
     setFormValues({
       ...EMPTY_FORM,
@@ -372,6 +399,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
       tenantId: assessment.tenantId,
       tenantIds,
       name: assessment.name,
+      categoryId: assessment.categoryId ?? "",
+      subCategoryId: assessment.subCategoryId ?? "",
       shortDescription: assessment.shortDescription,
       longDescription: assessment.longDescription,
       assessmentImageUrl: assessment.assessmentImageUrl ?? "",
@@ -621,6 +650,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
       const promotionStatus = formValues.promoted && formValues.promotionPackageId.trim()
         ? (isSuperAdmin ? "promoted" : "requested")
         : "none";
+      const categoryName = categoryOptionsForTenant.find((item) => item.id === formValues.categoryId)?.name ?? null;
+      const subCategoryName = subCategoryOptionsForTenant.find((item) => item.id === formValues.subCategoryId)?.name ?? null;
       const hasListingPackage = formValues.listingPackageId.trim().length > 0;
       const listingStatus = hasPublishIntent && hasListingPackage
         ? (isSuperAdmin ? "approved" : "requested")
@@ -635,6 +666,10 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
         tenantId: formValues.tenantId,
         tenantIds: formValues.tenantIds,
         name: formValues.name.trim(),
+        categoryId: formValues.categoryId.trim() || null,
+        categoryName,
+        subCategoryId: formValues.subCategoryId.trim() || null,
+        subCategoryName,
         shortDescription: formValues.shortDescription.trim(),
         longDescription: formValues.longDescription.trim(),
         assessmentImageUrl,
@@ -892,6 +927,44 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
                 <option value="public">Public</option>
                 <option value="private">Private</option>
               </select>
+
+              <div className={styles.actions}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label className={styles.label} htmlFor="a-category">Category</label>
+                  <select
+                    id="a-category"
+                    className={styles.select}
+                    value={formValues.categoryId}
+                    onChange={(e) => {
+                      setField("categoryId", e.target.value);
+                      setField("subCategoryId", "");
+                    }}
+                  >
+                    <option value="">Select category</option>
+                    {categoryOptionsForTenant.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label className={styles.label} htmlFor="a-sub-category">Sub Category</label>
+                  <select
+                    id="a-sub-category"
+                    className={styles.select}
+                    value={formValues.subCategoryId}
+                    onChange={(e) => setField("subCategoryId", e.target.value)}
+                    disabled={!formValues.categoryId}
+                  >
+                    <option value="">Select sub category</option>
+                    {subCategoryOptionsForTenant
+                      .filter((item) => item.categoryId === formValues.categoryId)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
 
               <label className={styles.label} htmlFor="a-thumbnail">Thumbnail</label>
               <input

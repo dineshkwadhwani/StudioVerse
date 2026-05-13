@@ -17,6 +17,7 @@ import {
 } from "@/types/event";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
+import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
 import type { EventFormErrors } from "@/lib/validation/event.schema";
 
 type TenantOption = {
@@ -38,6 +39,8 @@ type EventFormProps = {
   promotionPackagesLoading: boolean;
   listingPackages: ListingPackageRecord[];
   listingPackagesLoading: boolean;
+  categories?: CategoryRecord[];
+  subCategories?: SubCategoryRecord[];
   onChange: <K extends keyof EventFormValues>(field: K, nextValue: EventFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onRemoveThumbnail: () => void;
@@ -57,6 +60,8 @@ export default function EventForm({
   promotionPackagesLoading,
   listingPackages,
   listingPackagesLoading,
+  categories = [],
+  subCategories = [],
   onChange,
   onThumbnailSelect,
   onRemoveThumbnail,
@@ -74,6 +79,7 @@ export default function EventForm({
   const selectedTenantIdsWithPrimary = primaryTenantId && !selectedTenantIds.includes(primaryTenantId)
     ? [primaryTenantId, ...selectedTenantIds]
     : selectedTenantIds;
+  const visibleSubCategories = subCategories.filter((item) => item.categoryId === value.categoryId);
 
   // ---- Auto-focus first field with an error ----
   const fieldRefs = useRef<
@@ -273,6 +279,43 @@ export default function EventForm({
               <option value="private">{EVENT_VISIBILITY_LABELS.private}</option>
             </select>
             {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
+
+            <div className={styles.actions}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="event-category">Category</label>
+                <select
+                  id="event-category"
+                  className={styles.select}
+                  value={value.categoryId}
+                  onChange={(event) => {
+                    onChange("categoryId", event.target.value);
+                    onChange("subCategoryId", "");
+                  }}
+                  disabled={busy}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label className={styles.label} htmlFor="event-sub-category">Sub Category</label>
+                <select
+                  id="event-sub-category"
+                  className={styles.select}
+                  value={value.subCategoryId}
+                  onChange={(event) => onChange("subCategoryId", event.target.value)}
+                  disabled={busy || !value.categoryId}
+                >
+                  <option value="">Select sub category</option>
+                  {visibleSubCategories.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <label className={styles.label} htmlFor="event-thumbnail">Thumbnail</label>
             <input

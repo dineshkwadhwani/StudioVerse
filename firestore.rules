@@ -245,6 +245,20 @@ service cloud.firestore {
       allow write:  if isSuperAdmin();
     }
 
+    // ── Categories ─────────────────────────────────────────────────────────
+    // Platform-wide taxonomy used by Programs, Events, and Assessments.
+    match /categories/{categoryId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
+    // ── Sub Categories ─────────────────────────────────────────────────────
+    // Child taxonomy records linked to categories by categoryId.
+    match /subCategories/{subCategoryId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
     // ── Coin Orders ────────────────────────────────────────────────────────
     match /coinOrders/{orderId} {
       allow read:   if isSuperAdmin()

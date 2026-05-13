@@ -59,6 +59,7 @@ import type { WalletUserType } from "@/types/wallet";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./SuperAdminPortal.module.css";
 import ManageEarningPackagesPage from "./ManageEarningPackagesPage";
+import ManageCategoriesPage from "./ManageCategoriesPage";
 import ApproveRequestsPage from "./ApproveRequestsPage";
 import LogsPage from "./LogsPage";
 import ManageNotificationsSection from "./ManageNotificationsSection";
@@ -73,6 +74,7 @@ type MenuKey =
   | "programs"
   | "events"
   | "resources"
+  | "categories"
   | "coins"
   | "referrals"
   | "activities"
@@ -301,6 +303,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "users", label: "Users" },
   { key: "tenants", label: "Tenants" },
   { key: "resources", label: "Resources" },
+  { key: "categories", label: "Categories" },
   { key: "coins", label: "Wallet" },
   { key: "orders", label: "Orders" },
   { key: "referrals", label: "References" },
@@ -324,6 +327,7 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
       "users",
       "tenants",
       "resources",
+      "categories",
       "notifications",
       "earning-packages",
       "orders",
@@ -2405,6 +2409,10 @@ export default function SuperAdminPortal() {
 
           {activeMenu === "resources" ? (
             <ResourcesSection tenants={tenants} isSuperAdmin={profile.userType === "superadmin"} />
+          ) : null}
+
+          {activeMenu === "categories" ? (
+            <ManageCategoriesPage operatorId={profile.id} />
           ) : null}
 
           {activeMenu === "referrals" ? (

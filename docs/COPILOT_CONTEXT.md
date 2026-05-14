@@ -1174,3 +1174,28 @@ Key changes:
 - `/test/razorpay` test page updated: new **Studio ID** dropdown (coaching-studio / training-studio / recruitment-studio / custom) with freeform text input; `tenantId` sent in all API calls; debug output shows resolved tenant.
 - `RAZORPAY_MODE=test` uses tenant test keys; `RAZORPAY_MODE=local` returns mock orders (no real API calls).
 - Adding a new studio's Razorpay account requires only adding the corresponding `RAZORPAY_{STUDIO_PREFIX}_{MODE}_*` env vars — no code changes needed.
+
+---
+
+#### E16 — Search and Messaging (fully implemented)
+
+**Universal Search Page:** `src/modules/search/pages/UniversalSearchPage.tsx` (routes: `/<tenant>/search`)
+- Category-based search: Programs, Assessments, Events, Professionals, Companies, Individuals.
+- Role-aware visibility:
+  - **Individual** can search: Programs, Assessments, Events, Professionals, Companies.
+  - **Professional/Company** can search: Programs, Assessments, Events, **Individuals only** (association protection).
+- Association protection: `searchUsers()` in `src/services/search.service.ts` filters results by `enforceUnassociated` flag. Professionals and Companies see only unassociated Individuals. Individuals see all Professionals without filtering.
+- Lead unlock flow: `src/services/leads.service.ts` handles credit-based lead unlocking via `unlockLead()`.
+- Tenant-configurable search via `getTenantSearchConfig()` — allows per-tenant enable/disable of search categories.
+
+**Messages Page:** `src/modules/messages/pages/MessagesPage.tsx` (routes: `/<tenant>/messages`)
+- Intro message composition and sending via `sendIntroMessage()` in `src/services/messages.service.ts`.
+- Inbox/Outbox tabs for message history.
+- Message storage in Firestore `messages` collection with support for intro messages and credit-based unlocking.
+- `listOutboxMessages()` and related queries for message retrieval and filtering.
+
+**Key services:**
+- `src/services/search.service.ts` — user discovery with association filtering, program/assessment/event search.
+- `src/services/leads.service.ts` — lead unlock tracking and credit deduction.
+- `src/services/messages.service.ts` — message storage, composition, and retrieval.
+- `src/services/lead-config.service.ts` — per-tenant lead unlock fee configuration.

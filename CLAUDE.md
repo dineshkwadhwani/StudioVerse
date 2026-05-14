@@ -79,6 +79,16 @@ Generated code should be:
 - Resend sending uses subdomain records like `send.coachingstudio.in`.
 - For production deploys, `RESEND_API_KEY` must also be set in Vercel environment variables.
 
+## Implementation status (May 2026)
+
+**Recently completed (May 13, 2026):**
+- **E4 Taxonomy:** Category and Sub-Category fields now available for Assessments. Scoped by tenant. 
+- **T5 White-labeling:** Complete. All coaching-studio-specific defaults removed. Platform fully white-label ready.
+- **E16 Search & Messaging:** Fully implemented. Universal search with role-aware filtering and association protection. Messages page with intro messaging and lead unlocking.
+- **Per-studio Razorpay:** Tenant-aware key resolution. Each studio can have separate Razorpay accounts via env var naming convention.
+
+For detailed implementation notes, see `COPILOT_CONTEXT.md` (May 13 session section).
+
 ## Allowed commands
 
 The following commands are pre-approved and should run without prompting:

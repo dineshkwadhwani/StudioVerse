@@ -363,6 +363,8 @@ export default function EventsSection({
     setError("");
     setMessage("");
 
+    console.log("[EventsSection] Submit started. Categories loaded:", categories.length, "SubCategories loaded:", subCategories.length);
+
     try {
       // Determine mode from published checkbox
       const mode: EventSaveMode = formValues.published ? "publish" : "draft";
@@ -424,12 +426,27 @@ export default function EventsSection({
       const payload = normalizeEventForm(nextFormValues, mode, isSuperAdmin);
       const categoryName = categoryOptionsForTenant.find((item) => item.id === payload.categoryId)?.name ?? null;
       const subCategoryName = subCategoryOptionsForTenant.find((item) => item.id === payload.subCategoryId)?.name ?? null;
+      
+      // Debug logging for category persistence issue
+      const debugInfo = {
+        categoryId: payload.categoryId,
+        categoryName,
+        subCategoryId: payload.subCategoryId,
+        subCategoryName,
+        categoryOptionsCount: categoryOptionsForTenant.length,
+        subCategoryOptionsCount: subCategoryOptionsForTenant.length,
+      };
+      console.log("[EventsSection] Save event - Category debug:", JSON.stringify(debugInfo, null, 2));
+      
+      const savePayload = {
+        ...payload,
+        categoryName,
+        subCategoryName,
+      };
+      console.log("[EventsSection] Payload being sent to saveEvent:", JSON.stringify(savePayload, (k, v) => typeof v === 'object' ? '[object]' : v, 2));
+      
       await saveEvent(
-        {
-          ...payload,
-          categoryName,
-          subCategoryName,
-        },
+        savePayload,
         mode,
         isExisting,
       );

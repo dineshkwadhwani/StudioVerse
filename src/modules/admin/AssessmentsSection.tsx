@@ -566,6 +566,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   }
 
   async function saveAssessment() {
+    console.log("[AssessmentsSection] Save started. Categories loaded:", categories.length, "SubCategories loaded:", subCategories.length);
+    
     if (!formValues.tenantId || formValues.tenantIds.length === 0) { setError("Please select at least one tenant."); return; }
     if (!formValues.name.trim()) { setError("Assessment name is required."); return; }
     if (generatedQuestions.length === 0) { setError("Please generate at least one question before saving."); return; }
@@ -653,6 +655,18 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
         : "none";
       const categoryName = categoryOptionsForTenant.find((item) => item.id === formValues.categoryId)?.name ?? null;
       const subCategoryName = subCategoryOptionsForTenant.find((item) => item.id === formValues.subCategoryId)?.name ?? null;
+      
+      // Debug logging for category persistence issue
+      const debugInfo = {
+        categoryId: formValues.categoryId.trim() || null,
+        categoryName,
+        subCategoryId: formValues.subCategoryId.trim() || null,
+        subCategoryName,
+        categoryOptionsCount: categoryOptionsForTenant.length,
+        subCategoryOptionsCount: subCategoryOptionsForTenant.length,
+      };
+      console.log("[AssessmentsSection] Save assessment - Category debug:", JSON.stringify(debugInfo, null, 2));
+      
       const hasListingPackage = formValues.listingPackageId.trim().length > 0;
       const listingStatus = hasPublishIntent && hasListingPackage
         ? (isSuperAdmin ? "approved" : "requested")

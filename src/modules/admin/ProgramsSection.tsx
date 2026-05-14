@@ -349,6 +349,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
     setError("");
     setMessage("");
 
+    console.log("[ProgramsSection] Submit started. Categories loaded:", categories.length, "SubCategories loaded:", subCategories.length);
+
     try {
       // Determine mode based on the published checkbox
       const mode: ProgramSaveMode = formValues.published ? "publish" : "draft";
@@ -410,12 +412,27 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
       const payload = normalizeProgramForm(nextFormValues, mode, isSuperAdmin);
       const categoryName = categoryOptionsForTenant.find((item) => item.id === payload.categoryId)?.name ?? null;
       const subCategoryName = subCategoryOptionsForTenant.find((item) => item.id === payload.subCategoryId)?.name ?? null;
+      
+      // Debug logging for category persistence issue
+      const debugInfo = {
+        categoryId: payload.categoryId,
+        categoryName,
+        subCategoryId: payload.subCategoryId,
+        subCategoryName,
+        categoryOptionsCount: categoryOptionsForTenant.length,
+        subCategoryOptionsCount: subCategoryOptionsForTenant.length,
+      };
+      console.log("[ProgramsSection] Save program - Category debug:", JSON.stringify(debugInfo, null, 2));
+      
+      const savePayload = {
+        ...payload,
+        categoryName,
+        subCategoryName,
+      };
+      console.log("[ProgramsSection] Payload being sent to saveProgram:", JSON.stringify(savePayload, (k, v) => typeof v === 'object' ? '[object]' : v, 2));
+      
       await saveProgram(
-        {
-          ...payload,
-          categoryName,
-          subCategoryName,
-        },
+        savePayload,
         mode,
         isExisting,
       );

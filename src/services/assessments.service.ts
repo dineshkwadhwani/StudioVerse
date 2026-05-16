@@ -13,6 +13,7 @@ export type AssessmentWriteInput = {
   categoryName: string | null;
   subCategoryId: string | null;
   subCategoryName: string | null;
+  language: string;
   shortDescription: string;
   longDescription: string;
   assessmentImageUrl: string;
@@ -39,6 +40,7 @@ export type AssessmentWriteInput = {
   ownerEntityId: string;
   generatedQuestions: AssessmentQuestionWriteInput[];
   existingQuestionCount?: number;
+  topicIds?: string[];
 };
 
 const createAssessmentCallable = httpsCallable<Record<string, unknown>, {id: string; status: string}>(
@@ -53,6 +55,7 @@ const updateAssessmentCallable = httpsCallable<Record<string, unknown>, {id: str
 function sanitizePayload(input: AssessmentWriteInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...input,
+    language: input.language,
     promotionPackageId: input.promotionPackageId,
   };
 

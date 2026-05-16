@@ -16,6 +16,7 @@ import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
+import { useTenantReferralsConfig } from "@/hooks/useTenantReferralsConfig";
 import styles from "./LandingPage.module.css";
 import headerStyles from "@/modules/landing/components/ViewAllHeader.module.css";
 import { truncateWords, useCarousel, useItemsPerView } from "../hooks/useCarousel";
@@ -283,6 +284,7 @@ export default function LandingPage({ config }: Props) {
   } | null>(null);
   const perView = useItemsPerView();
   const searchConfig = useTenantSearchConfig(tenantId);
+  const referralsConfig = useTenantReferralsConfig(tenantId);
 
   useEffect(() => {
     async function fetchTenantLandingConfig() {
@@ -590,7 +592,10 @@ export default function LandingPage({ config }: Props) {
     events: activeSectionIntros?.events ?? DEFAULT_SECTION_INTROS.events,
   }), [activeSectionIntros?.events, activeSectionIntros?.programs, activeSectionIntros?.tools]);
   const sectionMeta = useMemo(() => getSectionMeta(sectionLabels, sectionIntros, basePath), [basePath, sectionIntros, sectionLabels]);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig }), [basePath, role, searchConfig]);
+  const roleMenuItems = useMemo(
+    () => getRoleMenuItems(role, { basePath, searchConfig, referralsConfig }),
+    [basePath, role, searchConfig, referralsConfig]
+  );
   const brandSubtitle = "StudioVerse Platform";
   const supportEmail = `contact@${config.domain.replace(/^www\./, "")}`;
   const effectiveUserType: UserType = isLoggedIn

@@ -7,6 +7,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
+import { useTenantReferralsConfig } from "@/hooks/useTenantReferralsConfig";
 import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { clearAuthSessionCookies } from "@/lib/auth/sessionCookies";
@@ -45,13 +46,18 @@ export default function ProfileDropdownMenu({
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const searchConfig = useTenantSearchConfig(tenantId);
+  const referralsConfig = useTenantReferralsConfig(tenantId);
   const effectiveRole: StudioUserRole | null =
     role === "superadmin" ? "company" : role;
 
   const initials = useMemo(() => getInitials(name), [name]);
   const roleMenuGroups = useMemo(
-    () => getRoleMenuGroups(effectiveRole, { basePath, searchConfig }),
-    [basePath, effectiveRole, searchConfig],
+    () => getRoleMenuGroups(effectiveRole, {
+      basePath,
+      searchConfig,
+      referralsConfig: role === "superadmin" ? { enabled: true } : referralsConfig,
+    }),
+    [basePath, effectiveRole, role, searchConfig, referralsConfig],
   );
 
   const displayRoleLabel = role === "superadmin" && roleLabels?.superAdmin

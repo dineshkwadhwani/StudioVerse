@@ -25,7 +25,8 @@ import {
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
-import { listCategories, listSubCategories } from "@/services/categories.service";
+import { listCategories, listSubCategories, listTopics } from "@/services/categories.service";
+import { listLanguages } from "@/services/languages.service";
 import {
   PROGRAM_STATUS_LABELS,
   PROGRAM_VISIBILITY_LABELS,
@@ -36,7 +37,8 @@ import {
 } from "@/types/program";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
-import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
+import type { LanguageRecord } from "@/services/languages.service";
 import { tenantAssetPath } from "@/lib/tenant/assets";
 
 type TenantOption = {
@@ -64,6 +66,7 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
     name: program.name,
     categoryId: program.categoryId ?? "",
     subCategoryId: program.subCategoryId ?? "",
+    topicIds: Array.isArray(program.topicIds) ? program.topicIds : [],
     shortDescription: program.shortDescription,
     longDescription: program.longDescription,
     deliveryType: program.deliveryType,
@@ -113,6 +116,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
+  const [topics, setTopics] = useState<TopicRecord[]>([]);
+  const [languages, setLanguages] = useState<LanguageRecord[]>([]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visiblePrograms = programs.filter((program) => {
@@ -188,14 +193,18 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
   useEffect(() => {
     async function loadCategoryOptions(): Promise<void> {
       try {
-        const [nextCategories, nextSubCategories] = await Promise.all([
+        const [nextCategories, nextSubCategories, nextTopics, nextLanguages] = await Promise.all([
           listCategories(),
           listSubCategories(),
+          listTopics(),
+          listLanguages(),
         ]);
         setCategories(nextCategories);
         setSubCategories(nextSubCategories);
+        setTopics(nextTopics);
+        setLanguages(nextLanguages);
       } catch (loadError) {
-        console.error("Failed to load categories for Program form:", loadError);
+        console.error("Failed to load categories/languages for Program form:", loadError);
       }
     }
 
@@ -428,6 +437,7 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
         ...payload,
         categoryName,
         subCategoryName,
+        topicIds: formValues.topicIds ?? [],
       };
       console.log("[ProgramsSection] Payload being sent to saveProgram:", JSON.stringify(savePayload, (k, v) => typeof v === 'object' ? '[object]' : v, 2));
       
@@ -616,6 +626,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
           listingPackagesLoading={listingPackagesLoading}
           categories={categoryOptionsForTenant}
           subCategories={subCategoryOptionsForTenant}
+          topics={topics.filter((t) => t.tenantId === formValues.tenantId && t.subCategoryId === formValues.subCategoryId)}
+          languages={languages}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onRemoveThumbnail={removeCurrentThumbnail}

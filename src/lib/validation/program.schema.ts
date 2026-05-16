@@ -53,6 +53,8 @@ export const programFormSchema = z.object({
   publicationState: z.enum(PROGRAM_PUBLICATION_STATES),
   thumbnailUrl: z.string().trim(),
   thumbnailPath: z.string().trim(),
+  topicIds: z.array(z.string()).default([]),
+  language: z.string().trim().default("en"),
 });
 
 export type ProgramFormErrors = Partial<Record<keyof ProgramFormValues | "form", string>>;
@@ -121,6 +123,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     ownerEntityId: parsed.ownerEntityId || null,
     catalogVisibility,
     publicationState,
+    language: parsed.language,
   };
 }
 

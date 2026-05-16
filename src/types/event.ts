@@ -44,6 +44,8 @@ export type EventRecord = {
   categoryName: string | null;
   subCategoryId: string | null;
   subCategoryName: string | null;
+  topicIds?: string[];
+  language: string;
   eventType: EventType;
   eventSource: EventSource;
   shortDescription: string;
@@ -94,6 +96,8 @@ export type EventWriteInput = {
   categoryName: string | null;
   subCategoryId: string | null;
   subCategoryName: string | null;
+  topicIds?: string[];
+  language: string;
   eventType: EventType;
   eventSource: EventSource;
   shortDescription: string;
@@ -130,6 +134,8 @@ export type EventFormValues = {
   name: string;
   categoryId: string;
   subCategoryId: string;
+  topicIds: string[];
+  language: string;
   eventType: EventType;
   eventSource: EventSource;
   shortDescription: string;
@@ -167,6 +173,8 @@ export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   name: "",
   categoryId: "",
   subCategoryId: "",
+  topicIds: [],
+  language: "en",
   eventType: "webinar",
   eventSource: "studioverse_manager",
   shortDescription: "",

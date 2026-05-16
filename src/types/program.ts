@@ -27,10 +27,12 @@ export type ProgramRecord = {
   categoryName: string | null;
   subCategoryId: string | null;
   subCategoryName: string | null;
+  topicIds?: string[];
   shortDescription: string;
   longDescription: string;
   thumbnailUrl: string | null;
   thumbnailPath: string | null;
+  language: string;
   deliveryType: ProgramDeliveryType;
   durationValue: number;
   durationUnit: ProgramDurationUnit;
@@ -68,10 +70,12 @@ export type ProgramWriteInput = {
   categoryName: string | null;
   subCategoryId: string | null;
   subCategoryName: string | null;
+  topicIds?: string[];
   shortDescription: string;
   longDescription: string;
   thumbnailUrl: string | null;
   thumbnailPath: string | null;
+  language: string;
   deliveryType: ProgramDeliveryType;
   durationValue: number;
   durationUnit: ProgramDurationUnit;
@@ -101,8 +105,10 @@ export type ProgramFormValues = {
   name: string;
   categoryId: string;
   subCategoryId: string;
+  topicIds: string[];
   shortDescription: string;
   longDescription: string;
+  language: string;
   deliveryType: ProgramDeliveryType;
   durationValue: string;
   durationUnit: ProgramDurationUnit;
@@ -136,8 +142,10 @@ export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   name: "",
   categoryId: "",
   subCategoryId: "",
+  topicIds: [],
   shortDescription: "",
   longDescription: "",
+  language: "en",
   deliveryType: "course",
   durationValue: "",
   durationUnit: "weeks",

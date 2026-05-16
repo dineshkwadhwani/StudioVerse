@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./SuperAdminPortal.module.css";
 import { auth } from "@/services/firebase";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
+import type { LanguageRecord } from "@/services/languages.service";
 import {
   EVENT_LISTING_STATUS_LABELS,
   EVENT_SOURCES,
@@ -17,7 +18,7 @@ import {
 } from "@/types/event";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
-import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
 import type { EventFormErrors } from "@/lib/validation/event.schema";
 
 type TenantOption = {
@@ -41,6 +42,8 @@ type EventFormProps = {
   listingPackagesLoading: boolean;
   categories?: CategoryRecord[];
   subCategories?: SubCategoryRecord[];
+  topics?: TopicRecord[];
+  languages?: LanguageRecord[];
   onChange: <K extends keyof EventFormValues>(field: K, nextValue: EventFormValues[K]) => void;
   onThumbnailSelect: (file: File | null) => void;
   onRemoveThumbnail: () => void;
@@ -62,6 +65,8 @@ export default function EventForm({
   listingPackagesLoading,
   categories = [],
   subCategories = [],
+  topics = [],
+  languages = [],
   onChange,
   onThumbnailSelect,
   onRemoveThumbnail,
@@ -306,7 +311,10 @@ export default function EventForm({
                   id="event-sub-category"
                   className={styles.select}
                   value={value.subCategoryId}
-                  onChange={(event) => onChange("subCategoryId", event.target.value)}
+                  onChange={(event) => {
+                    onChange("subCategoryId", event.target.value);
+                    onChange("topicIds", []);
+                  }}
                   disabled={busy || !value.categoryId}
                 >
                   <option value="">Select sub category</option>
@@ -315,6 +323,62 @@ export default function EventForm({
                   ))}
                 </select>
               </div>
+            </div>
+
+            {topics.length > 0 ? (
+              <div style={{ marginTop: 10 }}>
+                <label className={styles.label}>Topics</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {topics.map((topic) => {
+                    const selected = Array.isArray(value.topicIds) && value.topicIds.includes(topic.id);
+                    return (
+                      <button
+                        key={topic.id}
+                        type="button"
+                        style={{
+                          border: selected ? "1px solid #1b4159" : "1px solid #c6dcea",
+                          background: selected ? "#1b4159" : "#f4f9fd",
+                          color: selected ? "#fff" : "#1b4159",
+                          borderRadius: 999,
+                          padding: "6px 14px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          fontSize: "0.85rem",
+                        }}
+                        disabled={busy}
+                        onClick={() => {
+                          const current = Array.isArray(value.topicIds) ? value.topicIds : [];
+                          const next = selected
+                            ? current.filter((id) => id !== topic.id)
+                            : [...current, topic.id];
+                          onChange("topicIds", next);
+                        }}
+                      >
+                        {topic.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <div style={{ marginTop: 16 }}>
+              <label className={styles.label} htmlFor="event-language">
+                Language
+              </label>
+              <select
+                id="event-language"
+                className={styles.select}
+                value={value.language}
+                onChange={(event) => onChange("language", event.target.value)}
+                disabled={busy}
+              >
+                <option value="">Select language</option>
+                {languages.map((lang) => (
+                  <option key={lang.id} value={lang.code}>{lang.name}</option>
+                ))}
+              </select>
+              {errors.language ? <p className={styles.error}>{errors.language}</p> : null}
             </div>
 
             <label className={styles.label} htmlFor="event-thumbnail">Thumbnail</label>

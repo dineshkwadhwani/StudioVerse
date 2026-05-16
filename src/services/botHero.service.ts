@@ -130,6 +130,23 @@ async function resolveAuthenticatedProfessionalIds(tenantId: string): Promise<Se
 
 // ── Package CRUD ────────────────────────────────────────────────────────────
 
+export async function listBotHeroPackagesFromEarning(tenantId: string): Promise<BotHeroPackageRecord[]> {
+  try {
+    const snap = await getDocs(collection(db, "earningPackages"));
+    const earningDoc = snap.docs.find((d) => d.id === tenantId);
+    if (earningDoc) {
+      const data = earningDoc.data() as Record<string, unknown>;
+      const packages = Array.isArray(data.botPackages) ? data.botPackages : [];
+      return (packages as any[])
+        .map((pkg) => mapPackage(pkg.id || "", pkg as Record<string, unknown>))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+  } catch {
+    // Fall through to old collection
+  }
+  return listBotHeroPackages();
+}
+
 export async function listBotHeroPackages(): Promise<BotHeroPackageRecord[]> {
   const snap = await getDocs(collection(db, PACKAGES_COLLECTION));
   return snap.docs

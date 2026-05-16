@@ -55,6 +55,23 @@ function mapListingPackage(id: string, data: Record<string, unknown>): ListingPa
   };
 }
 
+export async function listListingPackagesFromEarning(tenantId: string): Promise<ListingPackageRecord[]> {
+  try {
+    const snap = await getDocs(collection(db, "earningPackages"));
+    const earningDoc = snap.docs.find((d) => d.id === tenantId);
+    if (earningDoc) {
+      const data = earningDoc.data() as Record<string, unknown>;
+      const packages = Array.isArray(data.listingPackages) ? data.listingPackages : [];
+      return (packages as any[])
+        .map((pkg) => mapListingPackage(pkg.id || "", pkg as Record<string, unknown>))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+  } catch {
+    // Fall through to old collection
+  }
+  return listListingPackages(tenantId);
+}
+
 export async function listListingPackages(tenantId?: string): Promise<ListingPackageRecord[]> {
   const base = collection(db, COLLECTION);
   const snap = tenantId

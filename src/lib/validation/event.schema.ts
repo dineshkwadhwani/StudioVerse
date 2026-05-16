@@ -63,6 +63,8 @@ export const eventFormSchema = z.object({
   publicationState: z.enum(EVENT_PUBLICATION_STATES),
   thumbnailUrl: z.string().trim(),
   thumbnailPath: z.string().trim(),
+  topicIds: z.array(z.string()).default([]),
+  language: z.string().trim().default("en"),
 });
 
 export type EventFormErrors = Partial<Record<keyof EventFormValues | "form", string>>;
@@ -124,6 +126,7 @@ export function normalizeEventForm(
     categoryName: null,
     subCategoryId: parsed.subCategoryId || null,
     subCategoryName: null,
+    language: parsed.language,
     eventType: parsed.eventType,
     eventSource: parsed.eventSource,
     shortDescription: parsed.shortDescription,

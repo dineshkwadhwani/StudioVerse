@@ -46,6 +46,21 @@
   border-color: #1b4159;
 }
 
+.seedButton {
+  border: 1px solid #0d74bf;
+  background: #1e88d8;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.seedButton:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
 .contentCard {
   background: #ffffff;
   border: 1px solid #dbe8ef;

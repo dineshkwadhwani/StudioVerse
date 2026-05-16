@@ -25,7 +25,8 @@ import {
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
-import { listCategories, listSubCategories } from "@/services/categories.service";
+import { listCategories, listSubCategories, listTopics } from "@/services/categories.service";
+import { listLanguages } from "@/services/languages.service";
 import {
   EVENT_PROMOTION_STATUS_LABELS,
   EVENT_SOURCE_LABELS,
@@ -38,7 +39,8 @@ import {
 } from "@/types/event";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
-import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
+import type { LanguageRecord } from "@/services/languages.service";
 import { tenantAssetPath } from "@/lib/tenant/assets";
 
 type TenantOption = {
@@ -66,6 +68,7 @@ function mapEventToForm(event: EventRecord): EventFormValues {
     name: event.name,
     categoryId: event.categoryId ?? "",
     subCategoryId: event.subCategoryId ?? "",
+    topicIds: Array.isArray(event.topicIds) ? event.topicIds : [],
     eventType: event.eventType,
     eventSource: event.eventSource,
     shortDescription: event.shortDescription,
@@ -120,6 +123,8 @@ export default function EventsSection({
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
+  const [topics, setTopics] = useState<TopicRecord[]>([]);
+  const [languages, setLanguages] = useState<LanguageRecord[]>([]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visibleEvents = events.filter((event) => {
@@ -198,14 +203,18 @@ export default function EventsSection({
   useEffect(() => {
     async function loadCategoryOptions(): Promise<void> {
       try {
-        const [nextCategories, nextSubCategories] = await Promise.all([
+        const [nextCategories, nextSubCategories, nextTopics, nextLanguages] = await Promise.all([
           listCategories(),
           listSubCategories(),
+          listTopics(),
+          listLanguages(),
         ]);
         setCategories(nextCategories);
         setSubCategories(nextSubCategories);
+        setTopics(nextTopics);
+        setLanguages(nextLanguages);
       } catch (loadError) {
-        console.error("Failed to load categories for Event form:", loadError);
+        console.error("Failed to load categories/languages for Event form:", loadError);
       }
     }
 
@@ -442,6 +451,7 @@ export default function EventsSection({
         ...payload,
         categoryName,
         subCategoryName,
+        topicIds: formValues.topicIds ?? [],
       };
       console.log("[EventsSection] Payload being sent to saveEvent:", JSON.stringify(savePayload, (k, v) => typeof v === 'object' ? '[object]' : v, 2));
       
@@ -647,6 +657,8 @@ export default function EventsSection({
           listingPackagesLoading={listingPackagesLoading}
           categories={categoryOptionsForTenant}
           subCategories={subCategoryOptionsForTenant}
+          topics={topics.filter((t) => t.tenantId === formValues.tenantId && t.subCategoryId === formValues.subCategoryId)}
+          languages={languages}
           onChange={updateField}
           onThumbnailSelect={handleThumbnailSelection}
           onRemoveThumbnail={removeCurrentThumbnail}

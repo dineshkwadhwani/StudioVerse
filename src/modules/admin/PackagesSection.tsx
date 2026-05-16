@@ -147,16 +147,6 @@ export default function PackagesSection({ operatorId }: Props) {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          {packages.length === 0 ? (
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={handleSeedDefaults}
-              disabled={seeding}
-            >
-              {seeding ? "Seeding…" : "Seed Defaults"}
-            </button>
-          ) : null}
           <button type="button" className={styles.primaryButton} onClick={openCreate}>
             + New Package
           </button>

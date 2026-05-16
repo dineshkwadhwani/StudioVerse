@@ -19,6 +19,10 @@ export type SearchMenuConfig = {
   enabled: boolean;
 };
 
+export type ReferralsMenuConfig = {
+  enabled: boolean;
+};
+
 // Backward-compatible aliases for existing imports.
 export type CoachingUserRole = StudioUserRole;
 export type CoachingMenuItem = StudioMenuItem;
@@ -26,6 +30,7 @@ export type CoachingMenuItem = StudioMenuItem;
 type MenuOptions = {
   basePath?: string;
   searchConfig?: SearchMenuConfig;
+  referralsConfig?: ReferralsMenuConfig;
 };
 
 type RoleLabels = {
@@ -182,13 +187,28 @@ export function getRoleMenuGroups(
         : getIndividualMenu(basePath);
 
   const searchEnabled = options.searchConfig?.enabled === true;
-  if (searchEnabled) return baseGroups;
+  const referralsEnabled = options.referralsConfig?.enabled ?? true;
 
-  return baseGroups
-    .filter((group) => group.key !== "discover")
-    .map((group) =>
-      group.key === "actions"
-        ? { ...group, items: group.items.filter((item) => item.key !== "messages") }
-        : group
-    );
+  const groupsAfterSearch = searchEnabled
+    ? baseGroups
+    : baseGroups
+      .filter((group) => group.key !== "discover")
+      .map((group) =>
+        group.key === "actions"
+          ? { ...group, items: group.items.filter((item) => item.key !== "messages") }
+          : group
+      );
+
+  if (referralsEnabled) {
+    return groupsAfterSearch;
+  }
+
+  return groupsAfterSearch.map((group) =>
+    group.key === "my-account"
+      ? {
+          ...group,
+          items: group.items.filter((item) => item.key !== "manage-referrals"),
+        }
+      : group
+  );
 }

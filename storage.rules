@@ -40,16 +40,16 @@ service firebase.storage {
       allow write: if isSuperAdmin();
     }
 
-    // Program thumbnails — superadmin write, public read
+    // Program thumbnails — signed-in users can create, public read
     match /programs/{tenantId}/{programId}/{filename} {
       allow read:  if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSignedIn();
     }
 
-    // Event thumbnails — superadmin write, public read
+    // Event thumbnails — signed-in users can create, public read
     match /events/{tenantId}/{eventId}/{filename} {
       allow read:  if true;
-      allow write: if isSuperAdmin();
+      allow write: if isSignedIn();
     }
 
     // Bot hero package images — superadmin write

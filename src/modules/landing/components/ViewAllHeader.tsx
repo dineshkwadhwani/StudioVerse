@@ -10,6 +10,7 @@ import { getRoleLabel, getRoleMenuItems } from "@/modules/activities/config/menu
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
+import { useTenantReferralsConfig } from "@/hooks/useTenantReferralsConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import styles from "./ViewAllHeader.module.css";
@@ -73,7 +74,11 @@ export default function ViewAllHeader({ config, currentPage, onSignInRegister }:
   const toolsLabel = config.landingContent?.displayLabels?.tools ?? "Tools";
   const brandSubtitle = "StudioVerse Platform";
   const searchConfig = useTenantSearchConfig(tenantId);
-  const roleMenuItems = useMemo(() => getRoleMenuItems(role, { basePath, searchConfig }), [basePath, role, searchConfig]);
+  const referralsConfig = useTenantReferralsConfig(tenantId);
+  const roleMenuItems = useMemo(
+    () => getRoleMenuItems(role, { basePath, searchConfig, referralsConfig }),
+    [basePath, role, searchConfig, referralsConfig]
+  );
 
   const navClass = (_page: ViewAllPage): string => {
     return landingStyles.navLink;

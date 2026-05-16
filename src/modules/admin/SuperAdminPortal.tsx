@@ -60,6 +60,7 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 import styles from "./SuperAdminPortal.module.css";
 import ManageEarningPackagesPage from "./ManageEarningPackagesPage";
 import ManageCategoriesPage from "./ManageCategoriesPage";
+import SeedDataPage from "./SeedDataPage";
 import ApproveRequestsPage from "./ApproveRequestsPage";
 import LogsPage from "./LogsPage";
 import ManageNotificationsSection from "./ManageNotificationsSection";
@@ -82,7 +83,8 @@ type MenuKey =
   | "orders"
   | "approve-requests"
   | "logs"
-  | "notifications";
+  | "notifications"
+  | "seed-data";
 
 type SuperAdminActivitiesTab = "my-activities" | "assign-activity" | "assigned-activities";
 
@@ -158,6 +160,9 @@ type TenantRecord = {
     professional?: boolean;
     individual?: boolean;
     company?: boolean;
+  };
+  referralConfig?: {
+    enableReferrals?: boolean;
   };
   activationChecklist?: {
     mailConfigReady?: boolean;
@@ -253,6 +258,9 @@ type TenantFormState = {
   botConfig: TenantBotFormState;
   leadConfig: TenantLeadFormState;
   searchConfig: TenantSearchFormState;
+  referralConfig: {
+    enableReferrals: boolean;
+  };
   activationChecklist: {
     mailConfigReady: boolean;
     walletConfigReady: boolean;
@@ -312,6 +320,7 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "approve-requests", label: "Approve Requests" },
   { key: "notifications", label: "Notifications" },
   { key: "logs", label: "Logs" },
+  { key: "seed-data", label: "Seed Data" },
 ];
 
 const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = [
@@ -337,6 +346,11 @@ const MENU_GROUPS: Array<{ key: string; label: string; itemKeys: MenuKey[] }> = 
     key: "actions",
     label: "Actions",
     itemKeys: ["activities", "approve-requests", "logs"],
+  },
+  {
+    key: "setup",
+    label: "Setup",
+    itemKeys: ["seed-data"],
   },
 ];
 
@@ -423,6 +437,9 @@ const EMPTY_TENANT_FORM: TenantFormState = {
     professional: false,
     individual: false,
     company: false,
+  },
+  referralConfig: {
+    enableReferrals: true,
   },
   activationChecklist: {
     mailConfigReady: false,
@@ -1366,6 +1383,9 @@ export default function SuperAdminPortal() {
         individual: target.searchConfig?.individual ?? false,
         company: target.searchConfig?.company ?? false,
       },
+      referralConfig: {
+        enableReferrals: target.referralConfig?.enableReferrals ?? true,
+      },
       activationChecklist: {
         mailConfigReady: target.activationChecklist?.mailConfigReady ?? false,
         walletConfigReady: target.activationChecklist?.walletConfigReady ?? false,
@@ -1649,6 +1669,9 @@ export default function SuperAdminPortal() {
           professional: tenantForm.searchConfig.enabled && tenantForm.searchConfig.professional,
           individual: tenantForm.searchConfig.enabled && tenantForm.searchConfig.individual,
           company: tenantForm.searchConfig.enabled && tenantForm.searchConfig.company,
+        },
+        referralConfig: {
+          enableReferrals: tenantForm.referralConfig.enableReferrals,
         },
         activationChecklist: {
           mailConfigReady: tenantForm.activationChecklist.mailConfigReady,
@@ -2413,6 +2436,10 @@ export default function SuperAdminPortal() {
 
           {activeMenu === "categories" ? (
             <ManageCategoriesPage operatorId={profile.id} />
+          ) : null}
+
+          {activeMenu === "seed-data" ? (
+            <SeedDataPage operatorId={profile.id} />
           ) : null}
 
           {activeMenu === "referrals" ? (
@@ -3353,6 +3380,28 @@ export default function SuperAdminPortal() {
                     }
                   />
                   Enable Individual Lead
+                </label>
+              </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Referrals</p>
+              <p className={styles.subtitle}>
+                Controls whether the References menu item is shown in My Account for Company, Coach, and Individual users.
+              </p>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.referralConfig.enableReferrals}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        referralConfig: { ...prev.referralConfig, enableReferrals: e.target.checked },
+                      }))
+                    }
+                  />
+                  Enable Referrals
                 </label>
               </div>
             </section>

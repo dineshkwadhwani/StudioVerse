@@ -1,0 +1,2871 @@
+id,tenantId,tenantIds,name,longDescription,assessmentBenefit,assessmentType,renderStyle,reportStyle,creditsRequired,questionBankCount,questionsPerAttempt,analysisPrompt,questionGenerationPrompt,status,promoted,promotionPackageId,promotionStatus,listingPackageId,listingStatus,publicationState,visibility,ownershipScope,ownerEntityId,createdBy,updatedBy,createdAt,assessmentImageUrl,assessmentImagePath,assessmentContext,shortDescription,publishedAt,subCategoryId,categoryName,categoryId,subCategoryName,updatedAt
+ZXg16EXsJPt7dqvgB8rG,coaching-studio,"[""coaching-studio""]",Problem Identification Effectiveness Index (PIEI),"The Problem Identification Effectiveness Index (PIEI) evaluates your ability to diagnose situations accurately, distinguish between symptoms and root causes, and frame problems in a way that leads to effective solutions.
+
+This assessment presents real-world leadership and business scenarios where multiple interpretations are possible. Your choices reveal how you approach ambiguity, incomplete information, and complex situations.","After completing PIEI, participants receive:
+✅ Problem Identification Score
+
+Your ability to diagnose problems accurately.
+
+✅ Diagnostic Thinking Profile
+
+How you naturally approach ambiguity.
+
+✅ Root Cause Insight
+
+Whether you focus on symptoms or underlying issues.
+
+✅ Decision Quality Signal
+
+Better problem identification leads to better decisions.
+
+✅ Blind Spot Detection
+
+Examples:
+
+jumping to solutions
+over-relying on surface data
+missing systemic patterns
+✅ Practical Improvement Actions
+
+Steps to sharpen analytical thinking.
+
+✅ Leadership Value
+
+Strong problem framing is a key executive capability.",self-awareness,instant-feedback-multi-choice,behavioral-pattern-template,0,10,5,"You are a world-class strategy consultant, executive coach, and problem-solving expert.
+
+Analyze participant responses for:
+
+Problem Identification Effectiveness Index (PIEI)
+
+Generate a professional diagnostic report.
+
+Requirements:
+- Always provide:
+  - 1 concise summary
+  - at least 3 strengths
+  - at least 3 blind spots
+  - at least 3 recommendations
+  - at least 3 next actions
+
+- Strengths must reflect real diagnostic patterns.
+- Blind spots must highlight thinking errors.
+- Recommendations must improve problem framing ability.
+- Next actions must be practical and behavioral.
+- Keep concise and professional.
+
+Also determine:
+- Problem Solving Style Profile
+- Common diagnostic biases
+- Risk of solving wrong problems
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Problem Identification Effectiveness Index (PIEI)"",
+  ""overallScore"": 0,
+  ""problemSolvingLevel"": """",
+  ""summary"": """",
+  ""problemStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Popular Models Referenced for your analysis 
+🔹 First Principles Thinking
+
+Break down problems to their fundamental truths.
+
+🔹 Root Cause Analysis (5 Whys)
+
+Move beyond surface-level symptoms.
+
+🔹 Systems Thinking
+
+Understand interdependencies and patterns.
+
+🔹 Problem Framing (McKinsey style)
+
+Define the right problem before solving.
+
+🔹 Signal vs Noise Filtering
+
+Focus on what truly matters.
+
+Dimensions Measured for the analysis are 
+🔹 Problem Framing
+
+How clearly you define the real issue.
+
+🔹 Root Cause Thinking
+
+Ability to go beyond symptoms.
+
+🔹 Data Interpretation
+
+Separating meaningful signals from noise.
+
+🔹 Assumption Awareness
+
+Recognizing hidden biases and assumptions.
+
+🔹 Analytical Clarity
+
+Structuring ambiguous situations logically.
+
+🔹 Diagnostic Discipline
+
+Resisting premature solutions.
+
+Scoring Levels:
+
+90-100 = Strong Strategic Diagnostician
+75-89 = Good Problem Framing Ability
+60-74 = Developing Diagnostic Thinking
+Below 60 = Needs Improvement in Problem Identification
+
+Return JSON only.","ou are an expert strategy consultant, problem-solving expert, and organizational diagnostician.
+
+Generate [NO_OF_QUESTIONS] premium-quality assessment questions for:
+
+Problem Identification Effectiveness Index (PIEI)
+
+Purpose:
+Measure a leader’s ability to correctly identify and frame problems using scenario-based multiple-choice questions.
+
+Render Type:
+multiple-choice
+
+Question Requirements:
+
+1. Each question must present a realistic business or leadership scenario involving:
+- declining performance
+- team issues
+- customer complaints
+- operational inefficiencies
+- strategic ambiguity
+- conflicting data
+- stakeholder concerns
+- unclear outcomes
+
+2. Each question must have 4 answer options.
+
+3. All options should be plausible interpretations.
+
+4. One option should reflect the strongest problem identification.
+
+5. Other options should reflect:
+- symptom focus
+- biased assumptions
+- incomplete diagnosis
+- premature conclusions
+
+6. Avoid obvious answers.
+
+7. Rotate across dimensions:
+- Problem Framing
+- Root Cause Thinking
+- Data Interpretation
+- Assumption Awareness
+- Analytical Clarity
+- Diagnostic Discipline
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-problem-identification-piei"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""Sales have declined over the last quarter. Customer complaints have increased slightly. What is the most important problem to identify first?"",
+    ""questionType"": ""multiple-choice"",
+    ""renderStyle"": ""multiple-choice"",
+    ""options"": [
+      {
+        ""label"": ""Sales team performance is weak"",
+        ""value"": ""symptom_focus""
+      },
+      {
+        ""label"": ""Customer dissatisfaction may be affecting repeat business"",
+        ""value"": ""partial_cause""
+      },
+      {
+        ""label"": ""We need to identify whether the decline is due to internal execution, market conditions, or product issues"",
+        ""value"": ""problem_framing""
+      },
+      {
+        ""label"": ""Marketing campaigns are not effective"",
+        ""value"": ""assumption""
+      }
+    ],
+    ""correctAnswers"": [""problem_framing""],
+    ""scoringRule"": ""correct=1, wrong=0"",
+    ""tags"": [""problem_solving"",""problem_identification""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3
+  }
+]
+
+Return JSON only.
+No markdown.
+No explanation.",published,true,f1e1ff12-dcc6-4eeb-8d71-340ca9569e7e,promoted,d251d64a-c39f-4411-9277-4d15fe8fd4ed,approved,published,public,tenant,,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-05-05T07:00:42.726Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2FZXg16EXsJPt7dqvgB8rG%2Fcover.jpg?alt=media&token=9ae9e139-df06-4fd4-8524-4b92a4342e0d,assessments/coaching-studio/ZXg16EXsJPt7dqvgB8rG/cover.jpg,"ou will be presented with real-world scenarios involving ambiguity, incomplete information, and multiple possible interpretations..
+
+For each scenario, select the option that best represents how you would identify or define the problem.
+
+There are no obvious answers. Strong problem solvers:
+
+avoid jumping to conclusions
+question assumptions
+distinguish symptoms from causes
+define the problem before solving it
+
+🔹 Problem Framing
+
+How clearly you define the real issue.
+
+🔹 Root Cause Thinking
+
+Ability to go beyond symptoms.
+
+🔹 Data Interpretation
+
+Separating meaningful signals from noise.
+
+🔹 Assumption Awareness
+Recognizing hidden biases and assumptions.
+
+🔹 Analytical Clarity
+
+Structuring ambiguous situations logically.
+
+🔹 Diagnostic Discipline
+Resisting premature solutions.","Assess your ability to correctly identify problems, distinguish symptoms from root causes, and define issues clearly before jumping to solutions.",2026-05-13T18:40:48.909Z,4WpsbQDeJLsnJvxdhvMX,Leadership,gXTtUyyiUqRwa0dIIoiU,Change Management,2026-05-13T18:40:48.937Z
+coaching-studio-change-leadership-readiness,coaching-studio,"[""coaching-studio""]",Change Leadership Readiness,"he Change Leadership Readiness Index (CLRI) measures how effectively you navigate resistance, communicate vision, sustain momentum, and guide people through uncertain transitions.
+
+This assessment places participants into realistic change scenarios requiring difficult leadership trade-offs.
+
+It is informed by proven change leadership models including:
+
+Popular Models Referenced
+🔹 Kotter’s 8-Step Change Model
+
+Urgency, coalition, vision, momentum.
+
+🔹 ADKAR Model
+
+Awareness, Desire, Knowledge, Ability, Reinforcement.
+
+🔹 Bridges Transition Model
+
+Psychological transition during change.
+
+🔹 Situational Leadership in Change
+
+Different people need different support.
+
+🔹 Growth Mindset Leadership
+
+Adaptability and learning orientation.
+
+Dimensions Measured
+🔹 Vision Communication
+
+Ability to explain why change matters.
+
+🔹 Resistance Navigation
+
+Handling skepticism and pushback.
+
+🔹 Emotional Containment
+
+Staying calm when anxiety rises.
+
+🔹 Change Momentum
+
+Driving progress despite friction.
+
+🔹 Inclusion & Buy-In
+
+Creating ownership, not compliance.
+
+🔹 Adaptive Decision-Making
+
+Adjusting plans as reality evolves.
+
+🔹 Leadership Credibility
+
+Maintaining trust during disruption.","Key Takeaways
+
+After completing CLRI, participants receive:
+
+✅ Change Leadership Score
+
+Your readiness to lead transformation effectively.
+
+✅ Change Style Profile
+
+How you naturally lead during disruption.
+
+✅ Resistance Handling Insight
+
+How you respond to pushback.
+
+✅ Trust & Credibility Signals
+
+How teams likely experience your leadership during change.
+
+✅ Blind Spot Detection
+
+Examples:
+
+over-driving pace
+under-communicating vision
+avoiding resistance
+changing too slowly
+✅ Immediate Coaching Actions
+
+Practical steps to lead change better now.
+
+✅ Enterprise Leadership Value
+
+Change leadership is one of the most promotable executive traits.",self-awareness,forced-trade-off,leadership-readiness-template,2,19,5,"You are a world-class executive coach, transformation leader, and leadership advisor.
+
+Analyze participant responses for:
+
+Change Leadership Readiness Index (CLRI)
+
+Generate a premium developmental report.
+
+
+Also determine:
+- Change Leadership Style Profile
+- Readiness for larger transformation scope
+- Likely derailers during change
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Change Leadership Readiness Index (CLRI)"",
+  ""overallScore"": 0,
+  ""changeReadinessLevel"": """",
+  ""summary"": """",
+  ""changeStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Weighted Score Formula
+Dimension Score = earned points / max possible × 100
+Overall Score = weighted average of dimensions
+Suggested Weighting
+Dimension	Weight
+Vision Communication	18%
+Resistance Navigation	18%
+Change Momentum	16%
+Inclusion & Buy-In	14%
+Adaptive Decision-Making	14%
+Emotional Containment	10%
+Leadership Credibility	10%
+
+Scoring Levels:
+
+90-100 = Advanced Change Leader
+75-89 = Strong Change Leadership Capability
+60-74 = Developing Change Leadership
+Below 60 = Growth Needed for Leading Transformation
+
+Return JSON only.","You are an expert executive coach, transformation consultant, and organizational psychologist.
+
+Generate [NO_OF_QUESTIONS] premium-quality assessment questions for:
+
+Change Leadership Readiness Index (CLRI)
+
+Purpose:
+Measure leadership effectiveness during change using forced trade-off scenarios.
+
+Render Type:
+forced-trade-off
+
+Question Requirements:
+
+1. Each question must present realistic change leadership situations involving:
+- restructuring
+- team resistance
+- new strategy rollout
+- uncertainty
+- layoffs / morale pressure
+- technology transformation
+- culture change
+- process change
+- shifting priorities
+- stakeholder skepticism
+
+2. Each question must have exactly 2 options.
+
+3. BOTH options must be credible leadership responses.
+
+4. No obvious right answer.
+
+5. Choices must reveal leadership tendencies.
+
+6. Trade-offs should include:
+- speed vs inclusion
+- empathy vs urgency
+- control vs empowerment
+- consistency vs flexibility
+- planning vs experimentation
+- directness vs diplomacy
+
+7. Rotate across dimensions:
+- Vision Communication
+- Resistance Navigation
+- Emotional Containment
+- Change Momentum
+- Inclusion & Buy-In
+- Adaptive Decision-Making
+- Leadership Credibility
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-change-leadership-clri"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""A major process change is announced and your team is anxious. What do you do first?"",
+    ""questionType"": ""forced-trade-off"",
+    ""renderStyle"": ""forced-trade-off"",
+    ""options"": [
+      {
+        ""label"": ""Explain the business reasons clearly and outline the roadmap."",
+        ""value"": ""vision_roadmap""
+      },
+      {
+        ""label"": ""Hold listening sessions first to understand concerns before presenting next steps."",
+        ""value"": ""listen_then_align""
+      }
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""behavioral-weighted"",
+    ""tags"": [""change_leadership"",""vision_communication""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3
+  }
+]
+
+Chose one of the following Change Styles in your response based on your analysis. 
+Change Style Profiles
+1. Vision Driver
+
+Strong direction, can under-listen.
+
+2. Inclusive Mobilizer
+
+Builds buy-in effectively.
+
+3. Steady Stabilizer
+
+Strong calmness, slower pace.
+
+4. Adaptive Transformer
+
+Balances speed + people + agility.
+
+5. Reactive Operator
+
+Manages tasks but weaker leadership narrative.
+Return JSON only.
+No markdown.
+No explanation.",published,true,86b1b02e-cd11-46c0-9f32-0c60b9f6b6cc,promoted,4c12fa92-29b0-4909-a3c7-14242f6704fb,approved,published,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-28T15:07:52.302Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-change-leadership-readiness%2Fcover.png?alt=media&token=4b34476b-0765-401c-a3b3-da72293f972c,assessments/coaching-studio/coaching-studio-change-leadership-readiness/cover.png,"You will face realistic leadership scenarios involving change, uncertainty, team resistance, restructuring, shifting priorities, and transformation initiatives.
+
+Each scenario presents two professionally credible responses.
+
+Choose the option that most closely reflects how you would naturally lead.
+
+There are no perfect answers.
+
+Strong change leadership requires balancing competing priorities such as:
+
+speed vs consultation
+empathy vs decisiveness
+stability vs innovation
+control vs empowerment
+
+Your choices reveal how you lead during real transformation pressure.",Leading change is one of the defining leadership capabilities of the modern era.,2026-05-13T08:44:56.277Z,,,,,2026-05-13T08:44:56.294Z
+coaching-studio-communication-influence-quotient,coaching-studio,"[""coaching-studio""]",Communication Influence Quotient,"Assess how effectively you communicate in real leadership situations—measuring clarity, influence, listening, brevity, confidence, and audience adaptability through realistic forced-choice scenarios.
+
+2. Long Description
+
+Strong leaders are often distinguished not by what they know, but by how clearly and effectively they communicate.
+
+The Communication Mastery Impact Index (CMII) is a scenario-based leadership assessment that measures your real-world communication judgment under pressure, ambiguity, conflict, and executive visibility.
+
+Rather than asking self-rating questions, CMII places you in realistic workplace communication moments and asks you to choose between two credible responses. This reveals your natural communication tendencies, trade-offs, and leadership communication maturity.
+
+The assessment incorporates proven leadership communication principles inspired by:
+
+Popular & Proven Models Referenced
+🔹 Executive Communication Model
+
+Lead with the headline, then supporting detail.
+
+🔹 Situational Leadership Communication
+
+Adjust style based on audience maturity and need.
+
+🔹 Active Listening Framework
+
+Understand first, then respond.
+
+🔹 Crucial Conversations Model
+
+Stay candid while preserving trust.
+
+🔹 Pyramid Principle
+
+Structure ideas top-down and logically.
+
+🔹 Emotional Intelligence Communication
+
+Balance message + emotion + timing.
+
+Assess how effectively you communicate in real leadership situations—measuring clarity, influence, listening, brevity, confidence, and audience adaptability through realistic forced-choice scenarios.
+
+2. Long Description
+
+Strong leaders are often distinguished not by what they know, but by how clearly and effectively they communicate.
+
+The Communication Mastery Impact Index (CMII) is a scenario-based leadership assessment that measures your real-world communication judgment under pressure, ambiguity, conflict, and executive visibility.
+
+Rather than asking self-rating questions, CMII places you in realistic workplace communication moments and asks you to choose between two credible responses. This reveals your natural communication tendencies, trade-offs, and leadership communication maturity.
+
+The assessment incorporates proven leadership communication principles inspired by:
+
+Popular & Proven Models Referenced
+🔹 Executive Communication Model
+
+Lead with the headline, then supporting detail.
+
+🔹 Situational Leadership Communication
+
+Adjust style based on audience maturity and need.
+
+🔹 Active Listening Framework
+
+Understand first, then respond.
+
+🔹 Crucial Conversations Model
+
+Stay candid while preserving trust.
+
+🔹 Pyramid Principle
+
+Structure ideas top-down and logically.
+
+🔹 Emotional Intelligence Communication
+
+Balance message + emotion + timing.
+
+Dimensions Measured
+🔹 Clarity
+
+Ability to make messages understandable and structured.
+
+🔹 Brevity
+
+Ability to be concise without losing impact.
+
+🔹 Influence
+
+Ability to persuade and gain alignment.
+
+🔹 Listening Orientation
+
+Ability to understand before responding.
+
+🔹 Confidence & Presence
+
+Ability to communicate with credibility.
+
+🔹 Audience Adaptability
+
+Ability to adjust message for executives, peers, teams.
+
+🔹 Conflict Messaging
+
+Ability to communicate through tension constructively.","After completing CMII, participants receive:
+
+✅ Communication Mastery Score
+
+A measurable benchmark of leadership communication effectiveness.
+
+✅ Communication Style Profile
+
+How you naturally communicate under pressure.
+
+✅ Strength Areas
+
+Where your communication creates trust and impact.
+
+✅ Blind Spots
+
+Patterns that may reduce influence or clarity.
+
+✅ Executive Readiness Signals
+
+How senior leaders may perceive your communication.
+
+✅ Audience Adaptability Insights
+
+How effectively you flex style across stakeholders.
+
+✅ Immediate Growth Actions
+
+Clear coaching steps to improve communication impact fast.",capability,forced-trade-off,360-influence-template,2,20,5,"You are a world-class executive coach, communication advisor, and leadership assessor.
+
+Analyze a participant's responses for:
+
+Communication Mastery Impact Index (CMII)
+
+Dimensions:
+
+1. Clarity
+2. Brevity
+3. Influence
+4. Listening Orientation
+5. Confidence & Presence
+6. Audience Adaptability
+7. Conflict Messaging
+
+Generate a balanced developmental coaching report.
+
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Communication Mastery Impact Index (CMII)"",
+  ""overallScore"": 0,
+  ""communicationLevel"": """",
+  ""summary"": """",
+  ""dimensionScores"": {
+    ""clarity"": 0,
+    ""brevity"": 0,
+    ""influence"": 0,
+    ""listeningOrientation"": 0,
+    ""confidencePresence"": 0,
+    ""audienceAdaptability"": 0,
+    ""conflictMessaging"": 0
+  },
+  ""communicationStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Scoring Levels:
+
+90-100 = Exceptional Communicator
+75-89 = Strong Leadership Communicator
+60-74 = Developing Communication Impact
+Below 60 = Hidden Potential, Needs Sharpening
+
+Return JSON only.","You are an expert executive coach, communication strategist, and organizational psychologist.
+
+Generate [NO_OF_QUESTIONS] premium-quality assessment questions for:
+
+Communication Mastery Impact Index (CMII)
+
+Purpose:
+Measure leadership communication effectiveness using forced-choice scenarios.
+
+Render Type:
+forced-trade-off
+
+Question Requirements:
+
+1. Each question must present a realistic workplace communication scenario involving:
+- executive updates
+- difficult conversations
+- stakeholder alignment
+- team communication
+- conflict
+- presenting ideas
+- giving feedback
+- influencing decisions
+- cross-functional misunderstandings
+- communicating under pressure
+
+2. Each question must have exactly 2 answer options.
+
+3. BOTH options must be professionally credible.
+
+4. No obvious right answer.
+
+5. Choices must reveal communication tendencies.
+
+6. Trade-offs should include:
+- detail vs brevity
+- empathy vs urgency
+- listening vs asserting
+- diplomacy vs directness
+- consensus vs decisiveness
+- confidence vs caution
+- strategic vs operational messaging
+
+7. Rotate across dimensions:
+- Clarity
+- Brevity
+- Influence
+- Listening Orientation
+- Confidence
+- Audience Adaptability
+- Conflict Messaging
+
+8. Difficulty should vary moderate to advanced.
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-communication-mastery-cmii"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""Your CEO asks for a quick update with only 30 seconds available. What do you do first?"",
+    ""questionType"": ""forced-trade-off"",
+    ""renderStyle"": ""forced-trade-off"",
+    ""options"": [
+      {
+        ""label"": ""Provide the full background so nothing important is missed."",
+        ""value"": ""detail_context""
+      },
+      {
+        ""label"": ""Lead with the headline decision and top business impact first."",
+        ""value"": ""executive_summary""
+      }
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""behavioral-weighted"",
+    ""tags"": [""communication_mastery"",""brevity"",""executive_messaging""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3
+  }
+]
+
+Each option is pre-mapped to one or more dimensions.
+
+Example:
+
+{
+  ""optionA"": {
+    ""clarity"": 2,
+    ""brevity"": 1
+  },
+  ""optionB"": {
+    ""clarity"": 4,
+    ""brevity"": 5
+  }
+}
+Weighted Formula
+Dimension Score = earned points / max points × 100
+Overall Score = weighted average of all dimensions
+Suggested Weighting
+Dimension	Weight
+Clarity	20%
+Influence	18%
+Listening Orientation	15%
+Audience Adaptability	15%
+Brevity	12%
+Confidence & Presence	10%
+Conflict Messaging	10%
+Communication Style Profiles
+1. Executive Communicator
+
+Clear, concise, influential.
+
+2. Trusted Listener
+
+Strong empathy and listening, lower assertiveness.
+
+3. Smart but Over-Detailed
+
+High substance, lower brevity.
+
+4. Direct Driver
+
+Fast, assertive, lower relational nuance.
+
+5. Adaptive Influencer
+
+Balances audience needs effectively.
+
+6. Quiet Capability
+
+Strong thinking, under-communicated presence.
+
+Example Final Report Output
+{
+  ""overallScore"": 81,
+  ""communicationLevel"": ""Strong Leadership Communicator"",
+  ""communicationStyleProfile"": ""Smart but Over-Detailed"",
+  ""strengths"": [
+    ""Explains complex ideas clearly"",
+    ""Strong listening before responding"",
+    ""Builds trust through thoughtful tone""
+  ],
+  ""blindSpots"": [
+    ""May provide excess detail to senior leaders"",
+    ""Can delay key message delivery"",
+    ""Understates authority in high-visibility moments""
+  ],
+  ""nextActions"": [
+    ""Start updates with headline first"",
+    ""Use 3-point summaries in meetings"",
+    ""Pause, then answer in one sentence first""
+  ]
+}
+
+Return JSON only.
+No markdown.
+No explanation.",published,true,86b1b02e-cd11-46c0-9f32-0c60b9f6b6cc,promoted,4c12fa92-29b0-4909-a3c7-14242f6704fb,approved,published,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-16T06:52:33.474Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-communication-influence-quotient%2Fcover.jpg?alt=media&token=36d0a91e-a1be-414e-ae05-685d2a2cfc8a,assessments/coaching-studio/coaching-studio-communication-influence-quotient/cover.jpg,"You will be presented with real leadership communication scenarios.
+
+Each scenario contains two professionally reasonable communication responses.
+
+Your task is to choose the option that most closely reflects what you would naturally do.
+
+There are no perfect answers. Strong communication often requires balancing competing priorities such as:
+
+Speed vs detail
+Diplomacy vs directness
+Listening vs asserting
+Confidence vs collaboration
+Empathy vs urgency
+
+Your choices reveal how you communicate under real-world pressure and leadership demands.",Assess how effectively you communicate in real leadership situations,2026-05-13T08:44:16.735Z,,,,,2026-05-13T08:44:16.749Z
+coaching-studio-conflict-management-effectiveness,coaching-studio,,Conflict Management Effectiveness,"The Conflict Management Effectiveness Index (CMEI) measures how you respond when priorities clash, emotions rise, resistance appears, or relationships are strained.
+
+This assessment uses realistic workplace conflict behaviors and likelihood-based responses to reveal your instinctive conflict style.
+
+It is designed using proven conflict frameworks including:
+
+Popular Models Referenced
+🔹 Thomas-Kilmann Conflict Mode Instrument (TKI)
+
+Competing, Avoiding, Accommodating, Compromising, Collaborating
+
+🔹 Crucial Conversations Model
+
+Speak honestly while maintaining safety
+
+🔹 Interest-Based Relational Approach
+
+Separate people from problem
+
+🔹 Emotional Intelligence in Conflict
+
+Manage emotion before message
+
+🔹 Nonviolent Communication Principles
+
+Observation, feeling, need, request
+
+Dimensions Measured
+🔹 Conflict Courage
+
+Willingness to address issues early.
+
+🔹 Emotional Regulation
+
+Calmness under disagreement.
+
+🔹 Resolution Orientation
+
+Ability to move conflict toward solution.
+
+🔹 Listening Under Tension
+
+Ability to hear others when challenged.
+
+🔹 Assertiveness Balance
+
+Direct without aggression.
+
+🔹 Relationship Preservation
+
+Resolve issues without damaging trust.
+
+🔹 Collaboration Mindset
+
+Seek win-win outcomes where possible.","Key Takeaways
+
+After completing CMEI, participants receive:
+
+✅ Conflict Effectiveness Score
+
+Overall ability to handle conflict constructively.
+
+✅ Conflict Style Profile
+
+Your natural conflict pattern.
+
+✅ Trigger Awareness
+
+What situations may destabilize your response.
+
+✅ Strength Areas
+
+Where you manage tension well.
+
+✅ Blind Spots
+
+Patterns such as avoidance, overreaction, defensiveness, over-accommodation.
+
+✅ Leadership Growth Actions
+
+Practical actions to improve conflict handling.
+
+✅ Relationship Impact Insight
+
+How your style affects trust and team climate.",behaviour,likert-rating-scale,diagnostic-template,2,20,5,"You are a world-class executive coach, workplace mediator, and leadership development specialist.
+
+Analyze a participant's responses for:
+
+Conflict Management Effectiveness Index (CMEI)
+
+Generate a balanced developmental report.
+
+Requirements:
+- Always provide:
+  - 1 concise summary
+  - at least 3 strengths
+  - at least 3 blind spots
+  - at least 3 recommendations
+  - at least 3 next actions
+
+- Strengths must be evidence-based from responses.
+- Blind spots must be specific and constructive.
+- Recommendations practical and leadership relevant.
+- Next actions immediate and behavioral.
+- Keep concise, premium, and non-repetitive.
+- Base only on participant responses.
+
+Also determine:
+
+Conflict Style Profile from:
+- Avoider
+- Collaborator
+- Accommodator
+- Competitor
+- Compromiser
+- Adaptive Resolver
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Conflict Management Effectiveness Index (CMEI)"",
+  ""overallScore"": 0,
+  ""conflictLevel"": """",
+  ""summary"": """",
+  ""conflictStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Likert Mapping
+Response	Score
+Most Likely	5
+Likely	4
+Neutral	3
+Unlikely	2
+Least Likely	1
+
+Dimension Score = earned / max × 100
+Overall Score = weighted average of dimensions
+
+Weighting
+Dimension	Weight
+Conflict Courage	18%
+Emotional Regulation	18%
+Resolution Orientation	16%
+Listening Under Tension	14%
+Assertiveness Balance	14%
+Relationship Preservation	10%
+Collaboration Mindset	10%
+
+
+Scoring Levels:
+
+90-100 = Advanced Conflict Leader
+75-89 = Strong Conflict Capability
+60-74 = Developing Conflict Skill
+Below 60 = Growth Needed in Difficult Conversations
+
+Include one of the following Conflic management style as a dominant style in the response 
+
+Conflict Style Profiles
+1. Avoider
+
+Delays difficult issues.
+
+2. Competitor
+
+Direct, forceful, can escalate.
+
+3. Accommodator
+
+Keeps peace, may self-suppress.
+
+4. Compromiser
+
+Seeks middle ground quickly.
+
+5. Collaborator
+
+Strong win-win orientation.
+
+6. Adaptive Resolver
+
+Chooses style intelligently by context.
+
+Return JSON only.","You are an expert executive coach, organizational psychologist, and conflict resolution specialist.
+
+Generate [NO_OF_QUESTIONS] premium-quality assessment questions for:
+
+Conflict Management Effectiveness Index (CMEI)
+
+Purpose:
+Measure workplace conflict management effectiveness using Likert behavior-likelihood scale.
+
+Render Type:
+likert
+
+Scale Options:
+1 = Most Likely
+2 = Likely
+3 = Neutral
+4 = Unlikely
+5 = Least Likely
+
+Question Requirements:
+
+1. Create realistic workplace statements and scenarios involving:
+- difficult conversations
+- disagreement with peers
+- team conflict
+- stakeholder tension
+- resistance to decisions
+- emotional reactions
+- underperformance discussions
+- feedback conflict
+- cross-functional friction
+- escalation moments
+
+2. Statements must measure actual tendencies, not theory.
+
+3. Include positive and reverse-scored items.
+
+4. Rotate across dimensions:
+- Conflict Courage
+- Emotional Regulation
+- Resolution Orientation
+- Listening Under Tension
+- Assertiveness Balance
+- Relationship Preservation
+- Collaboration Mindset
+
+5. Tone must feel professional and leadership-oriented.
+
+6. Avoid obvious virtue-signaling statements.
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-conflict-management-cmei"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""When tension builds with a colleague, I address it early rather than letting it grow."",
+    ""questionType"": ""likert"",
+    ""renderStyle"": ""likert"",
+    ""options"": [
+      {""label"":""Most Likely"",""value"":1},
+      {""label"":""Likely"",""value"":2},
+      {""label"":""Neutral"",""value"":3},
+      {""label"":""Unlikely"",""value"":4},
+      {""label"":""Least Likely"",""value"":5}
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""weighted-likert"",
+    ""tags"": [""conflict_management"",""conflict_courage""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3,
+    ""reverseScored"": false
+  }
+]
+
+Return JSON only.
+No markdown.
+No explanation.",active,,,,,,published,,tenant,,superadmin,superadmin,2026-04-16T09:11:37.792Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-conflict-management-effectiveness%2Fcover.jpg?alt=media&token=013d0189-0c27-444c-80c0-dfb0786092a6,assessments/coaching-studio/coaching-studio-conflict-management-effectiveness/cover.jpg,"ou will be presented with statements and conflict situations commonly faced by managers and leaders.
+
+For each item, rate how likely the behavior reflects your natural response.
+
+Use the scale:
+
+Most Likely
+Likely
+Neutral
+Unlikely
+Least Likely
+
+There are no perfect answers.
+
+The goal is to understand how you naturally respond to tension, disagreement, avoidance, and difficult conversations.
+
+Your responses will reveal your conflict style, strengths, triggers, blind spots, and development path.","Leadership success depends not on avoiding conflict, but on handling it constructively. How well you do it ?",,,,,,2026-04-16T09:11:37.792Z
+coaching-studio-emotional-intelligence-scan,coaching-studio,"[""coaching-studio""]",Emotional Intelligence Scan,"The Emotional Intelligence Leadership Index (EILI) assesses how effectively you recognize emotions, regulate behavior, empathize with others, and build strong working relationships.
+
+The assessment is based on widely respected emotional intelligence models including:
+
+Popular Models Referenced
+🔹 Daniel Goleman EQ Framework
+Self-Awareness
+Self-Regulation
+Motivation
+Empathy
+Social Skill
+🔹 Emotional Agility Concepts
+
+Respond intentionally instead of reacting impulsively.
+
+🔹 Leadership Presence Principles
+
+Calmness and emotional steadiness under pressure.
+
+Dimensions Measured
+🔹 Self-Awareness
+
+Recognizing your emotions and impact on others.
+
+🔹 Self-Regulation
+
+Managing reactions under stress.
+
+🔹 Empathy
+
+Understanding others’ perspectives and feelings.
+
+🔹 Relationship Management
+
+Building trust and navigating people dynamics.
+
+🔹 Social Awareness
+
+Reading team mood and stakeholder signals.
+
+🔹 Resilience
+
+Recovering quickly after setbacks.
+
+🔹 Leadership Composure
+
+Remaining steady during pressure moments.","Key Takeaways
+
+After completing EILI, participants receive:
+
+✅ Emotional Intelligence Score
+
+Your current EQ leadership benchmark.
+
+✅ Dimension Breakdown
+
+See strengths across awareness, empathy, regulation, relationships.
+
+✅ Trigger Awareness
+
+Identify where pressure may reduce effectiveness.
+
+✅ Leadership Relationship Insight
+
+How others may experience your emotional style.
+
+✅ Blind Spot Detection
+
+Examples:
+
+reacting too quickly
+avoiding emotion
+missing cues from others
+✅ Coaching Actions
+
+Immediate habits to improve EQ and leadership impact.
+
+✅ Promotion Readiness Value
+
+EQ strongly influences leadership progression.",leadership-style,likert-rating-scale,psychological-insight-template,2,20,5,"You are a world-class executive coach, psychologist, and leadership advisor.
+
+Analyze participant responses for:
+
+Emotional Intelligence Leadership Index (EILI)
+
+Generate a balanced developmental report.
+
+Requirements:
+- Always provide:
+  - 1 concise summary
+  - at least 3 strengths
+  - at least 3 blind spots
+  - at least 3 recommendations
+  - at least 3 next actions
+
+- Strengths must be evidence-based.
+- Blind spots specific and constructive.
+- Recommendations practical.
+- Next actions immediate and behavioral.
+- Base only on participant responses.
+
+Also identify:
+- EQ Style Profile
+- Stress reaction tendencies
+- Relationship signals
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Emotional Intelligence Leadership Index (EILI)"",
+  ""overallScore"": 0,
+  ""eqLevel"": """",
+  ""summary"": """",
+  ""eqStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Scoring / Report Model
+Likert Mapping
+Response	Score
+Strongly Disagree	1
+Disagree	2
+Neutral	3
+Agree	4
+Strongly Agree	5
+Reverse-score negative items.
+
+Weighting
+Dimension	Weight
+Self-Awareness	18%
+Self-Regulation	18%
+Empathy	18%
+Relationship Management	16%
+Social Awareness	12%
+Resilience	10%
+Leadership Composure	8%
+
+Include appropriate EQ style in your response summary. 
+EQ Profiles
+1. Grounded Leader
+
+Calm, aware, balanced
+
+2. Empathetic Connector
+
+Strong people sensitivity
+
+3. Rational Driver
+
+Strong logic, lower empathy signals
+
+4. Reactive Performer
+
+Capable but stress-reactive
+
+5. Emerging EQ Leader
+
+Growing awareness and maturity
+
+
+
+
+Scoring Levels:
+
+90-100 = High EQ Leadership Presence
+75-89 = Strong Emotional Intelligence
+60-74 = Developing EQ Capability
+Below 60 = Growth Opportunity in Emotional Leadership
+
+Return JSON only.","You are an expert executive coach, organizational psychologist, and emotional intelligence specialist.
+
+Generate [NO_OF_QUESTIONS] premium-quality questions for:
+
+Emotional Intelligence Leadership Index (EILI)
+
+Purpose:
+Measure leadership emotional intelligence using Likert scale responses.
+
+Render Type:
+likert
+
+Scale:
+1 = Strongly Disagree
+2 = Disagree
+3 = Neutral
+4 = Agree
+5 = Strongly Agree
+
+Question Requirements:
+
+1. Create realistic workplace behavior statements related to:
+- self-awareness
+- emotional control
+- empathy
+- listening
+- resilience
+- conflict reactions
+- pressure handling
+- reading team mood
+- trust building
+- relationship management
+
+2. Statements must measure tendencies, not theory.
+
+3. Include positive and reverse-scored items.
+
+4. Rotate across dimensions:
+- Self-Awareness
+- Self-Regulation
+- Empathy
+- Relationship Management
+- Social Awareness
+- Resilience
+- Leadership Composure
+
+5. Avoid obvious virtue-signaling statements.
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-emotional-intelligence-eili"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""I notice when my emotions begin to affect how I communicate with others."",
+    ""questionType"": ""likert"",
+    ""renderStyle"": ""likert"",
+    ""options"": [
+      {""label"":""Strongly Disagree"",""value"":1},
+      {""label"":""Disagree"",""value"":2},
+      {""label"":""Neutral"",""value"":3},
+      {""label"":""Agree"",""value"":4},
+      {""label"":""Strongly Agree"",""value"":5}
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""weighted-likert"",
+    ""tags"": [""emotional_intelligence"",""self_awareness""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3,
+    ""reverseScored"": false
+  }
+]
+
+Return JSON only.
+No markdown.
+No explanation.",published,true,f1e1ff12-dcc6-4eeb-8d71-340ca9569e7e,promoted,d251d64a-c39f-4411-9277-4d15fe8fd4ed,approved,published,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-16T10:57:19.850Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-emotional-intelligence-scan%2Fcover.jpeg?alt=media&token=60cf2b44-08e9-4372-a7ef-e3cd12bb0d66,assessments/coaching-studio/coaching-studio-emotional-intelligence-scan/cover.jpeg,"Assessment Context
+
+You will respond to statements about how you typically think, feel, and behave in workplace situations.
+
+Use the scale:
+
+Strongly Disagree
+Disagree
+Neutral
+Agree
+Strongly Agree
+
+There are no perfect answers.
+
+The purpose is to understand your natural emotional leadership patterns, strengths, and growth opportunities.
+
+Your responses generate an EQ leadership profile with practical coaching recommendations.","Leadership success is shaped not only by intellect and expertise, but by emotional intelligence.",2026-05-13T08:43:04.525Z,,,,,2026-05-13T08:43:04.538Z
+coaching-studio-executive-presence-simulation-index-epsi,coaching-studio,"[""coaching-studio""]",Executive Presence Simulation Index (EPSI),Measure how effectively you demonstrate executive presence in high-stakes leadership situations through real-world judgment scenarios.,"✅ Executive Presence Score
+
+A quantified benchmark of your current executive presence level.
+
+✅ Dimension Breakdown
+
+See your strengths across gravitas, influence, communication, composure, and readiness.
+
+✅ Blind Spot Detection
+
+Identify habits that may reduce perceived seniority or credibility.
+
+✅ Leadership Perception Insights
+
+Understand how senior leaders may experience your presence.
+
+✅ Practical Growth Actions
+
+Receive immediate coaching tips to elevate presence.
+
+✅ Career Acceleration Value
+
+Develop a key trait often linked to promotions and larger opportunities.",self-awareness,forced-trade-off,action-centric-template,2,18,5,"You are a world-class executive coach, leadership assessor, and board-level communication advisor.
+
+Analyze a participant's responses from the Executive Presence Simulation Index (EPSI).
+
+Assessment Purpose:
+Measure executive presence through forced trade-off leadership scenarios.
+
+Dimensions to evaluate:
+
+1. Gravitas
+2. Communication Precision
+3. Influence Confidence
+4. Composure Under Challenge
+5. Seniority Readiness
+
+You will receive:
+- questions
+- options selected
+- dimension tags
+- scoring weights
+
+Generate a premium executive coaching report.
+
+The tone should be:
+Professional, insightful, aspirational, high-end executive coaching style.
+
+Return report in JSON format:
+
+{
+  ""assessmentName"": ""Executive Presence Simulation Index (EPSI)"",
+  ""overallScore"": 0,
+  ""executivePresenceLevel"": """",
+  ""headlineSummary"": """",
+  ""dimensionScores"": {
+    ""gravitas"": 0,
+    ""communicationPrecision"": 0,
+    ""influenceConfidence"": 0,
+    ""composureUnderChallenge"": 0,
+    ""seniorityReadiness"": 0
+  },
+  ""topStrengths"": [
+    """",
+    """",
+    """"
+  ],
+  ""blindSpots"": [
+    """",
+    """",
+    """"
+  ],
+  ""leadershipSignalsYouProject"": [
+    """",
+    """",
+    """"
+  ],
+  ""promotionReadinessView"": """",
+  ""coachRecommendations"": [
+    """",
+    """",
+    """",
+    """"
+  ],
+  ""30DayImprovementPlan"": [
+    """",
+    """",
+    """",
+    """"
+  ],
+  ""quoteForParticipant"": """"
+}
+
+Scoring Guidance:
+
+90-100 = Strong Executive Presence
+75-89 = Emerging Executive Presence
+60-74 = Developing Presence
+Below 60 = Hidden Potential, Needs Refinement
+
+Make insights specific and premium.
+No generic advice.
+No markdown.
+Return JSON only.","You are an expert executive coach, leadership psychologist, and assessment designer.
+
+Generate [NO_OF_QUESTIONS] premium-quality assessment questions for the test:
+
+Executive Presence Simulation Index (EPSI)
+
+Purpose:
+Measure executive presence using forced trade-off leadership scenarios.
+
+Definition:
+Executive Presence is the ability to inspire confidence that one can lead at higher levels through gravitas, clarity, confidence, composure, and executive judgment.
+
+Render Type:
+forced-trade-off
+
+Question Requirements:
+
+1. Each question must present a realistic leadership scenario involving:
+- executive meetings
+- stakeholder pushback
+- leadership communication
+- ambiguity
+- pressure moments
+- visibility situations
+- board/senior leadership interactions
+- difficult leadership choices
+
+2. Each question must contain exactly 2 options.
+
+3. BOTH options must be credible and professionally reasonable.
+
+4. There must NOT be an obvious right answer.
+
+5. The choice should reveal leadership tendencies.
+
+6. Options should reflect trade-offs such as:
+- detail vs brevity
+- diplomacy vs firmness
+- speed vs certainty
+- empathy vs decisiveness
+- authority vs collaboration
+- calmness vs urgency
+
+7. Rotate across dimensions:
+- Gravitas
+- Communication Precision
+- Influence Confidence
+- Composure Under Challenge
+- Seniority Readiness
+
+8. Difficulty should vary from moderate to advanced.
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-executive-presence-epsi"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""During a board review, your recommendation is challenged unexpectedly. What do you do first?"",
+    ""questionType"": ""forced-trade-off"",
+    ""renderStyle"": ""forced-trade-off"",
+    ""options"": [
+      {
+        ""label"": ""Respond immediately with supporting detail to defend your recommendation."",
+        ""value"": ""detail_defense""
+      },
+      {
+        ""label"": ""Pause briefly, acknowledge the concern, then restate the strategic rationale clearly."",
+        ""value"": ""composed_reframe""
+      }
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""behavioral-weighted"",
+    ""tags"": [""executive_presence"",""gravitas"",""boardroom""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3
+  }
+]
+
+No markdown.
+No explanation.
+Return JSON only.",published,true,86b1b02e-cd11-46c0-9f32-0c60b9f6b6cc,promoted,4c12fa92-29b0-4909-a3c7-14242f6704fb,approved,published,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-15T08:58:22.353Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-executive-presence-simulation-index-epsi%2Fcover.jpg?alt=media&token=7b343a1b-b7a5-4a62-828f-97c67c8ec4f8,assessments/coaching-studio/coaching-studio-executive-presence-simulation-index-epsi/cover.jpg,"Executive Presence is the ability to inspire confidence that you can lead at higher levels. It is reflected not in titles or charisma, but in how you communicate, decide, and respond under pressure.
+
+The Executive Presence Simulation Index (EPSI) evaluates how you naturally operate in executive moments through realistic leadership trade-off scenarios.
+
+The assessment measures five critical dimensions of executive presence:
+
+🔹 Gravitas
+
+Your calm confidence, judgment, and steadiness under pressure.
+
+🔹 Communication Precision
+
+Your ability to be concise, clear, and executive-level in messaging.
+
+🔹 Influence Confidence
+
+How strongly you project credibility, authority, and trust.
+
+🔹 Composure Under Challenge
+
+How you respond when questioned, challenged, or under scrutiny.
+
+🔹 Seniority Readiness
+
+How ready your thinking and behavior appear for larger leadership responsibilities.
+
+Participants respond to forced-choice scenarios where both options are credible, revealing real behavioral tendencies rather than aspirational self-ratings.",Do you make your presence felt ? Lets find out.,2026-05-13T08:43:49.680Z,,,,,2026-05-13T08:43:49.700Z
+coaching-studio-leader-as-coach,coaching-studio,"[""coaching-studio""]",Leader as Coach,"Measure how effectively you develop people through questioning, feedback, empowerment, accountability, and growth-focused leadership conversations.
+
+The Coaching Leadership Style Index (CLSI) assesses how effectively you lead through coaching behaviors rather than over-directing or over-solving.
+
+This assessment uses realistic leadership trade-off scenarios to reveal your natural coaching tendencies and developmental impact.
+
+It is informed by proven coaching and leadership models including:
+
+Popular Models Referenced
+🔹 GROW Coaching Model
+
+Goal, Reality, Options, Will
+
+🔹 Situational Leadership
+
+Different people need different levels of direction and support.
+
+🔹 Socratic Coaching Approach
+
+Use questions to unlock thinking.
+
+🔹 Feedback for Growth Models
+
+Clear, timely, developmental feedback.
+
+🔹 Leader as Coach Philosophy
+
+Build capability, not dependency.
+
+Dimensions Measured
+🔹 Empowerment Orientation
+
+Building ownership instead of dependency.
+
+🔹 Questioning Skill
+
+Using inquiry to stimulate thinking.
+
+🔹 Development Focus
+
+Long-term growth vs short-term fixes.
+
+🔹 Accountability Coaching
+
+Holding standards while supporting growth.
+
+🔹 Feedback Quality
+
+Giving clear, useful developmental feedback.
+
+🔹 Empathy Balance
+
+Supporting without rescuing.
+
+🔹 Coaching Adaptability
+
+Adjusting style to experience and readiness.","Key Takeaways
+
+After completing CLSI, participants receive:
+
+✅ Coaching Leadership Score
+
+Your capability benchmark as a people developer.
+
+✅ Coaching Style Profile
+
+How you naturally coach and develop others.
+
+✅ Growth Impact Insight
+
+How your style affects employee capability and confidence.
+
+✅ Blind Spot Detection
+
+Examples:
+
+solving too quickly
+avoiding hard accountability
+over-questioning without direction
+rescuing instead of empowering
+✅ Development Priorities
+
+Specific coaching habits to improve.
+
+✅ Leadership Value
+
+Coaching leaders scale stronger teams.",leadership-style,forced-trade-off,development-template,2,20,5,"You are a world-class executive coach, leadership advisor, and people development specialist.
+
+Analyze participant responses for:
+
+Coaching Leadership Style Index (CLSI)
+
+Generate a balanced developmental report.
+
+
+
+Also determine:
+- Coaching Style Profile
+- Team growth impact
+- Leadership scalability signals
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Coaching Leadership Style Index (CLSI)"",
+  ""overallScore"": 0,
+  ""coachingLevel"": """",
+  ""summary"": """",
+  ""coachingStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Scoring / Report Model
+Option Mapping Logic
+
+Each answer option contributes weighted points to one or more dimensions.
+
+{
+  ""optionA"": {
+    ""feedbackQuality"": 4,
+    ""speedOrientation"": 3
+  },
+  ""optionB"": {
+    ""questioningSkill"": 5,
+    ""empowermentOrientation"": 5
+  }
+}
+Weighted Formula
+Dimension Score = earned points / max possible × 100
+Overall Score = weighted average of dimensions
+Suggested Weighting
+Dimension	Weight
+Empowerment Orientation	18%
+Accountability Coaching	16%
+Development Focus	16%
+Feedback Quality	14%
+Questioning Skill	14%
+Coaching Adaptability	12%
+Empathy Balance	10%
+
+Scoring Levels:
+
+90-100 = High-Impact Coaching Leader
+75-89 = Strong People Developer
+60-74 = Developing Coaching Capability
+Below 60 = Growth Needed in Coaching Leadership
+
+Based on the analysis, refer to the following styles to comment on the assessee's Style of Leadership as a coach
+
+Coaching Style Profiles
+1. Developer Coach
+
+Strong growth builder.
+
+2. Supportive Mentor
+
+High empathy, softer accountability.
+
+3. Directive Fixer
+
+Solves fast, develops less.
+
+4. Balanced Coach Leader
+
+Strong support + standards.
+
+5. Emerging Coach
+
+Intent present, inconsistent habits.
+
+Return JSON only.","You are an expert executive coach, leadership development specialist, and organizational psychologist.
+
+Generate [NO_OF_QUESTIONS] premium-quality assessment questions for:
+
+Coaching Leadership Style Index (CLSI)
+
+Purpose:
+Measure people-development leadership effectiveness using forced trade-off scenarios.
+
+Render Type:
+forced-trade-off
+
+Question Requirements:
+
+1. Each question must present realistic leadership situations involving:
+- underperformance
+- employee growth conversations
+- delegation
+- confidence issues
+- feedback moments
+- high potential talent
+- missed deadlines
+- capability building
+- motivation issues
+- ownership gaps
+
+2. Each question must have exactly 2 options.
+
+3. BOTH options must be professionally credible.
+
+4. No obvious right answer.
+
+5. Choices must reveal coaching tendencies.
+
+6. Trade-offs should include:
+- advise vs ask
+- support vs challenge
+- empathy vs accountability
+- speed vs development
+- direct solution vs guided discovery
+- autonomy vs supervision
+
+7. Rotate across dimensions:
+- Empowerment Orientation
+- Questioning Skill
+- Development Focus
+- Accountability Coaching
+- Feedback Quality
+- Empathy Balance
+- Coaching Adaptability
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-coaching-style-clsi"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""A capable employee asks how to solve a recurring issue. What do you do first?"",
+    ""questionType"": ""forced-trade-off"",
+    ""renderStyle"": ""forced-trade-off"",
+    ""options"": [
+      {
+        ""label"": ""Explain the best solution clearly so they can act quickly."",
+        ""value"": ""advise_solution""
+      },
+      {
+        ""label"": ""Ask questions that help them identify options themselves."",
+        ""value"": ""guided_discovery""
+      }
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""behavioral-weighted"",
+    ""tags"": [""coaching_style"",""questioning_skill""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3
+  }
+]
+
+Return JSON only.
+No markdown.
+No explanation.",published,true,86b1b02e-cd11-46c0-9f32-0c60b9f6b6cc,promoted,4c12fa92-29b0-4909-a3c7-14242f6704fb,approved,published,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-16T11:32:17.594Z,,,"You will face realistic people-leadership situations involving underperformance, growth potential, confidence issues, delegation, feedback, and team development.
+
+Each scenario presents two professionally credible responses.
+
+Choose the option that most closely reflects how you would naturally lead.
+
+There are no perfect answers.
+
+Strong coaching leaders balance:
+
+support vs challenge
+advice vs questions
+speed vs development
+empathy vs accountability
+ownership vs control
+
+Your responses reveal how you grow people in real leadership moments.","Modern leaders are expected not only to deliver results, but to grow people.",2026-05-13T08:42:24.387Z,,,,,2026-05-13T08:42:24.401Z
+coaching-studio-noise-vs-clarity,coaching-studio,"[""coaching-studio""]",Noise Vs Clarity,"Cut through the noise. Focus on what truly matters.
+
+The Clarity vs Noise assessment evaluates your ability to distinguish between signal and distraction in complex leadership environments.
+
+Modern leaders are constantly exposed to information overload—data, opinions, urgency, and competing priorities. The real differentiator is not access to information, but the ability to filter, prioritize, and act on what truly matters.
+
+This assessment measures your Clarity Quotient—your ability to identify meaningful signals, eliminate noise, and make focused, high-quality decisions under pressure.","Participant Benefits (Key Takeaways)
+
+Sharper thinking. Better decisions. Stronger leadership impact.
+
+🔹 1. Clarity on Your Decision-Making Style
+
+Understand how you process information under pressure and complexity.
+
+🔹 2. Your Clarity Quotient (CQ)
+
+A measurable score that reflects your ability to separate signal from noise.
+
+🔹 3. Identification of Strategic Blind Spots
+
+Discover patterns such as:
+
+Over-indexing on irrelevant data
+Missing critical signals
+Getting distracted by urgency over importance
+🔹 4. Improved Prioritization Skills
+
+Learn how to focus on high-impact inputs and ignore distractions.
+
+🔹 5. Better Leadership in High-Stakes Situations
+
+Enhance your ability to:
+
+Make decisions faster
+Stay composed under pressure
+Align teams around what matters
+🔹 6. Actionable Development Insights
+
+Receive practical guidance to improve:
+
+Strategic thinking
+Focus
+Information filtering
+🔹 7. Foundation for Advanced Leadership Capability
+
+This assessment builds a core leadership muscle:
+👉 Clarity in complexity",self-awareness,instant-feedback-multi-choice,development-template,2,11,3,"You are a Strategic Clarity Analyst. A leader has just completed the Clarity & Noise Filter assessment.
+
+Below are their scenario-by-scenario results showing which items they correctly identified as strategic signals, which signals they missed, and which noise items they incorrectly treated as signals.
+
+Using this data, produce your analysis using the following framework:
+
+SIGNAL DETECTION RATE: Calculate the percentage of total true signals the participant correctly identified across all scenarios.
+
+CLARITY ARCHETYPE: Assign one of these three profiles based on their pattern:
+- ""The Laser"" — found most signals, dismissed most noise (Signal rate >80%, false positives <2)
+- ""The Firefighter"" — found signals but also kept a lot of noise (high false positives)
+- ""The Overlooker"" — missed critical signals while being overly cautious (Signal rate <50%)
+
+NOISE VULNERABILITY: Identify which category of noise they most consistently failed to dismiss (e.g., administrative clutter, competitor FOMO, emotional urgency, vanity metrics).
+
+Map your analysis to the output fields as follows:
+- summary: 2-sentence overview including their Clarity Archetype and Signal Detection Rate as a percentage
+- strengths: types of signals they consistently spotted correctly (list each as a short phrase)
+- blindSpots: the noise patterns they fell for AND the signal types they missed (list each as a short phrase)
+- recommendations: 3 targeted focus areas to sharpen their filtering (short phrases)
+- nextActions: 1 specific, concrete habit change to implement this week to reduce noise intake
+
+Tone: Clinical, sharp, senior-leader level. No generic advice.","You are a Strategic Operations Expert.
+
+Generate a JSON assessment for ""Strategic Clarity & Noise Filtering.""
+
+Objective:
+Test whether a leader can identify the true strategic signals inside a high-pressure information-overload scenario.
+
+Input:
+question_count = [NO_OF_QUESTIONS]
+
+Output rules:
+- Return ONLY valid JSON.
+- Do not include markdown fences.
+- Do not include commentary, notes, or explanations outside the JSON.
+- Generate exactly `question_count` questions.
+- Each question must contain exactly 6 options.
+- Exactly 3 options must be true strategic signals.
+- Exactly 3 options must be non-signals.
+- The 3 non-signals must include:
+  - 1 Noise,
+  - 1 Symptom,
+  - 1 Red Herring.
+- Each question must include a `correct_answers` array containing the labels of the 3 Signal options.
+- All options must be plausible and realistic.
+- The scenario must be leadership-focused and high-pressure.
+- Avoid repeated themes across questions.
+- IDs must be CA01, CA02, CA03... in sequence.
+- Use only the schema below.
+- Do not add extra fields.
+
+Required JSON schema:
+
+{
+  ""questions"": [
+    {
+      ""context"": ""Your inbox on Monday morning contains 24 items. You have one hour before your first meeting."",
+      ""items"": [
+        { ""label"": ""Message from CEO about Q3 strategy shift"", ""isSignal"": true },
+        { ""label"": ""Auto-reply confirming a calendar invite"", ""isSignal"": false },
+        { ""label"": ""Customer complaint escalated by Sales"", ""isSignal"": true },
+        { ""label"": ""System-generated weekly report (unread for 3 weeks)"", ""isSignal"": false }
+      ]
+    }
+  ]
+}",published,,,,,,published,public,tenant,,superadmin,superadmin,2026-04-28T15:08:14.405Z,,,"Assessment Context (How it Works)
+
+A simulation of real-world leadership complexity.
+
+You will be presented with a series of realistic leadership scenarios such as:
+
+Business reviews
+Stakeholder updates
+Crisis situations
+Strategic decisions
+
+Each scenario includes a mix of:
+
+Relevant signals (critical information)
+Irrelevant noise (distractions, low-value inputs, emotional triggers)
+Your Task:
+
+👉 Identify and remove the noise
+
+You will click on elements you believe are noise
+The remaining elements represent what you consider signal
+What the System Measures:
+Your ability to filter distractions
+Your sensitivity to what truly matters
+Your tendency to over-filter or under-filter
+Your decision clarity under ambiguity
+Output:
+
+At the end of the assessment, you will receive:
+
+Your Clarity Quotient (CQ)
+Your decision-making profile
+Your strategic blind spots
+Insights into how you process complexity",Cut through the noise. Focus on what truly matters.,2026-04-28T15:08:14.405Z,,,,,2026-04-28T15:08:14.405Z
+coaching-studio-reflection-style,coaching-studio,"[""coaching-studio""]",Reflection Style,"The Reflect Your Style assessment is designed to help you identify your dominant leadership approach based on Goleman’s Leadership Styles. It reveals how you communicate, make decisions, and engage with others in professional settings.
+
+By analyzing your responses across different scenarios, this assessment provides a clear view of your instinctive leadership patterns—whether you tend to inspire with vision, develop individuals, drive performance, or build consensus.
+
+This is not about labeling you into a box, but about increasing self-awareness so you can lead more intentionally and effectively.","Actionable insights you can immediately apply in your leadership journey.
+
+After completing the assessment, you will gain:
+
+🔹 1. Clarity on Your Natural Leadership Style
+
+Understand your default leadership approach and how it shows up in real situations.
+
+🔹 2. Awareness of Strengths and Blind Spots
+
+Identify where your style is effective—and where it may limit your impact.
+
+🔹 3. Situational Flexibility Insights
+
+Learn when to lean into your natural style and when to adapt based on context.
+
+🔹 4. Personalized Development Guidance
+
+Receive targeted recommendations to help you expand your leadership range.
+
+🔹 5. Improved Team & Stakeholder Engagement
+
+Better understand how your style influences:
+
+Team motivation
+Decision-making
+Collaboration
+🔹 6. Foundation for Coaching & Growth
+
+This assessment becomes a baseline for:
+
+Coaching conversations
+Leadership development plans
+Progress tracking over time",self-awareness,single-choice,development-template,5,20,3,"You are a world-class Executive Coach and Psychometric Analyst. Your task is to analyze a leader's responses to a Reflection Style Assessment and generate a professional, insightful, and encouraging report.
+
+The Analysis Framework:
+
+Visionary: Inspires through a shared mission.
+
+Coaching: Develops people for the long term.
+
+Democratic: Builds consensus through participation.
+
+Pacesetter: Expects excellence and self-direction.
+
+Input Provided:
+
+A JSON object of the questions and the user's selected options (including the 'style' tag for each selection).
+
+The user's name: [USER_NAME].
+
+Output Requirements (JSON Format):
+
+Primary_Style: The style they chose most often.
+
+Secondary_Style: Their ""back-up"" style.
+
+Executive_Summary: A 100-word summary of their leadership ""DNA.""
+
+The_Shadow_Side: A gentle warning about the risks of their dominant style (e.g., Pacesetters can cause burnout).
+
+Growth_Actions: 3 specific, actionable steps to balance their leadership.
+
+The_Closing_Hook: A sentence that encourages them to book a session with their coach to dive deeper.
+
+Tone: Sophisticated, empathetic, and authoritative. Return ONLY JSON.","Role: You are a Senior Psychometrician specializing in Goleman’s Leadership Styles.
+
+Task: Generate a JSON-formatted diagnostic assessment to identify a user's dominant Leadership Style.
+
+The Four Styles to Measure:
+
+Visionary: Focuses on the ""Why,"" inspires with a shared dream.
+
+Coaching: Focuses on personal development and long-term potential.
+
+Democratic: Focuses on consensus, collaboration, and ""What do you think?""
+
+Pacesetter: Focuses on high standards, speed, and ""Do as I do, now.""
+
+Requirements:
+
+Count: Generate exactly [INSERT_NUMBER_HERE] questions.
+
+Balance: Ensure the questions are perfectly balanced across these categories: Crisis Management, Team Development, Strategy Planning, and Daily Operations.
+
+Options: Each question must have exactly 4 options. Each option MUST correspond to one of the four styles listed above.
+
+Tone: Professional, corporate, yet accessible. Scenarios should feel like modern high-pressure business environments.
+
+Output Format: Return ONLY a valid JSON object. No conversational text.
+
+Schema:
+
+JSON
+
+{
+  ""tool_name"": ""Leadership Reflection Style"",
+  ""version"": ""2.0"",
+  ""data"": [
+    {
+      ""question_id"": 1,
+      ""scenario_context"": ""Category: Crisis Management. A critical delivery has been delayed by a week, and the client is furious."",
+      ""question_text"": ""How do you lead the emergency meeting?"",
+      ""options"": [
+        { ""text"": ""Reiterate our mission to be the most reliable partner and inspire the team to find a breakthrough."", ""style"": ""Visionary"" },
+        { ""text"": ""Work 1-on-1 with the project lead to identify their blind spots in this process."", ""style"": ""Coaching"" },
+        { ""text"": ""Open the floor to the team to brainstorm the best workaround together."", ""style"": ""Democratic"" },
+        { ""text"": ""Set a strict 24-hour turnaround for a fix and take personal charge of the communication."", ""style"": ""Pacesetter"" }
+      ]
+    }
+  ]
+}",draft,false,,none,,none,unpublished,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-15T08:55:02.345Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-reflection-style%2Fcover.jpg?alt=media&token=5534e04d-4563-4d47-ab54-87e4322d1c1a,assessments/coaching-studio/coaching-studio-reflection-style/cover.jpg,"A structured reflection experience based on real-world leadership scenarios.
+
+You will be presented with a series of situational questions that reflect everyday leadership challenges—such as decision-making, team alignment, performance management, and communication.
+
+For each scenario, you will choose the response that most closely reflects how you would naturally act.
+
+Each response maps to one of the four leadership styles:
+
+Visionary → Inspiring direction and purpose
+Coaching → Developing people for the future
+Democratic → Building alignment through collaboration
+Pacesetter → Driving performance through high standards
+
+At the end of the assessment, your responses are analyzed to determine:
+
+Your dominant leadership style
+Your secondary influencing style
+Your situational tendencies",Creating space for leaders to step back from daily execution and reflect deeply on their leadership impact.,,,,,,2026-05-13T08:45:21.820Z
+coaching-studio-stakeholder-influence-index-sii,coaching-studio,"[""coaching-studio""]",Stakeholder Influence Index (SII),"Success in leadership is rarely achieved through authority alone. It depends on your ability to navigate stakeholders with different priorities, personalities, power levels, and agendas.
+
+The Stakeholder Influence Index (SII) measures how effectively you engage, align, and influence internal and external stakeholders in complex environments.
+
+This assessment evaluates the practical behaviors that enable leaders to gain support, reduce friction, and move initiatives forward.","After completing the assessment, participants receive:
+✅ Stakeholder Influence Score
+
+Your overall capability benchmark.
+
+✅ Dimension Breakdown
+
+Scores across trust, influence, alignment, political awareness, communication, and conflict navigation.
+
+✅ Relationship Risk Alerts
+
+Identify patterns that may damage stakeholder trust or buy-in.
+
+✅ Influence Style Profile
+
+How you typically gain support and move agendas.
+
+✅ Blind Spot Insights
+
+Examples:
+
+Avoiding difficult stakeholders
+Over-communicating to some, under-engaging others
+Low political awareness
+✅ Practical Leadership Actions
+
+Clear steps to strengthen stakeholder effectiveness immediately.
+
+✅ Career Growth Advantage
+
+Strong stakeholder management is often a promotion accelerator.",self-awareness,likert-rating-scale,executive-coaching-premium-template,2,20,5,"You are a world-class executive coach, leadership advisor, and stakeholder influence specialist.
+
+Analyze a participant's responses for:
+
+Stakeholder Influence Index (SII)
+
+Dimensions:
+
+1. Relationship Capital
+2. Influence Without Authority
+3. Political Awareness
+4. Alignment Creation
+5. Conflict Navigation
+6. Strategic Communication
+
+You will receive:
+- questions
+- selected ratings
+- reverse scoring flags
+- tags
+- weights
+
+Generate a premium executive coaching report.
+
+Return JSON format:
+
+{
+  ""assessmentName"": ""Stakeholder Influence Index (SII)"",
+  ""overallScore"": 0,
+  ""stakeholderEffectivenessLevel"": """",
+  ""headlineSummary"": """",
+  ""dimensionScores"": {
+    ""relationshipCapital"": 0,
+    ""influenceWithoutAuthority"": 0,
+    ""politicalAwareness"": 0,
+    ""alignmentCreation"": 0,
+    ""conflictNavigation"": 0,
+    ""strategicCommunication"": 0
+  },
+  ""influenceStyleProfile"": """",
+  ""topStrengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""relationshipRisks"": ["""","""",""""],
+  ""coachRecommendations"": ["""","""","""",""""],
+  ""30DayActionPlan"": ["""","""","""",""""],
+  ""promotionImpactView"": """",
+  ""quoteForParticipant"": """"
+}
+
+Scoring Levels:
+
+90-100 = Exceptional Stakeholder Influence
+75-89 = Strong Stakeholder Effectiveness
+60-74 = Developing Influence Capability
+Below 60 = Needs Strategic Relationship Growth
+
+Classify the accesssee as 
+
+1. Trusted Influencer
+High trust + alignment + communication
+2. Quiet Contributor
+Strong relationships, low influence assertion
+3. Political Navigator
+Strong awareness, mixed trust signals
+4. Transactional Operator
+Gets tasks done, weaker relationship capital
+5. Emerging Influencer
+Growing capability, inconsistent execution
+Make recommendations practical and senior-level.
+No generic HR language.
+Give a production-grade, professional report. 
+Return JSON only.","You are an expert executive coach, organizational psychologist, and leadership assessment designer.
+
+Generate [NO_OF_QUESTIONS] premium-quality questions for the assessment:
+
+Stakeholder Influence Index (SII)
+
+Purpose:
+Measure stakeholder management capability using Likert scale responses.
+
+Render Type:
+likert
+
+Scale:
+1 = Strongly Disagree
+2 = Disagree
+3 = Neutral
+4 = Agree
+5 = Strongly Agree
+
+Question Requirements:
+
+1. Create realistic workplace behavior statements related to:
+- managing stakeholders
+- cross-functional collaboration
+- influence without authority
+- navigating politics
+- handling resistance
+- executive communication
+- trust building
+- expectation management
+- alignment creation
+- difficult conversations
+
+2. Statements should measure actual behavior tendencies, not knowledge.
+
+3. Include both positive and reverse-scored statements.
+
+4. Rotate across dimensions:
+- Relationship Capital
+- Influence Without Authority
+- Political Awareness
+- Alignment Creation
+- Conflict Navigation
+- Strategic Communication
+
+5. Tone should feel executive and professional.
+
+6. Avoid obvious virtue-signaling questions.
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-stakeholder-influence-index"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""I proactively build relationships with stakeholders before I need their support."",
+    ""questionType"": ""likert"",
+    ""renderStyle"": ""likert"",
+    ""options"": [
+      {""label"":""Strongly Disagree"",""value"":1},
+      {""label"":""Disagree"",""value"":2},
+      {""label"":""Neutral"",""value"":3},
+      {""label"":""Agree"",""value"":4},
+      {""label"":""Strongly Agree"",""value"":5}
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""weighted-likert"",
+    ""tags"": [""stakeholder_management"",""relationship_capital""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3,
+    ""reverseScored"": false
+  }
+]
+
+Return JSON only.
+No markdown.
+No explanation.",draft,false,,none,,none,unpublished,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-16T05:53:16.254Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-stakeholder-influence-index-sii%2Fcover.jpg?alt=media&token=cca5d43d-be2a-4425-992d-1040d673a204,assessments/coaching-studio/coaching-studio-stakeholder-influence-index-sii/cover.jpg,"Core Dimensions Measured:
+🔹 Relationship Capital
+
+Your ability to build trust and credibility over time.
+
+🔹 Influence Without Authority
+
+Your effectiveness when leading people you do not control directly.
+
+🔹 Political Awareness
+
+Your ability to read stakeholder dynamics, interests, and sensitivities.
+
+🔹 Alignment Creation
+
+How well you create shared ownership and commitment.
+
+🔹 Conflict Navigation
+
+How effectively you handle resistance, disagreement, and tension.
+
+🔹 Strategic Communication
+
+Your ability to tailor messaging to different stakeholders.
+
+The assessment uses a Likert scale to evaluate real-world stakeholder behaviors rather than theoretical knowledge.
+
+For each statement, rate how accurately it reflects your typical behavior using the scale:
+
+Strongly Disagree
+Disagree
+Neutral
+Agree
+Strongly Agree
+
+There are no perfect answers. The goal is to understand your natural patterns in how you manage influence, alignment, resistance, and stakeholder relationships.
+
+Your responses will generate a stakeholder effectiveness profile, key strengths, blind spots, and development recommendations.","Measure how effectively you build trust, align priorities, manage competing interests, and influence key stakeholders across the organization.",,,,,,2026-05-13T08:41:28.974Z
+coaching-studio-strategic-problem-solving-decision-intel,coaching-studio,"[""coaching-studio"",""recruitment-studio""]",Strategic Problem Solving & Decision Intelligence Index (SPSDI),"The Strategic Problem Solving & Decision Intelligence Index (SPSDI) measures a leader’s ability to:
+
+Break down complex, ambiguous problems
+Identify root causes vs symptoms
+Navigate trade-offs under pressure
+Apply structured thinking while maintaining adaptability
+Make timely, high-quality decisions","Participants will receive:
+
+✅ A quantified Problem Solving Capability Score
+✅ A clear decision-making style profile
+✅ Insight into cognitive biases and blind spots
+✅ Strength identification (what to double down on)
+✅ Targeted improvement recommendations
+✅ Real-world application guidance
+✅ Executive-level developmental insights",leadership-style,single-choice,diagnostic-template,2,40,5,"You are an executive coach and leadership psychologist.
+
+Analyze the participant's responses from the ""Strategic Problem Solving & Decision Intelligence Index (SPSDI)"".
+
+Your goal is to generate a premium, coaching-grade report.
+
+Evaluate:
+- Problem structuring ability
+- Root cause orientation
+- Decision-making trade-offs
+- Systems thinking
+- Speed vs rigor balance
+
+Return JSON in the following format:
+
+{
+  ""summary"": ""Concise executive-level summary of the participant’s problem-solving capability"",
+  ""strengths"": [""List of key strengths""],
+  ""blindSpots"": [""List of critical blind spots""],
+  ""recommendations"": [""Practical and high-impact recommendations""],
+  ""nextActions"": [""Clear, actionable next steps""],
+  ""score"": 78,
+  ""profileType"": ""e.g., Structured Strategist / Reactive Operator / Analytical Overthinker / Decisive Driver""
+}
+
+Ensure:
+- Tone is premium and insight-driven
+- Avoid generic advice
+- Focus on real leadership impact
+- Make insights feel personalized and sharp
+
+Scoring Model
+Weighted Dimensions
+
+Each response maps to one or more dimensions:
+
+Dimension	Weight
+Problem Structuring	20%
+Root Cause Thinking	20%
+Decision Trade-offs	20%
+Systems Thinking	15%
+Analytical vs Speed Balance	15%
+Hypothesis Thinking	10%
+Scoring Logic
+Each option carries a dimension score (1–5)
+Aggregate across all questions
+Normalize to 0–100 scale
+Score Interpretation
+Score Range	Level
+85–100	Executive-Level Problem Solver
+70–84	Advanced Strategic Thinker
+55–69	Developing Problem Solver
+<55	Reactive / Tactical Thinker
+
+Return a JSON object only","You are an expert in leadership assessment design, executive coaching, and strategic problem-solving.
+
+Create [NO_OF_QUESTIONS] high-quality scenario-based questions for the assessment:
+
+""Strategic Problem Solving & Decision Intelligence Index (SPSDI)""
+
+Guidelines:
+- Each question must simulate a realistic leadership/business scenario
+- Focus on ambiguity, competing priorities, and decision trade-offs
+- Avoid obvious right answers
+- Each option should represent a distinct thinking style
+- Use Forced Trade-off format
+- Ensure executive-level tone (no generic HR language)
+
+Return JSON in the following format:
+
+[
+{
+  ""assessmentId"": ""SPSDI"",
+  ""tenantId"": ""coaching-studio"",
+  ""displayOrder"": 1,
+  ""questionText"": ""You are leading a cross-functional initiative that is behind schedule due to unclear ownership. What do you prioritize first?"",
+  ""questionType"": ""scenario"",
+  ""renderStyle"": ""forced_tradeoff"",
+  ""options"": [
+    ""Clarify ownership immediately to drive accountability"",
+    ""Analyze root causes of delays before assigning ownership"",
+    ""Push teams to accelerate delivery regardless of structure"",
+    ""Escalate to leadership for intervention and alignment""
+  ],
+  ""correctAnswers"": [],
+  ""scoringRule"": ""Map each option to problem-solving dimensions such as structuring, root cause thinking, urgency bias, and escalation tendency"",
+  ""tags"": [""problem_structuring"", ""decision_making"", ""leadership""],
+  ""imageUrl"": """",
+  ""imageDescription"": """",
+  ""isActive"": true,
+  ""weight"": 3
+}
+]",published,,,,,,published,public,tenant,,superadmin,superadmin,2026-04-28T15:07:44.957Z,,,"You will be presented with a series of real-world leadership scenarios involving ambiguity, competing priorities, and incomplete information.
+
+For each scenario:
+
+You will choose between multiple equally plausible approaches
+Each option reflects a different problem-solving style or decision bias
+
+There are no perfect answers.
+
+Respond based on how you would actually behave in a real situation, not what seems ideal.
+
+At the end, you will receive:
+
+A Problem Solving Intelligence Score
+Your leadership problem-solving profile
+Key strengths and blind spots
+Practical recommendations to elevate your decision-making","Evaluates how effectively a leader diagnoses problems, navigates complexity, and makes high-stakes decisions under uncertainty.",2026-04-28T15:07:44.957Z,,,,,2026-04-28T15:07:44.957Z
+coaching-studio-team-leadership-effectiveness,coaching-studio,"[""coaching-studio""]",Team Leadership Effectiveness,"The Team Leadership Effectiveness Index (TLEI) assesses how effectively you lead people and teams to perform consistently while maintaining engagement and trust.
+
+The assessment evaluates leadership behaviors that create high-performing teams in modern organizations.
+
+It is informed by proven leadership models including:
+
+It is informed by proven leadership models including:
+
+Popular Models Referenced
+🔹 Patrick Lencioni – Five Dysfunctions of a Team
+
+Trust, conflict, commitment, accountability, results.
+
+🔹 Situational Leadership
+
+Different team members need different leadership styles.
+
+🔹 Gallup Engagement Principles
+
+Recognition, strengths, expectations, growth.
+
+🔹 Psychological Safety Research
+
+Teams perform better when people can speak openly.
+
+🔹 Coaching Leadership Models
+
+Developing capability, not just directing output.
+
+Dimensions Measured
+🔹 Direction & Clarity
+
+Setting priorities, expectations, goals.
+
+🔹 Accountability Leadership
+
+Holding standards and ownership.
+
+🔹 Coaching & Development
+
+Growing people capability.
+
+🔹 Motivation & Engagement
+
+Creating energy and commitment.
+
+🔹 Trust & Safety
+
+Creating openness and confidence.
+
+🔹 Delegation & Empowerment
+
+Enabling ownership, avoiding bottlenecks.
+
+🔹 Team Execution
+
+Driving follow-through and results.
+
+🔹 Conflict & Alignment
+
+Handling friction while preserving performance.","Key Takeaways
+
+After completing TLEI, participants receive:
+
+✅ Team Leadership Score
+
+Your benchmark as a people leader.
+
+✅ Leadership Style Profile
+
+How you naturally lead teams.
+
+✅ Strength Areas
+
+Where your leadership creates results and engagement.
+
+✅ Blind Spots
+
+Patterns reducing team effectiveness.
+
+✅ Team Climate Insight
+
+How your team may experience your leadership.
+
+✅ Development Priorities
+
+The most important leadership habits to improve.
+
+✅ Promotion Value
+
+Strong team leaders are highly promotable.",leadership-style,likert-rating-scale,capability-scorecard-template,2,20,5,"You are a world-class executive coach, leadership advisor, and team effectiveness specialist.
+
+Analyze participant responses for:
+
+Team Leadership Effectiveness Index (TLEI)
+
+Generate a balanced developmental report.
+
+
+
+Also identify:
+- Team Leadership Style Profile
+- Team climate impact
+- Promotion readiness signals
+
+Return JSON:
+
+{
+  ""assessmentName"": ""Team Leadership Effectiveness Index (TLEI)"",
+  ""overallScore"": 0,
+  ""leadershipLevel"": """",
+  ""summary"": """",
+  ""leadershipStyleProfile"": """",
+  ""strengths"": ["""","""",""""],
+  ""blindSpots"": ["""","""",""""],
+  ""recommendations"": ["""","""",""""],
+  ""nextActions"": ["""","""",""""]
+}
+
+Scoring / Report Model
+Likert Mapping
+Response	Score
+Strongly Disagree	1
+Disagree	2
+Neutral	3
+Agree	4
+Strongly Agree	5
+
+(Reverse-score negative items)
+
+Weighted Formula
+Dimension Score = earned / max × 100
+Overall Score = weighted average of dimensions
+Suggested Weighting
+Dimension	Weight
+Direction & Clarity	16%
+Accountability Leadership	16%
+Coaching & Development	14%
+Motivation & Engagement	14%
+Trust & Safety	12%
+Delegation & Empowerment	10%
+Team Execution	10%
+Conflict & Alignment	8%
+
+Scoring Levels:
+
+90-100 = High-Impact Team Leader
+75-89 = Strong Team Leader
+60-74 = Developing People Leader
+Below 60 = Growth Needed in Team Leadership
+
+Include the leadership style in your response. 
+
+Leadership Style Profiles
+1. Results Driver
+Strong execution, lower coaching.
+
+2. Coach Leader
+Strong growth focus, softer accountability.
+
+3. Balanced Builder
+Strong across people + performance.
+
+4. Empowering Leader
+Strong delegation and trust.
+
+5. Reactive Manager
+Inconsistent habits under pressure.
+
+Return JSON only.","You are an expert leadership coach, organizational psychologist, and people manager advisor.
+
+Generate [NO_OF_QUESTIONS] premium-quality questions for:
+
+Team Leadership Effectiveness Index (TLEI)
+
+Purpose:
+Measure people leadership effectiveness using Likert scale responses.
+
+Render Type:
+likert
+
+Scale:
+1 = Strongly Disagree
+2 = Disagree
+3 = Neutral
+4 = Agree
+5 = Strongly Agree
+
+Question Requirements:
+
+1. Create realistic leadership behavior statements involving:
+- managing teams
+- delegation
+- accountability
+- coaching employees
+- motivation
+- team conflict
+- alignment
+- recognition
+- underperformance
+- driving execution
+
+2. Statements must measure behavior tendencies, not theory.
+
+3. Include positive and reverse-scored items.
+
+4. Rotate across dimensions:
+- Direction & Clarity
+- Accountability Leadership
+- Coaching & Development
+- Motivation & Engagement
+- Trust & Safety
+- Delegation & Empowerment
+- Team Execution
+- Conflict & Alignment
+
+5. Tone should feel professional and leadership-focused.
+
+6. Avoid obvious virtue-signaling questions.
+
+Return ONLY valid JSON array using this schema:
+
+[
+  {
+    ""assessmentId"": ""coaching-studio-team-leadership-tlei"",
+    ""tenantId"": ""coaching-studio"",
+    ""displayOrder"": 1,
+    ""questionText"": ""My team clearly understands priorities and success expectations."",
+    ""questionType"": ""likert"",
+    ""renderStyle"": ""likert"",
+    ""options"": [
+      {""label"":""Strongly Disagree"",""value"":1},
+      {""label"":""Disagree"",""value"":2},
+      {""label"":""Neutral"",""value"":3},
+      {""label"":""Agree"",""value"":4},
+      {""label"":""Strongly Agree"",""value"":5}
+    ],
+    ""correctAnswers"": [],
+    ""scoringRule"": ""weighted-likert"",
+    ""tags"": [""team_leadership"",""direction_clarity""],
+    ""imageUrl"": """",
+    ""imageDescription"": """",
+    ""isActive"": true,
+    ""weight"": 3,
+    ""reverseScored"": false
+  }
+]
+
+Return JSON only.
+No markdown.
+No explanation.",published,true,f1e1ff12-dcc6-4eeb-8d71-340ca9569e7e,promoted,d251d64a-c39f-4411-9277-4d15fe8fd4ed,approved,published,public,tenant,,superadmin,ruDbHAYFqmWkMu8xwVDYYSXfZEp2,2026-04-16T11:32:41.155Z,,,"You will respond to statements about how you typically lead teams in workplace situations.
+
+Use the scale:
+
+Strongly Disagree
+Disagree
+Neutral
+Agree
+Strongly Agree
+
+There are no perfect answers.
+
+The goal is to understand your real team leadership habits, strengths, and development opportunities.
+
+Your responses generate a leadership effectiveness profile with actionable coaching insights.",Great results are rarely achieved by individuals alone. Measure how effectively you lead teams.,2026-05-03T11:41:41.983Z,,,,,2026-05-03T11:41:42.016Z
+coaching-studio-the-strategic-priority-engine,coaching-studio,,The Strategic Priority Engine,"Leaders are often faced with 5-7 ""good"" ideas, all of which seem urgent. The true strategic leader identifies which action is the Lead Domino—the one action that, once completed, makes all other tasks easier or unnecessary. This assessment presents complex, multi-layered business crises where every provided action is ""correct,"" but only one specific sequence prevents long-term failure.","Key Takeaways 
+
+The report generated by Groq will provide the coachee with:
+
+Your Priority Profile: Are you a ""Firefighter"" (reacting to urgency), a ""Visionary"" (ignoring the immediate crisis for the long term), or a ""High-Leverage Strategist""?
+
+The Sequencing Gap: A breakdown of why their chosen #1 might actually be a distraction from the true #1.
+
+The Lead Domino Principle: Specific feedback on which action would have created the most ""downstream"" benefit.
+
+Mental Model Integration: How to use the Eisenhower Matrix (Urgent vs. Important) to reframe their daily to-do list.",self-awareness,select-and-move,development-template,2,20,3,"Role: Executive Strategic Analyst.
+
+Instructions: You will be provided with a leadership scenario, the ""Master Answer Key"" (containing the strategic types and quadrants), and the ""User's Final Ranking.""
+
+Your Task: > 1. Compare the User's Rank #1 to the ""Master Answer Key"" Action labeled as Leverage/Q2.
+2. Evaluate if the user prioritized Urgent/Q3 (Noise) over Important/Q2 (Strategy).
+3. Use the Pareto Principle to explain why their top 2 choices either will or will not result in 80% of the desired impact.
+
+Input Data:
+
+Scenario: [SCENARIO_TEXT]
+
+Master Answer Key: [FULL_JSON_FROM_DATABASE_WITH_METADATA]
+
+User's Ranking: [LIST_OF_ACTION_IDS_IN_ORDER_USER_PLACED_THEM]
+
+Output Requirements:
+Return a JSON report with: Prioritization_Score, Archetype, Strategic_Logic_Review, and Growth_Recommendations.","Role: You are a Strategic Operations Consultant and Psychometric Architect.
+Task: Generate a JSON-formatted Strategic Prioritization Assessment for executive leaders.
+
+The Core Framework: > Questions must test the user's ability to apply the Eisenhower Matrix (distinguishing Urgent from Important) and the Pareto Principle (identifying the 20% of actions that yield 80% of results).
+
+Requirements:
+
+Scenario Count: Generate exactly [NO_OF_QUESTION] scenarios.
+
+Scenario Structure: Each scenario must be a 150-250 word ""Pressure Cooker"" situation involving overlapping operational, financial, and people-related crises.
+
+Actions per Scenario: Provide exactly 5 actions for each scenario.
+
+Strategic Calibration: Within those 5 actions, ensure there is:
+
+Action 1 (The Lever): High-Impact/Non-Urgent (The Pareto ""Signal"").
+
+Action 2 (The Fire): High-Impact/Highly Urgent (Eisenhower Quadrant 1).
+
+Action 3 (The Distraction): Low-Impact/Highly Urgent (The ""Noise"").
+
+Action 4 (The Support): Low-Impact/Not Urgent (Maintenance task).
+
+Action 5 (The Symptom): Medium Impact/Surface-level fix.
+
+Output: Return ONLY valid JSON.
+
+Schema:
+
+JSON
+{
+  ""tool_name"": ""Strategic Prioritization & Leverage"",
+  ""data"": [
+    {
+      ""id"": ""SP01"",
+      ""scenario_context"": ""[High-stakes scenario description]"",
+      ""actions"": [
+        { ""action_id"": ""A1"", ""text"": ""[Action text]"", ""strategic_type"": ""Leverage"", ""eisenhower_quadrant"": ""Q2"" },
+        { ""action_id"": ""A2"", ""text"": ""[Action text]"", ""strategic_type"": ""Tactical"", ""eisenhower_quadrant"": ""Q1"" },
+        { ""action_id"": ""A3"", ""text"": ""[Action text]"", ""strategic_type"": ""Distraction"", ""eisenhower_quadrant"": ""Q3"" },
+        { ""action_id"": ""A4"", ""text"": ""[Action text]"", ""strategic_type"": ""Administrative"", ""eisenhower_quadrant"": ""Q4"" },
+        { ""action_id"": ""A5"", ""text"": ""[Action text]"", ""strategic_type"": ""Symptomatic"", ""eisenhower_quadrant"": ""Q1"" }
+      ]
+    }
+  ]
+}",draft,,,,,,published,,tenant,,superadmin,superadmin,2026-04-15T08:55:27.468Z,https://firebasestorage.googleapis.com/v0/b/studioverse-test.firebasestorage.app/o/assessments%2Fcoaching-studio%2Fcoaching-studio-the-strategic-priority-engine%2Fcover.jpg?alt=media&token=be5e7e03-d7d9-412c-a953-9801cc227e48,assessments/coaching-studio/coaching-studio-the-strategic-priority-engine/cover.jpg,"How it Works & Analyzes
+The Mechanism:
+
+The Scenario: A 200-300 word ""Pressure Cooker"" paragraph (e.g., a sudden market shift + a key leadership exit + a PR crisis).
+
+The Actions: 5–6 high-quality, non-obvious actions.
+
+Example: One is a ""Symptom Fix"" (Quick win), one is a ""Structural Fix"" (Long-term), and one is a ""Stakeholder Management"" fix.
+
+The Interaction: The user uses a Drag-and-Drop interface to rank them from 1 (Highest Priority) to 6 (Lowest Priority).
+
+The Analysis (The Groq Logic):
+When the data is sent to Groq, the AI doesn't just look for ""Right vs. Wrong."" It analyzes the Logic of the Sequence:
+
+Tactical vs. Strategic: Did they put the ""Firefighting"" (Tactical) task first, or the ""Systemic Change"" (Strategic) task?
+
+Dependency Logic: Did they try to solve the PR crisis before fixing the internal product defect that caused it?
+
+Leverage Tally: The AI calculates a ""Leverage Score"" based on how many ""High Impact"" items were placed in the Top 2 slots.",Sequence-based decision-making and impact-driven leadership.,,,,,,2026-04-15T08:55:27.468Z

@@ -187,10 +187,13 @@ service cloud.firestore {
     match /cohortMembers/{memberId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSuperAdmin();
+      allow update: if isSuperAdmin()
+            || (isCompanyUser() && resource.data.companyId == request.auth.uid)
+            || (isProfessionalUser() && resource.data.professionalId == request.auth.uid);
       allow delete: if isSuperAdmin()
-                    || (isCompanyUser() && resource.data.companyId == request.auth.uid)
-                    || (isProfessionalUser() && resource.data.professionalId == request.auth.uid);
+            || (isCompanyUser() && resource.data.companyId == request.auth.uid)
+            || (isProfessionalUser() && resource.data.professionalId == request.auth.uid)
+            || (isSignedIn() && resource.data.addedByUserId == request.auth.uid);
     }
 
     // ── Cohort Assignments ─────────────────────────────────────────────────
@@ -245,6 +248,14 @@ service cloud.firestore {
       allow write:  if isSuperAdmin();
     }
 
+    // ── Earning Packages ───────────────────────────────────────────────────
+    // Unified reference data for all earning-related packages (Credit, Listing, Bot)
+    // per tenant. Scoped by tenantId document path.
+    match /earningPackages/{tenantId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
     // ── Categories ─────────────────────────────────────────────────────────
     // Platform-wide taxonomy used by Programs, Events, and Assessments.
     match /categories/{categoryId} {
@@ -255,6 +266,20 @@ service cloud.firestore {
     // ── Sub Categories ─────────────────────────────────────────────────────
     // Child taxonomy records linked to categories by categoryId.
     match /subCategories/{subCategoryId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
+    // ── Topics ─────────────────────────────────────────────────────────────
+    // Third-tier taxonomy records linked to subCategories and categories.
+    match /topics/{topicId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
+    // ── Languages ──────────────────────────────────────────────────────────
+    // Reference data: language codes and names used by Programs, Events, Assessments.
+    match /languages/{languageId} {
       allow read:   if isSignedIn();
       allow write:  if isSuperAdmin();
     }

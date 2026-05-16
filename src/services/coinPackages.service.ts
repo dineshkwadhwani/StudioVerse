@@ -34,6 +34,22 @@ function mapCoinPackage(id: string, data: Record<string, unknown>): CoinPackageR
     updatedAt: data.updatedAt as CoinPackageRecord["updatedAt"],
   };
 }
+export async function listCoinPackagesFromEarning(tenantId: string): Promise<CoinPackageRecord[]> {
+  try {
+    const snap = await getDocs(collection(db, "earningPackages"));
+    const earningDoc = snap.docs.find((d) => d.id === tenantId);
+    if (earningDoc) {
+      const data = earningDoc.data() as Record<string, unknown>;
+      const packages = Array.isArray(data.creditPackages) ? data.creditPackages : [];
+      return (packages as any[])
+        .map((pkg) => mapCoinPackage(pkg.id || "", pkg as Record<string, unknown>))
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+  } catch {
+    // Fall through to old collection
+  }
+  return listCoinPackages();
+}
 
 export async function listCoinPackages(): Promise<CoinPackageRecord[]> {
   const snap = await getDocs(collection(db, COLLECTION));

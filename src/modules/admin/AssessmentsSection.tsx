@@ -13,7 +13,8 @@ import { auth, db, storage } from "@/services/firebase";
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
-import { listCategories, listSubCategories } from "@/services/categories.service";
+import { listCategories, listSubCategories, listTopics } from "@/services/categories.service";
+import { listLanguages } from "@/services/languages.service";
 import { saveAssessmentDefinition } from "@/services/assessments.service";
 import {
   chargePromotionRequestOnSubmission,
@@ -43,7 +44,8 @@ import {
 } from "@/types/assessment";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
-import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
+import type { LanguageRecord } from "@/services/languages.service";
 import { tenantAssetPath } from "@/lib/tenant/assets";
 
 function getErrorMessage(error: unknown): string {
@@ -124,6 +126,8 @@ const EMPTY_FORM: AssessmentFormValues = {
   name: "",
   categoryId: "",
   subCategoryId: "",
+  topicIds: [],
+  language: "en",
   shortDescription: "",
   longDescription: "",
   assessmentImageUrl: "",
@@ -209,6 +213,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   const [selectedPromoted, setSelectedPromoted] = useState<string>("all");
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
+  const [topics, setTopics] = useState<TopicRecord[]>([]);
+  const [languages, setLanguages] = useState<LanguageRecord[]>([]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visibleAssessments = assessments.filter((a) => {
@@ -249,6 +255,9 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   });
   const categoryOptionsForTenant = categories.filter((item) => item.tenantId === formValues.tenantId);
   const subCategoryOptionsForTenant = subCategories.filter((item) => item.tenantId === formValues.tenantId);
+  const topicsForForm = topics.filter(
+    (item) => item.tenantId === formValues.tenantId && item.subCategoryId === formValues.subCategoryId
+  );
   const [promotionPackages, setPromotionPackages] = useState<PromotionPackageRecord[]>([]);
   const [promotionPackagesLoading, setPromotionPackagesLoading] = useState(false);
   const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
@@ -361,14 +370,18 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   useEffect(() => {
     async function loadCategoryOptions(): Promise<void> {
       try {
-        const [nextCategories, nextSubCategories] = await Promise.all([
+        const [nextCategories, nextSubCategories, nextTopics, nextLanguages] = await Promise.all([
           listCategories(),
           listSubCategories(),
+          listTopics(),
+          listLanguages(),
         ]);
         setCategories(nextCategories);
         setSubCategories(nextSubCategories);
+        setTopics(nextTopics);
+        setLanguages(nextLanguages);
       } catch (loadError) {
-        console.error("Failed to load categories for Assessment form:", loadError);
+        console.error("Failed to load categories/languages for Assessment form:", loadError);
       }
     }
 
@@ -402,6 +415,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
       name: assessment.name,
       categoryId: assessment.categoryId ?? "",
       subCategoryId: assessment.subCategoryId ?? "",
+      topicIds: Array.isArray(assessment.topicIds) ? assessment.topicIds : [],
+      language: assessment.language ?? "en",
       shortDescription: assessment.shortDescription,
       longDescription: assessment.longDescription,
       assessmentImageUrl: assessment.assessmentImageUrl ?? "",
@@ -685,6 +700,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
         categoryName,
         subCategoryId: formValues.subCategoryId.trim() || null,
         subCategoryName,
+        language: formValues.language,
         shortDescription: formValues.shortDescription.trim(),
         longDescription: formValues.longDescription.trim(),
         assessmentImageUrl,
@@ -711,6 +727,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
         ownerEntityId: formValues.ownerEntityId.trim(),
         generatedQuestions: newQuestions,
         existingQuestionCount,
+        topicIds: formValues.topicIds ?? [],
       }, isExisting);
 
       if (promotionStatus === "requested") {
@@ -968,7 +985,10 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
                     id="a-sub-category"
                     className={styles.select}
                     value={formValues.subCategoryId}
-                    onChange={(e) => setField("subCategoryId", e.target.value)}
+                    onChange={(e) => {
+                      setField("subCategoryId", e.target.value);
+                      setField("topicIds", []);
+                    }}
                     disabled={!formValues.categoryId}
                   >
                     <option value="">Select sub category</option>
@@ -979,6 +999,58 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
                       ))}
                   </select>
                 </div>
+              </div>
+
+              {topicsForForm.length > 0 ? (
+                <div style={{ marginTop: 10 }}>
+                  <label className={styles.label}>Topics</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {topicsForForm.map((topic) => {
+                      const selected = formValues.topicIds.includes(topic.id);
+                      return (
+                        <button
+                          key={topic.id}
+                          type="button"
+                          style={{
+                            border: selected ? "1px solid #1b4159" : "1px solid #c6dcea",
+                            background: selected ? "#1b4159" : "#f4f9fd",
+                            color: selected ? "#fff" : "#1b4159",
+                            borderRadius: 999,
+                            padding: "6px 14px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            fontSize: "0.85rem",
+                          }}
+                          onClick={() => {
+                            const next = selected
+                              ? formValues.topicIds.filter((id) => id !== topic.id)
+                              : [...formValues.topicIds, topic.id];
+                            setField("topicIds", next);
+                          }}
+                        >
+                          {topic.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <div style={{ marginTop: 10 }}>
+                <label className={styles.label} htmlFor="assessment-language">
+                  Language
+                </label>
+                <select
+                  id="assessment-language"
+                  className={styles.select}
+                  value={formValues.language}
+                  onChange={(event) => setField("language", event.target.value)}
+                >
+                  <option value="">Select language</option>
+                  {languages.map((lang) => (
+                    <option key={lang.id} value={lang.code}>{lang.name}</option>
+                  ))}
+                </select>
               </div>
 
               <label className={styles.label} htmlFor="a-thumbnail">Thumbnail</label>

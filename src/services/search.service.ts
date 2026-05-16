@@ -184,6 +184,10 @@ export type TenantSearchConfig = {
   company: boolean;
 };
 
+export type TenantReferralsConfig = {
+  enabled: boolean;
+};
+
 const DEFAULT_SEARCH_CONFIG: TenantSearchConfig = {
   enabled: false,
   programs: false,
@@ -192,6 +196,10 @@ const DEFAULT_SEARCH_CONFIG: TenantSearchConfig = {
   professional: false,
   individual: false,
   company: false,
+};
+
+const DEFAULT_REFERRALS_CONFIG: TenantReferralsConfig = {
+  enabled: true,
 };
 
 export async function getTenantSearchConfig(tenantId: string): Promise<TenantSearchConfig> {
@@ -210,5 +218,18 @@ export async function getTenantSearchConfig(tenantId: string): Promise<TenantSea
     professional: Boolean(cfg.professional),
     individual: Boolean(cfg.individual),
     company: Boolean(cfg.company),
+  };
+}
+
+export async function getTenantReferralsConfig(tenantId: string): Promise<TenantReferralsConfig> {
+  const trimmed = tenantId.trim();
+  if (!trimmed) return DEFAULT_REFERRALS_CONFIG;
+
+  const snap = await getDoc(doc(db, "tenants", trimmed));
+  const cfg = snap.data()?.referralConfig as { enableReferrals?: boolean } | undefined;
+  if (!cfg) return DEFAULT_REFERRALS_CONFIG;
+
+  return {
+    enabled: typeof cfg.enableReferrals === "boolean" ? cfg.enableReferrals : true,
   };
 }

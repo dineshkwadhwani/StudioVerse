@@ -12,10 +12,14 @@ export interface SeedEarningPackagesResult {
   message: string;
 }
 
-const seedEarningPackagesCallable = httpsCallable<Record<string, never>, SeedEarningPackagesResult>(functions, "seedEarningPackages");
 
-export async function seedEarningPackages(): Promise<SeedEarningPackagesResult> {
-  const result = await seedEarningPackagesCallable({});
+interface SeedEarningPackagesParams {
+  tenantId: string;
+}
+const seedEarningPackagesCallable = httpsCallable<SeedEarningPackagesParams, SeedEarningPackagesResult>(functions, "seedEarningPackages");
+
+export async function seedEarningPackages(tenantId: string): Promise<SeedEarningPackagesResult> {
+  const result = await seedEarningPackagesCallable({ tenantId });
   return result.data;
 }
 

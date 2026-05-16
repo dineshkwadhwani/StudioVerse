@@ -213,7 +213,7 @@ export default function ManageCategoriesPage({ operatorId }: ManageCategoriesPag
     setBusy(true);
     resetMessages();
     try {
-      const result = await seedTaxonomyFromXlsx();
+      const result = await seedTaxonomyFromXlsx("coaching-studio");
       if (result.status === "already-exists") {
         setSuccess(result.message);
         return;

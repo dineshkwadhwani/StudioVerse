@@ -54,6 +54,14 @@
   margin-bottom: 18px;
 }
 
+.heroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
 .pageTitle {
   margin: 0 0 4px;
   font-size: clamp(1.3rem, 2.2vw, 1.6rem);
@@ -109,6 +117,34 @@
   cursor: pointer;
   font-size: 0.95rem;
   font-family: inherit;
+}
+
+/* ── Write message button ──────────────────────────────── */
+
+.writeMessageButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #01696f, #018a6e);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.15s;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.writeMessageButton:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.writeMessageButton:active {
+  transform: translateY(0);
 }
 
 /* ── Content card ──────────────────────────────────────── */
@@ -192,9 +228,27 @@
   white-space: nowrap;
 }
 
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+}
+
 .emptyText {
   color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.emptyHint {
+  color: var(--ink-soft);
   margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.emptyHint strong {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* ── Feedback ──────────────────────────────────────────── */
@@ -398,6 +452,17 @@
     padding-left: 16px;
     padding-right: 16px;
     padding-top: 70px;
+  }
+
+  .heroHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .writeMessageButton {
+    width: 100%;
+    justify-content: center;
   }
 
   .modalCard {

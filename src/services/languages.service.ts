@@ -14,7 +14,11 @@ export interface SeedLanguagesResult {
   total: number;
 }
 
-const seedLanguagesCallable = httpsCallable<Record<string, never>, SeedLanguagesResult>(functions, "seedLanguages");
+
+interface SeedLanguagesParams {
+  tenantId: string;
+}
+const seedLanguagesCallable = httpsCallable<SeedLanguagesParams, SeedLanguagesResult>(functions, "seedLanguages");
 
 export async function listLanguages(): Promise<LanguageRecord[]> {
   const doc = await getDocs(collection(db, "languages"));
@@ -34,7 +38,7 @@ export async function listLanguages(): Promise<LanguageRecord[]> {
   }));
 }
 
-export async function seedLanguages(): Promise<SeedLanguagesResult> {
-  const result = await seedLanguagesCallable({});
+export async function seedLanguages(tenantId: string): Promise<SeedLanguagesResult> {
+  const result = await seedLanguagesCallable({ tenantId });
   return result.data;
 }

@@ -24,13 +24,17 @@ type SeedTaxonomyResult = {
   message: string;
 };
 
-const seedTaxonomyCallable = httpsCallable<Record<string, never>, SeedTaxonomyResult>(
+
+interface SeedTaxonomyParams {
+  tenantId: string;
+}
+const seedTaxonomyCallable = httpsCallable<SeedTaxonomyParams, SeedTaxonomyResult>(
   functions,
   "seedTaxonomyFromXlsx",
 );
 
-export async function seedTaxonomyFromXlsx(): Promise<SeedTaxonomyResult> {
-  const result = await seedTaxonomyCallable({});
+export async function seedTaxonomyFromXlsx(tenantId: string): Promise<SeedTaxonomyResult> {
+  const result = await seedTaxonomyCallable({ tenantId });
   return result.data;
 }
 

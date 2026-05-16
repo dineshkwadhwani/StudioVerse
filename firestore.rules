@@ -66,6 +66,10 @@ service cloud.firestore {
                         && resource.data.userType in ["professional", "individual"]
                         && resource.data.tenantId == currentTenantId()
                         && resource.data.get('associatedCompanyId', null) == null)
+                    || (isCompanyUser()
+                        && resource.data.userType == "individual"
+                        && resource.data.tenantId == currentTenantId()
+                        && resource.data.associatedCompanyId == request.auth.uid)
                     || (isProfessionalUser() && resource.data.associatedProfessionalId == request.auth.uid)
                     || (isProfessionalUser()
                         && resource.data.userType == "individual"
@@ -191,7 +195,9 @@ service cloud.firestore {
             || (isCompanyUser() && resource.data.companyId == request.auth.uid)
             || (isProfessionalUser() && resource.data.professionalId == request.auth.uid);
       allow delete: if isSuperAdmin()
-            || (isCompanyUser() && resource.data.companyId == request.auth.uid)
+            || (isCompanyUser() && (
+                resource.data.companyId == request.auth.uid
+                || resource.data.get('companyId', null) == null))
             || (isProfessionalUser() && resource.data.professionalId == request.auth.uid)
             || (isSignedIn() && resource.data.addedByUserId == request.auth.uid);
     }

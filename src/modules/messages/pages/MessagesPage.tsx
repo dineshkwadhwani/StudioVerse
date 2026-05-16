@@ -159,10 +159,19 @@ export default function MessagesPage({ tenantConfig }: Props) {
       <div className={s.shell}>
         {/* ── Hero card ─────────────────────────────────────── */}
         <section className={s.heroCard}>
-          <h1 className={s.pageTitle}>Messages</h1>
-          <p className={s.pageSubtitle}>
-            View and manage your inbox and sent messages.
-          </p>
+          <div className={s.heroHeader}>
+            <div>
+              <h1 className={s.pageTitle}>Messages</h1>
+              <p className={s.pageSubtitle}>
+                View all your conversations with Coaches and Coachees.
+              </p>
+            </div>
+            {!loading && !error && session ? (
+              <Link href={`${basePath}/search`} className={s.writeMessageButton}>
+                ✏️ Write a Message
+              </Link>
+            ) : null}
+          </div>
 
           {loading ? <p className={s.infoText}>Loading session…</p> : null}
           {error ? <p className={s.errorText}>{error}</p> : null}
@@ -200,7 +209,22 @@ export default function MessagesPage({ tenantConfig }: Props) {
 
             {!loadingMessages && !loadError ? (
               list.length === 0 ? (
-                <p className={s.emptyText}>No messages.</p>
+                <div className={s.emptyState}>
+                  {tab === "outbox" ? (
+                    <>
+                      <p className={s.emptyText}>
+                        You haven't sent messages to Coaches/Coachees yet.
+                      </p>
+                      <p className={s.emptyHint}>
+                        Start by clicking the <strong>✏️ Write a Message</strong> button above to find someone to message.
+                      </p>
+                    </>
+                  ) : (
+                    <p className={s.emptyText}>
+                      No messages in your inbox yet.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <ul className={s.messageList}>
                   {list.map((message) => (

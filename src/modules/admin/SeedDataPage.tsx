@@ -7,7 +7,14 @@ import styles from "./SuperAdminPortal.module.css";
 import { db } from "@/services/firebase";
 import { listCategoriesFlattened, seedTaxonomyFromXlsx } from "@/services/categories.service";
 import { seedLanguages, listLanguages } from "@/services/languages.service";
-import { seedEarningPackages, getEarningPackages } from "@/services/earningPackages.service";
+import {
+  seedCreditPackages,
+  seedListingPackages,
+  seedPromotionPackages,
+  seedBotPackages,
+  seedLeadPackages,
+  getEarningPackages,
+} from "@/services/earningPackages.service";
 import { SEED_SCRIPTS, SeedScriptConfig } from "@/config/seeds.config";
 
 type TenantOption = {
@@ -112,6 +119,58 @@ export default function SeedDataPage({ operatorId }: Props) {
               : "Not seeded yet.",
             error: "",
           };
+        } else if (script.id === "promotionPackages") {
+          const earningData = await getEarningPackages(selectedTenant).catch(() => null);
+          const seeded = (earningData && earningData.promotionPackages && earningData.promotionPackages.length > 0) ?? false;
+          const promoCount = earningData?.promotionPackages?.length ?? 0;
+          newStates[script.id] = {
+            checking: false,
+            busy: false,
+            seeded,
+            message: seeded
+              ? `Already seeded. Found ${promoCount} promotion packages in earning packages doc.`
+              : "Not seeded yet.",
+            error: "",
+          };
+        } else if (script.id === "listingPackages") {
+          const earningData = await getEarningPackages(selectedTenant).catch(() => null);
+          const seeded = (earningData && earningData.listingPackages && earningData.listingPackages.length > 0) ?? false;
+          const listingCount = earningData?.listingPackages?.length ?? 0;
+          newStates[script.id] = {
+            checking: false,
+            busy: false,
+            seeded,
+            message: seeded
+              ? `Already seeded. Found ${listingCount} listing packages in earning packages doc.`
+              : "Not seeded yet.",
+            error: "",
+          };
+        } else if (script.id === "botPackages") {
+          const earningData = await getEarningPackages(selectedTenant).catch(() => null);
+          const seeded = (earningData && earningData.botPackages && earningData.botPackages.length > 0) ?? false;
+          const botCount = earningData?.botPackages?.length ?? 0;
+          newStates[script.id] = {
+            checking: false,
+            busy: false,
+            seeded,
+            message: seeded
+              ? `Already seeded. Found ${botCount} bot hero packages in earning packages doc.`
+              : "Not seeded yet.",
+            error: "",
+          };
+        } else if (script.id === "leadPackages") {
+          const earningData = await getEarningPackages(selectedTenant).catch(() => null);
+          const seeded = (earningData && earningData.leadPackages && earningData.leadPackages.length > 0) ?? false;
+          const leadCount = earningData?.leadPackages?.length ?? 0;
+          newStates[script.id] = {
+            checking: false,
+            busy: false,
+            seeded,
+            message: seeded
+              ? `Already seeded. Found ${leadCount} lead packages in earning packages doc.`
+              : "Not seeded yet.",
+            error: "",
+          };
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to check seed status.";
@@ -171,7 +230,7 @@ export default function SeedDataPage({ operatorId }: Props) {
           },
         }));
       } else if (script.id === "earningPackages") {
-        result = await seedEarningPackages(tenantId);
+        result = await seedCreditPackages(tenantId);
         setSeedStates((prev) => ({
           ...prev,
           [script.id]: {
@@ -179,8 +238,64 @@ export default function SeedDataPage({ operatorId }: Props) {
             busy: false,
             seeded: true,
             message: result.status === "already-exists"
-              ? `Already seeded. Found ${result.creditPackages} credit packages, ${result.listingPackages} listing packages, ${result.botPackages} bot packages.`
-              : `Earning packages seeded. Added ${result.creditPackages} credit packages, ${result.listingPackages} listing packages, ${result.botPackages} bot packages.`,
+              ? `Already seeded. Found ${result.creditPackages} credit packages.`
+              : `Credit packages seeded. Added ${result.creditPackages} credit packages.`,
+            error: "",
+          },
+        }));
+      } else if (script.id === "promotionPackages") {
+        result = await seedPromotionPackages(tenantId);
+        setSeedStates((prev) => ({
+          ...prev,
+          [script.id]: {
+            checking: false,
+            busy: false,
+            seeded: true,
+            message: result.status === "already-exists"
+              ? `Already seeded. Found ${result.promotionPackages ?? 3} promotion packages.`
+              : `Promotion packages seeded. Added ${result.promotionPackages ?? 3} promotion packages.`,
+            error: "",
+          },
+        }));
+      } else if (script.id === "listingPackages") {
+        result = await seedListingPackages(tenantId);
+        setSeedStates((prev) => ({
+          ...prev,
+          [script.id]: {
+            checking: false,
+            busy: false,
+            seeded: true,
+            message: result.status === "already-exists"
+              ? `Already seeded. Found ${result.listingPackages} listing packages.`
+              : `Listing packages seeded. Added ${result.listingPackages} listing packages.`,
+            error: "",
+          },
+        }));
+      } else if (script.id === "botPackages") {
+        result = await seedBotPackages(tenantId);
+        setSeedStates((prev) => ({
+          ...prev,
+          [script.id]: {
+            checking: false,
+            busy: false,
+            seeded: true,
+            message: result.status === "already-exists"
+              ? `Already seeded. Found ${result.botPackages ?? 2} bot hero packages.`
+              : `Bot hero packages seeded. Added ${result.botPackages ?? 2} bot hero packages.`,
+            error: "",
+          },
+        }));
+      } else if (script.id === "leadPackages") {
+        result = await seedLeadPackages(tenantId);
+        setSeedStates((prev) => ({
+          ...prev,
+          [script.id]: {
+            checking: false,
+            busy: false,
+            seeded: true,
+            message: result.status === "already-exists"
+              ? `Already seeded. Found ${result.leadPackages ?? 3} lead packages.`
+              : `Lead packages seeded. Added ${result.leadPackages ?? 3} lead packages.`,
             error: "",
           },
         }));

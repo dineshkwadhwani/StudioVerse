@@ -25,12 +25,39 @@ export const SEED_SCRIPTS: SeedScriptConfig[] = [
   },
   {
     id: "earningPackages",
-    displayName: "Earning Packages",
-    description: "Seed credit, listing, and bot hero packages.",
+    displayName: "Credit Packages",
+    description: "Seed credit packages (coins) for the tenant.",
     tenants: ["coaching-studio"],
-    callableName: "seedEarningPackages",
+    callableName: "seedCreditPackages",
   },
-  // Add more scripts as needed
+  {
+    id: "listingPackages",
+    displayName: "Listing Packages",
+    description: "Seed free listing packages for program, assessment, and event.",
+    tenants: ["coaching-studio"],
+    callableName: "seedListingPackages",
+  },
+  {
+    id: "promotionPackages",
+    displayName: "Promotion Packages",
+    description: "Seed free promotion packages for program, assessment, and event.",
+    tenants: ["coaching-studio"],
+    callableName: "seedPromotionPackages",
+  },
+  {
+    id: "botPackages",
+    displayName: "Bot Hero Packages",
+    description: "Seed free bot hero packages for the tenant.",
+    tenants: ["coaching-studio"],
+    callableName: "seedBotPackages",
+  },
+  {
+    id: "leadPackages",
+    displayName: "Lead Packages",
+    description: "Seed lead packages (company, coach, individual) for the tenant.",
+    tenants: ["coaching-studio"],
+    callableName: "seedLeadPackages",
+  },
 ];
 
 export const SEED_TENANTS = [

@@ -56,31 +56,27 @@ function mapPromotionPackage(id: string, data: Record<string, unknown>): Promoti
 }
 
 export async function listPromotionPackages(tenantId?: string): Promise<PromotionPackageRecord[]> {
-  const base = collection(db, COLLECTION);
-  const snap = tenantId
-    ? await getDocs(query(base, where("tenantId", "==", tenantId)))
-    : await getDocs(base);
-
-  return snap.docs
-    .map((row) => mapPromotionPackage(row.id, row.data() as Record<string, unknown>))
+  if (!tenantId) return [];
+  const snap = await getDocs(collection(db, "earningPackages"));
+  const doc = snap.docs.find((d) => d.id === tenantId);
+  if (!doc) return [];
+  const data = doc.data() as Record<string, unknown>;
+  const packages = Array.isArray(data.promotionPackages) ? data.promotionPackages : [];
+  return (packages as any[])
+    .map((pkg) => mapPromotionPackage(pkg.id || "", pkg as Record<string, unknown>))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function listActivePromotionPackagesForTenant(tenantId: string): Promise<PromotionPackageRecord[]> {
-  if (!tenantId.trim()) {
-    return [];
-  }
-
-  const snap = await getDocs(
-    query(
-      collection(db, COLLECTION),
-      where("tenantId", "==", tenantId.trim()),
-      where("status", "==", "active"),
-    ),
-  );
-
-  return snap.docs
-    .map((row) => mapPromotionPackage(row.id, row.data() as Record<string, unknown>))
+  if (!tenantId.trim()) return [];
+  const snap = await getDocs(collection(db, "earningPackages"));
+  const doc = snap.docs.find((d) => d.id === tenantId.trim());
+  if (!doc) return [];
+  const data = doc.data() as Record<string, unknown>;
+  const packages = Array.isArray(data.promotionPackages) ? data.promotionPackages : [];
+  return (packages as any[])
+    .filter((pkg) => pkg.status === "active")
+    .map((pkg) => mapPromotionPackage(pkg.id || "", pkg as Record<string, unknown>))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 

@@ -56,49 +56,27 @@ function mapListingPackage(id: string, data: Record<string, unknown>): ListingPa
 }
 
 export async function listListingPackagesFromEarning(tenantId: string): Promise<ListingPackageRecord[]> {
-  try {
-    const snap = await getDocs(collection(db, "earningPackages"));
-    const earningDoc = snap.docs.find((d) => d.id === tenantId);
-    if (earningDoc) {
-      const data = earningDoc.data() as Record<string, unknown>;
-      const packages = Array.isArray(data.listingPackages) ? data.listingPackages : [];
-      return (packages as any[])
-        .map((pkg) => mapListingPackage(pkg.id || "", pkg as Record<string, unknown>))
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-    }
-  } catch {
-    // Fall through to old collection
+  const snap = await getDocs(collection(db, "earningPackages"));
+  const earningDoc = snap.docs.find((d) => d.id === tenantId);
+  if (earningDoc) {
+    const data = earningDoc.data() as Record<string, unknown>;
+    const packages = Array.isArray(data.listingPackages) ? data.listingPackages : [];
+    return (packages as any[])
+      .map((pkg) => mapListingPackage(pkg.id || "", pkg as Record<string, unknown>))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
   }
-  return listListingPackages(tenantId);
+  return [];
 }
 
 export async function listListingPackages(tenantId?: string): Promise<ListingPackageRecord[]> {
-  const base = collection(db, COLLECTION);
-  const snap = tenantId
-    ? await getDocs(query(base, where("tenantId", "==", tenantId)))
-    : await getDocs(base);
-
-  return snap.docs
-    .map((row) => mapListingPackage(row.id, row.data() as Record<string, unknown>))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  if (!tenantId) return [];
+  return listListingPackagesFromEarning(tenantId);
 }
 
 export async function listActiveListingPackagesForTenant(tenantId: string): Promise<ListingPackageRecord[]> {
-  if (!tenantId.trim()) {
-    return [];
-  }
-
-  const snap = await getDocs(
-    query(
-      collection(db, COLLECTION),
-      where("tenantId", "==", tenantId.trim()),
-      where("status", "==", "active"),
-    ),
-  );
-
-  return snap.docs
-    .map((row) => mapListingPackage(row.id, row.data() as Record<string, unknown>))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  if (!tenantId.trim()) return [];
+  const all = await listListingPackagesFromEarning(tenantId.trim());
+  return all.filter((pkg) => pkg.status === "active").sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function getListingPackageById(packageId: string): Promise<ListingPackageRecord | null> {

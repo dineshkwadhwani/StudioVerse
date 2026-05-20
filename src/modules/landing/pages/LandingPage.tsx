@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Manrope } from "next/font/google";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
@@ -22,6 +23,12 @@ import headerStyles from "@/modules/landing/components/ViewAllHeader.module.css"
 import { truncateWords, useCarousel, useItemsPerView } from "../hooks/useCarousel";
 import LoginRegisterModal from "@/modules/auth/components/LoginRegisterModal";
 import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
+
+const landingSans = Manrope({
+  subsets: ["latin"],
+  variable: "--landing-font-sans",
+  display: "swap",
+});
 
 type Props = {
   config: TenantConfig;
@@ -649,7 +656,7 @@ export default function LandingPage({ config }: Props) {
   }
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${landingSans.variable}`}>
       <header className={styles.nav}>
         <Link href={basePath} className={styles.brand}>
           <Image src={config.theme.logo} width={76} height={40} alt={`${config.name} logo`} className={styles.logo} />

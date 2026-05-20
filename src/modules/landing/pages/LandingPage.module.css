@@ -10,6 +10,7 @@
 
   background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
   color: var(--ink-strong);
+  font-family: var(--landing-font-sans), "SF Pro Display", "Segoe UI", system-ui, sans-serif;
   min-height: 100vh;
   padding-top: 80px;
   overflow-x: hidden;
@@ -55,14 +56,15 @@
 }
 
 .brandTitle {
-  font-weight: 700;
-  font-size: 1.1rem;
+  font-weight: 800;
+  font-size: 1.08rem;
+  letter-spacing: -0.03em;
 }
 
 .brandSubtitle {
   color: var(--ink-soft);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -115,8 +117,9 @@
 .navLink {
   color: var(--ink-strong);
   text-decoration: none;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 0.94rem;
+  letter-spacing: -0.015em;
 }
 
 .navLinkActive {
@@ -132,7 +135,8 @@
   border: 0;
   border-radius: 999px;
   padding: 10px 18px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: #fff;
   background: linear-gradient(90deg, #1f5c9c 0%, #2bb6d1 100%);
   cursor: pointer;
@@ -168,8 +172,10 @@
 
 .heroLeft h1 {
   font-size: clamp(1.6rem, 3vw, 2.4rem);
-  line-height: 1.15;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
   margin: 12px 0;
+  font-weight: 800;
 }
 
 .heroLabel {
@@ -187,7 +193,8 @@
 
 .heroCopy {
   color: var(--ink-soft);
-  font-size: 1.05rem;
+  font-size: 1rem;
+  line-height: 1.65;
   max-width: 60ch;
 }
 
@@ -281,12 +288,18 @@
 }
 
 .sectionTitle {
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
-  margin: 8px 0;
+  font-size: clamp(1.18rem, 2vw, 1.75rem);
+  line-height: 1.18;
+  letter-spacing: -0.028em;
+  font-weight: 750;
+  max-width: 24ch;
+  margin: 6px 0 10px;
 }
 
 .sectionIntro {
   color: var(--ink-soft);
+  font-size: 0.98rem;
+  line-height: 1.65;
   margin-top: 0;
 }
 
@@ -380,20 +393,26 @@
   padding: 14px 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
 }
 
 .tileTitle {
   margin: 0;
-  font-size: 1.7rem;
+  font-size: clamp(1.02rem, 1.4vw, 1.22rem);
+  line-height: 1.24;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  text-wrap: balance;
 }
 
 .tileCopy {
   margin: 0;
   color: inherit;
   opacity: 0.88;
-  line-height: 1.5;
+  line-height: 1.62;
+  font-size: 0.98rem;
+  font-weight: 500;
 }
 
 .tileButton {
@@ -404,7 +423,8 @@
   padding: 9px 15px;
   color: #fff;
   background: linear-gradient(90deg, #1f5c9c, #2bb6d1);
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   cursor: pointer;
 }
 
@@ -453,7 +473,8 @@
 
 .altTimelineTitle {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.04em;
   color: var(--ink-strong);
   text-align: center;
   margin: 0 0 36px 0;
@@ -502,15 +523,16 @@
   font-size: 1.35rem;
   color: var(--ink-strong);
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .timelineContent p {
   margin: 0;
   color: var(--ink-soft);
-  line-height: 1.55;
+  line-height: 1.62;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
   max-width: 100%;
 }
 

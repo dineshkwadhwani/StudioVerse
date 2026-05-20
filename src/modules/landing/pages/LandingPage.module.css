@@ -13,11 +13,6 @@
   overflow-x: hidden;
 }
 
-.page :global(::selection) {
-  background: var(--ed-brand-tint);
-  color: var(--ed-ink-display);
-}
-
 /* ============================================================
    NAV
    ============================================================ */
@@ -532,7 +527,7 @@
 }
 
 .sectionHeaderText {
-  max-width: 64ch;
+  max-width: 90ch;
 }
 
 .eyebrow {
@@ -572,7 +567,6 @@
   font-size: 1rem;
   line-height: 1.65;
   margin: 0;
-  max-width: 60ch;
 }
 
 .viewAllInline {

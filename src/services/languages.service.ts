@@ -20,22 +20,49 @@ interface SeedLanguagesParams {
 }
 const seedLanguagesCallable = httpsCallable<SeedLanguagesParams, SeedLanguagesResult>(functions, "seedLanguages");
 
-export async function listLanguages(): Promise<LanguageRecord[]> {
-  const doc = await getDocs(collection(db, "languages"));
-  
-  const itemsDoc = doc.docs.find((d) => d.id === "items");
-  if (!itemsDoc) {
-    return [];
-  }
+type LanguageItem = { code: string; name: string };
 
-  const data = itemsDoc.data() as { items?: Array<{code: string; name: string}> } | undefined;
-  const items = data?.items ?? [];
-
-  return items.map((item, idx) => ({
+function mapLanguageItems(items: LanguageItem[]): LanguageRecord[] {
+  return items.map((item) => ({
     id: item.code,
     name: item.name,
     code: item.code,
   }));
+}
+
+export async function listLanguages(tenantId?: string): Promise<LanguageRecord[]> {
+  const snapshot = await getDocs(collection(db, "languages"));
+  const normalizedTenantId = tenantId?.trim() ?? "";
+
+  if (normalizedTenantId) {
+    const tenantDoc = snapshot.docs.find((doc) => doc.id === normalizedTenantId);
+    if (tenantDoc) {
+      const data = tenantDoc.data() as { items?: LanguageItem[] } | undefined;
+      return mapLanguageItems(data?.items ?? []);
+    }
+  }
+
+  const itemsDoc = snapshot.docs.find((doc) => doc.id === "items");
+  if (itemsDoc) {
+    const data = itemsDoc.data() as { items?: LanguageItem[] } | undefined;
+    return mapLanguageItems(data?.items ?? []);
+  }
+
+  const deduped = new Map<string, LanguageRecord>();
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data() as { items?: LanguageItem[] } | undefined;
+    (data?.items ?? []).forEach((item) => {
+      if (!deduped.has(item.code)) {
+        deduped.set(item.code, {
+          id: item.code,
+          name: item.name,
+          code: item.code,
+        });
+      }
+    });
+  });
+
+  return Array.from(deduped.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function seedLanguages(tenantId: string): Promise<SeedLanguagesResult> {

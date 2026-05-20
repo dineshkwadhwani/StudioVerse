@@ -370,16 +370,14 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   useEffect(() => {
     async function loadCategoryOptions(): Promise<void> {
       try {
-        const [nextCategories, nextSubCategories, nextTopics, nextLanguages] = await Promise.all([
+        const [nextCategories, nextSubCategories, nextTopics] = await Promise.all([
           listCategories(),
           listSubCategories(),
           listTopics(),
-          listLanguages(),
         ]);
         setCategories(nextCategories);
         setSubCategories(nextSubCategories);
         setTopics(nextTopics);
-        setLanguages(nextLanguages);
       } catch (loadError) {
         console.error("Failed to load categories/languages for Assessment form:", loadError);
       }
@@ -387,6 +385,19 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
 
     void loadCategoryOptions();
   }, []);
+
+  useEffect(() => {
+    async function loadLanguageOptions(): Promise<void> {
+      try {
+        const nextLanguages = await listLanguages(formValues.tenantId);
+        setLanguages(nextLanguages);
+      } catch (loadError) {
+        console.error("Failed to load languages for Assessment form:", loadError);
+      }
+    }
+
+    void loadLanguageOptions();
+  }, [formValues.tenantId]);
 
   function openCreate() {
     setFormValues({

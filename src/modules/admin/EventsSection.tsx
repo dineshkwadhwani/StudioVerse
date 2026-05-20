@@ -203,16 +203,14 @@ export default function EventsSection({
   useEffect(() => {
     async function loadCategoryOptions(): Promise<void> {
       try {
-        const [nextCategories, nextSubCategories, nextTopics, nextLanguages] = await Promise.all([
+        const [nextCategories, nextSubCategories, nextTopics] = await Promise.all([
           listCategories(),
           listSubCategories(),
           listTopics(),
-          listLanguages(),
         ]);
         setCategories(nextCategories);
         setSubCategories(nextSubCategories);
         setTopics(nextTopics);
-        setLanguages(nextLanguages);
       } catch (loadError) {
         console.error("Failed to load categories/languages for Event form:", loadError);
       }
@@ -220,6 +218,19 @@ export default function EventsSection({
 
     void loadCategoryOptions();
   }, []);
+
+  useEffect(() => {
+    async function loadLanguageOptions(): Promise<void> {
+      try {
+        const nextLanguages = await listLanguages(formValues.tenantId);
+        setLanguages(nextLanguages);
+      } catch (loadError) {
+        console.error("Failed to load languages for Event form:", loadError);
+      }
+    }
+
+    void loadLanguageOptions();
+  }, [formValues.tenantId]);
 
   useEffect(() => {
     void refreshEvents(selectedTenantId || undefined);

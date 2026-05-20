@@ -47,7 +47,7 @@ export default function PromoteCoachPage({ tenantConfig, currentUser }: Props) {
     setLoading(true);
     try {
       const [pkgs, reqs] = await Promise.all([
-        listActiveBotHeroPackages(),
+        listActiveBotHeroPackages(tenantConfig.id),
         listBotHeroRequestsForProfessional(currentUser.uid),
       ]);
       setPackages(pkgs);

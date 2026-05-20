@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { Timestamp, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import styles from "./SuperAdminPortal.module.css";
+import type { LeadPackageRecord } from "@/types/earningPackages";
 
 type Props = {
   operatorId: string;
@@ -58,6 +59,88 @@ function toLeadFeeState(config: LeadConfigRecord | undefined): LeadFeeFormValues
   };
 }
 
+function toLeadFeeStateFromPackages(packages: LeadPackageRecord[] | undefined): LeadFeeFormValues {
+  const byUserType = new Map((packages ?? []).map((pkg) => [pkg.userType, pkg]));
+  return {
+    enableCompanyLead: Boolean(byUserType.get("company")?.enabled),
+    enableCoachLead: Boolean(byUserType.get("professional")?.enabled),
+    enableIndividualLead: Boolean(byUserType.get("individual")?.enabled),
+    companyLeadFee: Math.max(0, Math.floor(toSafeNumber(byUserType.get("company")?.leadFee))),
+    coachLeadFee: Math.max(0, Math.floor(toSafeNumber(byUserType.get("professional")?.leadFee))),
+    individualLeadFee: Math.max(0, Math.floor(toSafeNumber(byUserType.get("individual")?.leadFee))),
+  };
+}
+
+function hasLeadConfig(data: Record<string, unknown> | undefined): boolean {
+  return Boolean(data && Object.prototype.hasOwnProperty.call(data, "leadConfig"));
+}
+
+async function loadLeadStateForTenant(docId: string): Promise<LeadFeeFormValues> {
+  if (!docId) {
+    return EMPTY_FORM;
+  }
+
+  const tenantSnap = await getDoc(doc(db, "tenants", docId));
+  const tenantData = tenantSnap.data() as Record<string, unknown> | undefined;
+  if (hasLeadConfig(tenantData)) {
+    return toLeadFeeState(tenantData?.leadConfig as LeadConfigRecord | undefined);
+  }
+
+  const earningSnap = await getDoc(doc(db, "earningPackages", docId));
+  const earningData = earningSnap.data() as Record<string, unknown> | undefined;
+  const leadPackages = Array.isArray(earningData?.leadPackages)
+    ? (earningData?.leadPackages as LeadPackageRecord[])
+    : [];
+  return toLeadFeeStateFromPackages(leadPackages);
+}
+
+function buildLeadPackages(tenantId: string, values: LeadFeeFormValues, operatorId: string, existingPackages: LeadPackageRecord[] = []): LeadPackageRecord[] {
+  const now = Timestamp.now();
+  const existingByType = new Map(existingPackages.map((pkg) => [pkg.userType, pkg]));
+
+  return [
+    {
+      ...(existingByType.get("company") ?? {}),
+      id: existingByType.get("company")?.id ?? `${tenantId}-company-lead`,
+      name: "Company Lead",
+      userType: "company",
+      enabled: values.enableCompanyLead,
+      leadFee: values.enableCompanyLead ? Math.max(0, Math.floor(values.companyLeadFee)) : 0,
+      description: existingByType.get("company")?.description ?? "Company lead unlock",
+      createdBy: existingByType.get("company")?.createdBy ?? operatorId,
+      updatedBy: operatorId,
+      createdAt: existingByType.get("company")?.createdAt ?? now,
+      updatedAt: now,
+    },
+    {
+      ...(existingByType.get("professional") ?? {}),
+      id: existingByType.get("professional")?.id ?? `${tenantId}-professional-lead`,
+      name: "Coach Lead",
+      userType: "professional",
+      enabled: values.enableCoachLead,
+      leadFee: values.enableCoachLead ? Math.max(0, Math.floor(values.coachLeadFee)) : 0,
+      description: existingByType.get("professional")?.description ?? "Coach lead unlock",
+      createdBy: existingByType.get("professional")?.createdBy ?? operatorId,
+      updatedBy: operatorId,
+      createdAt: existingByType.get("professional")?.createdAt ?? now,
+      updatedAt: now,
+    },
+    {
+      ...(existingByType.get("individual") ?? {}),
+      id: existingByType.get("individual")?.id ?? `${tenantId}-individual-lead`,
+      name: "Individual Lead",
+      userType: "individual",
+      enabled: values.enableIndividualLead,
+      leadFee: values.enableIndividualLead ? Math.max(0, Math.floor(values.individualLeadFee)) : 0,
+      description: existingByType.get("individual")?.description ?? "Individual lead unlock",
+      createdBy: existingByType.get("individual")?.createdBy ?? operatorId,
+      updatedBy: operatorId,
+      createdAt: existingByType.get("individual")?.createdAt ?? now,
+      updatedAt: now,
+    },
+  ];
+}
+
 export default function LeadFeesSection({ operatorId }: Props) {
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [selectedTenantDocId, setSelectedTenantDocId] = useState("");
@@ -94,9 +177,7 @@ export default function LeadFeesSection({ operatorId }: Props) {
       const defaultTenant = rows[0];
       setSelectedTenantDocId(defaultTenant.id);
       setSelectedTenantId(defaultTenant.tenantId);
-      const defaultSnap = snapshot.docs.find((entry) => entry.id === defaultTenant.id);
-      const leadConfig = defaultSnap?.data().leadConfig as LeadConfigRecord | undefined;
-      setFormValues(toLeadFeeState(leadConfig));
+      setFormValues(await loadLeadStateForTenant(defaultTenant.id));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load tenants.");
       setTenants([]);
@@ -131,10 +212,7 @@ export default function LeadFeesSection({ operatorId }: Props) {
     try {
       const target = tenants.find((tenant) => tenant.id === docId);
       setSelectedTenantId(target?.tenantId ?? "");
-
-      const targetSnap = await getDoc(doc(db, "tenants", docId));
-      const leadConfig = (targetSnap.data()?.leadConfig ?? undefined) as LeadConfigRecord | undefined;
-      setFormValues(toLeadFeeState(leadConfig));
+      setFormValues(await loadLeadStateForTenant(docId));
     } catch (tenantError) {
       setError(tenantError instanceof Error ? tenantError.message : "Failed to load selected tenant.");
       setFormValues(EMPTY_FORM);
@@ -152,6 +230,12 @@ export default function LeadFeesSection({ operatorId }: Props) {
     setMessage("");
 
     try {
+      const earningRef = doc(db, "earningPackages", selectedTenantId);
+      const earningSnap = await getDoc(earningRef);
+      const existingLeadPackages = Array.isArray(earningSnap.data()?.leadPackages)
+        ? (earningSnap.data()?.leadPackages as LeadPackageRecord[])
+        : [];
+
       await updateDoc(doc(db, "tenants", selectedTenantDocId), {
         leadConfig: {
           enableCompanyLead: formValues.enableCompanyLead,
@@ -164,6 +248,17 @@ export default function LeadFeesSection({ operatorId }: Props) {
         updatedAt: serverTimestamp(),
         updatedBy: operatorId,
       });
+
+      await setDoc(
+        earningRef,
+        {
+          tenantId: selectedTenantId,
+          leadPackages: buildLeadPackages(selectedTenantId, formValues, operatorId, existingLeadPackages),
+          updatedAt: serverTimestamp(),
+          ...(earningSnap.exists() ? {} : { createdAt: serverTimestamp() }),
+        },
+        { merge: true },
+      );
 
       setMessage("Lead fee configuration saved.");
     } catch (saveError) {

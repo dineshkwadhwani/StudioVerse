@@ -1,14 +1,11 @@
 import {
   collection,
-  documentId,
   doc,
   getDoc,
   getDocs,
-  query,
+  Timestamp,
   serverTimestamp,
   setDoc,
-  updateDoc,
-  where,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "@/services/firebase";
@@ -22,6 +19,7 @@ import {
 } from "@/types/promotionPackage";
 
 const COLLECTION = "promotionPackages";
+const EARNING_COLLECTION = "earningPackages";
 
 function toStringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -56,41 +54,39 @@ function mapPromotionPackage(id: string, data: Record<string, unknown>): Promoti
 }
 
 export async function listPromotionPackages(tenantId?: string): Promise<PromotionPackageRecord[]> {
-  if (!tenantId) return [];
-  const snap = await getDocs(collection(db, "earningPackages"));
-  const doc = snap.docs.find((d) => d.id === tenantId);
-  if (!doc) return [];
-  const data = doc.data() as Record<string, unknown>;
-  const packages = Array.isArray(data.promotionPackages) ? data.promotionPackages : [];
-  return (packages as any[])
-    .map((pkg) => mapPromotionPackage(pkg.id || "", pkg as Record<string, unknown>))
+  if (tenantId?.trim()) {
+    const earningDoc = await getDoc(doc(db, EARNING_COLLECTION, tenantId.trim()));
+    if (!earningDoc.exists()) return [];
+    const data = earningDoc.data() as Record<string, unknown>;
+    const packages = Array.isArray(data.promotionPackages) ? data.promotionPackages : [];
+    return (packages as Record<string, unknown>[])
+      .map((pkg) => mapPromotionPackage(String(pkg.id ?? ""), { ...pkg, tenantId: String(pkg.tenantId ?? tenantId.trim()) }))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  const snap = await getDocs(collection(db, EARNING_COLLECTION));
+  return snap.docs
+    .flatMap((earningDoc) => {
+      const data = earningDoc.data() as Record<string, unknown>;
+      const packages = Array.isArray(data.promotionPackages) ? data.promotionPackages : [];
+      return (packages as Record<string, unknown>[]).map((pkg) =>
+        mapPromotionPackage(String(pkg.id ?? ""), { ...pkg, tenantId: String(pkg.tenantId ?? earningDoc.id) }),
+      );
+    })
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function listActivePromotionPackagesForTenant(tenantId: string): Promise<PromotionPackageRecord[]> {
   if (!tenantId.trim()) return [];
-  const snap = await getDocs(collection(db, "earningPackages"));
-  const doc = snap.docs.find((d) => d.id === tenantId.trim());
-  if (!doc) return [];
-  const data = doc.data() as Record<string, unknown>;
-  const packages = Array.isArray(data.promotionPackages) ? data.promotionPackages : [];
-  return (packages as any[])
-    .filter((pkg) => pkg.status === "active")
-    .map((pkg) => mapPromotionPackage(pkg.id || "", pkg as Record<string, unknown>))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const packages = await listPromotionPackages(tenantId.trim());
+  return packages.filter((pkg) => pkg.status === "active").sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function getPromotionPackageById(packageId: string): Promise<PromotionPackageRecord | null> {
-  const snap = await getDocs(
-    query(collection(db, COLLECTION), where(documentId(), "==", packageId.trim())),
-  );
-
-  if (snap.empty) {
-    return null;
-  }
-
-  const row = snap.docs[0];
-  return mapPromotionPackage(row.id, row.data() as Record<string, unknown>);
+  const normalizedPackageId = packageId.trim();
+  if (!normalizedPackageId) return null;
+  const allPackages = await listPromotionPackages();
+  return allPackages.find((pkg) => pkg.id === normalizedPackageId) ?? null;
 }
 
 export function getPromotionPackageSummary(pkg: PromotionPackageRecord): string {
@@ -130,12 +126,19 @@ export async function savePromotionPackage(
     throw new Error(Object.values(errors)[0]);
   }
 
-  const ref = values.id ? doc(db, COLLECTION, values.id) : doc(collection(db, COLLECTION));
-  const existingDoc = values.id ? await getDoc(ref) : null;
-  const isExisting = Boolean(existingDoc?.exists());
-
+  const tenantId = values.tenantId.trim();
+  const earningRef = doc(db, EARNING_COLLECTION, tenantId);
+  const earningSnap = await getDoc(earningRef);
+  const earningData = earningSnap.exists() ? (earningSnap.data() as Record<string, unknown>) : {};
+  const existingPackages = Array.isArray(earningData.promotionPackages)
+    ? [...(earningData.promotionPackages as Record<string, unknown>[])]
+    : [];
+  const packageId = values.id?.trim() || doc(collection(db, COLLECTION)).id;
+  const existingIndex = existingPackages.findIndex((pkg) => String(pkg.id ?? "") === packageId);
+  const existingPackage = existingIndex >= 0 ? existingPackages[existingIndex] : undefined;
+  const now = Timestamp.now();
   const payload: Record<string, unknown> = {
-    tenantId: values.tenantId.trim(),
+    tenantId,
     name: values.name.trim(),
     description: values.description.trim(),
     imageUrl: values.imageUrl.trim() || null,
@@ -147,20 +150,36 @@ export async function savePromotionPackage(
     status: values.status,
     sortOrder: Number(values.sortOrder) || 99,
     updatedBy: operatorId,
-    updatedAt: serverTimestamp(),
+    updatedAt: now,
+    createdBy: String(existingPackage?.createdBy ?? operatorId),
+    createdAt: existingPackage?.createdAt ?? now,
+    id: packageId,
   };
 
-  if (isExisting) {
-    await updateDoc(ref, payload);
+  if (existingIndex >= 0) {
+    existingPackages[existingIndex] = payload;
   } else {
-    await setDoc(ref, {
-      ...payload,
-      createdBy: operatorId,
-      createdAt: serverTimestamp(),
-    });
+    existingPackages.push(payload);
   }
 
-  return mapPromotionPackage(ref.id, { ...payload, id: ref.id });
+  existingPackages.sort((a, b) => {
+    const leftOrder = typeof a.sortOrder === "number" ? a.sortOrder : Number(a.sortOrder) || 99;
+    const rightOrder = typeof b.sortOrder === "number" ? b.sortOrder : Number(b.sortOrder) || 99;
+    return leftOrder - rightOrder;
+  });
+
+  await setDoc(
+    earningRef,
+    {
+      tenantId,
+      promotionPackages: existingPackages,
+      updatedAt: serverTimestamp(),
+      ...(earningSnap.exists() ? {} : { createdAt: serverTimestamp() }),
+    },
+    { merge: true },
+  );
+
+  return mapPromotionPackage(packageId, payload);
 }
 
 function sanitizeExtension(file: File): string {

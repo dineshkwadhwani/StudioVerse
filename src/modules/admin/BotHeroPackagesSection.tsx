@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import styles from "./SuperAdminPortal.module.css";
 import {
   getBotHeroPackageSummary,
@@ -10,6 +11,7 @@ import {
   validateBotHeroPackageForm,
   validateBotHeroPackageImageFile,
 } from "@/services/botHero.service";
+import { db } from "@/services/firebase";
 import {
   BOT_HERO_DURATION_UNITS,
   BOT_HERO_DURATION_UNIT_LABELS,
@@ -18,6 +20,11 @@ import {
 } from "@/types/botHero";
 
 type Props = { operatorId: string };
+
+type TenantOption = {
+  id: string;
+  name: string;
+};
 
 const EMPTY_FORM: BotHeroPackageFormValues = {
   name: "",
@@ -33,6 +40,8 @@ const EMPTY_FORM: BotHeroPackageFormValues = {
 
 export default function BotHeroPackagesSection({ operatorId }: Props) {
   const [packages, setPackages] = useState<BotHeroPackageRecord[]>([]);
+  const [tenantId, setTenantId] = useState("");
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -43,18 +52,43 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  async function loadTenants() {
+    try {
+      const tenantQuery = query(collection(db, "tenants"), where("status", "==", "active"));
+      const snapshot = await getDocs(tenantQuery);
+      const nextTenants = snapshot.docs.map((row) => ({
+        id: row.id,
+        name: String((row.data() as Record<string, unknown>).tenantName ?? row.id),
+      }));
+      setTenants(nextTenants);
+      setTenantId((current) => current || nextTenants[0]?.id || "");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load tenants.");
+    }
+  }
+
   async function refresh() {
+    if (!tenantId) {
+      setPackages([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      setPackages(await listBotHeroPackages());
+      setPackages(await listBotHeroPackages(tenantId));
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void loadTenants(); }, []);
+  useEffect(() => { void refresh(); }, [tenantId]);
 
   function openCreate() {
+    if (!tenantId) {
+      setError("Select a tenant before creating a Bot Hero package.");
+      return;
+    }
     setFormValues(EMPTY_FORM);
     setSelectedImage(null);
     setFormErrors({});
@@ -111,7 +145,7 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
         nextValues.imagePath = uploaded.imagePath;
       }
       const isNewPackage = !formValues.id;
-      await saveBotHeroPackage(nextValues, operatorId, isNewPackage);
+      await saveBotHeroPackage(nextValues, operatorId, { isNew: isNewPackage, tenantId });
       setMessage(isNewPackage ? "Bot Hero package created." : "Bot Hero package updated.");
       setFormOpen(false);
       setSelectedImage(null);
@@ -147,8 +181,17 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
       </p>
 
       <div className={styles.controlCard}>
+        <div style={{ marginBottom: "16px", maxWidth: "320px" }}>
+          <label className={styles.label}>Tenant</label>
+          <select className={styles.select} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+            <option value="">Select tenant</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
+            ))}
+          </select>
+        </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.button} onClick={openCreate}>
+          <button type="button" className={styles.button} onClick={openCreate} disabled={!tenantId}>
             Add Bot Hero Package
           </button>
         </div>
@@ -159,6 +202,8 @@ export default function BotHeroPackagesSection({ operatorId }: Props) {
 
       {loading ? (
         <div className={styles.emptyCard}>Loading Bot Hero packages…</div>
+      ) : !tenantId ? (
+        <div className={styles.emptyCard}>Select a tenant to view Bot Hero packages.</div>
       ) : packages.length === 0 ? (
         <div className={styles.emptyCard}>No Bot Hero packages found.</div>
       ) : (

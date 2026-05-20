@@ -1,14 +1,11 @@
 import {
   collection,
-  documentId,
   doc,
   getDoc,
   getDocs,
-  query,
+  Timestamp,
   serverTimestamp,
   setDoc,
-  updateDoc,
-  where,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "@/services/firebase";
@@ -22,6 +19,7 @@ import {
 } from "@/types/listingPackage";
 
 const COLLECTION = "listingPackages";
+const EARNING_COLLECTION = "earningPackages";
 
 function toStringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -56,21 +54,34 @@ function mapListingPackage(id: string, data: Record<string, unknown>): ListingPa
 }
 
 export async function listListingPackagesFromEarning(tenantId: string): Promise<ListingPackageRecord[]> {
-  const snap = await getDocs(collection(db, "earningPackages"));
-  const earningDoc = snap.docs.find((d) => d.id === tenantId);
-  if (earningDoc) {
-    const data = earningDoc.data() as Record<string, unknown>;
-    const packages = Array.isArray(data.listingPackages) ? data.listingPackages : [];
-    return (packages as any[])
-      .map((pkg) => mapListingPackage(pkg.id || "", pkg as Record<string, unknown>))
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-  return [];
+  const normalizedTenantId = tenantId.trim();
+  if (!normalizedTenantId) return [];
+
+  const earningDoc = await getDoc(doc(db, EARNING_COLLECTION, normalizedTenantId));
+  if (!earningDoc.exists()) return [];
+
+  const data = earningDoc.data() as Record<string, unknown>;
+  const packages = Array.isArray(data.listingPackages) ? data.listingPackages : [];
+  return (packages as Record<string, unknown>[])
+    .map((pkg) => mapListingPackage(String(pkg.id ?? ""), { ...pkg, tenantId: String(pkg.tenantId ?? normalizedTenantId) }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+async function listAllListingPackagesFromEarning(): Promise<ListingPackageRecord[]> {
+  const snap = await getDocs(collection(db, EARNING_COLLECTION));
+  return snap.docs
+    .flatMap((earningDoc) => {
+      const data = earningDoc.data() as Record<string, unknown>;
+      const packages = Array.isArray(data.listingPackages) ? data.listingPackages : [];
+      return (packages as Record<string, unknown>[]).map((pkg) =>
+        mapListingPackage(String(pkg.id ?? ""), { ...pkg, tenantId: String(pkg.tenantId ?? earningDoc.id) }),
+      );
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function listListingPackages(tenantId?: string): Promise<ListingPackageRecord[]> {
-  if (!tenantId) return [];
-  return listListingPackagesFromEarning(tenantId);
+  return tenantId?.trim() ? listListingPackagesFromEarning(tenantId) : listAllListingPackagesFromEarning();
 }
 
 export async function listActiveListingPackagesForTenant(tenantId: string): Promise<ListingPackageRecord[]> {
@@ -80,16 +91,11 @@ export async function listActiveListingPackagesForTenant(tenantId: string): Prom
 }
 
 export async function getListingPackageById(packageId: string): Promise<ListingPackageRecord | null> {
-  const snap = await getDocs(
-    query(collection(db, COLLECTION), where(documentId(), "==", packageId.trim())),
-  );
+  const normalizedPackageId = packageId.trim();
+  if (!normalizedPackageId) return null;
 
-  if (snap.empty) {
-    return null;
-  }
-
-  const row = snap.docs[0];
-  return mapListingPackage(row.id, row.data() as Record<string, unknown>);
+  const allPackages = await listAllListingPackagesFromEarning();
+  return allPackages.find((pkg) => pkg.id === normalizedPackageId) ?? null;
 }
 
 export function getListingPackageSummary(pkg: ListingPackageRecord): string {
@@ -129,12 +135,19 @@ export async function saveListingPackage(
     throw new Error(Object.values(errors)[0]);
   }
 
-  const ref = values.id ? doc(db, COLLECTION, values.id) : doc(collection(db, COLLECTION));
-  const existingDoc = values.id ? await getDoc(ref) : null;
-  const isExisting = Boolean(existingDoc?.exists());
-
+  const tenantId = values.tenantId.trim();
+  const earningRef = doc(db, EARNING_COLLECTION, tenantId);
+  const earningSnap = await getDoc(earningRef);
+  const earningData = earningSnap.exists() ? (earningSnap.data() as Record<string, unknown>) : {};
+  const existingPackages = Array.isArray(earningData.listingPackages)
+    ? [...(earningData.listingPackages as Record<string, unknown>[])]
+    : [];
+  const packageId = values.id?.trim() || doc(collection(db, COLLECTION)).id;
+  const existingIndex = existingPackages.findIndex((pkg) => String(pkg.id ?? "") === packageId);
+  const existingPackage = existingIndex >= 0 ? existingPackages[existingIndex] : undefined;
+  const now = Timestamp.now();
   const payload: Record<string, unknown> = {
-    tenantId: values.tenantId.trim(),
+    tenantId,
     name: values.name.trim(),
     description: values.description.trim(),
     imageUrl: values.imageUrl.trim() || null,
@@ -146,20 +159,36 @@ export async function saveListingPackage(
     status: values.status,
     sortOrder: Number(values.sortOrder) || 99,
     updatedBy: operatorId,
-    updatedAt: serverTimestamp(),
+    updatedAt: now,
+    createdBy: String(existingPackage?.createdBy ?? operatorId),
+    createdAt: existingPackage?.createdAt ?? now,
+    id: packageId,
   };
 
-  if (isExisting) {
-    await updateDoc(ref, payload);
+  if (existingIndex >= 0) {
+    existingPackages[existingIndex] = payload;
   } else {
-    await setDoc(ref, {
-      ...payload,
-      createdBy: operatorId,
-      createdAt: serverTimestamp(),
-    });
+    existingPackages.push(payload);
   }
 
-  return mapListingPackage(ref.id, { ...payload, id: ref.id });
+  existingPackages.sort((a, b) => {
+    const leftOrder = typeof a.sortOrder === "number" ? a.sortOrder : Number(a.sortOrder) || 99;
+    const rightOrder = typeof b.sortOrder === "number" ? b.sortOrder : Number(b.sortOrder) || 99;
+    return leftOrder - rightOrder;
+  });
+
+  await setDoc(
+    earningRef,
+    {
+      tenantId,
+      listingPackages: existingPackages,
+      updatedAt: serverTimestamp(),
+      ...(earningSnap.exists() ? {} : { createdAt: serverTimestamp() }),
+    },
+    { merge: true },
+  );
+
+  return mapListingPackage(packageId, payload);
 }
 
 function sanitizeExtension(file: File): string {

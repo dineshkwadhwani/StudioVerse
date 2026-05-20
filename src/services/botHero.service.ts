@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   increment,
+  Timestamp,
   runTransaction,
   query,
   serverTimestamp,
@@ -26,6 +27,12 @@ import {
 
 const PACKAGES_COLLECTION = "botHeroPackages";
 const REQUESTS_COLLECTION = "botHeroRequests";
+const EARNING_COLLECTION = "earningPackages";
+
+type SaveBotHeroPackageOptions = {
+  isNew?: boolean;
+  tenantId?: string;
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -131,30 +138,60 @@ async function resolveAuthenticatedProfessionalIds(tenantId: string): Promise<Se
 // ── Package CRUD ────────────────────────────────────────────────────────────
 
 export async function listBotHeroPackagesFromEarning(tenantId: string): Promise<BotHeroPackageRecord[]> {
+  const normalizedTenantId = tenantId.trim();
+  if (!normalizedTenantId) return [];
+
   try {
-    const snap = await getDocs(collection(db, "earningPackages"));
-    const earningDoc = snap.docs.find((d) => d.id === tenantId);
-    if (earningDoc) {
+    const earningDoc = await getDoc(doc(db, EARNING_COLLECTION, normalizedTenantId));
+    if (earningDoc.exists()) {
       const data = earningDoc.data() as Record<string, unknown>;
       const packages = Array.isArray(data.botPackages) ? data.botPackages : [];
-      return (packages as any[])
-        .map((pkg) => mapPackage(pkg.id || "", pkg as Record<string, unknown>))
+      return (packages as Record<string, unknown>[])
+        .map((pkg) => mapPackage(String(pkg.id ?? ""), pkg))
         .sort((a, b) => a.sortOrder - b.sortOrder);
     }
   } catch {
     // Fall through to old collection
   }
-  return listBotHeroPackages();
+  return listBotHeroPackages(normalizedTenantId);
 }
 
-export async function listBotHeroPackages(): Promise<BotHeroPackageRecord[]> {
+export async function listBotHeroPackages(tenantId?: string): Promise<BotHeroPackageRecord[]> {
+  const normalizedTenantId = tenantId?.trim() ?? "";
+  if (normalizedTenantId) {
+    try {
+      const earningDoc = await getDoc(doc(db, EARNING_COLLECTION, normalizedTenantId));
+      if (earningDoc.exists()) {
+        const data = earningDoc.data() as Record<string, unknown>;
+        const packages = Array.isArray(data.botPackages) ? data.botPackages : [];
+        return (packages as Record<string, unknown>[])
+          .map((pkg) => mapPackage(String(pkg.id ?? ""), pkg))
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+      }
+    } catch {
+      // Fall through to old collection.
+    }
+  }
+
   const snap = await getDocs(collection(db, PACKAGES_COLLECTION));
   return snap.docs
     .map((row) => mapPackage(row.id, row.data() as Record<string, unknown>))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export async function listActiveBotHeroPackages(): Promise<BotHeroPackageRecord[]> {
+export async function listActiveBotHeroPackages(tenantId?: string): Promise<BotHeroPackageRecord[]> {
+  const normalizedTenantId = tenantId?.trim() ?? "";
+  if (normalizedTenantId) {
+    try {
+      const packages = await listBotHeroPackages(normalizedTenantId);
+      if (packages.length > 0) {
+        return packages.filter((pkg) => pkg.active).sort((a, b) => a.sortOrder - b.sortOrder);
+      }
+    } catch {
+      // Fall through to old collection.
+    }
+  }
+
   const snap = await getDocs(
     query(collection(db, PACKAGES_COLLECTION), where("active", "==", true))
   );
@@ -166,9 +203,68 @@ export async function listActiveBotHeroPackages(): Promise<BotHeroPackageRecord[
 export async function saveBotHeroPackage(
   values: BotHeroPackageFormValues,
   operatorId: string,
-  isNew?: boolean
+  options?: boolean | SaveBotHeroPackageOptions
 ): Promise<void> {
-  const isCreate = isNew ?? !values.id;
+  const normalizedOptions: SaveBotHeroPackageOptions =
+    typeof options === "boolean" ? { isNew: options } : (options ?? {});
+  const tenantId = normalizedOptions.tenantId?.trim() ?? "";
+
+  if (tenantId) {
+    const earningRef = doc(db, EARNING_COLLECTION, tenantId);
+    const earningSnap = await getDoc(earningRef);
+    const earningData = earningSnap.exists() ? (earningSnap.data() as Record<string, unknown>) : {};
+    const existingPackages = Array.isArray(earningData.botPackages)
+      ? [...(earningData.botPackages as Record<string, unknown>[])]
+      : [];
+    const docId = values.id ?? doc(collection(db, PACKAGES_COLLECTION)).id;
+    const existingIndex = existingPackages.findIndex((pkg) => String(pkg.id ?? "") === docId);
+    const existingPackage = existingIndex >= 0 ? existingPackages[existingIndex] : undefined;
+    const now = Timestamp.now();
+
+    const payload: Record<string, unknown> = {
+      ...(existingPackage ?? {}),
+      id: docId,
+      name: values.name.trim(),
+      description: values.description.trim(),
+      imageUrl: values.imageUrl.trim() || null,
+      imagePath: values.imagePath.trim() || null,
+      durationValue: Number(values.durationValue),
+      durationUnit: values.durationUnit,
+      credits: Number(values.credits),
+      active: values.active,
+      sortOrder: Number(values.sortOrder) || 99,
+      updatedBy: operatorId,
+      updatedAt: now,
+      createdBy: String(existingPackage?.createdBy ?? operatorId),
+      createdAt: existingPackage?.createdAt ?? now,
+    };
+
+    if (existingIndex >= 0) {
+      existingPackages[existingIndex] = payload;
+    } else {
+      existingPackages.push(payload);
+    }
+
+    existingPackages.sort((a, b) => {
+      const leftOrder = typeof a.sortOrder === "number" ? a.sortOrder : Number(a.sortOrder) || 99;
+      const rightOrder = typeof b.sortOrder === "number" ? b.sortOrder : Number(b.sortOrder) || 99;
+      return leftOrder - rightOrder;
+    });
+
+    await setDoc(
+      earningRef,
+      {
+        tenantId,
+        botPackages: existingPackages,
+        updatedAt: serverTimestamp(),
+        ...(earningSnap.exists() ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true },
+    );
+    return;
+  }
+
+  const isCreate = normalizedOptions.isNew ?? !values.id;
   const docId = values.id ?? doc(collection(db, PACKAGES_COLLECTION)).id;
   const docRef = doc(db, PACKAGES_COLLECTION, docId);
 

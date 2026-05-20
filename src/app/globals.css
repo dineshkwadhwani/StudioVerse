@@ -35,6 +35,60 @@ html {
   --sv-coming: #404050;
   --sv-radius: 16px;
   --sv-radius-sm: 10px;
+
+  /* StudioVerse editorial palette — strictly inside the existing blue family */
+  --ed-ink-display: #0a2d4a;
+  --ed-ink-strong: #133a56;
+  --ed-ink-body: #3c5d76;
+  --ed-ink-soft: #6a8195;
+  --ed-ink-muted: #97a9b8;
+
+  --ed-brand: #0f6b95;
+  --ed-brand-deep: #0c5479;
+  --ed-brand-accent: #2bb6d1;
+  --ed-brand-tint: #e7f2fa;
+
+  /* Cool blue surface family — no cream, no warm tones */
+  --ed-bg-top: #eaf6ff;
+  --ed-bg-mid: #dcecf8;
+  --ed-bg-bottom: #e8f5ff;
+  --ed-paper: #eaf6ff;
+  --ed-paper-deep: #dcecf8;
+  --ed-surface: #ffffff;
+  --ed-surface-cool: #f3f7fb;
+  --ed-surface-tint: rgba(43, 182, 209, 0.06);
+  --ed-surface-tint-deep: rgba(15, 107, 149, 0.06);
+  --ed-footer-bg: #0f3454;
+
+  --ed-line: rgba(10, 45, 74, 0.10);
+  --ed-line-strong: rgba(10, 45, 74, 0.18);
+  --ed-line-soft: rgba(10, 45, 74, 0.06);
+  --ed-line-cool: #c6dcea;
+
+  --ed-shadow-sm: 0 1px 2px rgba(10, 45, 74, 0.05);
+  --ed-shadow-md: 0 1px 2px rgba(10, 45, 74, 0.06), 0 8px 24px rgba(10, 45, 74, 0.08);
+  --ed-shadow-lg: 0 2px 4px rgba(10, 45, 74, 0.06), 0 18px 38px rgba(10, 45, 74, 0.12);
+  --ed-shadow-press: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 14px rgba(15, 107, 149, 0.22);
+
+  --ed-radius-sm: 6px;
+  --ed-radius-md: 10px;
+  --ed-radius-lg: 16px;
+  --ed-radius-pill: 999px;
+
+  --ed-space-1: 4px;
+  --ed-space-2: 8px;
+  --ed-space-3: 12px;
+  --ed-space-4: 16px;
+  --ed-space-5: 24px;
+  --ed-space-6: 32px;
+  --ed-space-7: 48px;
+  --ed-space-8: 64px;
+  --ed-space-9: 96px;
+
+  --ed-content: 1320px;
+  --ed-content-narrow: 920px;
+
+  --ed-gradient-press: linear-gradient(135deg, #0c5479 0%, #14729e 55%, #2bb6d1 100%);
 }
 
 @theme inline {

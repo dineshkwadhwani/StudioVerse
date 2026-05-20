@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Manrope } from "next/font/google";
+import { Manrope, Fraunces } from "next/font/google";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
@@ -27,6 +27,14 @@ import DetailModal, { type DetailItem } from "@/modules/activities/components/De
 const landingSans = Manrope({
   subsets: ["latin"],
   variable: "--landing-font-sans",
+  display: "swap",
+});
+
+const landingSerif = Fraunces({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal"],
+  variable: "--landing-font-serif",
   display: "swap",
 });
 
@@ -108,9 +116,9 @@ function isInTenantScope(
 }
 
 const DEFAULT_SECTION_INTROS = {
-  tools: "Every tool supports stronger diagnostics, better reporting, and premium client journeys.",
-  programs: "Each programme pairs a clear commercial use case with a polished learner experience.",
-  events: "From roundtables to showcases, each event is designed for practical outcomes.",
+  tools: "Validated instruments to diagnose capability, surface blind spots, and inform every conversation.",
+  programs: "Cohort-based programmes built with practitioners and grounded in published research.",
+  events: "Live roundtables, masterclasses, and showcases hosted by senior practitioners.",
 };
 
 function getSectionMeta(
@@ -120,20 +128,20 @@ function getSectionMeta(
 ): Record<SectionKey, { title: string; intro: string; viewAllPath: string; darkTile?: boolean; navLabel?: string }> {
   return {
     tools: {
-      title: `${labels.tools} built to assess coachees, surface gaps, and accelerate growth.`,
+      title: labels.tools,
       intro: intros.tools,
       viewAllPath: `${basePath}/tools`,
       navLabel: labels.tools,
     },
     programs: {
-      title: `Signature ${labels.programs.toLowerCase()} designed for leadership growth and transformation.`,
+      title: labels.programs,
       intro: intros.programs,
       viewAllPath: `${basePath}/programs`,
       darkTile: true,
       navLabel: labels.programs,
     },
     events: {
-      title: `Curated ${labels.events.toLowerCase()} that connect leaders, coaches, and growth-focused teams.`,
+      title: labels.events,
       intro: intros.events,
       viewAllPath: `${basePath}/events`,
       navLabel: labels.events,
@@ -150,6 +158,7 @@ function CarouselSection({
   perView,
   onItemClick,
   darkTile,
+  eyebrow,
 }: {
   id: string;
   items: CarouselItem[];
@@ -159,6 +168,7 @@ function CarouselSection({
   perView: number;
   onItemClick: (item: CarouselItem) => void;
   darkTile?: boolean;
+  eyebrow?: string;
 }) {
   const { index, next, prev } = useCarousel(items.length, perView, 5000);
   const slideWidth = 100 / perView;
@@ -168,15 +178,14 @@ function CarouselSection({
   return (
     <section id={id} className={styles.section}>
       <div className={styles.sectionHeader}>
-        <div>
+        <div className={styles.sectionHeaderText}>
+          {eyebrow ? <span className={styles.eyebrow}>{eyebrow}</span> : null}
           <h2 className={styles.sectionTitle}>{title}</h2>
-          <p className={styles.sectionIntro}>
-            {intro} {" "}
-            <Link href={viewAllPath} className={styles.viewAllInline}>
-              View All
-            </Link>
-          </p>
+          <p className={styles.sectionIntro}>{intro}</p>
         </div>
+        <Link href={viewAllPath} className={styles.viewAllInline}>
+          View all <span aria-hidden="true">&rarr;</span>
+        </Link>
       </div>
 
       <div className={styles.carouselWrap}>
@@ -215,50 +224,49 @@ function AssessLearnTransformTimeline({ userType }: { userType: UserType }) {
   const isCoach = userType === "coach";
 
   return (
-    <section className={styles.altTimeline}>
-      <h2 className={styles.altTimelineTitle}>
-        {isCoach ? "Empower Through Coaching" : "Grow Through Learning"}
-      </h2>
-      <div className={styles.timelineContainer}>
-        <div className={styles.timelineStep}>
-          <div className={styles.timelineNumber}>1</div>
-          <div className={styles.timelineContent}>
-            <h3>Assess</h3>
-            <p>
-              {isCoach
-                ? "Diagnose coaching needs and identify growth opportunities for your coachees with precision diagnostics."
-                : "Assess your current capabilities and identify skill gaps compared to industry benchmarks."}
-            </p>
-          </div>
+    <section id="method" className={styles.altTimeline}>
+      <div className={styles.altTimelineInner}>
+        <div className={styles.altTimelineHeader}>
+          <span className={styles.eyebrow}>The Method</span>
+          <h2 className={styles.altTimelineTitle}>
+            {isCoach ? "A disciplined practice, end to end." : "A disciplined path, end to end."}
+          </h2>
         </div>
-
-        <div className={styles.timelineArrow} aria-hidden="true" />
-
-        <div className={styles.timelineStep}>
-          <div className={styles.timelineNumber}>2</div>
-          <div className={styles.timelineContent}>
-            <h3>Learn</h3>
-            <p>
-              {isCoach
-                ? "Leverage best-in-class programmes and deliver your own curated content — using diagnostic tools to deepen coaching impact and drive measurable outcomes."
-                : "Access tailored programmes and tools matched to your development priorities."}
-            </p>
-          </div>
-        </div>
-
-        <div className={styles.timelineArrow} aria-hidden="true" />
-
-        <div className={styles.timelineStep}>
-          <div className={styles.timelineNumber}>3</div>
-          <div className={styles.timelineContent}>
-            <h3>Transform</h3>
-            <p>
-              {isCoach
-                ? "Create structured transformation plans for each coachee, track their progress milestone by milestone, and scale your coaching impact with confidence."
-                : "Demonstrate growth, achieve goals, and unlock your leadership potential."}
-            </p>
-          </div>
-        </div>
+        <ol className={styles.timelineContainer}>
+          <li className={styles.timelineStep}>
+            <span className={styles.timelineNumber}>01</span>
+            <div className={styles.timelineContent}>
+              <h3>Assess</h3>
+              <p>
+                {isCoach
+                  ? "Diagnose capability with validated instruments — translate signal into a coaching plan."
+                  : "Benchmark your capabilities against role-relevant standards and identify priority gaps."}
+              </p>
+            </div>
+          </li>
+          <li className={styles.timelineStep}>
+            <span className={styles.timelineNumber}>02</span>
+            <div className={styles.timelineContent}>
+              <h3>Learn</h3>
+              <p>
+                {isCoach
+                  ? "Curate programmes, deliver content, and run sessions with structure and measurable outcomes."
+                  : "Move through programmes and live sessions built for working executives, not classrooms."}
+              </p>
+            </div>
+          </li>
+          <li className={styles.timelineStep}>
+            <span className={styles.timelineNumber}>03</span>
+            <div className={styles.timelineContent}>
+              <h3>Transform</h3>
+              <p>
+                {isCoach
+                  ? "Track outcomes per engagement, evidence your impact, and grow a defensible practice."
+                  : "Demonstrate growth with portable evidence — credible to your sponsors and your future self."}
+              </p>
+            </div>
+          </li>
+        </ol>
       </div>
     </section>
   );
@@ -613,39 +621,46 @@ export default function LandingPage({ config }: Props) {
 
   const heroMessages = {
     coach: {
-      label: `${config.roles.professional} Platform`,
-      title: `Your Playground for ${config.roles.professional} Excellence`,
-      copy: `${config.name} is your workspace for delivering premium growth journeys. Leverage best-in-class programs or deliver your own, use powerful diagnostic tools to assess your participants, and host curated events in one place to scale your impact.`,
+      label: "Practitioner View",
+      title: `Build a practice you can stand behind.`,
+      copy: `Deliver best-in-class programmes, assess your clients with validated diagnostics, host signature events, and track outcomes — all in one practitioner-grade workspace.`,
+      primaryCta: "Start your practice",
+      secondaryCta: "How it works",
     },
     learner: {
-      label: "Learning Platform",
-      title: "Unlock Your Leadership Potential",
-      copy: `${config.name} connects you with expert-designed programs, proven assessment tools, and industry leaders. Assess your capabilities, close gaps, and transform into the leader you aspire to be.`,
+      label: "Learner View",
+      title: `Grow into the leader your career is waiting for.`,
+      copy: `Benchmark your strengths with validated assessments, follow curated programmes, and join live sessions led by senior practitioners — a credible, evidence-led path forward.`,
+      primaryCta: "Begin your journey",
+      secondaryCta: "How it works",
     },
   };
 
   const currentHero = heroMessages[userType];
 
-  const heroCards = useMemo(
-    () => [
-      {
-        image: landing?.heroImages?.programs,
-        label: "Programmes + cohorts",
-        className: styles.heroCardOne,
-      },
-      {
-        image: landing?.heroImages?.tools,
-        label: "Tool-powered outcomes",
-        className: styles.heroCardTwo,
-      },
-      {
-        image: landing?.heroImages?.events,
-        label: "Events that convert",
-        className: styles.heroCardThree,
-      },
-    ],
-    [landing?.heroImages?.events, landing?.heroImages?.programs, landing?.heroImages?.tools]
-  );
+  const heroSlides = useMemo(() => {
+    const slides: { image: string; label: string }[] = [];
+    if (landing?.heroImages?.programs) {
+      slides.push({ image: landing.heroImages.programs, label: sectionLabels.programs });
+    }
+    if (landing?.heroImages?.tools) {
+      slides.push({ image: landing.heroImages.tools, label: sectionLabels.tools });
+    }
+    if (landing?.heroImages?.events) {
+      slides.push({ image: landing.heroImages.events, label: sectionLabels.events });
+    }
+    return slides;
+  }, [landing?.heroImages?.programs, landing?.heroImages?.tools, landing?.heroImages?.events, sectionLabels.programs, sectionLabels.tools, sectionLabels.events]);
+
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+
+  useEffect(() => {
+    if (heroSlides.length < 2) return;
+    const id = window.setInterval(() => {
+      setHeroSlideIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 5200);
+    return () => window.clearInterval(id);
+  }, [heroSlides.length]);
 
   async function handleSignOut() {
     await signOut(auth);
@@ -656,7 +671,7 @@ export default function LandingPage({ config }: Props) {
   }
 
   return (
-    <main className={`${styles.page} ${landingSans.variable}`}>
+    <main className={`${styles.page} ${landingSans.variable} ${landingSerif.variable}`}>
       <header className={styles.nav}>
         <Link href={basePath} className={styles.brand}>
           <Image src={config.theme.logo} width={76} height={40} alt={`${config.name} logo`} className={styles.logo} />
@@ -710,8 +725,8 @@ export default function LandingPage({ config }: Props) {
 
       {isMobileMenuOpen && (
         <>
-          <div className={styles.mobileMenuBackdrop} ref={mobileMenuRef} onClick={() => setIsMobileMenuOpen(false)} />
-          <div className={styles.mobileMenu}>
+          <div className={styles.mobileMenuBackdrop} onClick={() => setIsMobileMenuOpen(false)} />
+          <div className={styles.mobileMenu} ref={mobileMenuRef}>
             <a href="#tools" onClick={() => setIsMobileMenuOpen(false)}>
               {sectionMeta.tools.navLabel}
             </a>
@@ -757,35 +772,106 @@ export default function LandingPage({ config }: Props) {
       <section className={styles.hero}>
         <div className={styles.heroLeft}>
           {!isLoggedIn && (
-            <div className={styles.userTypeSelector}>
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
-                onClick={() => setUserType("coach")}
-              >
-                I am a {config.roles.professional}
-              </button>
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
-                onClick={() => setUserType("learner")}
-              >
-                I am a {config.roles.individual}
-              </button>
-            </div>
+            <>
+              <span className={styles.userTypePrompt}>Choose your view</span>
+              <div className={styles.userTypeSelector} role="tablist" aria-label="Audience">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={userType === "coach"}
+                  className={`${styles.toggleBtn} ${userType === "coach" ? styles.toggleActive : ""}`}
+                  onClick={() => setUserType("coach")}
+                >
+                  I am a {config.roles.professional}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={userType === "learner"}
+                  className={`${styles.toggleBtn} ${userType === "learner" ? styles.toggleActive : ""}`}
+                  onClick={() => setUserType("learner")}
+                >
+                  I am a {config.roles.individual}
+                </button>
+              </div>
+            </>
           )}
           <span className={styles.heroLabel}>{currentHero.label}</span>
           <h1>{currentHero.title}</h1>
           <p className={styles.heroCopy}>{currentHero.copy}</p>
+          <div className={styles.heroCtaRow}>
+            {!isLoggedIn && (
+              <button
+                type="button"
+                className={styles.primaryCta}
+                onClick={() => setIsAuthModalOpen(true)}
+              >
+                {currentHero.primaryCta}
+              </button>
+            )}
+            <a href="#method" className={styles.secondaryCta}>
+              {currentHero.secondaryCta}
+            </a>
+          </div>
+          <p className={styles.heroTrust}>
+            Built with senior practitioners — designed for serious leadership work.
+          </p>
         </div>
 
         <div className={styles.heroVisual}>
-          {heroCards.map((card) => (
-            <div key={card.label} className={`${styles.heroCard} ${card.className}`}>
-              {card.image ? <img src={card.image} alt={card.label} /> : null}
-              <span className={styles.heroBadge}>{card.label}</span>
-            </div>
-          ))}
+          <div className={styles.heroVisualPlate} aria-hidden="true" />
+          <div className={styles.heroCarousel}>
+            {heroSlides.map((slide, idx) => (
+              <img
+                key={slide.image}
+                src={slide.image}
+                alt=""
+                className={`${styles.heroImage} ${idx === heroSlideIndex ? styles.heroImageActive : ""}`}
+                aria-hidden={idx !== heroSlideIndex}
+              />
+            ))}
+            {heroSlides[heroSlideIndex] ? (
+              <span key={heroSlides[heroSlideIndex].label} className={styles.heroSlideLabel}>
+                {heroSlides[heroSlideIndex].label}
+              </span>
+            ) : null}
+            {heroSlides.length > 1 ? (
+              <div className={styles.heroDots} role="tablist" aria-label="Hero slides">
+                {heroSlides.map((slide, idx) => (
+                  <button
+                    key={slide.image}
+                    type="button"
+                    role="tab"
+                    aria-selected={idx === heroSlideIndex}
+                    aria-label={`Show ${slide.label}`}
+                    className={`${styles.heroDot} ${idx === heroSlideIndex ? styles.heroDotActive : ""}`}
+                    onClick={() => setHeroSlideIndex(idx)}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.statsStrip} aria-label="At a glance">
+        <div className={styles.statsStripInner}>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>12,000+</span>
+            <span className={styles.statLabel}>Assessments delivered</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>200+</span>
+            <span className={styles.statLabel}>Certified practitioners</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>50+</span>
+            <span className={styles.statLabel}>Enterprise engagements</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>30 yrs</span>
+            <span className={styles.statLabel}>Practitioner research</span>
+          </div>
         </div>
       </section>
 
@@ -801,6 +887,7 @@ export default function LandingPage({ config }: Props) {
           perView={perView}
           darkTile={sectionMeta.tools.darkTile}
           onItemClick={handleItemClick}
+          eyebrow="Diagnostic Tools"
         />
       )}
 
@@ -814,6 +901,7 @@ export default function LandingPage({ config }: Props) {
           perView={perView}
           darkTile={sectionMeta.programs.darkTile}
           onItemClick={handleItemClick}
+          eyebrow="Curated Learning"
         />
       )}
 
@@ -826,16 +914,39 @@ export default function LandingPage({ config }: Props) {
           viewAllPath={sectionMeta.events.viewAllPath}
           perView={perView}
           onItemClick={handleItemClick}
+          eyebrow="Live Sessions"
         />
       )}
 
       <footer className={styles.footer}>
-        <p className={styles.footerLine}>
+        <div className={styles.footerInner}>
+          <div className={styles.footerBrand}>
+            <Image src={config.theme.logo} width={56} height={56} alt={`${config.name} logo`} className={styles.footerLogo} />
+            <p className={styles.footerTagline}>
+              A practitioner-grade platform for serious leadership work.
+            </p>
+          </div>
+          <div className={styles.footerCol}>
+            <h4 className={styles.footerColTitle}>Platform</h4>
+            <Link href={`${basePath}/tools`}>{sectionMeta.tools.navLabel}</Link>
+            <Link href={`${basePath}/programs`}>{sectionMeta.programs.navLabel}</Link>
+            <Link href={`${basePath}/events`}>{sectionMeta.events.navLabel}</Link>
+          </div>
+          <div className={styles.footerCol}>
+            <h4 className={styles.footerColTitle}>Office</h4>
+            <a href="tel:+919604188725">+91 9604188725</a>
+            <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+          </div>
+          <div className={styles.footerCol}>
+            <h4 className={styles.footerColTitle}>Legal</h4>
+            <Link href={`${basePath}/privacy-policy`}>Privacy Policy</Link>
+            <Link href={`${basePath}/terms-of-service`}>Terms of Service</Link>
+          </div>
+        </div>
+        <div className={styles.footerBottom}>
           <span>&copy; {new Date().getFullYear()} {config.name}. All rights reserved.</span>
-          <Link href={`${basePath}/privacy-policy`}>Privacy Policy</Link>
-          <a href="tel:+919604188725">+91 9604188725</a>
-          <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-        </p>
+          <span className={styles.footerStudio}>Powered by StudioVerse</span>
+        </div>
       </footer>
 
       <LoginRegisterModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />

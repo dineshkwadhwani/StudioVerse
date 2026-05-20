@@ -24,6 +24,8 @@ const STATIC_FILE_EXTENSIONS = [
   ".woff2",
 ];
 
+const GLOBAL_PATH_PREFIXES = ["/admin"] as const;
+
 type StudioRole = "company" | "professional" | "individual" | "superadmin";
 
 const TENANT_IDS = new Set(TENANT_CONFIGS.map((tenant) => tenant.id));
@@ -49,6 +51,10 @@ function shouldBypass(pathname: string): boolean {
   }
 
   return STATIC_FILE_EXTENSIONS.some((extension) => pathname.endsWith(extension));
+}
+
+function isGlobalPath(pathname: string): boolean {
+  return GLOBAL_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function getEffectivePath(pathname: string, tenantId: string | null): string {
@@ -83,7 +89,7 @@ function redirectTo(request: NextRequest, pathname: string): NextResponse {
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
-  if (shouldBypass(pathname) || isTenantRootPath(pathname)) {
+  if (shouldBypass(pathname) || isTenantRootPath(pathname) || isGlobalPath(pathname)) {
     return NextResponse.next();
   }
 

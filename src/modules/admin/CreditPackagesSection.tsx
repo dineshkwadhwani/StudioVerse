@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import styles from "./SuperAdminPortal.module.css";
 import {
   listCoinPackages,
@@ -9,7 +10,8 @@ import {
   validateCoinPackageForm,
   validateCoinPackageImageFile,
 } from "@/services/coinPackages.service";
-import { DEFAULT_COIN_PACKAGES } from "@/types/coinPackage";
+import { seedCreditPackages } from "@/services/earningPackages.service";
+import { db } from "@/services/firebase";
 import type { CoinPackageFormValues, CoinPackageRecord } from "@/types/coinPackage";
 
 const EMPTY_FORM: CoinPackageFormValues = {
@@ -27,8 +29,15 @@ type Props = {
   operatorId: string;
 };
 
+type TenantOption = {
+  id: string;
+  name: string;
+};
+
 export default function CreditPackagesSection({ operatorId }: Props) {
   const [packages, setPackages] = useState<CoinPackageRecord[]>([]);
+  const [tenantId, setTenantId] = useState("");
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -41,18 +50,49 @@ export default function CreditPackagesSection({ operatorId }: Props) {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  async function loadTenants() {
+    try {
+      const tenantQuery = query(collection(db, "tenants"), where("status", "==", "active"));
+      const snapshot = await getDocs(tenantQuery);
+      const nextTenants = snapshot.docs.map((row) => ({
+        id: row.id,
+        name: String((row.data() as Record<string, unknown>).tenantName ?? row.id),
+      }));
+      setTenants(nextTenants);
+      setTenantId((current) => current || nextTenants[0]?.id || "");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load tenants.");
+    }
+  }
+
   async function refresh() {
+    if (!tenantId) {
+      setPackages([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      setPackages(await listCoinPackages());
+      setPackages(await listCoinPackages(tenantId));
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    void loadTenants();
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [tenantId]);
 
   function openCreate() {
+    if (!tenantId) {
+      setError("Select a tenant before creating a credit package.");
+      return;
+    }
     setFormValues(EMPTY_FORM);
     setFormErrors({});
     setSelectedImage(null);
@@ -125,7 +165,7 @@ export default function CreditPackagesSection({ operatorId }: Props) {
       }
 
       const isNewPackage = !formValues.id;
-      await saveCoinPackage(nextValues, operatorId, isNewPackage);
+      await saveCoinPackage(nextValues, operatorId, { isNew: isNewPackage, tenantId });
       setMessage(isNewPackage ? "Credit package created." : "Credit package updated.");
       setFormOpen(false);
       setSelectedImage(null);
@@ -139,25 +179,20 @@ export default function CreditPackagesSection({ operatorId }: Props) {
   }
 
   async function handleSeedDefaults() {
+    if (!tenantId) {
+      setError("Select a tenant before seeding credit packages.");
+      return;
+    }
+
     setSeeding(true);
     setError("");
     try {
-      for (const pkg of DEFAULT_COIN_PACKAGES) {
-        await saveCoinPackage(
-          {
-            name: pkg.name,
-            description: pkg.description ?? "",
-            imageUrl: "",
-            imagePath: "",
-            credits: String(pkg.credits),
-            priceInr: String(pkg.priceInr),
-            status: pkg.status,
-            sortOrder: String(pkg.sortOrder),
-          },
-          operatorId
-        );
-      }
-      setMessage("Default packages seeded successfully.");
+      const result = await seedCreditPackages(tenantId);
+      setMessage(
+        result.status === "already-exists"
+          ? `Already seeded. Found ${result.creditPackages} credit packages.`
+          : `Default packages seeded. Added ${result.creditPackages} credit packages.`,
+      );
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Seeding failed.");
@@ -174,18 +209,33 @@ export default function CreditPackagesSection({ operatorId }: Props) {
       </p>
 
       <div className={styles.controlCard}>
+        <div style={{ marginBottom: "16px", maxWidth: "320px" }}>
+          <label className={styles.label}>Tenant</label>
+          <select
+            className={styles.select}
+            value={tenantId}
+            onChange={(event) => setTenantId(event.target.value)}
+          >
+            <option value="">Select tenant</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className={styles.actions}>
           {packages.length === 0 ? (
             <button
               type="button"
               className={styles.button}
               onClick={handleSeedDefaults}
-              disabled={seeding}
+              disabled={seeding || !tenantId}
             >
               {seeding ? "Seeding…" : "Seed Defaults"}
             </button>
           ) : null}
-          <button type="button" className={styles.button} onClick={openCreate}>
+          <button type="button" className={styles.button} onClick={openCreate} disabled={!tenantId}>
             Add Credit Package
           </button>
         </div>
@@ -196,6 +246,8 @@ export default function CreditPackagesSection({ operatorId }: Props) {
 
       {loading ? (
         <div className={styles.emptyCard}>Loading credit packages…</div>
+      ) : !tenantId ? (
+        <div className={styles.emptyCard}>Select a tenant to view credit packages.</div>
       ) : packages.length === 0 ? (
         <div className={styles.emptyCard}>No credit packages yet. Create one above or seed the defaults.</div>
       ) : (

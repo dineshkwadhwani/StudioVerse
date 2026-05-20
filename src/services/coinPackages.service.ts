@@ -1,8 +1,10 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
+  Timestamp,
   serverTimestamp,
   setDoc,
   where,
@@ -12,6 +14,12 @@ import { db, storage } from "@/services/firebase";
 import type { CoinPackageFormValues, CoinPackageRecord, CoinPackageStatus } from "@/types/coinPackage";
 
 const COLLECTION = "coinPackages";
+const EARNING_COLLECTION = "earningPackages";
+
+type SaveCoinPackageOptions = {
+  isNew?: boolean;
+  tenantId?: string;
+};
 
 function toStringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -34,16 +42,33 @@ function mapCoinPackage(id: string, data: Record<string, unknown>): CoinPackageR
     updatedAt: data.updatedAt as CoinPackageRecord["updatedAt"],
   };
 }
+
+async function readCoinPackagesFromEarning(tenantId: string): Promise<{ found: boolean; packages: CoinPackageRecord[] }> {
+  const normalizedTenantId = tenantId.trim();
+  if (!normalizedTenantId) {
+    return { found: false, packages: [] };
+  }
+
+  const earningDoc = await getDoc(doc(db, EARNING_COLLECTION, normalizedTenantId));
+  if (!earningDoc.exists()) {
+    return { found: false, packages: [] };
+  }
+
+  const data = earningDoc.data() as Record<string, unknown>;
+  const packages = Array.isArray(data.creditPackages) ? data.creditPackages : [];
+  return {
+    found: true,
+    packages: (packages as Record<string, unknown>[])
+      .map((pkg) => mapCoinPackage(String(pkg.id ?? ""), pkg))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  };
+}
+
 export async function listCoinPackagesFromEarning(tenantId: string): Promise<CoinPackageRecord[]> {
   try {
-    const snap = await getDocs(collection(db, "earningPackages"));
-    const earningDoc = snap.docs.find((d) => d.id === tenantId);
-    if (earningDoc) {
-      const data = earningDoc.data() as Record<string, unknown>;
-      const packages = Array.isArray(data.creditPackages) ? data.creditPackages : [];
-      return (packages as any[])
-        .map((pkg) => mapCoinPackage(pkg.id || "", pkg as Record<string, unknown>))
-        .sort((a, b) => a.sortOrder - b.sortOrder);
+    const result = await readCoinPackagesFromEarning(tenantId);
+    if (result.found) {
+      return result.packages;
     }
   } catch {
     // Fall through to old collection
@@ -51,14 +76,38 @@ export async function listCoinPackagesFromEarning(tenantId: string): Promise<Coi
   return listCoinPackages();
 }
 
-export async function listCoinPackages(): Promise<CoinPackageRecord[]> {
+export async function listCoinPackages(tenantId?: string): Promise<CoinPackageRecord[]> {
+  const normalizedTenantId = tenantId?.trim() ?? "";
+  if (normalizedTenantId) {
+    try {
+      const result = await readCoinPackagesFromEarning(normalizedTenantId);
+      if (result.found) {
+        return result.packages;
+      }
+    } catch {
+      // Fall through to legacy collection read.
+    }
+  }
+
   const snap = await getDocs(collection(db, COLLECTION));
   return snap.docs
     .map((row) => mapCoinPackage(row.id, row.data() as Record<string, unknown>))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export async function listActiveCoinPackages(): Promise<CoinPackageRecord[]> {
+export async function listActiveCoinPackages(tenantId?: string): Promise<CoinPackageRecord[]> {
+  const normalizedTenantId = tenantId?.trim() ?? "";
+  if (normalizedTenantId) {
+    try {
+      const result = await readCoinPackagesFromEarning(normalizedTenantId);
+      if (result.found) {
+        return result.packages.filter((pkg) => pkg.status === "active");
+      }
+    } catch {
+      // Fall through to legacy collection read.
+    }
+  }
+
   const snap = await getDocs(
     query(collection(db, COLLECTION), where("status", "==", "active"))
   );
@@ -84,15 +133,73 @@ export function validateCoinPackageForm(values: CoinPackageFormValues): Record<s
 export async function saveCoinPackage(
   values: CoinPackageFormValues,
   operatorId: string,
-  isNew?: boolean
+  options?: boolean | SaveCoinPackageOptions
 ): Promise<CoinPackageRecord> {
   const errors = validateCoinPackageForm(values);
   if (Object.keys(errors).length > 0) {
     throw new Error(Object.values(errors)[0]);
   }
 
+  const normalizedOptions: SaveCoinPackageOptions =
+    typeof options === "boolean" ? { isNew: options } : (options ?? {});
+
+  const tenantId = normalizedOptions.tenantId?.trim() ?? "";
+  if (tenantId) {
+    const earningRef = doc(db, EARNING_COLLECTION, tenantId);
+    const earningSnap = await getDoc(earningRef);
+    const earningData = earningSnap.exists() ? (earningSnap.data() as Record<string, unknown>) : {};
+    const existingPackages = Array.isArray(earningData.creditPackages)
+      ? [...(earningData.creditPackages as Record<string, unknown>[])]
+      : [];
+    const packageId = values.id?.trim() || doc(collection(db, COLLECTION)).id;
+    const existingIndex = existingPackages.findIndex((pkg) => String(pkg.id ?? "") === packageId);
+    const existingPackage = existingIndex >= 0 ? existingPackages[existingIndex] : undefined;
+    const now = Timestamp.now();
+    const nextPackage: Record<string, unknown> = {
+      ...(existingPackage ?? {}),
+      id: packageId,
+      name: values.name.trim(),
+      description: values.description.trim(),
+      imageUrl: values.imageUrl.trim() || null,
+      imagePath: values.imagePath.trim() || null,
+      credits: Number(values.credits),
+      priceInr: Number(values.priceInr),
+      status: values.status,
+      sortOrder: Number(values.sortOrder) || 99,
+      updatedBy: operatorId,
+      updatedAt: now,
+      createdBy: String(existingPackage?.createdBy ?? operatorId),
+      createdAt: existingPackage?.createdAt ?? now,
+    };
+
+    if (existingIndex >= 0) {
+      existingPackages[existingIndex] = nextPackage;
+    } else {
+      existingPackages.push(nextPackage);
+    }
+
+    existingPackages.sort((left, right) => {
+      const leftOrder = typeof left.sortOrder === "number" ? left.sortOrder : Number(left.sortOrder) || 99;
+      const rightOrder = typeof right.sortOrder === "number" ? right.sortOrder : Number(right.sortOrder) || 99;
+      return leftOrder - rightOrder;
+    });
+
+    await setDoc(
+      earningRef,
+      {
+        tenantId,
+        creditPackages: existingPackages,
+        updatedAt: serverTimestamp(),
+        ...(earningSnap.exists() ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true },
+    );
+
+    return mapCoinPackage(packageId, nextPackage);
+  }
+
   const docRef = values.id ? doc(db, COLLECTION, values.id) : doc(collection(db, COLLECTION));
-  const isCreate = isNew ?? !values.id;
+  const isCreate = normalizedOptions.isNew ?? !values.id;
 
   const payload: Record<string, unknown> = {
     name: values.name.trim(),

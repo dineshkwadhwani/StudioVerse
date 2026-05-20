@@ -138,7 +138,7 @@ export default function BuyCoinsPage({ tenantConfig }: BuyCoinsPageProps) {
         const resolvedUserId = storedProfileId ?? firebaseUser.uid;
         const [profile, pkgs] = await Promise.all([
           getUserById(resolvedUserId),
-          listActiveCoinPackages(),
+          listActiveCoinPackages(tenantId),
         ]);
 
         setUserCtx({

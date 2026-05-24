@@ -1,0 +1,211 @@
+.wizard {
+  --primary: #01696f;
+  --primary-dark: #015257;
+  --accent: #03a9b0;
+  --ink: #133a56;
+  --ink-soft: #4d6e86;
+  --line: #c6dcea;
+  --danger: #b3261e;
+  --surface: #f4fbff;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Progress steps */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.step {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.stepActive {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.stepDone {
+  background: #e4f9f5;
+  color: var(--primary-dark);
+  border-color: #a8ddd8;
+}
+
+.stepDivider {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+/* Phase block */
+.phaseBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phaseTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.phaseHint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.label {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ink);
+  display: block;
+  margin-top: 4px;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.recaptcha {
+  margin: 4px 0;
+}
+
+.primary {
+  border: 0;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 11px 18px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ghost {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* Role tiles */
+.roleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.roleTile {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+
+.roleTile:hover {
+  border-color: var(--accent);
+}
+
+.roleTileActive {
+  border-color: var(--primary);
+  background: #f0faf8;
+}
+
+.roleIcon {
+  font-size: 1.6rem;
+}
+
+.roleLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink);
+}
+
+/* Radio row */
+.radioRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.radioPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #fff;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.doneText {
+  text-align: center;
+  font-weight: 700;
+  color: var(--primary);
+  padding: 12px 0;
+}
+
+.error {
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.info {
+  color: var(--primary-dark);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .roleGrid {
+    grid-template-columns: 1fr;
+  }
+}

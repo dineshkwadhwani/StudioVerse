@@ -22,6 +22,7 @@ import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import landingStyles from "@/modules/landing/pages/LandingPage.module.css";
 import dashboardStyles from "@/modules/dashboard/pages/DashboardPage.module.css";
 import styles from "./ManageUsersPage.module.css";
+import { pluralize } from "@/lib/pluralize";
 
 type UserRole = "company" | "professional" | "individual" | "superadmin";
 
@@ -202,6 +203,8 @@ export default function ManageUsersPage({ tenantConfig }: ManageUsersPageProps) 
   const isCoachingStudioRoute = pathname?.startsWith("/coaching-studio");
   const professionalLabel = isCoachingStudioRoute ? "Coach" : tenantConfig.roles.professional;
   const individualLabel = isCoachingStudioRoute ? "Coachee" : tenantConfig.roles.individual;
+  const professionalLabelPlural = pluralize(professionalLabel);
+  const individualLabelPlural = pluralize(individualLabel);
 
   const canCreateProfessional = creator?.role === "company";
   const showCoachDropdown = creator?.role === "company" && targetUserType === "individual";
@@ -420,8 +423,8 @@ export default function ManageUsersPage({ tenantConfig }: ManageUsersPageProps) 
             <h1 className={styles.title}>Manage Users</h1>
             <p className={styles.subtitle}>
               {creator?.role === "company"
-                ? `Create and manage ${professionalLabel}s and ${individualLabel}s in your company scope.`
-                : `Create and manage ${individualLabel}s associated with your ${professionalLabel} scope.`}
+                ? `Create and manage ${professionalLabelPlural} and ${individualLabelPlural} in your company scope.`
+                : `Create and manage ${individualLabelPlural} associated with your ${professionalLabel} scope.`}
             </p>
 
             <div className={styles.field}>
@@ -496,8 +499,8 @@ export default function ManageUsersPage({ tenantConfig }: ManageUsersPageProps) 
             <h2 className={styles.title}>Users In Scope</h2>
             <p className={styles.subtitle}>
               {creator?.role === "company"
-                ? `View ${professionalLabel}s and ${individualLabel}s available in your company scope.`
-                : `View ${individualLabel}s currently associated with your ${professionalLabel} scope.`}
+                ? `View ${professionalLabelPlural} and ${individualLabelPlural} available in your company scope.`
+                : `View ${individualLabelPlural} currently associated with your ${professionalLabel} scope.`}
             </p>
 
             {creator?.role === "company" && (

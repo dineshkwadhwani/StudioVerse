@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { pluralize } from "@/lib/pluralize";
 import { useAuthedSession } from "@/modules/app-shell/AppShellHeader";
 import type { TenantConfig } from "@/types/tenant";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
@@ -49,7 +50,7 @@ const ALL_CATEGORIES: { key: SearchCategory; label: string }[] = [
 ];
 
 function toPluralLabel(label: string): string {
-  return label.toLowerCase().endsWith("s") ? label : `${label}s`;
+  return pluralize(label);
 }
 
 export function getAllowedCategories(role: StudioUserRole | null): SearchCategory[] {

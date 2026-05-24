@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { getUserProfile } from "@/services/profile.service";
 import { getUserById, type ManagedUserRecord } from "@/services/manage-users.service";
+import { pluralize } from "@/lib/pluralize";
 import {
   getCohortDetail,
   listCohortsForScope,
@@ -313,7 +314,7 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
     const phoneE164 = normalizePhone(newPhone);
 
     if (!firstName || !lastName || !email || !phoneE164) {
-      setError(`First name, last name, phone number, and email are required for new ${individualLabel}s.`);
+      setError(`First name, last name, phone number, and email are required for new ${individualLabelPlural}.`);
       return;
     }
 
@@ -368,7 +369,7 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
 
     const totalIndividuals = selectedIndividuals.length + pendingIndividuals.length;
     if (totalIndividuals < MIN_COHORT_MEMBER_COUNT) {
-      setError(`A cohort must include at least ${MIN_COHORT_MEMBER_COUNT} ${individualLabel}s.`);
+      setError(`A cohort must include at least ${MIN_COHORT_MEMBER_COUNT} ${individualLabelPlural}.`);
       return;
     }
 
@@ -405,6 +406,8 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
   const brandSubtitle = "StudioVerse Platform";
   const professionalLabel = tenantConfig.roles.professional;
   const individualLabel = tenantConfig.roles.individual;
+  const professionalLabelPlural = pluralize(professionalLabel);
+  const individualLabelPlural = pluralize(individualLabel);
 
   if (loading) {
     return (
@@ -452,8 +455,8 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
             <h1 className={styles.title}>{editingCohortId ? "Edit Cohort" : "Create Cohort"}</h1>
             <p className={styles.contextText}>
               {creator?.role === "company"
-                ? `Create and manage cohorts, assign ${professionalLabel}s, and group ${individualLabel}s across your company.`
-                : `Create cohorts, add ${individualLabel}s, and manage your coaching groups in one place.`}
+                ? `Create and manage cohorts, assign ${professionalLabelPlural}, and group ${individualLabelPlural} across your company.`
+                : `Create cohorts, add ${individualLabelPlural}, and manage your coaching groups in one place.`}
             </p>
             <p className={styles.subtitle}>
               {`A Cohort requires more than one ${individualLabel} and becomes Active only when a ${professionalLabel} is assigned.`}
@@ -474,7 +477,7 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
                   ))}
                 </select>
                 {professionals.length === 0 ? (
-                  <p className={styles.helper}>{`No ${professionalLabel}s found in your company yet.`}</p>
+                  <p className={styles.helper}>{`No ${professionalLabelPlural} found in your company yet.`}</p>
                 ) : null}
               </div>
             ) : (
@@ -533,7 +536,7 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
               </div>
             ) : null}
 
-            <p className={styles.sectionTitle}>{`Selected Existing ${individualLabel}s (${selectedIndividuals.length})`}</p>
+            <p className={styles.sectionTitle}>{`Selected Existing ${individualLabelPlural} (${selectedIndividuals.length})`}</p>
             <div className={styles.chips}>
               {selectedIndividuals.map((entry) => (
                 <span key={entry.id} className={styles.chip}>
@@ -545,7 +548,7 @@ export default function ManageCohortsPage({ tenantConfig }: Props) {
               ))}
             </div>
 
-            <p className={styles.sectionTitle}>{`Pending New ${individualLabel}s (${pendingIndividuals.length})`}</p>
+            <p className={styles.sectionTitle}>{`Pending New ${individualLabelPlural} (${pendingIndividuals.length})`}</p>
             <div className={styles.chips}>
               {pendingIndividuals.map((entry) => (
                 <span key={`${entry.email}-${entry.phoneE164}`} className={styles.chip}>

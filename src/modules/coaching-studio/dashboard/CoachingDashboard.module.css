@@ -1,0 +1,144 @@
+.page {
+  --primary: #01696f;
+  --accent: #03a9b0;
+  --ink: #133a56;
+  --ink-soft: #4d6e86;
+  --surface: #eaf6ff;
+  --surface-card: #f8fcff;
+  --line: #c6dcea;
+
+  min-height: 100vh;
+  background: linear-gradient(180deg, #eaf6ff 0%, #dcecf8 48%, #e8f5ff 100%);
+  color: var(--ink);
+  padding-top: 80px;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-bottom: 32px;
+  overflow-x: hidden;
+}
+
+.mobileTopNav {
+  display: none;
+}
+
+.rightControls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+
+/* Content area */
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.contentCard {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-card);
+  box-shadow: 0 12px 24px rgba(19, 58, 86, 0.1);
+  padding: 24px;
+}
+
+.dashboardTitle {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.2rem);
+  color: var(--ink);
+}
+
+.summaryStack {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.summaryCard {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.summaryTitle {
+  margin: 0 0 8px;
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.summaryStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.summaryStats p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.summaryAction {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  background: #eef8ff;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.summaryAction:hover {
+  background: #e0f1ff;
+}
+
+/* Mobile */
+@media (max-width: 820px) {
+  .page {
+    padding-top: 60px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 20px;
+  }
+
+  .rightControls {
+    gap: 8px;
+  }
+
+  .mobileTopNav {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px 0;
+    background: rgba(233, 245, 255, 0.95);
+  }
+
+  .mobileTopNav a {
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .shell {
+    width: 100%;
+    padding: 12px 0 24px;
+  }
+
+  .summaryStats {
+    grid-template-columns: 1fr;
+  }
+}

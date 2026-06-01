@@ -10,6 +10,7 @@ import { getUserProfile } from "@/services/profile.service";
 import { getUserById } from "@/services/manage-users.service";
 import {
   createCashoutRequest,
+  getCashoutCreditSummary,
   getCoinRequestsForCompanyContext,
   getTenantCashoutConfig,
   getWalletForUserContext,
@@ -27,6 +28,8 @@ import styles from "./ManageWalletPage.module.css";
 import CoinRequestsModal from "@/modules/wallet/components/CoinRequestsModal";
 
 type UserRole = StudioUserRole;
+
+const REDEEMABLE_INFO_MESSAGE = "Any credits received as referral or bonus are not redeemable to cash.";
 
 function isUserRole(value: unknown): value is UserRole {
   return value === "company" || value === "professional" || value === "individual";
@@ -95,6 +98,8 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
   const [cashoutError, setCashoutError] = useState("");
   const [cashoutSuccess, setCashoutSuccess] = useState("");
   const [transactionFlowFilter, setTransactionFlowFilter] = useState<TransactionFlowFilter>("all");
+  const [showRedeemableInfoCard, setShowRedeemableInfoCard] = useState(false);
+  const [showRedeemableInfoModal, setShowRedeemableInfoModal] = useState(false);
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -238,12 +243,19 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
     const minimumCashoutCredits = cashoutConfig.minimumCredits;
     const credits = Math.floor(Number(cashoutCreditsInput));
     if (!Number.isFinite(credits) || credits < minimumCashoutCredits) {
-      setCashoutError(`Minimum credits required for cashout is ${minimumCashoutCredits}. You currently have ${wallet.availableCoins}.`);
+      setCashoutError(`Minimum credits required to cash out is ${minimumCashoutCredits}.`);
       return;
     }
 
     if (credits > wallet.availableCoins) {
       setCashoutError(`You only have ${wallet.availableCoins} credits available.`);
+      return;
+    }
+
+    if (cashoutCreditSummary && credits > cashoutCreditSummary.redeemableCredits) {
+      setCashoutError(
+        `You only have ${cashoutCreditSummary.redeemableCredits} redeemable credits. ${REDEEMABLE_INFO_MESSAGE}`
+      );
       return;
     }
 
@@ -263,7 +275,7 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
       await refreshWalletAndTransactions(contextUserIds.length > 0 ? contextUserIds : [userId]);
 
       setCashoutSuccess("Cashout request submitted. Credits have been held pending Super Admin review.");
-      setCashoutCreditsInput("");
+      setCashoutCreditsInput(String(minimumCashoutCredits));
       setCashoutNote("");
       setCashoutModalOpen(false);
     } catch (requestError) {
@@ -294,6 +306,16 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
   }, [cashoutRequests]);
 
   const isBusinessWalletRole = role === "company" || role === "professional";
+  const cashoutCreditSummary = useMemo(() => {
+    if (!wallet) {
+      return null;
+    }
+
+    return getCashoutCreditSummary({
+      availableCoins: wallet.availableCoins,
+      transactions,
+    });
+  }, [transactions, wallet]);
 
   const visibleTransactions = useMemo(() => {
     if (!isBusinessWalletRole || transactionFlowFilter === "all") {
@@ -310,12 +332,14 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
 
     if (!hasMinimumCashoutBalance) {
       setCashoutSuccess("");
-      setCashoutError(`Minimum credits required for cashout is ${minimumCashoutCredits}. You currently have ${wallet.availableCoins}.`);
+      setCashoutError(`Minimum credits required for cashout is ${minimumCashoutCredits}. You currently have ${wallet.availableCoins} available credits.`);
       return;
     }
 
     setCashoutError("");
     setCashoutSuccess("");
+    setCashoutCreditsInput(String(minimumCashoutCredits));
+    setShowRedeemableInfoModal(false);
     setCashoutModalOpen(true);
   }
 
@@ -407,6 +431,23 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
                 <p className={styles.summaryLabel}>Available</p>
                 <p className={styles.summaryValue}>{wallet.availableCoins}</p>
               </article>
+              {cashoutCreditSummary && canCashout ? (
+                <article className={styles.summaryCard}>
+                  <div className={styles.summaryLabelRow}>
+                    <p className={styles.summaryLabel}>Redeemable</p>
+                    <button
+                      type="button"
+                      className={styles.infoButton}
+                      aria-label="About redeemable credits"
+                      onClick={() => setShowRedeemableInfoCard((current) => !current)}
+                    >
+                      i
+                    </button>
+                  </div>
+                  <p className={styles.summaryValue}>{cashoutCreditSummary.redeemableCredits}</p>
+                  {showRedeemableInfoCard ? <div className={styles.infoPopover}>{REDEEMABLE_INFO_MESSAGE}</div> : null}
+                </article>
+              ) : null}
               <article className={styles.summaryCard}>
                 <p className={styles.summaryLabel}>Utilized</p>
                 <p className={styles.summaryValue}>{wallet.utilizedCoins}</p>
@@ -508,8 +549,26 @@ export default function ManageWalletPage({ tenantConfig }: ManageWalletPageProps
             </div>
 
             <p style={{ margin: "0 0 10px", color: "#4d6e86" }}>
-              Available Credits: <strong>{wallet.availableCoins}</strong>
+              Available Credits: <strong>{cashoutCreditSummary?.availableCredits ?? wallet.availableCoins}</strong>
             </p>
+            {cashoutCreditSummary ? (
+              <>
+                <div className={styles.modalInfoRow}>
+                  <p className={styles.modalInfoText}>
+                    Redeemable Credits: <strong>{cashoutCreditSummary.redeemableCredits}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.infoButton}
+                    aria-label="About redeemable credits"
+                    onClick={() => setShowRedeemableInfoModal((current) => !current)}
+                  >
+                    i
+                  </button>
+                </div>
+                {showRedeemableInfoModal ? <div className={styles.infoPopover}>{REDEEMABLE_INFO_MESSAGE}</div> : null}
+              </>
+            ) : null}
             <p style={{ margin: "0 0 10px", color: "#4d6e86" }}>
               Credit Cost: <strong>Rs {cashoutConfig.creditCost.toFixed(2)}</strong> per credit
             </p>

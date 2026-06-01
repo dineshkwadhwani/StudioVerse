@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatExperienceValue } from "@/lib/profile/experience";
 import {
   DEFAULT_PROFILE_FORM_VALUES,
   type UserProfileFormValues,
@@ -6,6 +7,8 @@ import {
 } from "@/types/profile";
 
 export type ProfileFormErrors = Partial<Record<keyof UserProfileFormValues | "form", string>>;
+
+const upToTwoDecimalPlacesPattern = /^\d+(?:\.\d{1,2})?$/;
 
 const optionalUrlSchema = z
   .string()
@@ -54,7 +57,7 @@ export function createProfileFormValues(profile?: UserProfileRecord | null): Use
     postalCode: profile.postalCode,
     highestDegreeHeld: profile.highestDegreeHeld,
     fieldOfStudy: profile.fieldOfStudy,
-    yearsOfExperience: profile.yearsOfExperience,
+    yearsOfExperience: formatExperienceValue(profile.yearsOfExperience),
     currentRole: profile.currentRole,
     bio: profile.bio,
     linkedinUrl: profile.linkedinUrl,
@@ -64,13 +67,13 @@ export function createProfileFormValues(profile?: UserProfileRecord | null): Use
     professionalHeadline: profile.professionalHeadline,
     expertiseAreas: (profile.expertiseAreas.length > 0 ? profile.expertiseAreas : profile.coachExpertiseAreas).join(", "),
     certifications: combinedCertifications.join(", "),
-    coachingExperienceYears: profile.coachingExperienceYears,
-    trainingExperienceYears: profile.trainingExperienceYears,
+    coachingExperienceYears: formatExperienceValue(profile.coachingExperienceYears),
+    trainingExperienceYears: formatExperienceValue(profile.trainingExperienceYears),
     industryFocus: profile.industryFocus,
     languagesSpoken: profile.languagesSpoken.join(", "),
     coachExperienceSummary: profile.coachExperienceSummary,
     coachPrimaryIndustry: profile.coachPrimaryIndustry,
-    coachIndustryExperience: profile.coachIndustryExperience,
+    coachIndustryExperience: formatExperienceValue(profile.coachIndustryExperience),
     coachExpertiseAreas: profile.coachExpertiseAreas.join(", "),
     coachCoachingAreas: profile.coachCoachingAreas.join(", "),
     coachMethods: profile.coachMethods.join(", "),
@@ -126,14 +129,22 @@ export function validateProfileForm(values: UserProfileFormValues): ProfileFormE
     errors.companyName = "Company name is required for company profiles.";
   }
 
-  const numberOnlyPattern = /^\d+$/;
-  if (values.coachingExperienceYears.trim() && !numberOnlyPattern.test(values.coachingExperienceYears.trim())) {
-    errors.coachingExperienceYears = "Enter a valid number of years.";
-  }
+  const decimalExperienceFields: Array<keyof Pick<
+    UserProfileFormValues,
+    "yearsOfExperience" | "coachingExperienceYears" | "trainingExperienceYears" | "coachIndustryExperience"
+  >> = [
+    "yearsOfExperience",
+    "coachingExperienceYears",
+    "trainingExperienceYears",
+    "coachIndustryExperience",
+  ];
 
-  if (values.trainingExperienceYears.trim() && !numberOnlyPattern.test(values.trainingExperienceYears.trim())) {
-    errors.trainingExperienceYears = "Enter a valid number of years.";
-  }
+  decimalExperienceFields.forEach((field) => {
+    const value = values[field].trim();
+    if (value && !upToTwoDecimalPlacesPattern.test(value)) {
+      errors[field] = "Enter a valid number with up to 2 decimal places.";
+    }
+  });
 
   return errors;
 }

@@ -1,0 +1,7 @@
+Role,Journey ID,Area,Journey Title,Priority,Preconditions,Primary Validation,Recommended Evidence,Owner,Run Date,Result,Defect ID,Remarks
+Public Landing,LAND-01,Landing,Default Landing Rendering,Critical,Tenant landing route available,"Landing reads tenant landingConfig and renders guest header correctly","Landing screenshots, visible labels",,,,,
+Public Landing,LAND-02,Landing,Toggle Programs Section,Critical,SuperAdmin can edit tenant landing settings,"Programs section hides and reappears based on toggle","Before and after screenshots",,,,,
+Public Landing,LAND-03,Landing,Toggle Tools Section,Critical,SuperAdmin can edit tenant landing settings,"Tools section hides and reappears based on toggle","Before and after screenshots",,,,,
+Public Landing,LAND-04,Landing,Toggle Events Section,Critical,SuperAdmin can edit tenant landing settings,"Events section hides and reappears based on toggle","Before and after screenshots",,,,,
+Public Landing,LAND-05,Landing,Validate Carousel Limits And Labels,High,Enough content exists in each section,"Labels intros and item limits reflect DB config","Screenshots, visible counts",,,,,
+Public Landing,LAND-06,Landing,Signed-In Header State,High,Test users available for sign in,"Header changes correctly between guest and signed-in state","Guest and signed-in screenshots",,,,,

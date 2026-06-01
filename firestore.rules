@@ -52,6 +52,29 @@ service cloud.firestore {
       return isSignedIn() && currentUserType() == "professional";
     }
 
+    function matchesSignedInUser(userRefId) {
+      return isSignedIn()
+        && (
+             userRefId == request.auth.uid
+             || (exists(/databases/$(database)/documents/users/$(userRefId))
+                 && (
+                      get(/databases/$(database)/documents/users/$(userRefId)).data.uid == request.auth.uid
+                      || get(/databases/$(database)/documents/users/$(userRefId)).data.userId == request.auth.uid
+                    ))
+           );
+    }
+
+    function canReadAssessmentArtifact(assignmentId, artifactUserId) {
+      return isSignedIn()
+        && (
+             matchesSignedInUser(artifactUserId)
+             || matchesSignedInUser(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.assignerId)
+             || matchesSignedInUser(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.assigneeId)
+             || matchesSignedInUser(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.get('assignedBy', null))
+             || matchesSignedInUser(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.get('assignedTo', null))
+           );
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read:   if isSignedIn();
@@ -146,7 +169,7 @@ service cloud.firestore {
     // ── Assessment Reports ─────────────────────────────────────────────────
     match /assessmentReports/{reportId} {
       allow read:   if isSuperAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid);
+                    || canReadAssessmentArtifact(resource.data.assignmentId, resource.data.userId);
       allow create: if isSignedIn();
       allow update: if isSuperAdmin();
       allow delete: if false;

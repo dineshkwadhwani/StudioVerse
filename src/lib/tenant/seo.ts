@@ -22,11 +22,6 @@ export function buildTenantMetadata(config: TenantConfig): Metadata {
       template: `%s | ${config.name}`,
     },
     description,
-    icons: {
-      icon: iconPath,
-      shortcut: iconPath,
-      apple: iconPath,
-    },
     openGraph: {
       title,
       description,

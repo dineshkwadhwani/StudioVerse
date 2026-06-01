@@ -1,0 +1,9 @@
+Role,Journey ID,Area,Journey Title,Priority,Preconditions,Primary Validation,Recommended Evidence,Owner,Run Date,Result,Defect ID,Remarks
+Company,AUTH-01,Authentication,Register As Company,Critical,Valid phone and email available,"Company self-registration creates correct role and wallet-bearing profile","User record, wallet record, redirect result",,,,,
+Company,PRO-01,Profile,Update Profile Details,High,Company user signed in,"Editable profile fields persist without mutating protected fields","Saved profile values",,,,,
+Company,PRO-02,Profile,Validate Completion Percentage And Eligibility,High,Company user signed in,"Completion percent and assignment eligibility recalculate correctly","Before and after completion percent",,,,,
+Company,PRO-03,Profile,Upload Photograph,Medium,Company user signed in,"Photo upload persists to profile","Profile photo URL, UI screenshot",,,,,
+Company,CRE-01,User Management,Company Creates Coach,Critical,Company manage users access,"Professional is created in scope with immediate wallet creation","Created user, wallet, wallet transaction",,,,,
+Company,CRE-02,User Management,Company Creates Individual,Critical,Company manage users access,"Individual is created in scope with immediate wallet creation","Created user, wallet, wallet transaction",,,,,
+Company,CRE-04,Resources,Company Creates Program And Event,Critical,Packages seeded and company has credits where needed,"Listing and promotion requests are created instead of direct live publish","Resource state, request queue entries",,,,,
+Company,SA-12,Wallet,Approve Professional Coin Request,High,Associated professional and pending coin request exist,"Company approval updates request and transfers credits correctly","Coin request status, ledger entries",,,,,

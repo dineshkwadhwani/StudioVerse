@@ -65,6 +65,8 @@ export async function GET(
         ),
         certifications: normalizeStringArray(data.certifications),
         coachCredentials: normalizeStringArray(data.coachCredentials),
+        coachingExperienceYears: normalizeString(data.coachingExperienceYears),
+        trainingExperienceYears: normalizeString(data.trainingExperienceYears),
         coachOutcomeFocus: normalizeString(data.coachOutcomeFocus),
         coachExperienceSummary: normalizeString(data.coachExperienceSummary),
         coachIndustryExperience: normalizeString(data.coachIndustryExperience),

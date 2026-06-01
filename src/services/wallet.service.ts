@@ -384,6 +384,35 @@ function toTransactionMillis(value: WalletTransactionRecord["createdAt"]): numbe
   return value.toMillis();
 }
 
+export type CashoutCreditSummary = {
+  availableCredits: number;
+  redeemableCredits: number;
+  nonRedeemableCredits: number;
+};
+
+export function getCashoutCreditSummary(args: {
+  availableCoins: number;
+  transactions: WalletTransactionRecord[];
+}): CashoutCreditSummary {
+  const availableCredits = Math.max(0, Math.floor(toNumber(args.availableCoins)));
+  const redeemableCreditLedger = args.transactions.reduce((total, transaction) => {
+    const isIncoming = transaction.transactionType === "credit" || transaction.transactionType === "received";
+    if (!isIncoming || !isRedeemableSource(transaction.source)) {
+      return total;
+    }
+
+    return total + Math.max(0, Math.floor(toNumber(transaction.coins)));
+  }, 0);
+
+  const redeemableCredits = Math.min(availableCredits, Math.max(0, redeemableCreditLedger));
+
+  return {
+    availableCredits,
+    redeemableCredits,
+    nonRedeemableCredits: Math.max(0, availableCredits - redeemableCredits),
+  };
+}
+
 export async function listWalletTransactionsForUserContext(args: {
   userIds: string[];
   tenantId?: string;
@@ -739,38 +768,10 @@ export async function createCashoutRequest(args: {
     throw new Error("Cashout is allowed only for company users and independent coaches.");
   }
 
-  // Calculate redeemable balance from wallet transactions
-  const txQuery = query(
-    collection(db, "walletTransactions"),
-    where("userId", "==", requesterCanonicalUserId),
-    where("tenantId", "==", tenantId),
-    where("transactionType", "==", "credit")
-  );
-  const txSnap = await getDocs(txQuery);
-
-  let redeemableBalance = 0;
-  let nonRedeemableBalance = 0;
-
-  txSnap.docs.forEach((entry) => {
-    const txData = entry.data() as Record<string, unknown>;
-    const coins = toNumber(txData.coins);
-    const source = String(txData.source ?? "");
-
-    if (isRedeemableSource(source)) {
-      redeemableBalance += coins;
-    } else {
-      nonRedeemableBalance += coins;
-    }
+  const walletTransactions = await listWalletTransactionsForUserContext({
+    userIds: [requesterCanonicalUserId],
+    tenantId,
   });
-
-  // Check if requested credits exceed redeemable balance
-  if (redeemableBalance < creditsRequested) {
-    throw new Error(
-      `Insufficient redeemable credits. Requested: ${creditsRequested}, Redeemable balance: ${redeemableBalance}. ` +
-      `Non-redeemable credits (registration, referral bonuses): ${nonRedeemableBalance}. ` +
-      `You can use non-redeemable credits within the platform but they cannot be cashed out.`
-    );
-  }
 
   const grossAmountRs = roundMoney(creditsRequested * cashoutConfig.creditCost);
   const payoutAmountRs = roundMoney(grossAmountRs * (cashoutConfig.cashbackPercentage / 100));
@@ -790,9 +791,21 @@ export async function createCashoutRequest(args: {
 
     const availableCoins = toNumber(current.availableCoins);
     const utilizedCoins = toNumber(current.utilizedCoins);
+    const cashoutCreditSummary = getCashoutCreditSummary({
+      availableCoins,
+      transactions: walletTransactions,
+    });
 
     if (availableCoins < creditsRequested) {
       throw new Error(`Insufficient wallet balance. Requested: ${creditsRequested}, Available: ${availableCoins}.`);
+    }
+
+    if (cashoutCreditSummary.redeemableCredits < creditsRequested) {
+      throw new Error(
+        `Insufficient redeemable credits. Requested: ${creditsRequested}, Redeemable balance: ${cashoutCreditSummary.redeemableCredits}. ` +
+        `Non-redeemable credits (registration, referral bonuses): ${cashoutCreditSummary.nonRedeemableCredits}. ` +
+        `You can use non-redeemable credits within the platform but they cannot be cashed out.`
+      );
     }
 
     transaction.set(

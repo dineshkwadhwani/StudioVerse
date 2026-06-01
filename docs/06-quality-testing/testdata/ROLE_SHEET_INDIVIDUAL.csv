@@ -1,0 +1,5 @@
+Role,Journey ID,Area,Journey Title,Priority,Preconditions,Primary Validation,Recommended Evidence,Owner,Run Date,Result,Defect ID,Remarks
+Individual,AUTH-03,Authentication,Register As Individual,Critical,Valid phone available,"Individual self-registration creates correct role and wallet-bearing profile","User record, wallet record, redirect result",,,,,
+Individual,PRO-01,Profile,Update Profile Details,High,Individual user signed in,"Editable profile fields persist without mutating protected fields","Saved profile values",,,,,
+Individual,PRO-02,Profile,Validate Completion Percentage And Eligibility,High,Individual user signed in,"Completion percent and assignment eligibility recalculate correctly","Before and after completion percent",,,,,
+Individual,PRO-03,Profile,Upload Photograph,Medium,Individual user signed in,"Photo upload persists to profile","Profile photo URL, UI screenshot",,,,,

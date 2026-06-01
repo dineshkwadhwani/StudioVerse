@@ -179,8 +179,8 @@ export default function ViewAllActivitiesPage({
       return "";
     }
     return (
-      sessionStorage.getItem("cs_profile_id") ||
       auth.currentUser?.uid ||
+      sessionStorage.getItem("cs_profile_id") ||
       ""
     ).trim();
   }, []);

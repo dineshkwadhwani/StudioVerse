@@ -196,17 +196,10 @@ export async function getLatestAssessmentReportByAssignmentId(
   assignmentId: string
 ): Promise<AssessmentReportRecord | null> {
   try {
-    // Rules require resource.data.userId == request.auth.uid for non-SA
-    // readers — Firestore queries must include the same filter for the
-    // query to be accepted, otherwise the entire request is rejected.
-    const uid = auth.currentUser?.uid;
-    const baseQuery = uid
-      ? query(
-          collection(db, "assessmentReports"),
-          where("assignmentId", "==", assignmentId),
-          where("userId", "==", uid)
-        )
-      : query(collection(db, "assessmentReports"), where("assignmentId", "==", assignmentId));
+    const baseQuery = query(
+      collection(db, "assessmentReports"),
+      where("assignmentId", "==", assignmentId)
+    );
 
     const reportSnap = await getDocs(baseQuery);
 

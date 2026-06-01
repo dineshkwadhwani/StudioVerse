@@ -14,6 +14,7 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db } from "@/services/firebase";
 import { storage } from "@/services/firebase";
+import { formatExperienceValue } from "@/lib/profile/experience";
 import { issueProfileCompletionRewardForUser, issueRegistrationBonusForUser } from "@/services/wallet.service";
 import { sendNotificationEmail } from "@/services/notification.service";
 import type {
@@ -261,7 +262,7 @@ function mapUserProfile(id: string, data: ProfileDocData): UserProfileRecord {
     profilePhotoUrl: toNullableString(data.profilePhotoUrl),
     highestDegreeHeld: normalizeString(data.highestDegreeHeld),
     fieldOfStudy: normalizeString(data.fieldOfStudy),
-    yearsOfExperience: normalizeString(data.yearsOfExperience),
+    yearsOfExperience: formatExperienceValue(normalizeString(data.yearsOfExperience)),
     currentRole: normalizeString(data.currentRole),
     bio: normalizeString(data.bio),
     skills: normalizeStringArray(data.skills),
@@ -278,13 +279,13 @@ function mapUserProfile(id: string, data: ProfileDocData): UserProfileRecord {
       return normalizeStringArray(data.coachExpertiseAreas);
     })(),
     certifications: normalizeStringArray(data.certifications),
-    coachingExperienceYears: normalizeString(data.coachingExperienceYears),
-    trainingExperienceYears: normalizeString(data.trainingExperienceYears),
+    coachingExperienceYears: formatExperienceValue(normalizeString(data.coachingExperienceYears)),
+    trainingExperienceYears: formatExperienceValue(normalizeString(data.trainingExperienceYears)),
     industryFocus: normalizeString(data.industryFocus),
     languagesSpoken: normalizeStringArray(data.languagesSpoken),
     coachExperienceSummary: normalizeString(data.coachExperienceSummary),
     coachPrimaryIndustry: normalizeString(data.coachPrimaryIndustry),
-    coachIndustryExperience: normalizeString(data.coachIndustryExperience),
+    coachIndustryExperience: formatExperienceValue(normalizeString(data.coachIndustryExperience)),
     coachExpertiseAreas: normalizeStringArray(data.coachExpertiseAreas),
     coachCoachingAreas: normalizeStringArray(data.coachCoachingAreas),
     coachMethods: normalizeStringArray(data.coachMethods),
@@ -389,7 +390,9 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     profilePhotoUrl: input.profilePhotoUrl ?? current?.profilePhotoUrl ?? null,
     highestDegreeHeld: normalizeString(input.highestDegreeHeld ?? current?.highestDegreeHeld),
     fieldOfStudy: normalizeString(input.fieldOfStudy ?? current?.fieldOfStudy),
-    yearsOfExperience: normalizeString(input.yearsOfExperience ?? current?.yearsOfExperience),
+    yearsOfExperience: formatExperienceValue(
+      normalizeString(input.yearsOfExperience ?? current?.yearsOfExperience),
+    ),
     currentRole: normalizeString(input.currentRole ?? current?.currentRole),
     bio: normalizeString(input.bio ?? current?.bio),
     skills: input.skills ?? current?.skills ?? [],
@@ -400,11 +403,11 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
     professionalHeadline: normalizeString(input.professionalHeadline ?? current?.professionalHeadline),
     expertiseAreas: input.expertiseAreas ?? current?.expertiseAreas ?? [],
     certifications: input.certifications ?? current?.certifications ?? [],
-    coachingExperienceYears: normalizeString(
-      input.coachingExperienceYears ?? current?.coachingExperienceYears,
+    coachingExperienceYears: formatExperienceValue(
+      normalizeString(input.coachingExperienceYears ?? current?.coachingExperienceYears),
     ),
-    trainingExperienceYears: normalizeString(
-      input.trainingExperienceYears ?? current?.trainingExperienceYears,
+    trainingExperienceYears: formatExperienceValue(
+      normalizeString(input.trainingExperienceYears ?? current?.trainingExperienceYears),
     ),
     industryFocus: normalizeString(input.industryFocus ?? current?.industryFocus),
     languagesSpoken: input.languagesSpoken ?? current?.languagesSpoken ?? [],
@@ -412,8 +415,8 @@ function toProfileDocData(input: UserProfileSaveInput, current?: UserProfileReco
       input.coachExperienceSummary ?? current?.coachExperienceSummary,
     ),
     coachPrimaryIndustry: normalizeString(input.coachPrimaryIndustry ?? current?.coachPrimaryIndustry),
-    coachIndustryExperience: normalizeString(
-      input.coachIndustryExperience ?? current?.coachIndustryExperience,
+    coachIndustryExperience: formatExperienceValue(
+      normalizeString(input.coachIndustryExperience ?? current?.coachIndustryExperience),
     ),
     coachExpertiseAreas: input.coachExpertiseAreas ?? current?.coachExpertiseAreas ?? [],
     coachCoachingAreas: input.coachCoachingAreas ?? current?.coachCoachingAreas ?? [],

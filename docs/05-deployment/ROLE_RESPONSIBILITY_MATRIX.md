@@ -5,6 +5,25 @@
 
 ---
 
+## How To Use This Matrix
+
+This document is permission-oriented. Use it to answer who can do what.
+
+For end-to-end regression order and testable flows, use the companion journey document:
+
+- `docs/06-quality-testing/markdown/SUPERADMIN_AND_LANDING_TEST_JOURNEYS.md`
+
+## Code-Trace Notes For Testing
+
+The following workflow notes were revalidated from code paths in May 2026 and should be treated as part of the current responsibility model when planning tests.
+
+- Tenant activation readiness is derived from `mailConfig`, `walletConfig.cashout`, `botConfig`, and whether at least one published resource exists for the tenant.
+- Landing-page runtime toggles currently control Programs, Tools, and Events section visibility, labels, intros, and carousel limits.
+- SuperAdmin invitation-based user creation does not immediately create a wallet for invited users; wallet creation and treasury impact occur when the invited user claims and completes registration.
+- Company and Professional scoped user creation does create the user, wallet, and initial wallet transaction immediately in the server route.
+- Profile completion, assignment eligibility, and the 100% profile completion reward are computed during `saveUserProfile()`.
+- Non-SuperAdmin publishing and promotion flows depend on listing and promotion packages, and they enter approval queues instead of going live immediately.
+
 ## 1. Authentication & Registration
 
 | Operation | SA | C | P | I |
@@ -227,6 +246,20 @@
 | Bot hero featured on landing | — | — | ◐ if active | — |
 
 ---
+
+## Test Focus Areas By Responsibility
+
+These are the highest-value regression clusters to run against the matrix above.
+
+| Focus Area | Primary Roles | What must be validated |
+|---|---|---|
+| Tenant bootstrap | SA | Tenant doc saves, activation checklist gates, treasury wallet exists, settings propagate to landing and wallet flows |
+| User creation and onboarding | SA, C, P | Allowed creator scope, association fields, invitation vs immediate wallet creation, registration bonus behavior |
+| Landing-page controls | SA, guest, signed-in users | Section toggle behavior, labels/intros, published/promoted resource visibility, auth CTA behavior |
+| Wallet governance | SA, C, P | Treasury visibility, wallet balances, request approval effects, ledger entries, company-to-coach transfer behavior |
+| Resource lifecycle | SA, C, P | Draft vs published vs pending approval, listing package dependency, promotion package dependency, landing-page surfacing |
+| Approval operations | SA, C | Coin, cashout, listing, promotion, and bot hero decisions update status and dependent balances correctly |
+| Profile readiness | C, P, I | Profile update persistence, completion %, assignment eligibility, profile-photo effects, reward issuance at 100% |
 
 ## Summary Count
 

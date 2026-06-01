@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { formatExperienceValue } from "@/lib/profile/experience";
 import type { StudioUserRole } from "@/modules/activities/config/menuConfig";
 import ProfileDropdownMenu from "@/modules/app-shell/ProfileDropdownMenu";
 import type { TenantConfig } from "@/types/tenant";
@@ -37,6 +38,8 @@ type PublicProfileRecord = {
   coachAvailability: string[];
   certifications: string[];
   coachCredentials: string[];
+  coachingExperienceYears: string;
+  trainingExperienceYears: string;
   coachOutcomeFocus: string;
   coachExperienceSummary: string;
   coachIndustryExperience: string;
@@ -216,8 +219,8 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
           <div className={styles.statsGrid}>
             {profile.yearsOfExperience ? (
               <div className={styles.statTile}>
-                <span className={styles.statLabel}>Experience</span>
-                <strong>{profile.yearsOfExperience}</strong>
+                <span className={styles.statLabel}>Overall Experience</span>
+                <strong>{formatExperienceValue(profile.yearsOfExperience)}</strong>
               </div>
             ) : null}
             {profile.highestDegreeHeld ? (
@@ -277,8 +280,14 @@ export default function ViewProfilePage({ tenantConfig, profileId }: Props) {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Coaching Background</h2>
             <p className={styles.sectionText}>{profile.coachExperienceSummary || "Not provided yet."}</p>
+            {profile.coachingExperienceYears ? (
+              <p className={styles.sectionText}><strong>Coaching Experience:</strong> {formatExperienceValue(profile.coachingExperienceYears)}</p>
+            ) : null}
+            {profile.trainingExperienceYears ? (
+              <p className={styles.sectionText}><strong>Training Experience:</strong> {formatExperienceValue(profile.trainingExperienceYears)}</p>
+            ) : null}
             {profile.coachIndustryExperience ? (
-              <p className={styles.sectionText}><strong>Industry Experience:</strong> {profile.coachIndustryExperience}</p>
+              <p className={styles.sectionText}><strong>Industry Experience:</strong> {formatExperienceValue(profile.coachIndustryExperience)}</p>
             ) : null}
             {profile.coachOutcomeFocus ? (
               <p className={styles.sectionText}><strong>Outcome Focus:</strong> {profile.coachOutcomeFocus}</p>

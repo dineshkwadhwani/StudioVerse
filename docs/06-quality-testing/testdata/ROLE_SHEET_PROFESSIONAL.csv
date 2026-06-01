@@ -1,0 +1,8 @@
+Role,Journey ID,Area,Journey Title,Priority,Preconditions,Primary Validation,Recommended Evidence,Owner,Run Date,Result,Defect ID,Remarks
+Professional,AUTH-02,Authentication,Register As Coach,Critical,Valid phone available,"Professional self-registration creates correct role and wallet-bearing profile","User record, wallet record, redirect result",,,,,
+Professional,PRO-01,Profile,Update Profile Details,High,Professional user signed in,"Editable profile fields persist without mutating protected fields","Saved profile values",,,,,
+Professional,PRO-02,Profile,Validate Completion Percentage And Eligibility,High,Professional user signed in,"Completion percent and assignment eligibility recalculate correctly","Before and after completion percent",,,,,
+Professional,PRO-03,Profile,Upload Photograph,High,Professional user signed in,"Photo upload persists and satisfies Bot Hero prerequisite","Profile photo URL, UI screenshot",,,,,
+Professional,CRE-03,User Management,Coach Creates Individual,Critical,Professional manage users access,"Individual is created in scope with immediate wallet creation","Created user, wallet, wallet transaction",,,,,
+Professional,CRE-05,Resources,Coach Creates Program And Event,Critical,Packages seeded and professional has credits where needed,"Listing and promotion request behavior is correct for non-SuperAdmin creator","Resource state, request queue entries",,,,,
+Professional,SA-12,Wallet,Submit Company Coin Request,High,Associated company and pending approval path available,"Professional request enters pending state and later reflects approval or denial","Coin request record, status update",,,,,

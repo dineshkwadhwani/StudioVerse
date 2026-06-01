@@ -115,10 +115,65 @@
   font-size: 0.9rem;
 }
 
+.summaryLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .summaryValue {
   margin: 8px 0 0;
   font-size: 1.3rem;
   font-weight: 800;
+}
+
+.infoButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #c6dcea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f5c9c;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.infoButton:hover {
+  border-color: #1f5c9c;
+}
+
+.infoButton:focus-visible {
+  outline: 2px solid #1f5c9c;
+  outline-offset: 2px;
+}
+
+.infoPopover {
+  margin-top: 10px;
+  border: 1px solid #d9e8f6;
+  border-radius: 10px;
+  background: #f3f9ff;
+  color: #46607a;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.modalInfoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.modalInfoText {
+  margin: 0;
+  color: #4d6e86;
 }
 
 .transactionFilterRow {

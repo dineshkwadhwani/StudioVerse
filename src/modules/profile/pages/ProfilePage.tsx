@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, type ReactNode, useEffect, useMemo, useState } 
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatExperienceValue } from "@/lib/profile/experience";
 import { validateProfileForm, createProfileFormValues, type ProfileFormErrors } from "@/lib/validation/profile.schema";
 import { PROFILE_COMPLETION_REWARD_COINS } from "@/constants/wallet";
 import {
@@ -25,7 +26,6 @@ import {
   COMPANY_PURPOSE_OPTIONS,
   COMPETENCY_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
-  EXPERIENCE_YEARS_OPTIONS,
   EXPERTISE_LEVEL_OPTIONS,
   FIELD_OF_STUDY_OPTIONS,
   HIGHEST_DEGREE_OPTIONS,
@@ -61,6 +61,8 @@ function parseMultiSelectValue(value: string): string[] {
 function joinMultiSelectValue(values: string[]): string {
   return values.join(", ");
 }
+
+const DECIMAL_EXPERIENCE_PATTERN = /^(?:\d+(?:\.\d{0,2})?|\.\d{0,2})$/;
 
 type ProfilePageProps = {
   tenantConfig: TenantConfig;
@@ -169,8 +171,10 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
     "email",
     "city",
     "companyName",
+    "yearsOfExperience",
     "coachingExperienceYears",
     "trainingExperienceYears",
+    "coachIndustryExperience",
     "linkedinUrl",
     "youtubeChannel",
     "websiteUrl",
@@ -196,6 +200,21 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
     setPageError("");
     setInfo("");
+  }
+
+  function updateDecimalExperienceField(field: keyof UserProfileFormValues, value: string) {
+    if (value && !DECIMAL_EXPERIENCE_PATTERN.test(value)) {
+      return;
+    }
+
+    updateField(field, value);
+  }
+
+  function formatDecimalExperienceField(field: keyof UserProfileFormValues) {
+    updateField(
+      field,
+      formatExperienceValue(String(formValues[field] ?? "")) as UserProfileFormValues[typeof field],
+    );
   }
 
   const URL_FIELDS: (keyof UserProfileFormValues)[] = ["linkedinUrl", "youtubeChannel", "websiteUrl", "profilePhotoUrl"];
@@ -608,7 +627,6 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
                   <input type="file" accept="image/*" onChange={handlePhotoSelected} hidden />
                   {uploadingPhoto ? "Uploading…" : "Upload profile photo"}
                 </label>
-                <p>Supported: image files uploaded to Firebase Storage.</p>
               </div>
             </div>
           </CollapsibleSection>
@@ -666,12 +684,21 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
               </label>
               <label className={styles.field}>
                 <span>Years of Experience</span>
-                <select value={formValues.yearsOfExperience} onChange={(event) => updateField("yearsOfExperience", event.target.value)}>
-                  <option value="">Select years of experience</option>
-                  {EXPERIENCE_YEARS_OPTIONS.map((experienceOption) => (
-                    <option key={experienceOption} value={experienceOption}>{experienceOption}</option>
-                  ))}
-                </select>
+                <input
+                  id="profile-field-yearsOfExperience"
+                  className={errors.yearsOfExperience ? styles.inputError : undefined}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={formValues.yearsOfExperience}
+                  onChange={(event) => updateDecimalExperienceField("yearsOfExperience", event.target.value)}
+                  onBlur={() => formatDecimalExperienceField("yearsOfExperience")}
+                  placeholder="e.g. 6.66"
+                />
+                <small className={errors.yearsOfExperience ? styles.fieldError : undefined}>
+                  {errors.yearsOfExperience ?? "Enter up to 2 decimal places."}
+                </small>
               </label>
               <label className={styles.field}>
                 <span>Current Role / Designation</span>
@@ -743,12 +770,16 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
                   <input
                     id="profile-field-coachingExperienceYears"
                     className={errors.coachingExperienceYears ? styles.inputError : undefined}
+                    type="number"
+                    min="0"
+                    step="0.01"
                     value={formValues.coachingExperienceYears}
-                    onChange={(event) => updateField("coachingExperienceYears", event.target.value)}
-                    placeholder="e.g. 5"
-                    inputMode="numeric"
+                    onChange={(event) => updateDecimalExperienceField("coachingExperienceYears", event.target.value)}
+                    onBlur={() => formatDecimalExperienceField("coachingExperienceYears")}
+                    placeholder="e.g. 6.66"
+                    inputMode="decimal"
                   />
-                  <small className={errors.coachingExperienceYears ? styles.fieldError : undefined}>{errors.coachingExperienceYears ?? "Enter numeric years only."}</small>
+                  <small className={errors.coachingExperienceYears ? styles.fieldError : undefined}>{errors.coachingExperienceYears ?? "Enter up to 2 decimal places."}</small>
                 </label>
                 <label className={styles.field}>
                   <span>Coach Experience Summary</span>
@@ -759,12 +790,16 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
                   <input
                     id="profile-field-trainingExperienceYears"
                     className={errors.trainingExperienceYears ? styles.inputError : undefined}
+                    type="number"
+                    min="0"
+                    step="0.01"
                     value={formValues.trainingExperienceYears}
-                    onChange={(event) => updateField("trainingExperienceYears", event.target.value)}
-                    placeholder="e.g. 3"
-                    inputMode="numeric"
+                    onChange={(event) => updateDecimalExperienceField("trainingExperienceYears", event.target.value)}
+                    onBlur={() => formatDecimalExperienceField("trainingExperienceYears")}
+                    placeholder="e.g. 6.66"
+                    inputMode="decimal"
                   />
-                  <small className={errors.trainingExperienceYears ? styles.fieldError : undefined}>{errors.trainingExperienceYears ?? "Enter numeric years only."}</small>
+                  <small className={errors.trainingExperienceYears ? styles.fieldError : undefined}>{errors.trainingExperienceYears ?? "Enter up to 2 decimal places."}</small>
                 </label>
                 <label className={styles.field}>
                   <span>Certifications / Credentials</span>
@@ -788,7 +823,19 @@ export default function ProfilePage({ tenantConfig }: ProfilePageProps) {
                 </label>
                 <label className={styles.field}>
                   <span>Industry Experience</span>
-                  <input value={formValues.coachIndustryExperience} onChange={(event) => updateField("coachIndustryExperience", event.target.value)} placeholder="e.g. 12 years" />
+                  <input
+                    id="profile-field-coachIndustryExperience"
+                    className={errors.coachIndustryExperience ? styles.inputError : undefined}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formValues.coachIndustryExperience}
+                    onChange={(event) => updateDecimalExperienceField("coachIndustryExperience", event.target.value)}
+                    onBlur={() => formatDecimalExperienceField("coachIndustryExperience")}
+                    placeholder="e.g. 6.66"
+                    inputMode="decimal"
+                  />
+                  <small className={errors.coachIndustryExperience ? styles.fieldError : undefined}>{errors.coachIndustryExperience ?? "Enter up to 2 decimal places."}</small>
                 </label>
                 <label className={`${styles.field} ${styles.fieldWide}`}>
                   <span>Coaching Methods</span>

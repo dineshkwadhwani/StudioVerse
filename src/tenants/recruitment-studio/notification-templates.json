@@ -15,6 +15,10 @@
     "subject": "New {{activityType}} assigned to you",
     "body": "Dear {{recipientName}},\n\n{{assignerName}} has assigned a new {{activityType}} to you: {{activityTitle}}.\n\nPlease sign in to Recruitment Studio to review and complete it.\n\nWarm regards,\nTeam Recruitment Studio"
   },
+  "assignmentAssessmentReminder": {
+    "subject": "Reminder: please complete your assigned assessment",
+    "body": "Dear {{recipientName}},\n\n{{assignerName}} is reminding you to complete your assigned assessment: {{activityTitle}}.\n\nPlease sign in to Recruitment Studio and complete it at the earliest.\n\nWarm regards,\nTeam Recruitment Studio"
+  },
   "assignmentInProgress": {
     "subject": "{{activityType}} marked in progress",
     "body": "Dear {{recipientName}},\n\nYour {{activityType}} has moved to in-progress status: {{activityTitle}}.\n\nPlease continue and submit your completion when ready.\n\nWarm regards,\nTeam Recruitment Studio"

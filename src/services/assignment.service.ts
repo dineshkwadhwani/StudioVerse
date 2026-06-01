@@ -16,7 +16,7 @@ import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/a
 import type { AssignmentStatus } from "@/types/assignment";
 import { getWalletForUserContext } from "@/services/wallet.service";
 import { getCohortAssignmentPayload } from "@/services/cohorts.service";
-import { sendNotificationEmail } from "@/services/notification.service";
+import { resolveUserNotificationRecipient, sendNotificationEmail } from "@/services/notification.service";
 import type { CohortCreatorRole } from "@/types/cohort";
 
 type AssignmentWriteData = WithFieldValue<Omit<AssignmentRecord, "id">>;
@@ -823,6 +823,72 @@ export async function updateAssignmentStatus(args: {
   } catch {
     // Status updates should not fail if notification send fails.
   }
+}
+
+export async function sendAssessmentReminder(args: { assignmentId: string }): Promise<void> {
+  const assignmentRef = doc(db, "assignments", args.assignmentId);
+  const assignmentSnap = await getDoc(assignmentRef);
+
+  if (!assignmentSnap.exists()) {
+    throw new Error("Assignment not found.");
+  }
+
+  const data = assignmentSnap.data() as Record<string, unknown>;
+  const tenantId = String(data.tenantId ?? "").trim();
+  const activityType = String(data.activityType ?? "").trim();
+  const status = String(data.status ?? "").trim();
+  const assignmentTitle = String(data.activityTitle ?? "Assessment").trim() || "Assessment";
+  const assignerName = String(data.assignerName ?? "Coach").trim() || "Coach";
+  const assigneeId = String(data.assigneeId ?? data.assignedTo ?? "").trim();
+
+  if (!tenantId) {
+    throw new Error("Assignment tenant is missing.");
+  }
+
+  if (activityType !== "assessment") {
+    throw new Error("Reminders are only available for assessments.");
+  }
+
+  if (status !== "assigned" && status !== "registered") {
+    throw new Error("Reminder is only available before the assessment is started.");
+  }
+
+  let recipientEmail = String(data.assigneeEmail ?? "").trim().toLowerCase();
+  let recipientName = String(data.assigneeFullName ?? "User").trim() || "User";
+
+  if ((!recipientEmail || !recipientName) && assigneeId) {
+    const recipient = await resolveUserNotificationRecipient({
+      userId: assigneeId,
+      tenantId,
+    });
+
+    if (recipient) {
+      recipientEmail = recipientEmail || recipient.email;
+      recipientName = recipientName || recipient.name;
+    }
+  }
+
+  if (!recipientEmail) {
+    throw new Error("Assignee email is missing for this assessment.");
+  }
+
+  await sendNotificationEmail({
+    tenantId,
+    notificationType: "assignmentAssessmentReminder",
+    recipientEmail,
+    recipientName,
+    templateVariables: {
+      recipientName,
+      assignerName,
+      activityType: "assessment",
+      activityTitle: assignmentTitle,
+    },
+    metadata: {
+      assignmentId: args.assignmentId,
+      status,
+      activityType,
+    },
+  });
 }
 
 export async function getAssignmentById(assignmentId: string): Promise<AssignmentRecord | null> {

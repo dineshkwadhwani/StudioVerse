@@ -2661,7 +2661,7 @@ export default function SuperAdminPortal() {
                           </div>
 
                           <div className={styles.userActions}>
-                            {item.activityType === "assessment" ? (
+                            {item.activityType === "assessment" && item.status === "completed" ? (
                               <Link href={`/${item.tenantId}/my-activities/assessment-report/${item.id}`} className={styles.rowAction}>
                                 Open Report
                               </Link>

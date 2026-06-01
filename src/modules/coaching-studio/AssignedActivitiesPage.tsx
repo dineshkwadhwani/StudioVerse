@@ -226,7 +226,7 @@ export default function AssignedActivitiesPage({ tenantConfig = coachingTenantCo
                   <span className={getStatusClassName(item.status)}>{formatStatusLabel(item.status)}</span>
 
                   <div className={styles.actionRow}>
-                    {item.activityType === "assessment" ? (
+                    {item.activityType === "assessment" && item.status === "completed" ? (
                       <Link href={`${basePath}/my-activities/assessment-report/${item.id}`} className={styles.linkButton}>
                         Open Report
                       </Link>

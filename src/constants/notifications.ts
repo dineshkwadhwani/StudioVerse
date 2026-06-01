@@ -12,6 +12,7 @@ export const NOTIFICATION_CATEGORY_DEFINITIONS = [
   { key: "onboardingActivation", label: "Onboarding: Activation", domain: "onboarding", description: "Send activation email to the auto-provisioned user." },
   { key: "managedUserWelcome", label: "Onboarding: Managed User Welcome", domain: "onboarding", description: "Send welcome email to the user created by a Company or Professional." },
   { key: "assignmentCreated", label: "Assignments: Created", domain: "assignments", description: "Send assignment email to the assignee when an assignment is created." },
+  { key: "assignmentAssessmentReminder", label: "Remind for Assesment", domain: "assignments", description: "Send reminder email to the assignee for an assigned assessment that has not yet been started." },
   { key: "assignmentInProgress", label: "Assignments: In Progress", domain: "assignments", description: "Send status email to the assigner when an assignment moves to in progress." },
   { key: "assignmentCompleted", label: "Assignments: Completed", domain: "assignments", description: "Send status email to the assigner when an assignment is completed." },
   { key: "assignmentCancelled", label: "Assignments: Cancelled", domain: "assignments", description: "Send status email to the assigner when an assignment is cancelled." },

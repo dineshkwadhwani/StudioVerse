@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/services/firebase";
-import { getAssignmentsForAssignerContext } from "@/services/assignment.service";
+import { getAssignmentsForAssignerContext, sendAssessmentReminder } from "@/services/assignment.service";
 import { listProfessionalsForCoachDropdown } from "@/services/manage-users.service";
 import { getUserProfile } from "@/services/profile.service";
 import type { AssignmentRecord, ActivityType, AssignmentStatus } from "@/types/assignment";
@@ -67,6 +67,14 @@ type CoachFilterOption = {
   assignerIds: string[];
 };
 
+function canSendAssessmentReminder(item: AssignmentRecord): boolean {
+  return item.activityType === "assessment" && (item.status === "assigned" || item.status === "registered");
+}
+
+function canOpenAssessmentReport(item: AssignmentRecord): boolean {
+  return item.activityType === "assessment" && item.status === "completed";
+}
+
 export default function AssignedActivitiesPage({
   tenantConfig,
   showHeader = true,
@@ -84,6 +92,8 @@ export default function AssignedActivitiesPage({
   const [selectedType, setSelectedType] = useState<"all" | ActivityType>("all");
   const [coachFilters, setCoachFilters] = useState<CoachFilterOption[]>([]);
   const [selectedCoachId, setSelectedCoachId] = useState<string>("all");
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  const [reminderFeedback, setReminderFeedback] = useState<Record<string, { kind: "success" | "error"; message: string }>>({});
 
   useEffect(() => {
     const storedRoleRaw = sessionStorage.getItem("cs_role");
@@ -190,6 +200,37 @@ export default function AssignedActivitiesPage({
       return typeMatches && coachMatches;
     });
   }, [assignments, coachFilters, role, selectedCoachId, selectedType]);
+
+  const handleSendReminder = async (assignmentId: string) => {
+    setSendingReminderId(assignmentId);
+    setReminderFeedback((current) => {
+      const next = { ...current };
+      delete next[assignmentId];
+      return next;
+    });
+
+    try {
+      await sendAssessmentReminder({ assignmentId });
+      setReminderFeedback((current) => ({
+        ...current,
+        [assignmentId]: {
+          kind: "success",
+          message: "Reminder sent to the individual.",
+        },
+      }));
+    } catch (sendError) {
+      const message = sendError instanceof Error ? sendError.message : "Failed to send reminder.";
+      setReminderFeedback((current) => ({
+        ...current,
+        [assignmentId]: {
+          kind: "error",
+          message,
+        },
+      }));
+    } finally {
+      setSendingReminderId((current) => (current === assignmentId ? null : current));
+    }
+  };
 
   return (
     <main className={`${styles.page} ${embedded ? styles.embeddedRoot : ""}`}>
@@ -308,12 +349,33 @@ export default function AssignedActivitiesPage({
                   <span className={getStatusClassName(item.status)}>{formatStatusLabel(item.status)}</span>
 
                   <div className={styles.actionRow}>
-                    {item.activityType === "assessment" ? (
+                    {canOpenAssessmentReport(item) ? (
                       <Link href={`${basePath}/my-activities/assessment-report/${item.id}`} className={styles.linkButton}>
                         Open Report
                       </Link>
                     ) : null}
+                    {canSendAssessmentReminder(item) ? (
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => void handleSendReminder(item.id)}
+                        disabled={sendingReminderId === item.id}
+                      >
+                        {sendingReminderId === item.id ? "Sending..." : "Send Reminder"}
+                      </button>
+                    ) : null}
                   </div>
+                  {reminderFeedback[item.id] ? (
+                    <p
+                      className={
+                        reminderFeedback[item.id]?.kind === "success"
+                          ? styles.inlineSuccess
+                          : styles.inlineError
+                      }
+                    >
+                      {reminderFeedback[item.id]?.message}
+                    </p>
+                  ) : null}
                 </article>
               ))}
             </div>

@@ -121,6 +121,7 @@
 - **ASGN-011** [M] Email notification fires on assignment creation (Resend).
 - **ASGN-012** [A] Assignment created against not-eligible profile is blocked (`assignmentEligible=false`).
 - **ASGN-013** [A] Assignment to a different tenant member fails (tenant isolation).
+- **ASGN-014** [M] Assigned Activities shows `Send Reminder` for coach-side assessments still in `assigned` status and dispatches a reminder email.
 
 ## 8. Cohorts
 
@@ -264,6 +265,7 @@
 - **NOT-003** [M] Email content (assignment created, coin request approved/denied, etc.) renders cleanly with placeholders filled.
 - **NOT-004** [A] Notification log records sent/blocked/failed for each delivery attempt.
 - **NOT-005** [A] Tenant `mailConfig.enabled=false` blocks all outbound; logs as `blocked`.
+- **NOT-006** [A] `Remind for Assesment` toggle defaults on and suppresses assessment reminder email when disabled.
 
 ## 20. Lead Config & Lead Fees
 

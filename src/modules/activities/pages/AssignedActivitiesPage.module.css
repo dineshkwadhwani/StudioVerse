@@ -204,6 +204,34 @@
   text-decoration: none;
 }
 
+.secondaryButton {
+  border: 1px solid #d6d7c1;
+  border-radius: 999px;
+  background: #fff9df;
+  color: #755200;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.inlineSuccess {
+  margin: 0;
+  color: #1f6a3a;
+  font-size: 0.85rem;
+}
+
+.inlineError {
+  margin: 0;
+  color: #8a2a2a;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 700px) {
   .page {
     padding-left: 16px;

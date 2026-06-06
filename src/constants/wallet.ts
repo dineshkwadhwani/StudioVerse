@@ -16,6 +16,7 @@ export type WalletTransactionSource =
   | "creator-earnings"       // Redeemable: earned as content creator
   | "assignment-return"      // Redeemable: returned from denied/cancelled assignment
   | "promotion-return"       // Redeemable: returned from denied promotion
+  | "development-plan"       // Non-redeemable: plan access/finalization debit
   | "cashout"                // Redeemable: debit for cashout request (reverse transaction on refund)
   | "manual_offline_allocation"; // Non-redeemable: manual offline allocation
 
@@ -25,6 +26,7 @@ export const NON_REDEEMABLE_SOURCES: WalletTransactionSource[] = [
   "referral",
   "bot-hero-incentive",
   "admin-allocation",
+  "development-plan",
   "manual_offline_allocation",
 ];
 

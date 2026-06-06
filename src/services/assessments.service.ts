@@ -8,6 +8,7 @@ export type AssessmentWriteInput = {
   id?: string;
   tenantId: string;
   tenantIds: string[];
+  competencyLevel: number;
   name: string;
   categoryId: string | null;
   categoryName: string | null;
@@ -55,6 +56,7 @@ const updateAssessmentCallable = httpsCallable<Record<string, unknown>, {id: str
 function sanitizePayload(input: AssessmentWriteInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...input,
+    competencyLevel: input.competencyLevel,
     language: input.language,
     promotionPackageId: input.promotionPackageId,
   };

@@ -46,7 +46,9 @@ import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
 import type { LanguageRecord } from "@/services/languages.service";
+import type { CompetencyLevelOption } from "@/types/competency";
 import { tenantAssetPath } from "@/lib/tenant/assets";
+import { getTenantCompetencyFrameworkDetails } from "@/services/tenant-competency.service";
 
 function getErrorMessage(error: unknown): string {
   if (typeof error !== "object" || error === null) {
@@ -123,6 +125,7 @@ function validateAssessmentImageFile(file: File): string | null {
 const EMPTY_FORM: AssessmentFormValues = {
   tenantId: "",
   tenantIds: [],
+  competencyLevel: "1",
   name: "",
   categoryId: "",
   subCategoryId: "",
@@ -215,6 +218,8 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
   const [topics, setTopics] = useState<TopicRecord[]>([]);
   const [languages, setLanguages] = useState<LanguageRecord[]>([]);
+  const [competencyLevelOptions, setCompetencyLevelOptions] = useState<CompetencyLevelOption[]>([]);
+  const [competencyFrameworkName, setCompetencyFrameworkName] = useState<string | null>(null);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visibleAssessments = assessments.filter((a) => {
@@ -387,6 +392,20 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
   }, []);
 
   useEffect(() => {
+    async function loadCompetencyFramework(): Promise<void> {
+      const details = await getTenantCompetencyFrameworkDetails(formValues.tenantId);
+      setCompetencyLevelOptions(details.options);
+      setCompetencyFrameworkName(details.framework?.competencyName ?? null);
+      setFormValues((prev) => ({
+        ...prev,
+        competencyLevel: prev.competencyLevel || "1",
+      }));
+    }
+
+    void loadCompetencyFramework();
+  }, [formValues.tenantId]);
+
+  useEffect(() => {
     async function loadLanguageOptions(): Promise<void> {
       try {
         const nextLanguages = await listLanguages(formValues.tenantId);
@@ -423,6 +442,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
       id: assessment.id,
       tenantId: assessment.tenantId,
       tenantIds,
+      competencyLevel: String(assessment.competencyLevel ?? 1),
       name: assessment.name,
       categoryId: assessment.categoryId ?? "",
       subCategoryId: assessment.subCategoryId ?? "",
@@ -706,6 +726,7 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
         id: isExisting ? assessmentId : undefined,
         tenantId: formValues.tenantId,
         tenantIds: formValues.tenantIds,
+        competencyLevel: Number(formValues.competencyLevel || "1"),
         name: formValues.name.trim(),
         categoryId: formValues.categoryId.trim() || null,
         categoryName,
@@ -1062,6 +1083,27 @@ export default function AssessmentsSection({ tenants: propTenants, isSuperAdmin,
                     <option key={lang.id} value={lang.code}>{lang.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <label className={styles.label} htmlFor="assessment-competency-level">
+                  Competency Level
+                </label>
+                <select
+                  id="assessment-competency-level"
+                  className={styles.select}
+                  value={formValues.competencyLevel}
+                  onChange={(event) => setField("competencyLevel", event.target.value)}
+                >
+                  {competencyLevelOptions.map((option) => (
+                    <option key={option.value} value={String(option.value)}>
+                      {option.label} (Level {option.value})
+                    </option>
+                  ))}
+                </select>
+                <p className={styles.subtitle}>
+                  Framework: {competencyFrameworkName || "Default Level Scale"}
+                </p>
               </div>
 
               <label className={styles.label} htmlFor="a-thumbnail">Thumbnail</label>

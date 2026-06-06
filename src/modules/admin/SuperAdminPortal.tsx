@@ -65,6 +65,8 @@ import ApproveRequestsPage from "./ApproveRequestsPage";
 import LogsPage from "./LogsPage";
 import ManageNotificationsSection from "./ManageNotificationsSection";
 import AssignActivitiesPage from "@/modules/activities/pages/AssignActivitiesPage";
+import { listCompetencyFrameworksForTenant } from "@/services/tenant-competency.service";
+import type { CompetencyRecord } from "@/types/competency";
 
 type MenuKey =
   | "dashboard"
@@ -161,8 +163,17 @@ type TenantRecord = {
     individual?: boolean;
     company?: boolean;
   };
+  developmentConfig?: {
+    enabled?: boolean;
+    freePlans?: number;
+    costPerPlanCredits?: number;
+  };
   referralConfig?: {
     enableReferrals?: boolean;
+  };
+  competencyFramework?: {
+    competencyId?: string;
+    competencyName?: string;
   };
   activationChecklist?: {
     mailConfigReady?: boolean;
@@ -246,18 +257,29 @@ type TenantSearchFormState = {
   company: boolean;
 };
 
+type TenantDevelopmentFormState = {
+  enabled: boolean;
+  freePlans: number;
+  costPerPlanCredits: number;
+};
+
 type TenantFormState = {
   tenantId: string;
   tenantName: string;
   domainName: string;
   rootContext: string;
   status: Status;
+  competencyFramework: {
+    competencyId: string;
+    competencyName: string;
+  };
   landingConfig: TenantLandingFormState;
   walletConfig: TenantWalletFormState;
   mailConfig: TenantMailFormState;
   botConfig: TenantBotFormState;
   leadConfig: TenantLeadFormState;
   searchConfig: TenantSearchFormState;
+  developmentConfig: TenantDevelopmentFormState;
   referralConfig: {
     enableReferrals: boolean;
   };
@@ -386,6 +408,10 @@ const EMPTY_TENANT_FORM: TenantFormState = {
   domainName: "",
   rootContext: "",
   status: "inactive",
+  competencyFramework: {
+    competencyId: "",
+    competencyName: "",
+  },
   landingConfig: {
     sectionPrograms: true,
     sectionTools: true,
@@ -437,6 +463,11 @@ const EMPTY_TENANT_FORM: TenantFormState = {
     professional: false,
     individual: false,
     company: false,
+  },
+  developmentConfig: {
+    enabled: false,
+    freePlans: 1,
+    costPerPlanCredits: 0,
   },
   referralConfig: {
     enableReferrals: true,
@@ -633,6 +664,7 @@ export default function SuperAdminPortal() {
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const [userForm, setUserForm] = useState<UserFormState>(EMPTY_USER_FORM);
   const [tenantForm, setTenantForm] = useState<TenantFormState>(EMPTY_TENANT_FORM);
+  const [tenantCompetencyFrameworks, setTenantCompetencyFrameworks] = useState<CompetencyRecord[]>([]);
   const [tenantManageView, setTenantManageView] = useState<TenantManageView>("tenants");
   const [selectedChecklistTenantId, setSelectedChecklistTenantId] = useState<string>("");
   const [checklistForm, setChecklistForm] = useState<TenantFormState["activationChecklist"]>(toActivationChecklist());
@@ -642,6 +674,26 @@ export default function SuperAdminPortal() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
+
+  useEffect(() => {
+    async function loadTenantCompetencyFrameworks(): Promise<void> {
+      const tenantId = tenantForm.tenantId.trim().toLowerCase();
+      if (!tenantModalOpen || !tenantId) {
+        setTenantCompetencyFrameworks([]);
+        return;
+      }
+
+      try {
+        const frameworks = await listCompetencyFrameworksForTenant(tenantId);
+        setTenantCompetencyFrameworks(frameworks);
+      } catch (loadError) {
+        console.error("Failed to load competency frameworks:", loadError);
+        setTenantCompetencyFrameworks([]);
+      }
+    }
+
+    void loadTenantCompetencyFrameworks();
+  }, [tenantForm.tenantId, tenantModalOpen]);
 
   useEffect(() => {
     if (selectedAssignTenant || tenants.length === 0) {
@@ -1325,6 +1377,10 @@ export default function SuperAdminPortal() {
       domainName: target.domainName,
       rootContext: target.rootContext,
       status: target.status,
+      competencyFramework: {
+        competencyId: target.competencyFramework?.competencyId ?? "",
+        competencyName: target.competencyFramework?.competencyName ?? "",
+      },
       landingConfig: {
         sectionPrograms: target.landingConfig?.sections?.programs ?? true,
         sectionTools: target.landingConfig?.sections?.tools ?? true,
@@ -1382,6 +1438,11 @@ export default function SuperAdminPortal() {
         professional: target.searchConfig?.professional ?? false,
         individual: target.searchConfig?.individual ?? false,
         company: target.searchConfig?.company ?? false,
+      },
+      developmentConfig: {
+        enabled: target.developmentConfig?.enabled ?? false,
+        freePlans: Math.max(0, Math.floor(Number(target.developmentConfig?.freePlans ?? 1))),
+        costPerPlanCredits: Math.max(0, Math.floor(Number(target.developmentConfig?.costPerPlanCredits ?? 0))),
       },
       referralConfig: {
         enableReferrals: target.referralConfig?.enableReferrals ?? true,
@@ -1596,6 +1657,12 @@ export default function SuperAdminPortal() {
         domainName: tenantForm.domainName.trim(),
         rootContext: tenantForm.rootContext.trim(),
         status: tenantForm.status,
+        competencyFramework: tenantForm.competencyFramework.competencyId
+          ? {
+              competencyId: tenantForm.competencyFramework.competencyId,
+              competencyName: tenantForm.competencyFramework.competencyName,
+            }
+          : null,
         landingConfig: {
           sections: {
             programs: tenantForm.landingConfig.sectionPrograms,
@@ -1669,6 +1736,15 @@ export default function SuperAdminPortal() {
           professional: tenantForm.searchConfig.enabled && tenantForm.searchConfig.professional,
           individual: tenantForm.searchConfig.enabled && tenantForm.searchConfig.individual,
           company: tenantForm.searchConfig.enabled && tenantForm.searchConfig.company,
+        },
+        developmentConfig: {
+          enabled: tenantForm.developmentConfig.enabled,
+          freePlans: tenantForm.developmentConfig.enabled
+            ? Math.max(0, Math.floor(Number(tenantForm.developmentConfig.freePlans)))
+            : 0,
+          costPerPlanCredits: tenantForm.developmentConfig.enabled
+            ? Math.max(0, Math.floor(Number(tenantForm.developmentConfig.costPerPlanCredits)))
+            : 0,
         },
         referralConfig: {
           enableReferrals: tenantForm.referralConfig.enableReferrals,
@@ -2880,6 +2956,37 @@ export default function SuperAdminPortal() {
             ) : null}
 
             <section className={styles.tenantConfigBlock}>
+              <h4 className={styles.tenantConfigTitle}>Competency Framework</h4>
+              <label className={styles.label} htmlFor="tenant-competency-framework">
+                Applied Framework
+              </label>
+              <select
+                id="tenant-competency-framework"
+                className={styles.select}
+                value={tenantForm.competencyFramework.competencyId}
+                onChange={(event) => {
+                  const nextId = event.target.value;
+                  const selectedFramework = tenantCompetencyFrameworks.find((item) => item.id === nextId);
+                  setTenantForm((prev) => ({
+                    ...prev,
+                    competencyFramework: {
+                      competencyId: nextId,
+                      competencyName: selectedFramework?.name ?? "",
+                    },
+                  }));
+                }}
+              >
+                <option value="">No framework selected</option>
+                {tenantCompetencyFrameworks.map((framework) => (
+                  <option key={framework.id} value={framework.id}>{framework.name}</option>
+                ))}
+              </select>
+              <p className={styles.subtitle}>
+                Seed competencies for this tenant first if the dropdown is empty.
+              </p>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
               <p className={styles.tenantSubLabel}>Tenant Activation Checklist</p>
               <div className={styles.radioRow}>
                 <label className={styles.radioPill}>
@@ -3381,6 +3488,75 @@ export default function SuperAdminPortal() {
                   />
                   Enable Individual Lead
                 </label>
+              </div>
+            </section>
+
+            <section className={styles.tenantConfigBlock}>
+              <p className={styles.tenantSubLabel}>Development Plan</p>
+              <p className={styles.subtitle}>
+                Controls whether Development Plan appears in the Actions menu and sets the tenant-level free-plan count and extra-plan fee.
+              </p>
+              <div className={styles.radioRow}>
+                <label className={styles.radioPill}>
+                  <input
+                    type="checkbox"
+                    checked={tenantForm.developmentConfig.enabled}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        developmentConfig: {
+                          ...prev.developmentConfig,
+                          enabled: e.target.checked,
+                          freePlans: e.target.checked ? prev.developmentConfig.freePlans : 0,
+                          costPerPlanCredits: e.target.checked ? prev.developmentConfig.costPerPlanCredits : 0,
+                        },
+                      }))
+                    }
+                  />
+                  Enable Development Plan
+                </label>
+              </div>
+              <div className={styles.compactFieldGrid}>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="development-free-plans">No. of Free Development Plans</label>
+                  <input
+                    id="development-free-plans"
+                    type="number"
+                    min={0}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.developmentConfig.freePlans}
+                    disabled={!tenantForm.developmentConfig.enabled}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        developmentConfig: {
+                          ...prev.developmentConfig,
+                          freePlans: Number(e.target.value),
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div className={styles.compactField}>
+                  <label className={styles.compactLabel} htmlFor="development-plan-cost">Cost per Plan (Credits)</label>
+                  <input
+                    id="development-plan-cost"
+                    type="number"
+                    min={0}
+                    className={`${styles.input} ${styles.compactInput}`}
+                    value={tenantForm.developmentConfig.costPerPlanCredits}
+                    disabled={!tenantForm.developmentConfig.enabled}
+                    onChange={(e) =>
+                      setTenantForm((prev) => ({
+                        ...prev,
+                        developmentConfig: {
+                          ...prev.developmentConfig,
+                          costPerPlanCredits: Number(e.target.value),
+                        },
+                      }))
+                    }
+                  />
+                </div>
               </div>
             </section>
 

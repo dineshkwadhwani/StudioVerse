@@ -78,6 +78,7 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     id,
     tenantId: data.tenantId,
     tenantIds: Array.isArray(data.tenantIds) ? data.tenantIds : undefined,
+    competencyLevel: typeof data.competencyLevel === "number" ? data.competencyLevel : 1,
     name: data.name,
     categoryId: typeof data.categoryId === "string" ? data.categoryId : null,
     categoryName: typeof data.categoryName === "string" ? data.categoryName : null,
@@ -132,6 +133,7 @@ function sanitizePayload(input: EventWriteInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     tenantId: input.tenantId,
     tenantIds: input.tenantIds,
+    competencyLevel: input.competencyLevel,
     name: input.name,
     categoryId: nullToUndef(input.categoryId),
     categoryName: nullToUndef(input.categoryName),

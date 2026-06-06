@@ -39,6 +39,7 @@ export type EventRecord = {
   id: string;
   tenantId: string;
   tenantIds?: string[];
+  competencyLevel?: number;
   name: string;
   categoryId: string | null;
   categoryName: string | null;
@@ -91,6 +92,7 @@ export type EventWriteInput = {
   id?: string;
   tenantId: string;
   tenantIds?: string[];
+  competencyLevel: number;
   name: string;
   categoryId: string | null;
   categoryName: string | null;
@@ -131,6 +133,7 @@ export type EventFormValues = {
   id?: string;
   tenantId: string;
   tenantIds: string[];
+  competencyLevel: string;
   name: string;
   categoryId: string;
   subCategoryId: string;
@@ -170,6 +173,7 @@ export type EventSaveMode = "draft" | "publish";
 export const DEFAULT_EVENT_FORM_VALUES: EventFormValues = {
   tenantId: "",
   tenantIds: [],
+  competencyLevel: "1",
   name: "",
   categoryId: "",
   subCategoryId: "",

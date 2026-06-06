@@ -34,6 +34,7 @@ export const eventFormSchema = z.object({
   id: z.string().trim().optional(),
   tenantId: z.string().trim(),
   tenantIds: z.array(z.string().trim()).default([]),
+  competencyLevel: z.string().trim().default("1"),
   name: optionalTrimmedString,
   categoryId: z.string().trim(),
   subCategoryId: z.string().trim(),
@@ -96,6 +97,7 @@ export function normalizeEventForm(
   const parsed = eventFormSchema.parse(values);
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
   const cost = parsed.cost ? Number(parsed.cost) : 0;
+  const competencyLevel = parsed.competencyLevel ? Number(parsed.competencyLevel) : 1;
 
   const isPublicVisibility = parsed.visibility === "public";
   const hasListingRequest = parsed.published && isPublicVisibility && Boolean(parsed.listingPackageId);
@@ -121,6 +123,7 @@ export function normalizeEventForm(
     id: parsed.id,
     tenantId: parsed.tenantId,
     tenantIds: parsed.tenantIds,
+    competencyLevel: Number.isFinite(competencyLevel) && competencyLevel >= 1 && competencyLevel <= 5 ? competencyLevel : 1,
     name: parsed.name,
     categoryId: parsed.categoryId || null,
     categoryName: null,
@@ -170,6 +173,7 @@ export function validateEventForm(
   const tenantId = values.tenantId.trim();
   const tenantIds = Array.isArray(values.tenantIds) ? values.tenantIds.filter((value) => value.trim()) : [];
   const name = values.name.trim();
+  const competencyLevel = values.competencyLevel.trim();
   const shortDescription = values.shortDescription.trim();
   const longDescription = values.longDescription.trim();
   const locationAddress = values.locationAddress.trim();
@@ -179,6 +183,13 @@ export function validateEventForm(
 
   if (!tenantId || tenantIds.length === 0) {
     errors.tenantId = "Select a tenant.";
+  }
+
+  if (competencyLevel) {
+    const numericLevel = Number(competencyLevel);
+    if (!Number.isInteger(numericLevel) || numericLevel < 1 || numericLevel > 5) {
+      errors.competencyLevel = "Competency level must be between 1 and 5.";
+    }
   }
 
   if (!name) {

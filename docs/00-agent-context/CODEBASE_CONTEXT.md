@@ -1,6 +1,6 @@
 # StudioVerse — Codebase Context
 
-**Last updated:** May 2026  
+**Last updated:** June 2026  
 **Purpose:** Authoritative implementation snapshot across all epics. Code is source of truth; this document reflects it.
 
 ---
@@ -21,6 +21,17 @@ One codebase, three studio deployments (Coaching, Training, Recruitment), shared
 - `src/types/` — shared type definitions
 - `src/tenants/` + `src/config/studio.ts` — authenticated studio config
 - `functions/` — Firebase Functions (trusted server-side logic)
+
+---
+
+## June 2026 Implementation Highlights
+
+- **Assessment report access hardened** — `assessmentReports` reads now support assignment-party access for current and legacy identity shapes. Query path is `assignmentId`-only, with regression coverage in `tests/rules/assessment-reports.test.ts`.
+- **Rules deployment workflow clarified** — Firestore rule changes are validated in `studioverse-test` first, then promoted to production only after test confirmation. Current `.firebaserc` maps `prod` to `studioverse-18552`.
+- **Assigned Activities improvements** — coach/company assigned assessments can send reminder emails before completion; `Open Report` is visible only once the assessment status is `completed`.
+- **Wallet cashout clarity** — Manage Wallet now separates available credits from redeemable credits and enforces a 40-credit cashout minimum.
+- **Profile experience precision** — experience fields now allow decimal values up to two places and render consistently as `n.nn` in update and public profile views.
+- **Tenant favicon ownership** — tenant route roots now own their own `icon.png` metadata files instead of relying on a shared icon override.
 
 ---
 

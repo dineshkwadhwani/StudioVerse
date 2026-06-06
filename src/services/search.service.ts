@@ -188,6 +188,12 @@ export type TenantReferralsConfig = {
   enabled: boolean;
 };
 
+export type TenantDevelopmentConfig = {
+  enabled: boolean;
+  freePlans: number;
+  costPerPlanCredits: number;
+};
+
 const DEFAULT_SEARCH_CONFIG: TenantSearchConfig = {
   enabled: false,
   programs: false,
@@ -200,6 +206,12 @@ const DEFAULT_SEARCH_CONFIG: TenantSearchConfig = {
 
 const DEFAULT_REFERRALS_CONFIG: TenantReferralsConfig = {
   enabled: true,
+};
+
+const DEFAULT_DEVELOPMENT_CONFIG: TenantDevelopmentConfig = {
+  enabled: false,
+  freePlans: 1,
+  costPerPlanCredits: 0,
 };
 
 export async function getTenantSearchConfig(tenantId: string): Promise<TenantSearchConfig> {
@@ -231,5 +243,20 @@ export async function getTenantReferralsConfig(tenantId: string): Promise<Tenant
 
   return {
     enabled: typeof cfg.enableReferrals === "boolean" ? cfg.enableReferrals : true,
+  };
+}
+
+export async function getTenantDevelopmentConfig(tenantId: string): Promise<TenantDevelopmentConfig> {
+  const trimmed = tenantId.trim();
+  if (!trimmed) return DEFAULT_DEVELOPMENT_CONFIG;
+
+  const snap = await getDoc(doc(db, "tenants", trimmed));
+  const cfg = snap.data()?.developmentConfig as Partial<TenantDevelopmentConfig> | undefined;
+  if (!cfg) return DEFAULT_DEVELOPMENT_CONFIG;
+
+  return {
+    enabled: typeof cfg.enabled === "boolean" ? cfg.enabled : false,
+    freePlans: Math.max(0, Math.floor(Number(cfg.freePlans ?? 1))),
+    costPerPlanCredits: Math.max(0, Math.floor(Number(cfg.costPerPlanCredits ?? 0))),
   };
 }

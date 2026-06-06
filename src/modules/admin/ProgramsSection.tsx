@@ -39,6 +39,8 @@ import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
 import type { LanguageRecord } from "@/services/languages.service";
+import type { CompetencyLevelOption } from "@/types/competency";
+import { getTenantCompetencyFrameworkDetails } from "@/services/tenant-competency.service";
 import { tenantAssetPath } from "@/lib/tenant/assets";
 
 type TenantOption = {
@@ -63,6 +65,7 @@ function mapProgramToForm(program: ProgramRecord): ProgramFormValues {
     id: program.id,
     tenantId: program.tenantId,
     tenantIds,
+    competencyLevel: String(program.competencyLevel ?? 1),
     name: program.name,
     categoryId: program.categoryId ?? "",
     subCategoryId: program.subCategoryId ?? "",
@@ -118,6 +121,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
   const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
   const [topics, setTopics] = useState<TopicRecord[]>([]);
   const [languages, setLanguages] = useState<LanguageRecord[]>([]);
+  const [competencyLevelOptions, setCompetencyLevelOptions] = useState<CompetencyLevelOption[]>([]);
+  const [competencyFrameworkName, setCompetencyFrameworkName] = useState<string | null>(null);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   const visiblePrograms = programs.filter((program) => {
@@ -208,6 +213,20 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
 
     void loadCategoryOptions();
   }, []);
+
+  useEffect(() => {
+    async function loadCompetencyFramework(): Promise<void> {
+      const details = await getTenantCompetencyFrameworkDetails(formValues.tenantId);
+      setCompetencyLevelOptions(details.options);
+      setCompetencyFrameworkName(details.framework?.competencyName ?? null);
+      setFormValues((prev) => ({
+        ...prev,
+        competencyLevel: prev.competencyLevel || "1",
+      }));
+    }
+
+    void loadCompetencyFramework();
+  }, [formValues.tenantId]);
 
   useEffect(() => {
     async function loadLanguageOptions(): Promise<void> {
@@ -636,6 +655,8 @@ export default function ProgramsSection({ tenants: propTenants, isSuperAdmin, se
           listingPackages={listingPackages}
           listingPackagesLoading={listingPackagesLoading}
           categories={categoryOptionsForTenant}
+          competencyLevelOptions={competencyLevelOptions}
+          competencyFrameworkName={competencyFrameworkName}
           subCategories={subCategoryOptionsForTenant}
           topics={topics.filter((t) => t.tenantId === formValues.tenantId && t.subCategoryId === formValues.subCategoryId)}
           languages={languages}

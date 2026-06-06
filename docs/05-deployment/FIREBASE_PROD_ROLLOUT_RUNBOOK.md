@@ -4,6 +4,32 @@
 
 This is the single reference to replicate Firebase backend definitions from `studioverse-test` to `studioverse-prod` quickly and safely.
 
+## Latest rollout update (June 2026) — assessment report access hardening and rules promotion workflow
+
+Status:
+
+- Assessment report access fixes were validated in `studioverse-test` first, including focused emulator-backed rules coverage.
+- The same rules were then promoted to production project `studioverse-18552` after test verification.
+- Current Firebase aliases in this repo are:
+  - `default` -> `studioverse-test`
+  - `prod` -> `studioverse-18552`
+
+Changes now live:
+
+- `assessmentReports` read rules support:
+  - assignee/assigner assignment-party access
+  - legacy user-doc-id resolution via `/users/{id}.uid` and `/users/{id}.userId`
+  - legacy assignment fields `assignedBy` and `assignedTo`
+- Assignment creation surfaces now prefer `auth.currentUser.uid` over `cs_profile_id` for new assigner context where available.
+- Report fetches use `assignmentId` as the query anchor, with rules carrying the authorization logic.
+- Focused regression coverage exists in `tests/rules/assessment-reports.test.ts` for modern and legacy assignment identity shapes.
+
+Required workflow going forward:
+
+1. Validate all Firestore rule changes in `studioverse-test` first.
+2. Run the narrowest available rule/test check for the changed surface.
+3. Promote the same rules file to production only after test verification and explicit approval.
+
 ## Latest rollout update (May 9, 2026) — Firestore rules + UI: multi-company coin requests
 
 Status:

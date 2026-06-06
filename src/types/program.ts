@@ -22,6 +22,7 @@ export type ProgramRecord = {
   id: string;
   tenantId: string;
   tenantIds?: string[];
+  competencyLevel?: number;
   name: string;
   categoryId: string | null;
   categoryName: string | null;
@@ -65,6 +66,7 @@ export type ProgramWriteInput = {
   id?: string;
   tenantId: string;
   tenantIds?: string[];
+  competencyLevel: number;
   name: string;
   categoryId: string | null;
   categoryName: string | null;
@@ -102,6 +104,7 @@ export type ProgramFormValues = {
   id?: string;
   tenantId: string;
   tenantIds: string[];
+  competencyLevel: string;
   name: string;
   categoryId: string;
   subCategoryId: string;
@@ -139,6 +142,7 @@ export type ProgramSaveMode = "draft" | "publish";
 export const DEFAULT_PROGRAM_FORM_VALUES: ProgramFormValues = {
   tenantId: "",
   tenantIds: [],
+  competencyLevel: "1",
   name: "",
   categoryId: "",
   subCategoryId: "",

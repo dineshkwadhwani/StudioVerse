@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/services/firebase";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useTenantDevelopmentConfig } from "@/hooks/useTenantDevelopmentConfig";
 import { useTenantSearchConfig } from "@/hooks/useTenantSearchConfig";
 import { useTenantReferralsConfig } from "@/hooks/useTenantReferralsConfig";
 import { getRoleLabel, getRoleMenuGroups } from "@/modules/activities/config/menuConfig";
@@ -47,6 +48,7 @@ export default function ProfileDropdownMenu({
 
   const searchConfig = useTenantSearchConfig(tenantId);
   const referralsConfig = useTenantReferralsConfig(tenantId);
+  const developmentConfig = useTenantDevelopmentConfig(tenantId);
   const effectiveRole: StudioUserRole | null =
     role === "superadmin" ? "company" : role;
 
@@ -55,9 +57,10 @@ export default function ProfileDropdownMenu({
     () => getRoleMenuGroups(effectiveRole, {
       basePath,
       searchConfig,
+      developmentConfig,
       referralsConfig: role === "superadmin" ? { enabled: true } : referralsConfig,
     }),
-    [basePath, effectiveRole, role, searchConfig, referralsConfig],
+    [basePath, developmentConfig, effectiveRole, role, searchConfig, referralsConfig],
   );
 
   const displayRoleLabel = role === "superadmin" && roleLabels?.superAdmin

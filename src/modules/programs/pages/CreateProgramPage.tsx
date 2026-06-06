@@ -26,11 +26,13 @@ import {
 import { listActivePromotionPackagesForTenant } from "@/services/promotionPackages.service";
 import { listActiveListingPackagesForTenant } from "@/services/listingPackages.service";
 import { getWalletByUserAndTenant } from "@/services/wallet.service";
+import { getTenantCompetencyFrameworkDetails } from "@/services/tenant-competency.service";
 import { listCategories, listSubCategories } from "@/services/categories.service";
 import { type ProgramFormValues, type ProgramSaveMode } from "@/types/program";
 import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord } from "@/types/category";
+import type { CompetencyLevelOption } from "@/types/competency";
 import styles from "@/modules/admin/SuperAdminPortal.module.css";
 
 type Props = {
@@ -63,6 +65,8 @@ export default function CreateProgramPage({ config }: Props) {
   const [listingPackages, setListingPackages] = useState<ListingPackageRecord[]>([]);
   const [listingPackagesLoading, setListingPackagesLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [competencyLevelOptions, setCompetencyLevelOptions] = useState<CompetencyLevelOption[]>([]);
+  const [competencyFrameworkName, setCompetencyFrameworkName] = useState<string | null>(null);
   const [subCategories, setSubCategories] = useState<SubCategoryRecord[]>([]);
   const categoryOptionsForTenant = categories.filter((item) => item.tenantId === tenantId);
   const subCategoryOptionsForTenant = subCategories.filter((item) => item.tenantId === tenantId);
@@ -103,6 +107,16 @@ export default function CreateProgramPage({ config }: Props) {
       }
     }
     void loadPackages();
+  }, [tenantId]);
+
+  useEffect(() => {
+    async function loadCompetencyFramework(): Promise<void> {
+      const details = await getTenantCompetencyFrameworkDetails(tenantId);
+      setCompetencyLevelOptions(details.options);
+      setCompetencyFrameworkName(details.framework?.competencyName ?? null);
+    }
+
+    void loadCompetencyFramework();
   }, [tenantId]);
 
   useEffect(() => {
@@ -265,6 +279,8 @@ export default function CreateProgramPage({ config }: Props) {
             promotionPackagesLoading={promotionPackagesLoading}
             listingPackages={listingPackages}
             listingPackagesLoading={listingPackagesLoading}
+            competencyLevelOptions={competencyLevelOptions}
+            competencyFrameworkName={competencyFrameworkName}
             categories={categoryOptionsForTenant}
             subCategories={subCategoryOptionsForTenant}
             onChange={updateField}

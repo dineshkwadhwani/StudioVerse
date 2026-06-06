@@ -21,7 +21,7 @@ No feature code duplication is required.
   - `bot.png`
   - `coin.png`
   - `hero1.png`, `hero2.png`, `hero3.png`
-  - `favicon.ico`
+  - `icon.png` (tenant route-root favicon for Next.js App Router)
 - You have approved role labels and terminology for the studio.
 - You have DNS/domain ownership if launching with a custom domain.
 - You have tenant-specific Razorpay credentials for both payment flows (buy coins and cashout payout).
@@ -72,6 +72,7 @@ Mode selection:
    - `landingContent.heroImages`
    - legal links
 3. Keep role keys unchanged: `superadmin`, `company`, `professional`, `individual`.
+4. Do not point shared metadata at a global favicon override; each tenant route now owns its own `icon.png` file.
 
 ### 2) Add tenant notification templates
 
@@ -92,15 +93,21 @@ Mode selection:
    - `bot.png`
    - `coin.png`
    - `hero1.png`, `hero2.png`, `hero3.png`
-   - `favicon.ico`
 3. Confirm all config asset paths match exactly.
+
+### 4A) Add tenant route-root icon metadata
+
+1. Create `src/app/<new-tenant-id>/icon.png`.
+2. Use the tenant-specific favicon/app icon image that should appear in the browser tab.
+3. Keep favicon ownership in the tenant route tree; do not reintroduce a shared `icons` override in metadata generation.
 
 ### 5) Create tenant app routes
 
 1. Copy `src/app/coaching-studio/` to `src/app/<new-tenant-id>/`.
 2. In copied route files, switch tenant config imports to `src/tenants/<new-tenant-id>/config`.
 3. Ensure each route uses shared modules from `src/modules/app-shell` or feature modules.
-4. Do not create tenant-specific module duplicates under `src/modules/`.
+4. Ensure the copied route tree includes the tenant `icon.png` file.
+5. Do not create tenant-specific module duplicates under `src/modules/`.
 
 ### 6) Domain routing setup (if custom domain)
 

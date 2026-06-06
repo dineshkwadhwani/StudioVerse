@@ -200,6 +200,28 @@ For Coaching Studio:
 - GoDaddy mailbox is still used for inbox receiving
 - DNS records were added in GoDaddy, not Vercel, for the email setup
 
+## Latest implementation progress (2-3 June 2026)
+
+### Assignment/report/access updates
+
+- Assessment report loading now relies on `assignmentId` queries plus alias-aware Firestore rules for assignment-party access.
+- Rules were broadened for legacy identity shapes (`uid`, `userId`, user-doc-id) and legacy assignment fields (`assignedBy`, `assignedTo`).
+- New rules regression coverage exists in `tests/rules/assessment-reports.test.ts`.
+- Working deployment rule for this repo: validate Firestore rule changes in `studioverse-test` first, then copy the same rules to production only after test verification passes.
+- Current Firebase prod alias in this workspace is `studioverse-18552`.
+
+### Assigned Activities behavior
+
+- Company/professional Assigned Activities now support a `Send Reminder` action for assessments that are assigned/registered but not yet completed.
+- Reminder emails use a new notification category, `assignmentAssessmentReminder`, exposed to Super Admin as `Remind for Assesment` and default-enabled by tenant settings.
+- `Open Report` is now shown only for completed assessments in coach/company/shared assigned-activities surfaces and the Super Admin assigned-activities view.
+
+### Wallet/profile/white-label updates
+
+- Cashout UI now separates available credits from redeemable credits and enforces a minimum of `40` credits on the client and service path.
+- Profile experience fields now accept decimals up to two places and normalize to `n.nn` across edit, save, and public display.
+- Tenant favicon ownership moved to App Router route-root `icon.png` files per tenant; shared metadata no longer forces one global icon.
+
 ## How Claude should use this repo
 
 When changing code:

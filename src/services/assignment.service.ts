@@ -16,6 +16,7 @@ import type { AssignmentRecord, UserSearchResult, ActivityType } from "@/types/a
 import type { AssignmentStatus } from "@/types/assignment";
 import { getWalletForUserContext } from "@/services/wallet.service";
 import { getCohortAssignmentPayload } from "@/services/cohorts.service";
+import { syncDevelopmentPlanItemAssignmentStatus } from "@/services/development-plans.service";
 import { resolveUserNotificationRecipient, sendNotificationEmail } from "@/services/notification.service";
 import type { CohortCreatorRole } from "@/types/cohort";
 
@@ -784,17 +785,27 @@ export async function updateAssignmentStatus(args: {
     updatedAt: serverTimestamp(),
   });
 
+  const assignmentSnap = await getDoc(assignmentRef);
+  if (!assignmentSnap.exists()) {
+    return;
+  }
+
+  const data = assignmentSnap.data() as Record<string, unknown>;
+  const tenantId = String(data.tenantId ?? "").trim();
+  const assigneeId = String(data.assigneeId ?? "").trim();
+
+  await syncDevelopmentPlanItemAssignmentStatus({
+    tenantId,
+    subjectUserId: assigneeId,
+    assignmentId: args.assignmentId,
+    assignmentStatus: args.status,
+  });
+
   if (args.status !== "completed") {
     return;
   }
 
   try {
-    const assignmentSnap = await getDoc(assignmentRef);
-    if (!assignmentSnap.exists()) {
-      return;
-    }
-
-    const data = assignmentSnap.data() as Record<string, unknown>;
     const tenantId = String(data.tenantId ?? "").trim();
     const assigneeEmail = String(data.assigneeEmail ?? "").trim().toLowerCase();
     const assigneeName = String(data.assigneeFullName ?? "User").trim() || "User";

@@ -25,6 +25,7 @@ export const programFormSchema = z.object({
   id: z.string().trim().optional(),
   tenantId: z.string().trim(),
   tenantIds: z.array(z.string().trim()).default([]),
+  competencyLevel: z.string().trim().default("1"),
   name: optionalTrimmedString,
   categoryId: z.string().trim(),
   subCategoryId: z.string().trim(),
@@ -73,6 +74,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
   const parsed = programFormSchema.parse(values);
   const durationValue = parsed.durationValue ? Number(parsed.durationValue) : 0;
   const creditsRequired = parsed.creditsRequired ? Number(parsed.creditsRequired) : 0;
+  const competencyLevel = parsed.competencyLevel ? Number(parsed.competencyLevel) : 1;
 
   const isPublicVisibility = parsed.visibility === "public";
   const hasListingRequest = parsed.published && isPublicVisibility && Boolean(parsed.listingPackageId);
@@ -94,6 +96,7 @@ export function normalizeProgramForm(values: ProgramFormValues, mode: ProgramSav
     id: parsed.id,
     tenantId: parsed.tenantId,
     tenantIds: parsed.tenantIds,
+    competencyLevel: Number.isFinite(competencyLevel) && competencyLevel >= 1 && competencyLevel <= 5 ? competencyLevel : 1,
     name: parsed.name,
     categoryId: parsed.categoryId || null,
     categoryName: null,
@@ -142,9 +145,17 @@ export function validateProgramForm(
   const tenantIds = Array.isArray(values.tenantIds) ? values.tenantIds.filter((value) => value.trim()) : [];
   const durationValue = values.durationValue.trim();
   const creditsRequired = values.creditsRequired.trim();
+  const competencyLevel = values.competencyLevel.trim();
 
   if (!tenantId || tenantIds.length === 0) {
     errors.tenantId = "Select a tenant.";
+  }
+
+  if (competencyLevel) {
+    const numericLevel = Number(competencyLevel);
+    if (!Number.isInteger(numericLevel) || numericLevel < 1 || numericLevel > 5) {
+      errors.competencyLevel = "Competency level must be between 1 and 5.";
+    }
   }
 
   // Require certain fields when publishing

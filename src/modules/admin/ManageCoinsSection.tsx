@@ -7,6 +7,7 @@ import {
   backfillTenantTreasuryWallets,
   getWalletByUserAndTenant,
   listCashoutRequestsForUserContext,
+  listWalletTransactionsForWallet,
   listWalletTransactionsForUserContext,
   listWallets,
   listUsersForCoinAssignment,
@@ -62,7 +63,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
   const [walletSnapshot, setWalletSnapshot] = useState<{ issued: number; utilized: number; available: number } | null>(null);
 
   const isTreasuryWallet = (wallet: WalletRecord): boolean =>
-    wallet.id.startsWith("treasury::") || wallet.userName === "Tenant Treasury";
+    wallet.id.startsWith("treasury::");
 
   const treasuryWallets = useMemo(() => wallets.filter((wallet) => isTreasuryWallet(wallet)), [wallets]);
 
@@ -93,16 +94,23 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
     setWalletDetailBusy(true);
     setError("");
 
-    const normalizedUserIds = Array.from(new Set([
-      wallet.userId,
-      wallet.id,
-      wallet.id.includes("::") ? wallet.id.split("::").pop() ?? "" : "",
-    ].map((item) => item.trim()).filter(Boolean)));
+    const treasuryWallet = isTreasuryWallet(wallet);
+    const normalizedUserIds = treasuryWallet
+      ? []
+      : Array.from(new Set([
+          wallet.userId,
+          wallet.id,
+          wallet.id.includes("::") ? wallet.id.split("::").pop() ?? "" : "",
+        ].map((item) => item.trim()).filter(Boolean)));
 
     try {
       const [transactions, cashoutRequests] = await Promise.all([
-        listWalletTransactionsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined, includeTreasury: true }),
-        listCashoutRequestsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined }),
+        treasuryWallet
+          ? listWalletTransactionsForWallet(wallet.id)
+          : listWalletTransactionsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined, includeTreasury: true }),
+        treasuryWallet
+          ? Promise.resolve([])
+          : listCashoutRequestsForUserContext({ userIds: normalizedUserIds, tenantId: wallet.tenantId || undefined }),
       ]);
       setWalletDetailTransactions(transactions);
       setWalletDetailCashoutRequests(cashoutRequests);
@@ -411,7 +419,7 @@ export default function ManageCoinsSection({ tenants, adminUserId, onCoinsAssign
               <div className={styles.emptyCard} style={{ marginBottom: 12 }}>
                 <p style={{ margin: 0 }}>Tenant: {selectedWallet.tenantId || "-"}</p>
                 <p style={{ margin: "6px 0 0" }}>User ID: {selectedWallet.userId}</p>
-                <p style={{ margin: "6px 0 0" }}>Type: {selectedWallet.userType}</p>
+                <p style={{ margin: "6px 0 0" }}>Type: {isTreasuryWallet(selectedWallet) ? "treasury" : selectedWallet.userType}</p>
               </div>
 
               <div className={styles.usersGrid} style={{ marginBottom: 12 }}>

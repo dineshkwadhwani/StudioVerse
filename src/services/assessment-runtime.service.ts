@@ -9,6 +9,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, auth } from "@/services/firebase";
+import { syncDevelopmentPlanItemAssignmentStatus } from "@/services/development-plans.service";
 import type {
   AssessmentAnswerRecord,
   AssessmentAttemptRecord,
@@ -185,6 +186,13 @@ export async function saveAssessmentCompletion(
   });
 
   await batch.commit();
+
+  await syncDevelopmentPlanItemAssignmentStatus({
+    tenantId: args.assignment.tenantId,
+    subjectUserId: args.assignment.assigneeId,
+    assignmentId: args.assignment.id,
+    assignmentStatus: "completed",
+  });
 
   return {
     attemptId: attemptRef.id,

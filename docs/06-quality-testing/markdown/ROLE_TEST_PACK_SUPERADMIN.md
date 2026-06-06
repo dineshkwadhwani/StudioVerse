@@ -10,7 +10,7 @@ Primary actor: SuperAdmin
 - `SA-04` Create Another SuperAdmin
 - `SA-05` Create Company, Coach, And Individual From SuperAdmin
 - `SA-06` Check Wallet Allocation And Treasury Debit Semantics
-- `SA-07` Seed Earning Packages
+- `SA-07` Seed Reference Data
 - `SA-08` Create Assessment And Verify Publish And Promote
 - `SA-09` Create Program And Verify Publish And Promote
 - `SA-10` Create Event And Verify Publish And Promote

@@ -47,6 +47,7 @@ export type AssessmentRecord = {
   id: string;
   tenantId: string;
   tenantIds?: string[];
+  competencyLevel?: number;
   name: string;
   categoryId?: string;
   categoryName?: string;
@@ -157,6 +158,7 @@ export type AssessmentFormValues = {
   id?: string;
   tenantId: string;
   tenantIds: string[];
+  competencyLevel: string;
   name: string;
   categoryId: string;
   subCategoryId: string;
@@ -192,6 +194,7 @@ export type AssessmentWriteInput = {
   id?: string;
   tenantId: string;
   tenantIds?: string[];
+  competencyLevel: number;
   name: string;
   categoryId?: string;
   categoryName?: string;

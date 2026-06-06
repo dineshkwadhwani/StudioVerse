@@ -6,6 +6,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import styles from "./SuperAdminPortal.module.css";
 import { db } from "@/services/firebase";
 import { listCategoriesFlattened, seedTaxonomyFromXlsx } from "@/services/categories.service";
+import { listCompetencies, seedCompetencies } from "@/services/competencies.service";
 import { seedLanguages, listLanguages } from "@/services/languages.service";
 import {
   seedCreditPackages,
@@ -104,6 +105,18 @@ export default function SeedDataPage({ operatorId }: Props) {
             message: seeded
               ? "Already seeded. Taxonomy data exists in this environment."
               : "Not seeded yet.",
+            error: "",
+          };
+        } else if (script.id === "competencies") {
+          const competencyRows = await listCompetencies(selectedTenant);
+          const seeded = competencyRows.length >= 5;
+          newStates[script.id] = {
+            checking: false,
+            busy: false,
+            seeded,
+            message: seeded
+              ? `Already seeded. Found ${competencyRows.length} competency documents.`
+              : `Not seeded yet. Found ${competencyRows.length} competency documents.`,
             error: "",
           };
         } else if (script.id === "earningPackages") {
@@ -226,6 +239,20 @@ export default function SeedDataPage({ operatorId }: Props) {
             message: totalAdded > 0
               ? `Taxonomy seeded. Added ${result.categories} categories, ${result.subCategories} sub-categories, and ${result.topics} topics.`
               : "Already seeded. No new taxonomy records were added.",
+            error: "",
+          },
+        }));
+      } else if (script.id === "competencies") {
+        result = await seedCompetencies(tenantId);
+        setSeedStates((prev) => ({
+          ...prev,
+          [script.id]: {
+            checking: false,
+            busy: false,
+            seeded: true,
+            message: result.added > 0
+              ? `Competencies seeded. Added ${result.added} competency documents (${result.skipped} already existed).`
+              : `All ${result.skipped} competency documents already exist — nothing to add.`,
             error: "",
           },
         }));
@@ -375,7 +402,7 @@ export default function SeedDataPage({ operatorId }: Props) {
                 type="button"
                 className={state.seeded ? styles.ghostButton : styles.button}
                 onClick={() => handleSeed(script)}
-                disabled={state.busy || state.seeded || state.checking || tenantId === "all"}
+                disabled={state.busy || state.seeded || state.checking}
                 style={{ alignSelf: "flex-start", marginTop: "auto" }}
               >
                 {state.checking

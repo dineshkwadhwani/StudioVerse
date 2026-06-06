@@ -20,6 +20,7 @@ import type { PromotionPackageRecord } from "@/types/promotionPackage";
 import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
 import type { EventFormErrors } from "@/lib/validation/event.schema";
+import type { CompetencyLevelOption } from "@/types/competency";
 
 type TenantOption = {
   id: string;
@@ -41,6 +42,8 @@ type EventFormProps = {
   listingPackages: ListingPackageRecord[];
   listingPackagesLoading: boolean;
   categories?: CategoryRecord[];
+  competencyLevelOptions?: CompetencyLevelOption[];
+  competencyFrameworkName?: string | null;
   subCategories?: SubCategoryRecord[];
   topics?: TopicRecord[];
   languages?: LanguageRecord[];
@@ -64,6 +67,8 @@ export default function EventForm({
   listingPackages,
   listingPackagesLoading,
   categories = [],
+  competencyLevelOptions = [],
+  competencyFrameworkName = null,
   subCategories = [],
   topics = [],
   languages = [],
@@ -115,6 +120,7 @@ export default function EventForm({
     const focusOrder: Array<keyof EventFormValues> = [
       "tenantId",
       "name",
+        "competencyLevel",
       "eventType",
       "eventSource",
       "shortDescription",
@@ -379,6 +385,29 @@ export default function EventForm({
                 ))}
               </select>
               {errors.language ? <p className={styles.error}>{errors.language}</p> : null}
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <label className={styles.label} htmlFor="event-competency-level">
+                Competency Level
+              </label>
+              <select
+                id="event-competency-level"
+                ref={(el) => { fieldRefs.current.competencyLevel = el; }}
+                className={`${styles.select} ${errors.competencyLevel ? styles.inputError : ""}`}
+                value={value.competencyLevel}
+                onChange={(event) => onChange("competencyLevel", event.target.value)}
+                disabled={busy}
+              >
+                {competencyLevelOptions.map((option) => (
+                  <option key={option.value} value={String(option.value)}>
+                    {option.label} (Level {option.value})
+                  </option>
+                ))}
+              </select>
+              <p className={styles.subtitle}>
+                Framework: {competencyFrameworkName || "Default Level Scale"}
+              </p>
+              {errors.competencyLevel ? <p className={styles.error}>{errors.competencyLevel}</p> : null}
             </div>
 
             <label className={styles.label} htmlFor="event-thumbnail">Thumbnail</label>

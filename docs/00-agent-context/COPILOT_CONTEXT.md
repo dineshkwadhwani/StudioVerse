@@ -1199,3 +1199,65 @@ Key changes:
 - `src/services/leads.service.ts` — lead unlock tracking and credit deduction.
 - `src/services/messages.service.ts` — message storage, composition, and retrieval.
 - `src/services/lead-config.service.ts` — per-tenant lead unlock fee configuration.
+
+### Session changes — June 2-3, 2026
+
+Topics: QA/test documentation expansion, wallet cashout clarity, tenant favicon ownership, decimal experience fields, assessment report access repair, assessment reminders, and report visibility gating.
+
+#### QA documentation and role-based manual test packs
+
+- Added role-based manual testing assets under `docs/06-quality-testing/`, including a master journeys file, role-specific packs, and workbook-ready CSV sheets.
+- `docs/05-deployment/ROLE_RESPONSIBILITY_MATRIX.md` was aligned with executable/manual QA coverage.
+
+#### Wallet cashout UX and validation
+
+- `src/modules/wallet/pages/ManageWalletPage.tsx` now shows **Available Credits** and **Redeemable Credits** separately for cashout flows.
+- Added explanatory info text: referral/bonus credits are not redeemable to cash.
+- Cashout default input is prefilled to `40`.
+- Cashout requests below `40` are blocked with the message `Minimum credits required to cash out is 40.`
+- Supporting summary logic was added in `src/services/wallet.service.ts` so UI and request validation use the same redeemable-credit computation.
+
+#### Tenant favicon ownership moved to App Router route roots
+
+- Shared metadata icon override removed from `src/lib/tenant/seo.ts`.
+- Each tenant now owns its favicon via route-root `icon.png` files:
+  - `src/app/coaching-studio/icon.png`
+  - `src/app/training-studio/icon.png`
+  - `src/app/recruitment-studio/icon.png`
+
+#### Profile experience fields now support decimal values
+
+- Update Profile and public View Profile flows now support decimal experience values up to two places for:
+  - `yearsOfExperience`
+  - `coachingExperienceYears`
+  - `trainingExperienceYears`
+  - `coachIndustryExperience`
+- Shared formatter introduced at `src/lib/profile/experience.ts` so save/load/display all normalize to `n.nn`.
+- Public profile API and page now surface coaching, training, and industry experience explicitly.
+- Removed outdated helper copy about profile image upload support from the Update Profile page.
+
+#### Assessment report access repair and deployment workflow
+
+- `src/services/assessment-runtime.service.ts` now fetches assessment reports by `assignmentId` only and stamps future `assessmentAttempts` / `assessmentReports` with `auth.currentUser.uid` when available.
+- `firestore.rules` assessment report access is now alias-aware for legacy data:
+  - direct `request.auth.uid`
+  - user-doc-id resolution via `/users/{id}.uid` and `.userId`
+  - assignment party checks for `assignerId` / `assigneeId`
+  - legacy assignment party checks for `assignedBy` / `assignedTo`
+- New assignment creation surfaces prefer `auth.currentUser.uid` over `cs_profile_id` for assigner context to reduce future identity drift.
+- Regression coverage added in `tests/rules/assessment-reports.test.ts`, including legacy assignment-field scenarios.
+- Current deployment workflow is explicit: validate Firestore rule changes in `studioverse-test` first, then promote the same rules to production only after test verification passes.
+- Current Firebase aliases in this repo:
+  - `default` -> `studioverse-test`
+  - `prod` -> `studioverse-18552`
+
+#### Assigned assessment reminders and report-button gating
+
+- Added new notification category `assignmentAssessmentReminder` with Super Admin toggle label `Remind for Assesment`.
+- Added tenant templates for the reminder email in coaching, training, and recruitment tenant notification template files.
+- `src/modules/activities/pages/AssignedActivitiesPage.tsx` now shows `Send Reminder` for coach/company assessment rows that are still `assigned` or `registered`.
+- Reminder dispatch is handled by `sendAssessmentReminder()` in `src/services/assignment.service.ts` and uses the existing tenant-aware notification pipeline.
+- `Open Report` is now hidden until an assessment assignment is actually `completed` in:
+  - shared assigned activities view
+  - legacy coaching assigned activities view
+  - superadmin assigned activities list

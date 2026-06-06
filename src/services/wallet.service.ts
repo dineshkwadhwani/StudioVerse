@@ -14,10 +14,10 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { db } from "@/services/firebase";
+import { auth, db } from "@/services/firebase";
 import { sendAdminAlertToMasterSuperadmin, sendNotificationToUser, sendNotificationEmail } from "@/services/notification.service";
 import { functions } from "@/services/firebase";
-import { isRedeemableSource, PROFILE_COMPLETION_REWARD_COINS } from "@/constants/wallet";
+import { isRedeemableSource, PROFILE_COMPLETION_REWARD_COINS, type WalletTransactionSource } from "@/constants/wallet";
 import type {
   AssignCoinsInput,
   WalletRecord,
@@ -158,6 +158,49 @@ async function resolveUserRecordByAnyId(userId: string): Promise<{ id: string; d
   return null;
 }
 
+async function resolveAuthenticatedWalletActorIds(tenantId: string): Promise<Set<string>> {
+  const authUid = auth.currentUser?.uid?.trim();
+  if (!authUid) {
+    throw new Error("You must be signed in to use wallet credits.");
+  }
+
+  const actorIds = new Set<string>([authUid]);
+
+  const directUserSnap = await getDoc(doc(db, "users", authUid));
+  if (directUserSnap.exists()) {
+    const directData = directUserSnap.data() as Record<string, unknown>;
+    const directTenantId = String(directData.tenantId ?? "").trim();
+    if (!directTenantId || directTenantId === tenantId) {
+      actorIds.add(directUserSnap.id);
+      actorIds.add(String(directData.userId ?? "").trim());
+      actorIds.add(String(directData.uid ?? "").trim());
+    }
+  }
+
+  const byUidSnap = await getDocs(query(collection(db, "users"), where("uid", "==", authUid)));
+  byUidSnap.docs.forEach((row) => {
+    const data = row.data() as Record<string, unknown>;
+    const rowTenantId = String(data.tenantId ?? "").trim();
+    if (rowTenantId && rowTenantId !== tenantId) {
+      return;
+    }
+
+    actorIds.add(row.id);
+    actorIds.add(String(data.userId ?? "").trim());
+    actorIds.add(String(data.uid ?? "").trim());
+  });
+
+  return new Set(Array.from(actorIds).filter(Boolean));
+}
+
+function isWalletOwnedByActor(wallet: { id: string; userId: string }, actorIds: Set<string>): boolean {
+  if (actorIds.has(wallet.userId) || actorIds.has(wallet.id)) {
+    return true;
+  }
+
+  return Array.from(actorIds).some((actorId) => wallet.id.endsWith(`::${actorId}`));
+}
+
 export async function getWalletByUserId(userId: string): Promise<WalletRecord | null> {
   if (!userId) return null;
   const snap = await getDoc(doc(db, "wallets", userId));
@@ -170,6 +213,77 @@ export async function getWalletByUserId(userId: string): Promise<WalletRecord | 
 
   const first = byUserSnap.docs[0];
   return mapWalletDoc(first.id, first.data() as Record<string, unknown>);
+}
+
+export async function debitWalletCredits(args: {
+  tenantId: string;
+  userId: string;
+  lookupUserIds?: string[];
+  credits: number;
+  reason: string;
+  source: WalletTransactionSource;
+  createdBy: string;
+  activityType?: string;
+  activityId?: string;
+}): Promise<void> {
+  const credits = Math.max(0, Math.floor(Number(args.credits ?? 0)));
+  if (credits <= 0) {
+    return;
+  }
+
+  const actorIds = await resolveAuthenticatedWalletActorIds(args.tenantId);
+  const wallet = await getWalletForUserContext(
+    [args.userId, ...(args.lookupUserIds ?? []), ...Array.from(actorIds)],
+    args.tenantId,
+  );
+
+  if (!wallet) {
+    throw new Error("Wallet not found for this tenant.");
+  }
+
+  if (!isWalletOwnedByActor(wallet, actorIds)) {
+    throw new Error("Unauthorized wallet context.");
+  }
+
+  await runTransaction(db, async (transaction) => {
+    const walletRef = doc(db, "wallets", wallet.id);
+    const walletSnap = await transaction.get(walletRef);
+    if (!walletSnap.exists()) {
+      throw new Error("Wallet not found.");
+    }
+
+    const current = walletSnap.data() as Record<string, unknown>;
+    const availableCoins = toNumber(current.availableCoins);
+    const utilizedCoins = toNumber(current.utilizedCoins);
+
+    if (availableCoins < credits) {
+      throw new Error(`Insufficient wallet balance. Required: ${credits}, Available: ${availableCoins}.`);
+    }
+
+    transaction.update(walletRef, {
+      availableCoins: availableCoins - credits,
+      utilizedCoins: utilizedCoins + credits,
+      updatedBy: args.createdBy,
+      updatedAt: serverTimestamp(),
+    });
+
+    const txRef = doc(collection(db, "walletTransactions"));
+    transaction.set(txRef, {
+      walletId: wallet.id,
+      userId: wallet.userId,
+      tenantId: args.tenantId,
+      userType: wallet.userType,
+      userName: wallet.userName,
+      transactionType: "debit",
+      reason: args.reason,
+      source: args.source,
+      coins: credits,
+      ...(args.activityType ? { activityType: args.activityType } : {}),
+      ...(args.activityId ? { activityId: args.activityId } : {}),
+      createdBy: args.createdBy,
+      createdAt: serverTimestamp(),
+    });
+  });
 }
 
 export async function issueRegistrationBonusForUser(args: {
@@ -448,6 +562,24 @@ export async function listWalletTransactionsForUserContext(args: {
       .sort((a, b) => toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt));
   } catch (error) {
     console.error("[listWalletTransactionsForUserContext] error:", error);
+    return [];
+  }
+}
+
+export async function listWalletTransactionsForWallet(walletId: string): Promise<WalletTransactionRecord[]> {
+  const normalizedWalletId = walletId.trim();
+  if (!normalizedWalletId) {
+    return [];
+  }
+
+  try {
+    const snap = await getDocs(query(collection(db, "walletTransactions"), where("walletId", "==", normalizedWalletId)));
+
+    return snap.docs
+      .map((entry) => mapWalletTransactionDoc(entry.id, entry.data() as Record<string, unknown>))
+      .sort((a, b) => toTransactionMillis(b.createdAt) - toTransactionMillis(a.createdAt));
+  } catch (error) {
+    console.error("[listWalletTransactionsForWallet] error:", error);
     return [];
   }
 }

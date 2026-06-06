@@ -155,24 +155,26 @@ Validate:
 - SuperAdmin user type never gets a wallet.
 - Registration or initial issuance happens once only.
 
-### SA-07 Seed Earning Packages
+### SA-07 Seed Reference Data
 
 Actor: SuperAdmin
 
-Goal: Confirm package seeding works and can be safely rerun.
+Goal: Confirm reference-data seeding works and can be safely rerun.
 
 Steps:
 
 1. Open Seed Data for a tenant.
-2. Seed credit packages.
-3. Seed promotion packages.
-4. Seed listing packages.
-5. Seed bot hero packages.
-6. Seed lead packages.
-7. Re-run each seed.
+2. Seed competencies.
+3. Seed credit packages.
+4. Seed promotion packages.
+5. Seed listing packages.
+6. Seed bot hero packages.
+7. Seed lead packages.
+8. Re-run each seed.
 
 Validate:
 
+- Competencies creates 5 competency documents for the selected tenant.
 - First run reports records added.
 - Second run reports already seeded or no-op behavior.
 - Seeded packages appear in the relevant package management screens.

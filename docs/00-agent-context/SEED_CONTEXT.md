@@ -288,7 +288,7 @@ Each seed function uses a dedicated callable, with fallback to legacy `seedEarni
 **File:** `src/modules/admin/SeedDataPage.tsx`
 
 Features:
-- Five distinct seed buttons (one per package type)
+- Six distinct seed buttons including competencies
 - Tenant selector (coaching-studio available)
 - Status hydration on mount (checks which packages are seeded)
 - Shows seeded count after clicking button
@@ -306,6 +306,12 @@ Button States:
 
 ```typescript
 SEED_SCRIPTS: [
+  {
+    id: "competencies",
+    displayName: "Competencies",
+    callableName: "seedCompetencies",
+    tenants: ["coaching-studio", "training-studio", "recruitment-studio"]
+  },
   {
     id: "earningPackages",
     displayName: "Credit Packages",
@@ -337,6 +343,45 @@ SEED_SCRIPTS: [
     tenants: ["coaching-studio"]
   }
 ]
+```
+
+### Competency Seed
+
+**Collection:** `competency`
+
+Seeded documents per tenant (5):
+- `Corporate / Professional (Recommended)`
+- `Capability-Based`
+- `Learning Journey`
+- `Leadership / Executive Competencies`
+- `Simple & Universal`
+
+Document shape:
+```typescript
+CompetencyRecord = {
+  tenantId: string;
+  name: string;
+  sortOrder: number;
+  levels: Array<{
+    level: number;
+    label: string;
+    description: string;
+    scoreLevel?: string;
+  }>;
+}
+```
+
+Implementation files:
+- `functions/src/admin/seedCompetencies.ts`
+- `src/services/competencies.service.ts`
+- `src/types/competency.ts`
+
+Firestore rules:
+```javascript
+match /competency/{competencyId} {
+  allow read:   if isSignedIn();
+  allow write:  if isSuperAdmin();
+}
 ```
 
 ---
@@ -455,6 +500,7 @@ console.log(result.message);  // "Lead packages seeded successfully."
 
 ## Testing Checklist
 
+- [x] Seed Competencies → Creates 5 tenant-scoped competency documents
 - [x] Seed Credit Packages → Only creditPackages array written
 - [x] Seed Promotion Packages → Only promotionPackages array written
 - [x] Seed Listing Packages → Only listingPackages array written

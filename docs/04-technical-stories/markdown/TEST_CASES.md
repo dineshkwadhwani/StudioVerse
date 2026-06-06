@@ -121,7 +121,8 @@
 - **ASGN-011** [M] Email notification fires on assignment creation (Resend).
 - **ASGN-012** [A] Assignment created against not-eligible profile is blocked (`assignmentEligible=false`).
 - **ASGN-013** [A] Assignment to a different tenant member fails (tenant isolation).
-- **ASGN-014** [M] Assigned Activities shows `Send Reminder` for coach-side assessments still in `assigned` status and dispatches a reminder email.
+- **ASGN-014** [M] Assigned Activities shows `Send Reminder` for coach-side assessments still in `assigned` or `registered` status and dispatches a reminder email.
+- **ASGN-015** [A] `Open Report` is hidden in assignor/admin views until the assessment assignment is `completed`.
 
 ## 8. Cohorts
 

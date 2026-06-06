@@ -25,5 +25,3 @@ export function getStudioConfig(studioType?: StudioType): TenantConfig {
 
   throw new Error(`Tenant configuration missing for ${requestedTenantId}.`);
 }
-
-export const studioConfig = getStudioConfig();

@@ -24,6 +24,13 @@ export const SEED_SCRIPTS: SeedScriptConfig[] = [
     callableName: "seedTaxonomyFromXlsx",
   },
   {
+    id: "competencies",
+    displayName: "Competencies",
+    description: "Seed 5 competency tables into the competency collection.",
+    tenants: ["coaching-studio", "training-studio", "recruitment-studio"],
+    callableName: "seedCompetencies",
+  },
+  {
     id: "earningPackages",
     displayName: "Credit Packages",
     description: "Seed credit packages (coins) for the tenant.",

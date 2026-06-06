@@ -75,6 +75,37 @@ service cloud.firestore {
            );
     }
 
+    function hasDevelopmentPlanEditorAccess(planData) {
+      return planData.editorUserIds != null
+        && planData.editorUserIds is list
+        && request.auth.uid in planData.editorUserIds;
+    }
+
+    function canReadDevelopmentPlan(planData) {
+      return isSuperAdmin()
+        || (
+             isSignedIn()
+             && planData.tenantId == currentTenantId()
+             && (
+                  hasDevelopmentPlanEditorAccess(planData)
+                  || planData.creatorUserId == request.auth.uid
+                  || planData.subjectUserId == request.auth.uid
+                )
+           );
+    }
+
+    function canWriteDevelopmentPlan(planData) {
+      return isSuperAdmin()
+        || (
+             isSignedIn()
+             && planData.tenantId == currentTenantId()
+             && (
+                 planData.creatorUserId == request.auth.uid
+                 || hasDevelopmentPlanEditorAccess(planData)
+                )
+           );
+    }
+
     // ── Users ──────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read:   if isSignedIn();
@@ -201,6 +232,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Development Plans ─────────────────────────────────────────────────
+    match /developmentPlans/{planId} {
+      allow get: if isSignedIn()
+                  && currentTenantId() != null
+                  && planId.matches('^' + currentTenantId() + '__.*$')
+                  && (resource == null || canReadDevelopmentPlan(resource.data));
+
+      allow list: if false;
+
+      allow create: if isSignedIn()
+                    && canWriteDevelopmentPlan(request.resource.data)
+                    && request.resource.data.creatorRole in ["company", "professional", "individual"]
+                    && request.resource.data.subjectRole == "individual";
+
+      allow update: if isSignedIn()
+                    && canWriteDevelopmentPlan(request.resource.data)
+                    && request.resource.data.tenantId == resource.data.tenantId
+                    && request.resource.data.creatorUserId == resource.data.creatorUserId
+                    && request.resource.data.subjectUserId == resource.data.subjectUserId;
+
+      allow delete: if isSuperAdmin();
+    }
+
     // ── Cohorts ────────────────────────────────────────────────────────────
     match /cohorts/{cohortId} {
       allow read:   if isSignedIn();
@@ -309,6 +363,13 @@ service cloud.firestore {
     // ── Languages ──────────────────────────────────────────────────────────
     // Reference data: language codes and names used by Programs, Events, Assessments.
     match /languages/{languageId} {
+      allow read:   if isSignedIn();
+      allow write:  if isSuperAdmin();
+    }
+
+    // ── Competency Tables ───────────────────────────────────────────────────
+    // Reference data: competency scale definitions used by competency modules.
+    match /competency/{competencyId} {
       allow read:   if isSignedIn();
       allow write:  if isSuperAdmin();
     }

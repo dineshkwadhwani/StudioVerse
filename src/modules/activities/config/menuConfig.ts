@@ -23,6 +23,10 @@ export type ReferralsMenuConfig = {
   enabled: boolean;
 };
 
+export type DevelopmentMenuConfig = {
+  enabled: boolean;
+};
+
 // Backward-compatible aliases for existing imports.
 export type CoachingUserRole = StudioUserRole;
 export type CoachingMenuItem = StudioMenuItem;
@@ -31,6 +35,7 @@ type MenuOptions = {
   basePath?: string;
   searchConfig?: SearchMenuConfig;
   referralsConfig?: ReferralsMenuConfig;
+  developmentConfig?: DevelopmentMenuConfig;
 };
 
 type RoleLabels = {
@@ -89,6 +94,7 @@ function getCompanyMenu(basePath: string): StudioMenuGroup[] {
       label: "Actions",
       items: [
         { key: "activities", label: "Activities", href: buildPath(basePath, "/activities") },
+        { key: "development-plan", label: "Development Plan", href: buildPath(basePath, "/development-plan") },
         { key: "messages", label: "Messages", href: buildPath(basePath, "/messages") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
@@ -123,6 +129,7 @@ function getProfessionalMenu(basePath: string): StudioMenuGroup[] {
       label: "Actions",
       items: [
         { key: "activities", label: "Activities", href: buildPath(basePath, "/activities") },
+        { key: "development-plan", label: "Development Plan", href: buildPath(basePath, "/development-plan") },
         { key: "messages", label: "Messages", href: buildPath(basePath, "/messages") },
         { key: "promote-coach", label: "Promote Coach", href: buildPath(basePath, "/promote-coach") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
@@ -150,6 +157,7 @@ function getIndividualMenu(basePath: string): StudioMenuGroup[] {
       items: [
         { key: "view-all-activities", label: "View All Activities", href: buildPath(basePath, "/view-all-activities") },
         { key: "my-activities", label: "My activities", href: buildPath(basePath, "/my-activities") },
+        { key: "development-plan", label: "Development Plan", href: buildPath(basePath, "/development-plan") },
         { key: "messages", label: "Messages", href: buildPath(basePath, "/messages") },
         { key: "sign-out", label: "Sign Out", href: "", type: "signout" as const },
       ],
@@ -188,6 +196,7 @@ export function getRoleMenuGroups(
 
   const searchEnabled = options.searchConfig?.enabled === true;
   const referralsEnabled = options.referralsConfig?.enabled ?? true;
+  const developmentEnabled = options.developmentConfig?.enabled ?? false;
 
   const groupsAfterSearch = searchEnabled
     ? baseGroups
@@ -199,11 +208,22 @@ export function getRoleMenuGroups(
           : group
       );
 
+  const groupsAfterDevelopment = developmentEnabled
+    ? groupsAfterSearch
+    : groupsAfterSearch.map((group) =>
+        group.key === "actions"
+          ? {
+              ...group,
+              items: group.items.filter((item) => item.key !== "development-plan"),
+            }
+          : group
+      );
+
   if (referralsEnabled) {
-    return groupsAfterSearch;
+    return groupsAfterDevelopment;
   }
 
-  return groupsAfterSearch.map((group) =>
+  return groupsAfterDevelopment.map((group) =>
     group.key === "my-account"
       ? {
           ...group,

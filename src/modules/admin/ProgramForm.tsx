@@ -22,6 +22,7 @@ import type { ListingPackageRecord } from "@/types/listingPackage";
 import type { CategoryRecord, SubCategoryRecord, TopicRecord } from "@/types/category";
 import type { LanguageRecord } from "@/services/languages.service";
 import type {ProgramFormErrors} from "@/lib/validation/program.schema";
+import type { CompetencyLevelOption } from "@/types/competency";
 
 type TenantOption = {
   id: string;
@@ -43,6 +44,8 @@ type ProgramFormProps = {
   listingPackages: ListingPackageRecord[];
   listingPackagesLoading: boolean;
   categories?: CategoryRecord[];
+  competencyLevelOptions?: CompetencyLevelOption[];
+  competencyFrameworkName?: string | null;
   subCategories?: SubCategoryRecord[];
   topics?: TopicRecord[];
   languages?: LanguageRecord[];
@@ -66,6 +69,8 @@ export default function ProgramForm({
   listingPackages,
   listingPackagesLoading,
   categories = [],
+  competencyLevelOptions = [],
+  competencyFrameworkName = null,
   subCategories = [],
   topics = [],
   languages = [],
@@ -115,6 +120,7 @@ export default function ProgramForm({
     const focusOrder: Array<keyof ProgramFormValues> = [
       "tenantId",
       "name",
+        "competencyLevel",
       "shortDescription",
       "longDescription",
       "durationValue",
@@ -302,12 +308,22 @@ export default function ProgramForm({
               }}
               className={styles.select}
               value={value.visibility}
-              onChange={(event) => onChange("visibility", event.target.value as ProgramFormValues["visibility"])}
+              onChange={(event) => {
+                const nextVisibility = event.target.value as ProgramFormValues["visibility"];
+                onChange("visibility", nextVisibility);
+                if (nextVisibility === "private") {
+                  onChange("listingPackageId", "");
+                  onChange("listingStatus", "none");
+                }
+              }}
               disabled={busy}
             >
               <option value="public">{PROGRAM_VISIBILITY_LABELS.public}</option>
               <option value="private">{PROGRAM_VISIBILITY_LABELS.private}</option>
             </select>
+            <p className={styles.subtitle}>
+              Private programs stay inside the managed workspace. Public programs appear in the tenant catalogue only after a listing package is selected and approved.
+            </p>
             {errors.visibility ? <p className={styles.error}>{errors.visibility}</p> : null}
 
             <div className={styles.actions}>
@@ -408,6 +424,31 @@ export default function ProgramForm({
                 ))}
               </select>
               {errors.language ? <p className={styles.error}>{errors.language}</p> : null}
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <label className={styles.label} htmlFor="program-competency-level">
+                Competency Level
+              </label>
+              <select
+                id="program-competency-level"
+                ref={(element) => {
+                  fieldRefs.current.competencyLevel = element;
+                }}
+                className={`${styles.select} ${errors.competencyLevel ? styles.inputError : ""}`}
+                value={value.competencyLevel}
+                onChange={(event) => onChange("competencyLevel", event.target.value)}
+                disabled={busy}
+              >
+                {competencyLevelOptions.map((option) => (
+                  <option key={option.value} value={String(option.value)}>
+                    {option.label} (Level {option.value})
+                  </option>
+                ))}
+              </select>
+              <p className={styles.subtitle}>
+                Framework: {competencyFrameworkName || "Default Level Scale"}
+              </p>
+              {errors.competencyLevel ? <p className={styles.error}>{errors.competencyLevel}</p> : null}
             </div>
 
             <label className={styles.label} htmlFor="program-thumbnail">
@@ -620,8 +661,11 @@ export default function ProgramForm({
               {value.listingStatus === "requested" ? <span className={styles.statusBadge}>Under Review</span> : null}
             </div>
 
-            {value.published ? (
+            {value.published && value.visibility === "public" ? (
               <>
+                <p className={styles.subtitle}>
+                  Public published programs require a listing package before they can be submitted for catalogue approval.
+                </p>
                 <label className={styles.label} htmlFor="program-listing-package">
                   Listing Package
                 </label>
@@ -646,6 +690,10 @@ export default function ProgramForm({
                   <p className={styles.subtitle}>No active Program listing packages found for this tenant.</p>
                 ) : null}
               </>
+            ) : value.published ? (
+              <p className={styles.subtitle}>
+                This program will stay published as a private workspace-only program and does not need a listing package.
+              </p>
             ) : null}
           </fieldset>
 

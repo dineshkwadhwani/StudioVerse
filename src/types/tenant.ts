@@ -44,6 +44,11 @@ export type TenantConfig = {
     individual: boolean;
     company: boolean;
   };
+  developmentConfig?: {
+    enabled: boolean;
+    freePlans: number;
+    costPerPlanCredits: number;
+  };
   botConfig?: {
     visible: boolean;
     studioBotEnabled: boolean;

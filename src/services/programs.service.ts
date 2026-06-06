@@ -33,6 +33,7 @@ function sanitizePayload(input: ProgramWriteInput): Record<string, unknown> {
   const result: Record<string, unknown> = {
     tenantId: input.tenantId,
     tenantIds: input.tenantIds,
+    competencyLevel: input.competencyLevel,
     name: input.name,
     categoryId: nullToUndef(input.categoryId),
     categoryName: nullToUndef(input.categoryName),
@@ -110,6 +111,7 @@ function mapProgram(id: string, data: DocumentData): ProgramRecord {
     id,
     tenantId: data.tenantId,
     tenantIds: Array.isArray(data.tenantIds) ? data.tenantIds : undefined,
+    competencyLevel: typeof data.competencyLevel === "number" ? data.competencyLevel : 1,
     name: data.name,
     categoryId: typeof data.categoryId === "string" ? data.categoryId : null,
     categoryName: typeof data.categoryName === "string" ? data.categoryName : null,

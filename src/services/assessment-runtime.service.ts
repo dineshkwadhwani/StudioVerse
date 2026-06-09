@@ -9,7 +9,10 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, auth } from "@/services/firebase";
-import { syncDevelopmentPlanItemAssignmentStatus } from "@/services/development-plans.service";
+import {
+  listDevelopmentRecommendations,
+  syncDevelopmentPlanItemAssignmentStatus,
+} from "@/services/development-plans.service";
 import type {
   AssessmentAnswerRecord,
   AssessmentAttemptRecord,
@@ -19,6 +22,8 @@ import type {
   AssessmentReportRecord,
 } from "@/types/assessment";
 import type { AssignmentRecord } from "@/types/assignment";
+import type { CompetencyLevelValue } from "@/types/competency";
+import type { DevelopmentPlanRecommendationRecord } from "@/types/development-plan";
 
 export type AssessmentLaunchPayload = {
   assignment: AssignmentRecord;
@@ -42,6 +47,8 @@ export type SaveAssessmentCompletionArgs = {
   reportSummary: string;
   reportStructuredData: Record<string, unknown>;
 };
+
+export type AssessmentReportRecommendation = DevelopmentPlanRecommendationRecord;
 
 function shuffleArray<T>(items: T[]): T[] {
   const clone = [...items];
@@ -233,4 +240,73 @@ export async function getLatestAssessmentReportByAssignmentId(
     });
     throw error;
   }
+}
+
+function matchesExactValue(left?: string, right?: string): boolean {
+  return Boolean(left && right && left.trim() && right.trim() && left.trim() === right.trim());
+}
+
+function matchesExactValueIgnoreCase(left?: string, right?: string): boolean {
+  return Boolean(left && right && left.trim() && right.trim() && left.trim().toLowerCase() === right.trim().toLowerCase());
+}
+
+function isExactAssessmentRecommendationMatch(
+  recommendation: DevelopmentPlanRecommendationRecord,
+  assessment: AssessmentRecord
+): boolean {
+  const categoryMatched = matchesExactValue(recommendation.categoryId, assessment.categoryId)
+    || matchesExactValueIgnoreCase(recommendation.categoryName, assessment.categoryName);
+  const subCategoryMatched = matchesExactValue(recommendation.subCategoryId, assessment.subCategoryId)
+    || matchesExactValueIgnoreCase(recommendation.subCategoryName, assessment.subCategoryName);
+
+  return categoryMatched && subCategoryMatched;
+}
+
+function toCompetencyLevelValue(value?: number): CompetencyLevelValue {
+  if (value === 2 || value === 3 || value === 4 || value === 5) {
+    return value;
+  }
+
+  return 1;
+}
+
+export async function getAssessmentReportRecommendations(args: {
+  tenantId: string;
+  assessmentId: string;
+  limit?: number;
+}): Promise<AssessmentReportRecommendation[]> {
+  const assessmentSnap = await getDoc(doc(db, "assessments", args.assessmentId));
+  if (!assessmentSnap.exists()) {
+    return [];
+  }
+
+  const assessment = {
+    id: assessmentSnap.id,
+    ...(assessmentSnap.data() as Omit<AssessmentRecord, "id">),
+  };
+
+  if (!assessment.categoryId?.trim() || !assessment.subCategoryId?.trim()) {
+    return [];
+  }
+
+  const recommendations = await listDevelopmentRecommendations({
+    tenantId: args.tenantId,
+    plan: {
+      objectives: [
+        {
+          categoryId: assessment.categoryId,
+          categoryName: assessment.categoryName?.trim() || "",
+          subCategoryId: assessment.subCategoryId,
+          subCategoryName: assessment.subCategoryName?.trim() || "",
+          targetLevel: toCompetencyLevelValue(assessment.competencyLevel),
+        },
+      ],
+    },
+  });
+
+  const limit = Math.max(1, args.limit ?? 5);
+  return recommendations
+    .filter((item) => !(item.activityType === "assessment" && item.activityId === assessment.id))
+    .filter((item) => isExactAssessmentRecommendationMatch(item, assessment))
+    .slice(0, limit);
 }

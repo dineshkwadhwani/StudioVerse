@@ -152,6 +152,7 @@ async function updatePlanInAggregate(args: {
   items: DevelopmentPlanItemRecord[];
   summary: DevelopmentPlanSummary;
   status: DevelopmentPlanRecord["status"];
+  actorUserId: string;
   finalizedAt?: unknown;
 }): Promise<void> {
   const aggregate = await getAggregateDocumentById(args.aggregateId);
@@ -177,6 +178,7 @@ async function updatePlanInAggregate(args: {
   await setDoc(
     doc(db, COLLECTION, aggregate.id),
     {
+      editorUserIds: arrayUnion(args.actorUserId.trim()),
       plans: nextPlans,
       updatedAt: serverTimestamp(),
     },
@@ -734,9 +736,9 @@ export async function saveDevelopmentObjectivesProfile(input: DevelopmentObjecti
     doc(db, COLLECTION, profileId),
     {
       tenantId: input.tenantId.trim(),
-      creatorUserId: input.creatorUserId.trim(),
-      creatorName: input.creatorName.trim(),
-      creatorRole: input.creatorRole,
+      creatorUserId: existing?.data.creatorUserId ?? input.creatorUserId.trim(),
+      creatorName: existing?.data.creatorName ?? input.creatorName.trim(),
+      creatorRole: existing?.data.creatorRole ?? input.creatorRole,
       subjectUserId: input.subjectUserId.trim(),
       subjectName: input.subjectName.trim(),
       subjectRole: input.subjectRole,
@@ -755,9 +757,9 @@ export async function saveDevelopmentObjectivesProfile(input: DevelopmentObjecti
     id: profileId,
     documentType: "objectivesProfile",
     tenantId: input.tenantId.trim(),
-    creatorUserId: input.creatorUserId.trim(),
-    creatorName: input.creatorName.trim(),
-    creatorRole: input.creatorRole,
+    creatorUserId: existing?.data.creatorUserId ?? input.creatorUserId.trim(),
+    creatorName: existing?.data.creatorName ?? input.creatorName.trim(),
+    creatorRole: existing?.data.creatorRole ?? input.creatorRole,
     subjectUserId: input.subjectUserId.trim(),
     subjectName: input.subjectName.trim(),
     subjectRole: input.subjectRole,
@@ -890,6 +892,7 @@ export async function saveDevelopmentPlanItems(args: {
   aggregateId: string;
   planId: string;
   items: DevelopmentPlanItemRecord[];
+  actorUserId: string;
 }): Promise<DevelopmentPlanSummary> {
   const items = args.items.map(normalizePlanItem);
   const summary = computeSummary(items);
@@ -900,6 +903,7 @@ export async function saveDevelopmentPlanItems(args: {
     items,
     summary,
     status,
+    actorUserId: args.actorUserId,
   });
 
   return summary;
@@ -981,6 +985,7 @@ export async function finalizeDevelopmentPlan(args: {
   aggregateId: string;
   planId: string;
   items: DevelopmentPlanItemRecord[];
+  actorUserId: string;
 }): Promise<DevelopmentPlanSummary> {
   const items = args.items.map(normalizePlanItem);
   const summary = computeSummary(items);
@@ -991,6 +996,7 @@ export async function finalizeDevelopmentPlan(args: {
     items,
     summary,
     status,
+    actorUserId: args.actorUserId,
     finalizedAt: Timestamp.now(),
   });
 

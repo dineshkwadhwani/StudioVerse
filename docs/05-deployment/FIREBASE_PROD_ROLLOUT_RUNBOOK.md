@@ -20,9 +20,11 @@ Changes now live:
   - assignee/assigner assignment-party access
   - legacy user-doc-id resolution via `/users/{id}.uid` and `/users/{id}.userId`
   - legacy assignment fields `assignedBy` and `assignedTo`
+- `users` update rules now resolve company/professional ownership via alias-aware user-doc lookup, fixing coach association writes when `associatedProfessionalId` stores a profile doc id instead of the Firebase auth uid.
 - Assignment creation surfaces now prefer `auth.currentUser.uid` over `cs_profile_id` for new assigner context where available.
 - Report fetches use `assignmentId` as the query anchor, with rules carrying the authorization logic.
 - Focused regression coverage exists in `tests/rules/assessment-reports.test.ts` for modern and legacy assignment identity shapes.
+- A focused regression was added in `tests/rules/users.test.ts` for professional-to-individual association when profile doc id and auth uid differ; local execution still requires the Firestore emulator.
 
 Required workflow going forward:
 

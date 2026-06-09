@@ -30,10 +30,27 @@ type StructuredReportSection = {
   items: string[];
 };
 
+type StructuredScoreRow = {
+  label: string;
+  score: string;
+  reason: string;
+};
+
+type StructuredLegendRow = {
+  label: string;
+  meaning: string;
+};
+
+type StructuredScoringTable = {
+  items: StructuredScoreRow[];
+  legend: StructuredLegendRow[];
+};
+
 type StructuredReport = {
   summary: string;
   reportStyle: AssessmentReportStyle;
   sections: StructuredReportSection[];
+  scoringTable?: StructuredScoringTable;
 };
 
 type SerializableCause =
@@ -174,8 +191,116 @@ function normalizeItems(value: unknown): string[] {
   return value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
 }
 
+function pickFirstString(row: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function normalizeScoreRows(value: unknown): StructuredScoreRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const row = entry as Record<string, unknown>;
+      const label = pickFirstString(row, ["label", "title", "name", "metric", "criterion", "dimension", "category"]);
+      const score = pickFirstString(row, ["score", "value", "rating", "band", "result"]);
+      const reason = pickFirstString(row, ["reason", "why", "rationale", "explanation", "description", "justification"]);
+
+      if (!score || !reason) {
+        return null;
+      }
+
+      return {
+        label,
+        score,
+        reason,
+      };
+    })
+    .filter((entry): entry is StructuredScoreRow => Boolean(entry));
+}
+
+function normalizeLegendRows(value: unknown): StructuredLegendRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const row = entry as Record<string, unknown>;
+      const label = pickFirstString(row, ["label", "score", "range", "band", "value", "title"]);
+      const meaning = pickFirstString(row, ["meaning", "description", "interpretation", "explanation", "notes"]);
+
+      if (!label || !meaning) {
+        return null;
+      }
+
+      return {
+        label,
+        meaning,
+      };
+    })
+    .filter((entry): entry is StructuredLegendRow => Boolean(entry));
+}
+
+function normalizeScoringTable(data: unknown): StructuredScoringTable | undefined {
+  if (!data || typeof data !== "object") {
+    return undefined;
+  }
+
+  const row = data as Record<string, unknown>;
+  const scoringCandidates = [row.scoringTable, row.scoreTable, row.scoring_table, row.score_table, row.scoring];
+  const legendCandidates = [row.legendTable, row.legend_table, row.legend, row.scoringLegend, row.scoring_legend];
+
+  for (const candidate of scoringCandidates) {
+    const candidateRow = candidate && typeof candidate === "object" ? (candidate as Record<string, unknown>) : null;
+    const items = normalizeScoreRows(
+      Array.isArray(candidate)
+        ? candidate
+        : candidateRow?.items ?? candidateRow?.rows ?? candidateRow?.scores ?? candidateRow?.table
+    );
+    const legend = normalizeLegendRows(
+      candidateRow?.legend ??
+        candidateRow?.legendTable ??
+        candidateRow?.legend_table ??
+        legendCandidates.find(Boolean)
+    );
+
+    if (items.length > 0) {
+      return { items, legend };
+    }
+  }
+
+  const directItems = normalizeScoreRows(row.scores ?? row.scoreRows ?? row.scoringRows);
+  const directLegend = normalizeLegendRows(legendCandidates.find(Boolean));
+  if (directItems.length > 0) {
+    return { items: directItems, legend: directLegend };
+  }
+
+  return undefined;
+}
+
 function normalizeReport(data: unknown, reportStyle: AssessmentReportStyle): StructuredReport {
   const sectionDefinitions = REPORT_STYLE_SECTIONS[reportStyle] ?? REPORT_STYLE_SECTIONS[DEFAULT_REPORT_STYLE];
+  const scoringTable = normalizeScoringTable(data);
 
   if (!data || typeof data !== "object") {
     return {
@@ -186,6 +311,7 @@ function normalizeReport(data: unknown, reportStyle: AssessmentReportStyle): Str
         title: section.title,
         items: [],
       })),
+      scoringTable,
     };
   }
 
@@ -226,6 +352,7 @@ function normalizeReport(data: unknown, reportStyle: AssessmentReportStyle): Str
           items: matched?.items ?? [],
         };
       }),
+      scoringTable,
     };
   }
 
@@ -244,6 +371,7 @@ function normalizeReport(data: unknown, reportStyle: AssessmentReportStyle): Str
       title: section.title,
       items: legacyBuckets[index] ?? [],
     })),
+    scoringTable,
   };
 }
 
@@ -274,7 +402,7 @@ export async function POST(request: NextRequest) {
   const sectionDefinitions = REPORT_STYLE_SECTIONS[reportStyle] ?? REPORT_STYLE_SECTIONS[DEFAULT_REPORT_STYLE];
   const systemPrompt = `You are an expert assessment analyst.
 Always respond in valid JSON.
-Return exactly these top-level keys:
+Return these top-level keys:
 {
   "summary": "string",
   "sections": [
@@ -283,10 +411,27 @@ Return exactly these top-level keys:
       "title": "string",
       "items": ["string"]
     }
-  ]
+  ],
+  "scoringTable": {
+    "items": [
+      {
+        "label": "string",
+        "score": "string",
+        "reason": "string"
+      }
+    ],
+    "legend": [
+      {
+        "label": "string",
+        "meaning": "string"
+      }
+    ]
+  }
 }
 Use only these section keys for this report style: ${sectionDefinitions.map((section) => section.key).join(", ")}.
 Use the exact matching section titles: ${sectionDefinitions.map((section) => `${section.key} => ${section.title}`).join(", ")}.
+Include "scoringTable" only when the assessment analysis naturally contains scoring details.
+If included, each scoring item must explain why that score was given.
 Do not return markdown or additional commentary.`;
   const effectiveAnalysisPrompt = [
     body.analysisPrompt.trim(),

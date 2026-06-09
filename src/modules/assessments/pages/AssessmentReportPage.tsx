@@ -3,13 +3,22 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import DetailModal, { type DetailItem } from "@/modules/activities/components/DetailModal";
 import {
   DEFAULT_REPORT_STYLE,
   REPORT_STYLE_LABELS,
   REPORT_STYLE_SECTIONS,
 } from "@/modules/assessments/report-styles";
-import { getLatestAssessmentReportByAssignmentId } from "@/services/assessment-runtime.service";
+import {
+  getAssessmentReportRecommendations,
+  getLatestAssessmentReportByAssignmentId,
+  type AssessmentReportRecommendation,
+} from "@/services/assessment-runtime.service";
+import { auth } from "@/services/firebase";
 import type { AssessmentReportRecord, AssessmentReportStyle } from "@/types/assessment";
+
+type UserRole = "company" | "professional" | "individual" | "superadmin";
 
 function toList(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -25,6 +34,170 @@ type ReportSectionViewModel = {
   items: string[];
   tone: "positive" | "warning" | "neutral" | "action";
 };
+
+type ScoringRowViewModel = {
+  label: string;
+  score: string;
+  reason: string;
+};
+
+type LegendRowViewModel = {
+  label: string;
+  meaning: string;
+};
+
+type ScoringTableViewModel = {
+  items: ScoringRowViewModel[];
+  legend: LegendRowViewModel[];
+};
+
+function isUserRole(value: unknown): value is UserRole {
+  return value === "company" || value === "professional" || value === "individual" || value === "superadmin";
+}
+
+function toDetailItem(item: AssessmentReportRecommendation): DetailItem {
+  return {
+    id: item.activityId,
+    type: item.activityType === "assessment" ? "tool" : item.activityType,
+    title: item.activityTitle,
+    image: item.imageUrl || "",
+    description: item.shortDescription || item.details || item.activityTitle,
+    details: item.details,
+    creditsRequired: item.creditsRequired,
+    cost: item.cost,
+    deliveryType: item.deliveryType,
+    durationValue: item.durationValue,
+    durationUnit: item.durationUnit,
+    facilitatorName: item.facilitatorName,
+    videoUrl: item.videoUrl,
+    eventType: item.eventType,
+    eventDate: item.eventDate,
+    eventTime: item.eventTime,
+    locationCity: item.locationCity,
+    locationAddress: item.locationAddress,
+    assessmentContext: item.assessmentContext,
+    assessmentBenefit: item.assessmentBenefit,
+    assessmentType: item.assessmentType,
+  };
+}
+
+function formatRecommendationType(item: AssessmentReportRecommendation): string {
+  if (item.activityType === "assessment") {
+    return item.assessmentType || "Assessment";
+  }
+
+  if (item.activityType === "event") {
+    return item.eventType || "Event";
+  }
+
+  return item.deliveryType || "Program";
+}
+
+function pickFirstString(row: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function getScoringTable(report: AssessmentReportRecord | null): ScoringTableViewModel | null {
+  const data = report?.reportStructuredData;
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const row = data as Record<string, unknown>;
+  const scoringCandidates = [row.scoringTable, row.scoreTable, row.scoring_table, row.score_table, row.scoring];
+  const legendCandidates = [row.legendTable, row.legend_table, row.legend, row.scoringLegend, row.scoring_legend];
+
+  const normalizeItems = (value: unknown): ScoringRowViewModel[] => {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+
+        const item = entry as Record<string, unknown>;
+        const label = pickFirstString(item, ["label", "title", "name", "metric", "criterion", "dimension", "category"]);
+        const score = pickFirstString(item, ["score", "value", "rating", "band", "result"]);
+        const reason = pickFirstString(item, ["reason", "why", "rationale", "explanation", "description", "justification"]);
+        if (!score || !reason) {
+          return null;
+        }
+
+        return {
+          label,
+          score,
+          reason,
+        };
+      })
+      .filter((entry): entry is ScoringRowViewModel => Boolean(entry));
+  };
+
+  const normalizeLegend = (value: unknown): LegendRowViewModel[] => {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+
+        const item = entry as Record<string, unknown>;
+        const label = pickFirstString(item, ["label", "score", "range", "band", "value", "title"]);
+        const meaning = pickFirstString(item, ["meaning", "description", "interpretation", "explanation", "notes"]);
+        if (!label || !meaning) {
+          return null;
+        }
+
+        return {
+          label,
+          meaning,
+        };
+      })
+      .filter((entry): entry is LegendRowViewModel => Boolean(entry));
+  };
+
+  for (const candidate of scoringCandidates) {
+    const candidateRow = candidate && typeof candidate === "object" ? (candidate as Record<string, unknown>) : null;
+    const items = normalizeItems(
+      Array.isArray(candidate)
+        ? candidate
+        : candidateRow?.items ?? candidateRow?.rows ?? candidateRow?.scores ?? candidateRow?.table
+    );
+    const legend = normalizeLegend(
+      candidateRow?.legend ??
+        candidateRow?.legendTable ??
+        candidateRow?.legend_table ??
+        legendCandidates.find(Boolean)
+    );
+
+    if (items.length > 0) {
+      return { items, legend };
+    }
+  }
+
+  const directItems = normalizeItems(row.scores ?? row.scoreRows ?? row.scoringRows);
+  const directLegend = normalizeLegend(legendCandidates.find(Boolean));
+  if (directItems.length > 0) {
+    return { items: directItems, legend: directLegend };
+  }
+
+  return null;
+}
 
 function resolveReportStyle(report: AssessmentReportRecord | null): AssessmentReportStyle {
   if (report?.reportStyle) {
@@ -101,6 +274,12 @@ export default function AssessmentReportPage() {
   const pathname = usePathname();
   const assignmentId = params?.assignmentId ?? "";
   const [report, setReport] = useState<AssessmentReportRecord | null>(null);
+  const [recommendations, setRecommendations] = useState<AssessmentReportRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<DetailItem | null>(null);
+  const [viewerRole, setViewerRole] = useState<UserRole | null>(null);
+  const [viewerUserId, setViewerUserId] = useState<string | undefined>();
+  const [viewerName, setViewerName] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const routeTenantId = pathname.split("/")[1] || "coaching-studio";
@@ -143,6 +322,63 @@ export default function AssessmentReportPage() {
       });
   }, [assignmentId]);
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setViewerUserId(firebaseUser?.uid);
+      setViewerName(firebaseUser?.displayName || sessionStorage.getItem("cs_name") || undefined);
+
+      const storedRole = sessionStorage.getItem("cs_role");
+      setViewerRole(isUserRole(storedRole) ? storedRole : null);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!report?.assessmentId || !report.tenantId) {
+      setRecommendations([]);
+      return;
+    }
+
+    let active = true;
+    setRecommendationsLoading(true);
+
+    void getAssessmentReportRecommendations({
+      tenantId: report.tenantId,
+      assessmentId: report.assessmentId,
+      limit: 5,
+    })
+      .then((items) => {
+        if (active) {
+          setRecommendations(items);
+        }
+      })
+      .catch((loadError) => {
+        console.error("[AssessmentReportPage] Fetch Recommendations Error", {
+          timestamp: new Date().toISOString(),
+          assessmentId: report.assessmentId,
+          tenantId: report.tenantId,
+          errorMessage: loadError instanceof Error ? loadError.message : "Unknown error",
+          errorName: loadError instanceof Error ? loadError.name : "Unknown",
+          errorStack: loadError instanceof Error ? loadError.stack : "No stack trace",
+          fullError: loadError,
+        });
+
+        if (active) {
+          setRecommendations([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setRecommendationsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [report?.assessmentId, report?.tenantId]);
+
   if (!assignmentId) {
     return (
       <main style={{ minHeight: "100vh", background: "#f0f5fa", padding: "20px" }}>
@@ -183,6 +419,8 @@ export default function AssessmentReportPage() {
 
   const reportStyle = resolveReportStyle(report);
   const reportSections = getReportSections(report, reportStyle);
+  const scoringTable = getScoringTable(report);
+  const scoringHasLabels = scoringTable?.items.some((item) => item.label) ?? false;
 
   const reportDateStr = report?.createdAt
     ? new Date(
@@ -359,6 +597,276 @@ export default function AssessmentReportPage() {
               </div>
             )}
 
+            {scoringTable ? (
+              <section
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e4eef7",
+                  borderRadius: 10,
+                  padding: 20,
+                  marginBottom: 24,
+                }}
+              >
+                <div style={{ marginBottom: 16 }}>
+                  <h2 style={{ margin: "0 0 6px 0", fontSize: 18, fontWeight: 600, color: "#19334d" }}>
+                    Scoring Table
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 14, color: "#446177", lineHeight: 1.6 }}>
+                    Score breakdown with rationale from the assessment analysis.
+                  </p>
+                </div>
+
+                <div style={{ overflowX: "auto", marginBottom: scoringTable.legend.length > 0 ? 18 : 0 }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      minWidth: scoringHasLabels ? 680 : 520,
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ background: "#f7fbff" }}>
+                        {scoringHasLabels ? (
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "12px 14px",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#325370",
+                              borderBottom: "1px solid #d7e8f8",
+                            }}
+                          >
+                            Dimension
+                          </th>
+                        ) : null}
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "12px 14px",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: "#325370",
+                            borderBottom: "1px solid #d7e8f8",
+                            width: scoringHasLabels ? "18%" : "22%",
+                          }}
+                        >
+                          Score
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "12px 14px",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: "#325370",
+                            borderBottom: "1px solid #d7e8f8",
+                          }}
+                        >
+                          Why This Score
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scoringTable.items.map((item, index) => (
+                        <tr key={`${item.label}-${item.score}-${index}`}>
+                          {scoringHasLabels ? (
+                            <td
+                              style={{
+                                padding: "14px",
+                                fontSize: 14,
+                                color: "#19334d",
+                                borderBottom: "1px solid #eef4fa",
+                                verticalAlign: "top",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {item.label || "Overall"}
+                            </td>
+                          ) : null}
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 14,
+                              color: "#1c4f73",
+                              borderBottom: "1px solid #eef4fa",
+                              verticalAlign: "top",
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {item.score}
+                          </td>
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 14,
+                              color: "#325370",
+                              borderBottom: "1px solid #eef4fa",
+                              lineHeight: 1.6,
+                              verticalAlign: "top",
+                            }}
+                          >
+                            {item.reason}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {scoringTable.legend.length > 0 ? (
+                  <div>
+                    <h3 style={{ margin: "0 0 10px 0", fontSize: 15, fontWeight: 600, color: "#19334d" }}>
+                      Legend
+                    </h3>
+                    <div style={{ overflowX: "auto" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          minWidth: 420,
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: "#f7fbff" }}>
+                            <th
+                              style={{
+                                textAlign: "left",
+                                padding: "12px 14px",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "#325370",
+                                borderBottom: "1px solid #d7e8f8",
+                                width: "24%",
+                              }}
+                            >
+                              Score
+                            </th>
+                            <th
+                              style={{
+                                textAlign: "left",
+                                padding: "12px 14px",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "#325370",
+                                borderBottom: "1px solid #d7e8f8",
+                              }}
+                            >
+                              Meaning
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {scoringTable.legend.map((item, index) => (
+                            <tr key={`${item.label}-${index}`}>
+                              <td
+                                style={{
+                                  padding: "14px",
+                                  fontSize: 14,
+                                  color: "#1c4f73",
+                                  borderBottom: "1px solid #eef4fa",
+                                  verticalAlign: "top",
+                                  fontWeight: 700,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {item.label}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "14px",
+                                  fontSize: 14,
+                                  color: "#325370",
+                                  borderBottom: "1px solid #eef4fa",
+                                  lineHeight: 1.6,
+                                  verticalAlign: "top",
+                                }}
+                              >
+                                {item.meaning}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {(recommendationsLoading || recommendations.length > 0) ? (
+              <section
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e4eef7",
+                  borderRadius: 10,
+                  padding: 20,
+                  marginBottom: 24,
+                }}
+              >
+                <div style={{ marginBottom: 16 }}>
+                  <h2 style={{ margin: "0 0 6px 0", fontSize: 18, fontWeight: 600, color: "#19334d" }}>
+                    Our Recommendations
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 14, color: "#446177", lineHeight: 1.6 }}>
+                    Programs, events, and assessments aligned to the same category and sub category.
+                  </p>
+                </div>
+
+                {recommendationsLoading ? (
+                  <p style={{ margin: 0, fontSize: 14, color: "#446177" }}>Loading recommendations...</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {recommendations.map((item) => (
+                      <div
+                        key={`${item.activityType}:${item.activityId}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          gap: 16,
+                          padding: 16,
+                          border: "1px solid #e4eef7",
+                          borderRadius: 10,
+                          background: "#f9fcff",
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p style={{ margin: "0 0 6px 0", fontSize: 16, fontWeight: 600, color: "#19334d" }}>
+                            {item.activityTitle}
+                          </p>
+                          <p style={{ margin: "0 0 8px 0", fontSize: 13, color: "#1c4f73", fontWeight: 600 }}>
+                            {formatRecommendationType(item)}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 14, color: "#446177", lineHeight: 1.6 }}>
+                            {item.shortDescription || item.details || "Explore this recommended resource."}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailItem(toDetailItem(item))}
+                          style={{
+                            flexShrink: 0,
+                            border: "1px solid #cddfee",
+                            background: "#fff",
+                            color: "#1c4f73",
+                            borderRadius: 999,
+                            padding: "10px 16px",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Find More
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
+
             {/* Raw AI Response (Dev only) */}
             {showRawAiResponse && report.aiResponseRaw && (
               <section
@@ -443,6 +951,18 @@ export default function AssessmentReportPage() {
           </>
         )}
       </div>
+
+      <DetailModal
+        item={selectedDetailItem}
+        isOpen={Boolean(selectedDetailItem)}
+        onClose={() => setSelectedDetailItem(null)}
+        userType={viewerRole === "individual" ? "learner" : "coach"}
+        isLoggedIn={Boolean(viewerUserId)}
+        userId={viewerUserId}
+        userName={viewerName}
+        userRole={viewerRole ?? undefined}
+        tenantId={tenantId}
+      />
     </main>
   );
 }

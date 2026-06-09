@@ -81,15 +81,27 @@ service cloud.firestore {
         && request.auth.uid in planData.editorUserIds;
     }
 
+    function matchesDevelopmentPlanPath(planId, tenantId, subjectUserId) {
+      return planId == tenantId + '__' + subjectUserId;
+    }
+
+    function canAccessDevelopmentPlanSubjectAssociation(planData) {
+      return exists(/databases/$(database)/documents/users/$(planData.subjectUserId))
+        && (
+             matchesSignedInUser(get(/databases/$(database)/documents/users/$(planData.subjectUserId)).data.associatedProfessionalId)
+             || matchesSignedInUser(get(/databases/$(database)/documents/users/$(planData.subjectUserId)).data.associatedCompanyId)
+           );
+    }
+
     function canReadDevelopmentPlan(planData) {
       return isSuperAdmin()
         || (
              isSignedIn()
-             && planData.tenantId == currentTenantId()
              && (
                   hasDevelopmentPlanEditorAccess(planData)
-                  || planData.creatorUserId == request.auth.uid
-                  || planData.subjectUserId == request.auth.uid
+                  || matchesSignedInUser(planData.creatorUserId)
+                  || matchesSignedInUser(planData.subjectUserId)
+                  || canAccessDevelopmentPlanSubjectAssociation(planData)
                 )
            );
     }
@@ -98,10 +110,10 @@ service cloud.firestore {
       return isSuperAdmin()
         || (
              isSignedIn()
-             && planData.tenantId == currentTenantId()
              && (
-                 planData.creatorUserId == request.auth.uid
+                 matchesSignedInUser(planData.creatorUserId)
                  || hasDevelopmentPlanEditorAccess(planData)
+               || canAccessDevelopmentPlanSubjectAssociation(planData)
                 )
            );
     }
@@ -115,7 +127,7 @@ service cloud.firestore {
       allow update: if isSuperAdmin()
                     || (isSignedIn() && request.auth.uid == userId)
                     || (isSignedIn() && request.auth.uid == resource.data.uid)
-                    || (isCompanyUser() && resource.data.associatedCompanyId == request.auth.uid)
+              || (isCompanyUser() && matchesSignedInUser(resource.data.associatedCompanyId))
                     || (isCompanyUser()
                         && resource.data.userType in ["professional", "individual"]
                         && resource.data.tenantId == currentTenantId()
@@ -123,8 +135,8 @@ service cloud.firestore {
                     || (isCompanyUser()
                         && resource.data.userType == "individual"
                         && resource.data.tenantId == currentTenantId()
-                        && resource.data.associatedCompanyId == request.auth.uid)
-                    || (isProfessionalUser() && resource.data.associatedProfessionalId == request.auth.uid)
+                && matchesSignedInUser(resource.data.associatedCompanyId))
+              || (isProfessionalUser() && matchesSignedInUser(resource.data.associatedProfessionalId))
                     || (isProfessionalUser()
                         && resource.data.userType == "individual"
                         && resource.data.tenantId == currentTenantId()
@@ -234,19 +246,26 @@ service cloud.firestore {
 
     // ── Development Plans ─────────────────────────────────────────────────
     match /developmentPlans/{planId} {
-      allow get: if isSignedIn()
-                  && currentTenantId() != null
-                  && planId.matches('^' + currentTenantId() + '__.*$')
-                  && (resource == null || canReadDevelopmentPlan(resource.data));
+       allow get: if isSignedIn()
+             && (
+               resource == null
+               || (
+                 matchesDevelopmentPlanPath(planId, resource.data.tenantId, resource.data.subjectUserId)
+                 && canReadDevelopmentPlan(resource.data)
+               )
+             );
 
       allow list: if false;
 
       allow create: if isSignedIn()
+            && matchesDevelopmentPlanPath(planId, request.resource.data.tenantId, request.resource.data.subjectUserId)
                     && canWriteDevelopmentPlan(request.resource.data)
                     && request.resource.data.creatorRole in ["company", "professional", "individual"]
                     && request.resource.data.subjectRole == "individual";
 
       allow update: if isSignedIn()
+            && matchesDevelopmentPlanPath(planId, resource.data.tenantId, resource.data.subjectUserId)
+            && matchesDevelopmentPlanPath(planId, request.resource.data.tenantId, request.resource.data.subjectUserId)
                     && canWriteDevelopmentPlan(request.resource.data)
                     && request.resource.data.tenantId == resource.data.tenantId
                     && request.resource.data.creatorUserId == resource.data.creatorUserId

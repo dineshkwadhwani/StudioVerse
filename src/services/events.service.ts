@@ -64,6 +64,49 @@ function toPromotionStatus(value: unknown, promoted: unknown, promotionPackageId
   return Boolean(promoted) ? "promoted" : "none";
 }
 
+function getEventExpiryDateTime(data: DocumentData): Date | null {
+  const rawDateTime = toDateTimeString(data.eventDateTime);
+  if (rawDateTime) {
+    const parsed = new Date(rawDateTime);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  if (typeof data.eventDate === "string" && data.eventDate.trim()) {
+    const dateOnly = data.eventDate.trim();
+    const timeOnly = typeof data.eventTime === "string" && data.eventTime.trim()
+      ? data.eventTime.trim()
+      : "23:59:59";
+    const parsed = new Date(`${dateOnly}T${timeOnly}`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function normalizeEventStatus(data: DocumentData): EventRecord["status"] {
+  const rawStatus = data.status;
+  const baseStatus = rawStatus === "draft"
+    || rawStatus === "published"
+    || rawStatus === "inactive"
+    || rawStatus === "archived"
+    || rawStatus === "cancelled"
+    ? rawStatus
+    : "draft";
+
+  if (baseStatus === "published") {
+    const expiryDateTime = getEventExpiryDateTime(data);
+    if (expiryDateTime && expiryDateTime.getTime() < Date.now()) {
+      return "inactive";
+    }
+  }
+
+  return baseStatus;
+}
+
 // ---------------------------------------------------------------------------
 // Map Firestore document → EventRecord
 // ---------------------------------------------------------------------------
@@ -73,6 +116,7 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     ? "private"
     : "public";
   const promotionStatus = toPromotionStatus(data.promotionStatus, data.promoted, data.promotionPackageId);
+  const status = normalizeEventStatus(data);
 
   return {
     id,
@@ -101,7 +145,7 @@ function mapEvent(id: string, data: DocumentData): EventRecord {
     videoUrl: data.videoUrl ?? null,
     creditsRequired: data.creditsRequired ?? 0,
     cost: data.cost ?? 0,
-    status: data.status,
+    status,
     promoted: Boolean(data.promoted),
     promotionPackageId: typeof data.promotionPackageId === "string" ? data.promotionPackageId : null,
     promotionStatus,
@@ -319,6 +363,7 @@ export async function listLandingPageEvents(
   );
   const all = snapshot.docs
     .map((d) => mapEvent(d.id, d.data()))
+    .filter((item) => item.status === "published")
     .filter((item) => item.visibility === "public")
     .filter((item) =>
       matchesTenantScope({

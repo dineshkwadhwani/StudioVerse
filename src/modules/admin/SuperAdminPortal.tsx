@@ -67,6 +67,7 @@ import ManageNotificationsSection from "./ManageNotificationsSection";
 import AssignActivitiesPage from "@/modules/activities/pages/AssignActivitiesPage";
 import { listCompetencyFrameworksForTenant } from "@/services/tenant-competency.service";
 import type { CompetencyRecord } from "@/types/competency";
+import { createSuperadminUser } from "@/services/admin-users.service";
 
 type MenuKey =
   | "dashboard"
@@ -780,6 +781,22 @@ export default function SuperAdminPortal() {
       users.find((entry) => entry.phoneE164 === normalizedUserPhone && entry.id !== userForm.id) ?? null
     );
   }, [normalizedUserPhone, userForm.id, users]);
+
+  const blockingExistingPhoneUser = useMemo(() => {
+    if (!existingPhoneUser) {
+      return null;
+    }
+
+    if (
+      userForm.userType === "superadmin"
+      && existingPhoneUser.isInvitation
+      && existingPhoneUser.userType === "superadmin"
+    ) {
+      return null;
+    }
+
+    return existingPhoneUser;
+  }, [existingPhoneUser, userForm.userType]);
 
   const selectedChecklistTenant = useMemo(
     () => tenants.find((tenant) => tenant.tenantId === selectedChecklistTenantId),
@@ -1541,7 +1558,7 @@ export default function SuperAdminPortal() {
         throw new Error("Phone number is required and must be valid.");
       }
 
-      if (existingPhoneUser) {
+      if (blockingExistingPhoneUser) {
         throw new Error("This phone number is already linked to another user.");
       }
 
@@ -1567,6 +1584,13 @@ export default function SuperAdminPortal() {
 
       if (userForm.id) {
         await updateDoc(doc(db, "users", userForm.id), payload);
+      } else if (userForm.userType === "superadmin") {
+        await createSuperadminUser({
+          fullName: trimmedName,
+          email: normalizedEmail,
+          phoneE164: normalizedPhone,
+          status: userForm.status,
+        });
       } else {
         const existingInvite = await findPendingInvitationByPhone({
           tenantId: normalizedTenantId,
@@ -2240,8 +2264,8 @@ export default function SuperAdminPortal() {
                     value={userForm.phoneE164}
                     onChange={(event) => setUserForm((prev) => ({ ...prev, phoneE164: event.target.value }))}
                   />
-                  {existingPhoneUser ? (
-                    <p className={styles.error}>Phone already exists for user: {existingPhoneUser.fullName}</p>
+                  {blockingExistingPhoneUser ? (
+                    <p className={styles.error}>Phone already exists for user: {blockingExistingPhoneUser.fullName}</p>
                   ) : null}
                 </div>
 

@@ -157,6 +157,30 @@ function mapInvitationAsManagedUser(id: string, data: Record<string, unknown>): 
   };
 }
 
+async function callScopedManagedUserApi<T>(body: Record<string, unknown>): Promise<T> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error("You must be signed in.");
+  }
+
+  const idToken = await currentUser.getIdToken();
+  const response = await fetch("/api/users/create-scoped", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(typeof payload.error === "string" ? payload.error : "Scoped user request failed.");
+  }
+
+  return payload as T;
+}
+
 async function listPendingInvitationsForCompany(args: {
   tenantId: string;
   companyId: string;
@@ -286,254 +310,28 @@ export async function listProfessionalsForCoachDropdown(args: {
       (row) =>
         row.userType === "professional" &&
         row.status === "active" &&
-        row.associatedCompanyId === args.companyId
+        (!row.associatedCompanyId || row.associatedCompanyId === args.companyId)
     )
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
 
 export async function createScopedManagedUser(input: CreateManagedUserInput): Promise<CreateScopedManagedUserResult> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error("You must be signed in.");
-  }
-
-  const creator = await getUserById(currentUser.uid);
-  if (!creator) {
-    throw new Error("Your profile could not be resolved.");
-  }
-
-  const creatorRole = creator.userType;
-  if (creatorRole !== "company" && creatorRole !== "professional") {
-    throw new Error("Only Company or Professional can create users.");
-  }
-
-  const targetUserType = input.targetUserType;
-  if (targetUserType !== "professional" && targetUserType !== "individual") {
-    throw new Error("Invalid target user type.");
-  }
-
-  if (creatorRole === "professional" && targetUserType !== "individual") {
-    throw new Error(`Professional can create only Individual users. [svc creatorRole=${creatorRole} target=${targetUserType} creatorId=${creator.id}]`);
-  }
-
-  const tenantId = creator.tenantId;
-  if (!tenantId) {
-    throw new Error("Creator tenant is missing.");
-  }
-
-  const firstName = toStringValue(input.firstName);
-  const lastName = toStringValue(input.lastName);
-  const email = normalizeEmail(input.email);
-  const phoneE164 = normalizePhone(input.phoneE164);
-
-  const associatedCompanyId = creatorRole === "company" ? creator.id : creator.associatedCompanyId || null;
-
-  let associatedProfessionalId: string | null = null; // null is safe for Firestore (unlike undefined)
-  if (creatorRole === "company" && targetUserType === "individual" && input.coachProfessionalId?.trim()) {
-    const coachId = input.coachProfessionalId.trim();
-    const coach = await getUserById(coachId);
-    if (!coach) {
-      throw new Error("Selected coach not found.");
-    }
-    if (coach.userType !== "professional") {
-      throw new Error("Selected coach is not a Professional.");
-    }
-    if (coach.tenantId !== tenantId || coach.associatedCompanyId !== creator.id) {
-      throw new Error("Coach must belong to same Company.");
-    }
-    if (coach.status === "inactive") {
-      throw new Error("Selected coach is inactive.");
-    }
-    associatedProfessionalId = coachId;
-  }
-
-  if (creatorRole === "professional" && targetUserType === "individual") {
-    associatedProfessionalId = creator.id;
-  }
-
-  const existingByPhone = await getDocs(
-    query(collection(db, "users"), where("phoneE164", "==", phoneE164), limit(1))
-  );
-
-  if (!existingByPhone.empty) {
-    const existingRow = existingByPhone.docs[0];
-    const existing = mapManagedUser(existingRow.id, existingRow.data() as Record<string, unknown>);
-
-    if (existing.userType !== targetUserType) {
-      throw new Error("The phone number belongs to a different user type.");
-    }
-
-    if (existing.tenantId && existing.tenantId !== tenantId) {
-      throw new Error("This user belongs to another tenant and cannot be associated here.");
-    }
-
-    if (targetUserType === "professional" && creatorRole !== "company") {
-      throw new Error("Only Company can associate Professional users.");
-    }
-
-    const updatePayload: Record<string, unknown> = {
-      tenantId,
-      ...(associatedCompanyId != null && { associatedCompanyId }),
-      companyName: creator.companyName ?? existing.companyName ?? "",
-      updatedAt: serverTimestamp(),
-    };
-
-    if (targetUserType === "individual") {
-      if (creatorRole === "professional") {
-        updatePayload.associatedProfessionalId = creator.id;
-      } else if (associatedProfessionalId) {
-        updatePayload.associatedProfessionalId = associatedProfessionalId;
-      }
-    }
-
-    await setDoc(doc(db, "users", existing.id), updatePayload, { merge: true });
-    const refreshed = await getUserById(existing.id);
-    if (!refreshed) {
-      throw new Error("Failed to refresh associated user.");
-    }
-
-    return {
-      operation: "associated",
-      user: refreshed,
-    };
-  }
-
-  const existingInvitation = await getDocs(
-    query(
-      collection(db, "invitations"),
-      where("phoneE164", "==", phoneE164),
-      where("status", "==", "pending"),
-      limit(1)
-    )
-  );
-
-  if (!existingInvitation.empty) {
-    const invitationRow = existingInvitation.docs[0];
-    const invitationData = invitationRow.data() as Record<string, unknown>;
-    const invitationTenantId = toStringValue(invitationData.tenantId);
-    const invitationUserType = toStringValue(invitationData.userType);
-
-    if (invitationUserType !== targetUserType) {
-      throw new Error("The phone number is already invited as a different user type.");
-    }
-    if (invitationTenantId && invitationTenantId !== tenantId) {
-      throw new Error("This phone is already invited under another tenant.");
-    }
-    if (targetUserType === "professional" && creatorRole !== "company") {
-      throw new Error("Only Company can associate Professional users.");
-    }
-
-    const updatePayload: Record<string, unknown> = {
-      tenantId,
-      associatedCompanyId: associatedCompanyId ?? null,
-      companyName: creator.companyName ?? toStringValue(invitationData.companyName) ?? "",
-      updatedAt: serverTimestamp(),
-    };
-    if (targetUserType === "individual") {
-      if (creatorRole === "professional") {
-        updatePayload.associatedProfessionalId = creator.id;
-      } else if (associatedProfessionalId) {
-        updatePayload.associatedProfessionalId = associatedProfessionalId;
-      }
-    }
-    await updateDoc(doc(db, "invitations", invitationRow.id), updatePayload);
-
-    const refreshedSnap = await getDoc(doc(db, "invitations", invitationRow.id));
-    const refreshed = mapInvitationAsManagedUser(
-      invitationRow.id,
-      (refreshedSnap.data() ?? {}) as Record<string, unknown>
-    );
-    return {
-      operation: "associated",
-      user: refreshed,
-    };
-  }
-
-  if (!firstName || !lastName || !email || !phoneE164) {
-    throw new Error("firstName, lastName, email, and phoneE164 are required when creating a new user.");
-  }
-
-  if (!isValidEmail(email)) {
-    throw new Error("Invalid email format.");
-  }
-
-  const duplicateByEmail = await getDocs(
-    query(collection(db, "users"), where("email", "==", email), limit(1))
-  );
-  if (!duplicateByEmail.empty) {
-    throw new Error("A user with this email already exists.");
-  }
-
-  const duplicateInvitationByEmail = await getDocs(
-    query(
-      collection(db, "invitations"),
-      where("email", "==", email),
-      where("status", "==", "pending"),
-      limit(1)
-    )
-  );
-  if (!duplicateInvitationByEmail.empty) {
-    throw new Error("An invitation with this email is already pending.");
-  }
-
-  const fullName = `${firstName} ${lastName}`.trim();
-
-  const invitation = await createInvitation({
-    tenantId,
-    userType: targetUserType,
-    role: targetUserType,
-    firstName,
-    lastName,
-    fullName,
-    email,
-    phoneE164,
-    phone: phoneE164,
-    associatedCompanyId: associatedCompanyId ?? null,
-    associatedProfessionalId: associatedProfessionalId ?? null,
-    companyName: creator.companyName ?? "",
-    createdByUserId: creator.id,
-    createdByRole: creatorRole,
+  const response = await callScopedManagedUserApi<{
+    operation: "created" | "associated";
+    user: Record<string, unknown>;
+  }>({
+    action: "create",
+    targetUserType: input.targetUserType,
+    firstName: toStringValue(input.firstName),
+    lastName: toStringValue(input.lastName),
+    email: normalizeEmail(input.email),
+    phoneE164: normalizePhone(input.phoneE164),
+    coachProfessionalId: input.coachProfessionalId?.trim() || undefined,
   });
 
-  try {
-    const mailConfig = await getTenantMailConfig(tenantId);
-    const tenantConfig = getTenantConfigById(tenantId);
-    const roleLabel = targetUserType === "professional"
-      ? tenantConfig?.roles.professional ?? "Coach"
-      : tenantConfig?.roles.individual ?? "Coachee";
-    await sendInvitationEmail({
-      mailConfig,
-      tenantId,
-      inviteeEmail: email,
-      inviteeName: fullName,
-      inviterName: creator.fullName || creator.firstName || "A team member",
-      roleLabel,
-      phoneE164,
-    });
-  } catch (mailError) {
-    console.warn("Failed to send invitation email", mailError);
-  }
-
   return {
-    operation: "created",
-    user: mapInvitationAsManagedUser(invitation.invitationId, {
-      tenantId: invitation.tenantId,
-      userType: invitation.userType,
-      role: invitation.role,
-      firstName: invitation.firstName,
-      lastName: invitation.lastName,
-      fullName: invitation.fullName,
-      email: invitation.email,
-      phoneE164: invitation.phoneE164,
-      phone: invitation.phone,
-      companyName: invitation.companyName,
-      associatedCompanyId: invitation.associatedCompanyId,
-      associatedProfessionalId: invitation.associatedProfessionalId,
-      createdByUserId: invitation.createdByUserId,
-      createdByRole: invitation.createdByRole,
-      createdAt: invitation.createdAt,
-      updatedAt: invitation.updatedAt,
-    }),
+    operation: response.operation,
+    user: mapManagedUser(String(response.user.id ?? ""), response.user),
   };
 }
 
@@ -542,51 +340,25 @@ export async function lookupScopedIndividualByPhone(input: {
   phoneE164: string;
   coachProfessionalId?: string;
 }): Promise<ScopedPhoneLookupResult> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error("You must be signed in.");
+  const response = await callScopedManagedUserApi<{
+    found: boolean;
+    user?: Record<string, unknown>;
+  }>({
+    action: "lookup",
+    targetUserType: input.targetUserType,
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneE164: normalizePhone(input.phoneE164),
+    coachProfessionalId: input.coachProfessionalId?.trim() || undefined,
+  });
+
+  if (!response.found || !response.user) {
+    return { found: false };
   }
 
-  // Get the current user's profile to extract tenantId
-  const currentUserProfile = await getUserById(currentUser.uid);
-  if (!currentUserProfile) {
-    throw new Error("Your profile could not be resolved.");
-  }
-
-  // Query Firestore directly for a user with matching phone and tenant
-  const snap = await getDocs(
-    query(
-      collection(db, "users"),
-      where("phoneE164", "==", input.phoneE164),
-      where("tenantId", "==", currentUserProfile.tenantId)
-    )
-  );
-
-  if (!snap.empty) {
-    const foundUser = mapManagedUser(snap.docs[0].id, snap.docs[0].data() as Record<string, unknown>);
-    if (foundUser.userType === input.targetUserType) {
-      return { found: true, user: foundUser };
-    }
-  }
-
-  const invitationSnap = await getDocs(
-    query(
-      collection(db, "invitations"),
-      where("phoneE164", "==", input.phoneE164),
-      where("tenantId", "==", currentUserProfile.tenantId),
-      where("status", "==", "pending"),
-      limit(1)
-    )
-  );
-  if (!invitationSnap.empty) {
-    const invitation = mapInvitationAsManagedUser(
-      invitationSnap.docs[0].id,
-      invitationSnap.docs[0].data() as Record<string, unknown>
-    );
-    if (invitation.userType === input.targetUserType) {
-      return { found: true, user: invitation };
-    }
-  }
-
-  return { found: false };
+  return {
+    found: true,
+    user: mapManagedUser(String(response.user.id ?? ""), response.user),
+  };
 }

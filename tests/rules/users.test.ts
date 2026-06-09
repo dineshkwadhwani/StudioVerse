@@ -25,6 +25,7 @@ import {
   authedContext,
   cleanupRulesEnv,
   seedUser,
+  seedWithoutRules,
   setupRulesEnv,
   TENANT_A,
   TENANT_B,
@@ -171,6 +172,38 @@ describe("/users update — Professional arms", () => {
     await assertSucceeds(
       updateDoc(doc(ctx.firestore(), "users", "ind-unassoc"), {
         associatedProfessionalId: "prof-P",
+      })
+    );
+  });
+
+  it("Professional can associate an unassociated individual when their profile doc id differs from auth uid", async () => {
+    await seedWithoutRules(env, async (db) => {
+      await setDoc(doc(db, "users", "coach-profile-1"), {
+        uid: "prof-auth-1",
+        userId: "prof-auth-1",
+        userType: "professional",
+        tenantId: TENANT_A,
+        fullName: "Coach Profile",
+        associatedCompanyId: null,
+        associatedProfessionalId: null,
+        status: "active",
+      });
+      await setDoc(doc(db, "users", "ind-unassoc"), {
+        uid: "ind-auth-1",
+        userId: "ind-auth-1",
+        userType: "individual",
+        tenantId: TENANT_A,
+        fullName: "Unassociated Individual",
+        associatedCompanyId: null,
+        associatedProfessionalId: null,
+        status: "active",
+      });
+    });
+
+    const ctx = authedContext(env, "prof-auth-1");
+    await assertSucceeds(
+      updateDoc(doc(ctx.firestore(), "users", "ind-unassoc"), {
+        associatedProfessionalId: "coach-profile-1",
       })
     );
   });

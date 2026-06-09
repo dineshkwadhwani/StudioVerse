@@ -142,6 +142,17 @@ function getSubjectIdentifier(subject: Pick<SubjectIdentity, "uid" | "userId" | 
   return subject.uid?.trim() || subject.userId.trim() || subject.id.trim();
 }
 
+function getDevelopmentSubjectIdentifier(
+  subject: Pick<SubjectIdentity, "uid" | "userId" | "id">,
+  viewerRole: DevelopmentActorRole | null | undefined,
+): string {
+  if (viewerRole === "company" || viewerRole === "professional") {
+    return subject.id.trim() || subject.userId.trim() || subject.uid?.trim() || "";
+  }
+
+  return getSubjectIdentifier(subject);
+}
+
 function matchesSubjectIdentifier(subjectUserId: string, subject: Pick<SubjectIdentity, "uid" | "userId" | "id">): boolean {
   const normalized = subjectUserId.trim();
   return [subject.id, subject.userId, subject.uid].filter(Boolean).includes(normalized);
@@ -612,7 +623,7 @@ export default function DevelopmentPlansPage({
           const rows = await listDevelopmentPlansForUserContext({
             tenantId: tenantConfig.id,
             userId: firebaseUser.uid,
-            subjectUserIds: managedIndividuals.map(getSubjectIdentifier),
+            subjectUserIds: managedIndividuals.map((subject) => getDevelopmentSubjectIdentifier(subject, resolvedRole)),
           });
           setPlans(rows);
         } else if (resolvedRole === "professional" && actorRecord) {
@@ -630,7 +641,7 @@ export default function DevelopmentPlansPage({
           const rows = await listDevelopmentPlansForUserContext({
             tenantId: tenantConfig.id,
             userId: firebaseUser.uid,
-            subjectUserIds: managedIndividuals.map(getSubjectIdentifier),
+            subjectUserIds: managedIndividuals.map((subject) => getDevelopmentSubjectIdentifier(subject, resolvedRole)),
           });
           setPlans(rows);
         } else {
@@ -748,7 +759,7 @@ export default function DevelopmentPlansPage({
     void getDevelopmentObjectivesProfile({
       tenantId: tenantConfig.id,
       creatorUserId: viewer.userId,
-      subjectUserId: getSubjectIdentifier(selectedDraftSubject),
+      subjectUserId: getDevelopmentSubjectIdentifier(selectedDraftSubject, viewer.role),
     }).then((profile) => {
       if (!active) return;
       setObjectivesProfile(profile);
@@ -910,7 +921,7 @@ export default function DevelopmentPlansPage({
         creatorUserId: viewer.userId,
         creatorName: viewer.fullName,
         creatorRole: viewer.role,
-        subjectUserId: getSubjectIdentifier(subject),
+        subjectUserId: getDevelopmentSubjectIdentifier(subject, viewer.role),
         subjectName: subject.fullName,
         subjectRole: "individual",
         objectives: objectivesProfile.objectives,
@@ -962,7 +973,7 @@ export default function DevelopmentPlansPage({
         creatorUserId: viewer.userId,
         creatorName: viewer.fullName,
         creatorRole: viewer.role,
-        subjectUserId: getSubjectIdentifier(selectedDraftSubject),
+        subjectUserId: getDevelopmentSubjectIdentifier(selectedDraftSubject, viewer.role),
         subjectName: selectedDraftSubject.fullName,
         subjectRole: "individual",
         objectives: normalizedObjectives,
@@ -985,7 +996,7 @@ export default function DevelopmentPlansPage({
   }
 
   async function persistPlanItems(nextItems: DevelopmentPlanItemRecord[], successMessage: string): Promise<boolean> {
-    if (!selectedPlan) {
+    if (!selectedPlan || !viewer) {
       setError("Select a development plan first.");
       return false;
     }
@@ -999,6 +1010,7 @@ export default function DevelopmentPlansPage({
         aggregateId: selectedPlan.aggregateId ?? `${selectedPlan.tenantId}__${selectedPlan.subjectUserId}`,
         planId: selectedPlan.id,
         items: nextItems,
+        actorUserId: viewer.userId,
       });
 
       const nextStatus = getPlanStatus(nextItems);
@@ -1478,7 +1490,7 @@ export default function DevelopmentPlansPage({
                         </label>
 
                         <label className={styles.field}>
-                          <span className={styles.fieldLabel}>Target Level</span>
+                          <span className={styles.fieldLabel}>Competency Target Level</span>
                           <select
                             className={styles.input}
                             value={row.targetLevel}

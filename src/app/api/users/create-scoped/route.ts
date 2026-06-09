@@ -43,7 +43,7 @@ type UserDoc = {
 };
 
 type ResolvedCompanyScope = {
-  companyId: string;
+  companyId: string | null;
   companyName: string;
 };
 
@@ -444,7 +444,10 @@ async function resolveCompanyScopeForCreator(args: {
 
   const associatedCompanyId = String(args.creator.associatedCompanyId ?? "").trim();
   if (!associatedCompanyId) {
-    throw new Error("Professional creator is not associated with an active company.");
+    return {
+      companyId: null,
+      companyName: String(args.creator.companyName ?? "").trim(),
+    };
   }
 
   const companySnap = await adminDb.collection("users").doc(associatedCompanyId).get();
@@ -567,8 +570,12 @@ export async function POST(request: NextRequest) {
       if (coachRole !== "professional") {
         return NextResponse.json({ error: "Selected coach is not a Professional.", requestId }, { status: 400 });
       }
-      if (coach.tenantId !== tenantId || coach.associatedCompanyId !== creator.id) {
-        return NextResponse.json({ error: "Coach must belong to same Company.", requestId }, { status: 400 });
+      const coachAssociatedCompanyId = String(coach.associatedCompanyId ?? "").trim();
+      if (coach.tenantId !== tenantId) {
+        return NextResponse.json({ error: "Coach must belong to the same tenant.", requestId }, { status: 400 });
+      }
+      if (coachAssociatedCompanyId && coachAssociatedCompanyId !== creator.id) {
+        return NextResponse.json({ error: "Coach must either be independent or belong to the same Company.", requestId }, { status: 400 });
       }
       if (coach.status === "inactive") {
         return NextResponse.json({ error: "Selected coach is inactive.", requestId }, { status: 400 });
@@ -639,9 +646,9 @@ export async function POST(request: NextRequest) {
 
       const updatePayload: Partial<UserDoc> & { updatedAt: FieldValue } = {
         tenantId,
-        associatedCompanyId,
         companyName: companyScope.companyName || creator.companyName || existing.companyName || "",
         updatedAt: FieldValue.serverTimestamp(),
+        ...(associatedCompanyId ? { associatedCompanyId } : {}),
       };
 
       if (targetUserType === "individual") {
@@ -738,7 +745,7 @@ export async function POST(request: NextRequest) {
       status: "active",
       tenantId,
       companyName: companyScope.companyName || creator.companyName || "",
-      associatedCompanyId,
+      ...(associatedCompanyId ? { associatedCompanyId } : {}),
       associatedProfessionalId,
       createdByUserId: creator.id,
       createdByRole: creatorRole,

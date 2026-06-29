@@ -121,6 +121,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true }, { headers: rateLimit.headers });
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     const message = error instanceof Error ? error.message : "Failed to save guest log.";
     const isCredentialError = message.toLowerCase().includes("default credentials") || message.toLowerCase().includes("could not load");
 

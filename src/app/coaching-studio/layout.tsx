@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { config } from "@/tenants/coaching-studio/config";
-import BotWidget from "@/modules/bot/BotWidget";
+import BotWidget from "@/modules/bot/BotWidgetNoSSR";
 import { TenantProvider } from "@/lib/tenant/context";
 import { BrandingProvider } from "@/lib/tenant/BrandingProvider";
 import { buildTenantMetadata } from "@/lib/tenant/seo";

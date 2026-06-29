@@ -102,6 +102,9 @@ export async function POST(req: NextRequest) {
       .join("\n\n---\n\n");
     return NextResponse.json({ context }, { headers: rateLimit.headers });
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     console.error("Bot retrieve error:", err);
     return NextResponse.json({ context: "" });
   }

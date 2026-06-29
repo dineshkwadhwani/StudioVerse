@@ -381,7 +381,10 @@ export async function POST(request: NextRequest) {
 
   try {
     body = await request.json();
-  } catch {
+  } catch (parseErr) {
+    if (parseErr instanceof Error && parseErr.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
@@ -482,6 +485,9 @@ ${answersText}`;
 
     rawResponse = completion.choices[0]?.message?.content ?? "";
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     const errorDetails = toErrorObject(error);
     console.error("[analyze-attempt] Groq request failed", {
       requestId,

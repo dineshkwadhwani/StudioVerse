@@ -44,15 +44,6 @@ export default function LikertRatingScaleQuiz({
     }
 
     onAnswer(currentQuestion.id, [optionValue]);
-
-    window.setTimeout(() => {
-      if (isLastQuestion) {
-        onSubmit({ questionId: currentQuestion.id, values: [optionValue] });
-        return;
-      }
-
-      onNext();
-    }, 120);
   }
 
   return (

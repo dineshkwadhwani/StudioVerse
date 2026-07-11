@@ -88,6 +88,9 @@ ${context ?? "No context provided."}`;
     const reply = completion.choices?.[0]?.message?.content ?? "I'm sorry, I couldn't generate a response.";
     return NextResponse.json({ reply }, { headers: rateLimit.headers });
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     const message = err instanceof Error ? err.message : "Internal server error.";
     console.error("Bot chat error:", message);
     return NextResponse.json({ error: message }, { status: 500 });

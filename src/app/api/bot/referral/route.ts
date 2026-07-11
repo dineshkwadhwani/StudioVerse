@@ -103,6 +103,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, referralId: referralRef.id }, { headers: rateLimit.headers });
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     const message = error instanceof Error ? error.message : "Failed to create referral.";
     const lowered = message.toLowerCase();
     const isCredentialError = lowered.includes("default credentials") || lowered.includes("could not load");
@@ -159,6 +162,9 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ ok: true }, { headers: rateLimit.headers });
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return new Response(null, { status: 499 });
+    }
     const message = error instanceof Error ? error.message : "Failed to update referral.";
     const lowered = message.toLowerCase();
     const isCredentialError = lowered.includes("default credentials") || lowered.includes("could not load");

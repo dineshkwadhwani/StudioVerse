@@ -175,11 +175,22 @@ export async function requestGroqChatCompletion(
   }
 
   if (!response.ok) {
-    const errorText = await response.text();
+    let errorText = "";
+    try {
+      errorText = await response.text();
+    } catch {
+      errorText = "(response body unreadable)";
+    }
     throw new Error(`Groq request failed (${response.status}): ${sanitizeText(errorText)}`);
   }
 
-  const data = (await response.json()) as GroqChatCompletionResponse;
+  let data: GroqChatCompletionResponse;
+  try {
+    data = (await response.json()) as GroqChatCompletionResponse;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw err;
+    throw new Error(`Failed to parse Groq response: ${err instanceof Error ? err.message : "unknown"}`);
+  }
   if (!data.choices?.length || !data.choices[0].message?.content) {
     throw new Error("Groq returned an empty response.");
   }
